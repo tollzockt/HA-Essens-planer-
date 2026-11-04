@@ -30,5 +30,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements_test.txt
+          # hassil / home-assistant-intents exactly as the installed Home Assistant needs them
+          python -c "import json, pathlib, homeassistant; p = pathlib.Path(homeassistant.__file__).parent / 'components/conversation/manifest.json'; print(chr(10).join(json.loads(p.read_text())['requirements']))" > conversation_requirements.txt
+          pip install -r conversation_requirements.txt
       - name: Run tests
         run: pytest -q

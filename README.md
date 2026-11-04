@@ -117,6 +117,7 @@ Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und i
 
 ```bash
 pip install -r requirements_test.txt
+pip install hassil home-assistant-intents  # Versionen passend zu components/conversation/manifest.json
 pytest
 ```
 
