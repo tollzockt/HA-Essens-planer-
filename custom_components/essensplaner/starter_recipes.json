@@ -1,0 +1,395 @@
+[
+  {
+    "name": "Spaghetti Bolognese",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 40,
+    "tags": ["Hauptgericht", "Pasta", "Klassiker"],
+    "ingredients": [
+      "400 g Spaghetti",
+      "500 g Rinderhackfleisch",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 Karotte",
+      "1 Stange Staudensellerie",
+      "2 EL Tomatenmark",
+      "1 Dose gehackte Tomaten (400 g)",
+      "2 EL Olivenöl",
+      "1 TL Oregano",
+      "Salz",
+      "Pfeffer",
+      "50 g Parmesan"
+    ],
+    "steps": [
+      "Zwiebel, Knoblauch, Karotte und Sellerie fein würfeln.",
+      "Hackfleisch im Olivenöl krümelig anbraten, Gemüse dazugeben und 5 Minuten mitbraten.",
+      "Tomatenmark kurz anrösten, gehackte Tomaten und Oregano zugeben, mit Salz und Pfeffer würzen.",
+      "Die Sauce zugedeckt mindestens 25 Minuten köcheln lassen.",
+      "Spaghetti nach Packungsangabe kochen und mit der Sauce und Parmesan servieren."
+    ]
+  },
+  {
+    "name": "Chili con Carne",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 35,
+    "tags": ["Hauptgericht", "Eintopf", "scharf"],
+    "ingredients": [
+      "500 g Rinderhackfleisch",
+      "2 Zwiebeln",
+      "2 Zehen Knoblauch",
+      "1 rote Paprika",
+      "1 Dose Kidneybohnen (400 g)",
+      "1 Dose Mais (285 g)",
+      "1 Dose gehackte Tomaten (400 g)",
+      "2 EL Tomatenmark",
+      "200 ml Gemüsebrühe",
+      "1 TL Kreuzkümmel",
+      "1 TL Paprikapulver",
+      "1 TL Chiliflocken",
+      "2 EL Rapsöl",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebeln, Knoblauch und Paprika würfeln.",
+      "Hackfleisch im Öl scharf anbraten, Zwiebeln und Knoblauch mitbraten.",
+      "Tomatenmark und Gewürze kurz anrösten, Tomaten, Brühe und Paprika zugeben.",
+      "20 Minuten köcheln lassen, dann abgespülte Bohnen und Mais unterrühren und weitere 10 Minuten köcheln.",
+      "Mit Salz, Pfeffer und Chili abschmecken."
+    ]
+  },
+  {
+    "name": "Gemüsecurry mit Kichererbsen",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 25,
+    "tags": ["Hauptgericht", "vegetarisch", "vegan", "Curry"],
+    "ingredients": [
+      "250 g Basmatireis",
+      "1 Dose Kichererbsen (400 g)",
+      "1 Dose Kokosmilch (400 ml)",
+      "1 Süßkartoffel",
+      "1 rote Paprika",
+      "150 g Blattspinat",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "20 g Ingwer",
+      "2 EL Currypaste",
+      "1 TL Kurkuma",
+      "1 EL Rapsöl",
+      "Salz"
+    ],
+    "steps": [
+      "Reis nach Packungsangabe kochen.",
+      "Zwiebel, Knoblauch und Ingwer fein hacken, Süßkartoffel und Paprika würfeln.",
+      "Zwiebel, Knoblauch und Ingwer im Öl andünsten, Currypaste und Kurkuma kurz mitrösten.",
+      "Süßkartoffel, Paprika und Kokosmilch zugeben und 15 Minuten köcheln lassen.",
+      "Kichererbsen und Spinat unterheben, kurz erhitzen, salzen und mit dem Reis servieren."
+    ]
+  },
+  {
+    "name": "Pfannkuchen",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": ["Hauptgericht", "Frühstück", "vegetarisch", "süß", "schnell"],
+    "ingredients": [
+      "250 g Weizenmehl",
+      "500 ml Milch",
+      "3 Eier",
+      "1 EL Zucker",
+      "1 Prise Salz",
+      "2 EL Butter"
+    ],
+    "steps": [
+      "Mehl, Milch, Eier, Zucker und Salz zu einem glatten Teig verrühren und 10 Minuten ruhen lassen.",
+      "Etwas Butter in einer Pfanne erhitzen und eine dünne Schicht Teig hineingeben.",
+      "Von beiden Seiten goldbraun backen, mit dem restlichen Teig ebenso verfahren.",
+      "Nach Belieben mit Apfelmus, Zucker und Zimt oder herzhaft füllen."
+    ]
+  },
+  {
+    "name": "Linsensuppe",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 35,
+    "tags": ["Hauptgericht", "Suppe", "vegetarisch", "günstig"],
+    "ingredients": [
+      "250 g Tellerlinsen",
+      "300 g Kartoffeln",
+      "2 Karotten",
+      "1 Stange Lauch",
+      "1 Zwiebel",
+      "1 l Gemüsebrühe",
+      "2 EL Tomatenmark",
+      "2 EL Essig",
+      "1 TL Majoran",
+      "1 EL Rapsöl",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel, Kartoffeln und Karotten würfeln, Lauch in Ringe schneiden.",
+      "Zwiebel im Öl andünsten, Tomatenmark kurz mitrösten.",
+      "Linsen, Gemüse, Brühe und Majoran zugeben und 30 Minuten köcheln lassen.",
+      "Mit Essig, Salz und Pfeffer abschmecken."
+    ]
+  },
+  {
+    "name": "Ofengemüse mit Feta",
+    "servings": 2,
+    "prep_time": 15,
+    "cook_time": 30,
+    "tags": ["Hauptgericht", "vegetarisch", "Ofen"],
+    "ingredients": [
+      "400 g Kartoffeln",
+      "2 Paprika",
+      "1 Zucchini",
+      "1 rote Zwiebel",
+      "200 g Kirschtomaten",
+      "200 g Feta",
+      "3 EL Olivenöl",
+      "1 TL Kräuter der Provence",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Umluft vorheizen.",
+      "Kartoffeln, Paprika, Zucchini und Zwiebel in mundgerechte Stücke schneiden.",
+      "Gemüse mit Olivenöl, Kräutern, Salz und Pfeffer mischen und auf einem Blech verteilen.",
+      "20 Minuten backen, dann Kirschtomaten und zerbröckelten Feta darauf verteilen und weitere 10 Minuten backen."
+    ]
+  },
+  {
+    "name": "Hähnchen-Reis-Pfanne",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 25,
+    "tags": ["Hauptgericht", "Hähnchen", "schnell"],
+    "ingredients": [
+      "500 g Hähnchenbrust",
+      "250 g Reis",
+      "1 Paprika",
+      "1 Zucchini",
+      "1 Zwiebel",
+      "200 g TK-Erbsen",
+      "500 ml Hühnerbrühe",
+      "2 EL Sojasauce",
+      "1 TL Paprikapulver",
+      "2 EL Rapsöl",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Hähnchen in Würfel schneiden, mit Paprikapulver, Salz und Pfeffer würzen.",
+      "Im Öl rundherum anbraten und herausnehmen.",
+      "Zwiebel, Paprika und Zucchini würfeln und anbraten, Reis kurz mitrösten.",
+      "Mit Brühe ablöschen und zugedeckt 15 Minuten garen.",
+      "Erbsen und Hähnchen unterrühren, 5 Minuten weitergaren und mit Sojasauce abschmecken."
+    ]
+  },
+  {
+    "name": "Kartoffelsuppe",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 25,
+    "tags": ["Hauptgericht", "Suppe", "vegetarisch", "Klassiker"],
+    "ingredients": [
+      "1 kg Kartoffeln",
+      "2 Karotten",
+      "1 Stange Lauch",
+      "1 Zwiebel",
+      "1 l Gemüsebrühe",
+      "200 ml Sahne",
+      "2 EL Butter",
+      "1 TL Majoran",
+      "1 Prise Muskat",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln, Karotten und Zwiebel schälen und würfeln, Lauch in Ringe schneiden.",
+      "Zwiebel und Lauch in Butter andünsten, Kartoffeln und Karotten zugeben.",
+      "Mit Brühe aufgießen, Majoran zugeben und 20 Minuten köcheln lassen.",
+      "Etwa die Hälfte pürieren, Sahne einrühren und mit Muskat, Salz und Pfeffer abschmecken.",
+      "Mit gehackter Petersilie servieren."
+    ]
+  },
+  {
+    "name": "Lasagne",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 60,
+    "tags": ["Hauptgericht", "Pasta", "Ofen", "Klassiker"],
+    "ingredients": [
+      "250 g Lasagneplatten",
+      "500 g Rinderhackfleisch",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 Dose gehackte Tomaten (400 g)",
+      "2 EL Tomatenmark",
+      "2 EL Olivenöl",
+      "1 TL Oregano",
+      "50 g Butter",
+      "50 g Weizenmehl",
+      "500 ml Milch",
+      "1 Prise Muskat",
+      "150 g Mozzarella",
+      "50 g Parmesan",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel und Knoblauch würfeln, mit dem Hackfleisch im Olivenöl anbraten.",
+      "Tomatenmark, Tomaten und Oregano zugeben, würzen und 15 Minuten köcheln lassen.",
+      "Für die Béchamel Butter schmelzen, Mehl einrühren, nach und nach Milch zugeben, aufkochen und mit Muskat, Salz und Pfeffer würzen.",
+      "Abwechselnd Sauce, Lasagneplatten und Béchamel in eine Auflaufform schichten.",
+      "Mit Mozzarella und Parmesan bestreuen und bei 180 °C etwa 40 Minuten backen."
+    ]
+  },
+  {
+    "name": "Overnight Oats",
+    "servings": 2,
+    "prep_time": 10,
+    "tags": ["Frühstück", "vegetarisch", "schnell"],
+    "ingredients": [
+      "100 g Haferflocken",
+      "200 ml Milch",
+      "150 g Joghurt",
+      "1 EL Chiasamen",
+      "1 EL Honig",
+      "1 Apfel",
+      "100 g Heidelbeeren"
+    ],
+    "steps": [
+      "Haferflocken, Milch, Joghurt, Chiasamen und Honig verrühren.",
+      "In zwei Gläser füllen und über Nacht in den Kühlschrank stellen.",
+      "Morgens mit geriebenem Apfel und Heidelbeeren servieren."
+    ]
+  },
+  {
+    "name": "Shakshuka",
+    "servings": 2,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": ["Hauptgericht", "Frühstück", "vegetarisch", "schnell"],
+    "ingredients": [
+      "4 Eier",
+      "1 Dose gehackte Tomaten (400 g)",
+      "1 rote Paprika",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 TL Kreuzkümmel",
+      "1 TL Paprikapulver",
+      "50 g Feta",
+      "2 EL Olivenöl",
+      "1/2 Bund Petersilie",
+      "1 Baguette",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel, Knoblauch und Paprika würfeln und im Olivenöl weich dünsten.",
+      "Gewürze kurz mitrösten, Tomaten zugeben und 10 Minuten einköcheln lassen.",
+      "Vier Mulden in die Sauce drücken, Eier hineingleiten lassen und zugedeckt 6–8 Minuten stocken lassen.",
+      "Mit Feta und Petersilie bestreuen und mit Baguette servieren."
+    ]
+  },
+  {
+    "name": "Hähnchen-Wraps",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 10,
+    "tags": ["Hauptgericht", "Hähnchen", "schnell"],
+    "ingredients": [
+      "8 Wraps",
+      "400 g Hähnchenbrust",
+      "1/2 Kopf Eisbergsalat",
+      "2 Tomaten",
+      "1/2 Salatgurke",
+      "1 Dose Mais (285 g)",
+      "200 g Joghurt",
+      "100 g Cheddar",
+      "1 TL Paprikapulver",
+      "1 EL Rapsöl",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Hähnchen in Streifen schneiden, mit Paprikapulver, Salz und Pfeffer würzen und im Öl braten.",
+      "Salat, Tomaten und Gurke klein schneiden, Mais abtropfen lassen.",
+      "Joghurt mit Salz und Pfeffer verrühren.",
+      "Wraps kurz erwärmen, mit Joghurt bestreichen, belegen, mit Käse bestreuen und aufrollen."
+    ]
+  },
+  {
+    "name": "Spaghetti Aglio e Olio",
+    "servings": 2,
+    "prep_time": 5,
+    "cook_time": 10,
+    "tags": ["Hauptgericht", "Pasta", "vegetarisch", "schnell"],
+    "ingredients": [
+      "250 g Spaghetti",
+      "4 Zehen Knoblauch",
+      "6 EL Olivenöl",
+      "1 TL Chiliflocken",
+      "1/2 Bund Petersilie",
+      "30 g Parmesan",
+      "Salz"
+    ],
+    "steps": [
+      "Spaghetti in reichlich Salzwasser al dente kochen.",
+      "Knoblauch in dünne Scheiben schneiden und im Olivenöl mit den Chiliflocken bei mittlerer Hitze goldgelb werden lassen.",
+      "Spaghetti mit etwas Nudelwasser in die Pfanne geben und durchschwenken.",
+      "Mit Petersilie und Parmesan servieren."
+    ]
+  },
+  {
+    "name": "Lachs mit Ofenkartoffeln und Brokkoli",
+    "servings": 2,
+    "prep_time": 10,
+    "cook_time": 30,
+    "tags": ["Hauptgericht", "Fisch", "Ofen"],
+    "ingredients": [
+      "300 g Lachsfilet",
+      "600 g Kartoffeln",
+      "400 g Brokkoli",
+      "1 Zitrone",
+      "150 g Kräuterquark",
+      "2 EL Olivenöl",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C vorheizen. Kartoffeln vierteln, mit 1 EL Öl, Salz und Pfeffer mischen und 15 Minuten backen.",
+      "Brokkoli in Röschen teilen und mit dem Lachs zu den Kartoffeln aufs Blech legen.",
+      "Lachs mit dem restlichen Öl beträufeln, salzen und alles weitere 15 Minuten backen.",
+      "Mit Zitronenspalten und Kräuterquark servieren."
+    ]
+  },
+  {
+    "name": "Bananenbrot",
+    "servings": 12,
+    "prep_time": 15,
+    "cook_time": 55,
+    "tags": ["Snack", "Kuchen", "vegetarisch", "Backen"],
+    "ingredients": [
+      "3 reife Bananen",
+      "250 g Weizenmehl",
+      "100 g Zucker",
+      "80 g Butter",
+      "2 Eier",
+      "1 Pck. Backpulver",
+      "1 Prise Salz",
+      "50 g Walnüsse"
+    ],
+    "steps": [
+      "Backofen auf 175 °C vorheizen und eine Kastenform fetten.",
+      "Bananen zerdrücken und mit geschmolzener Butter, Zucker und Eiern verrühren.",
+      "Mehl, Backpulver und Salz unterheben, gehackte Walnüsse zugeben.",
+      "Teig in die Form füllen und etwa 55 Minuten backen (Stäbchenprobe)."
+    ]
+  }
+]

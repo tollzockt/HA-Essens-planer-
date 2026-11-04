@@ -1,0 +1,52 @@
+# Beispiel-Dashboard-Ansicht für den Essensplaner.
+# Dashboard bearbeiten → Ansicht hinzufügen → "Im YAML-Editor bearbeiten" → einfügen.
+title: Essen
+path: essen
+icon: mdi:silverware-fork-knife
+type: sections
+sections:
+  - type: grid
+    cards:
+      - type: heading
+        heading: Heute & morgen
+      - type: tile
+        entity: sensor.essensplaner_today
+        name: Heute
+      - type: tile
+        entity: sensor.essensplaner_tomorrow
+        name: Morgen
+      - type: markdown
+        content: >
+          {% set m = state_attr('sensor.essensplaner_next_meal', 'title') %}
+          {% if m %}
+          ## {{ state_attr('sensor.essensplaner_next_meal', 'meal_label') }}: {{ m }}
+          *{{ state_attr('sensor.essensplaner_next_meal', 'weekday') }},
+          {{ state_attr('sensor.essensplaner_next_meal', 'time') }} Uhr ·
+          {{ state_attr('sensor.essensplaner_next_meal', 'servings') }} Portionen*
+
+          {% for i in state_attr('sensor.essensplaner_next_meal', 'ingredients') or [] %}
+          - {{ i }}
+          {% endfor %}
+          {% else %}
+          Keine Mahlzeit geplant.
+          {% endif %}
+  - type: grid
+    cards:
+      - type: heading
+        heading: Wochenplan
+      - type: markdown
+        content: >
+          {% for d in state_attr('sensor.essensplaner_week_plan', 'days') or [] %}
+          **{{ d.weekday }}**: {% for label, title in d.meals.items() %}{{ label }} – {{ title }}{% if not loop.last %} · {% endif %}{% else %}–{% endfor %}
+
+          {% endfor %}
+      - type: calendar
+        entities:
+          - calendar.essensplaner_meal_plan
+        initial_view: listWeek
+  - type: grid
+    cards:
+      - type: heading
+        heading: Einkaufsliste
+      - type: todo-list
+        entity: todo.essensplaner_shopping_list

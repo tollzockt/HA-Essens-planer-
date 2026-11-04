@@ -1,0 +1,15 @@
+{
+  "domain": "essensplaner",
+  "name": "Essensplaner",
+  "after_dependencies": ["frontend", "panel_custom"],
+  "codeowners": ["@tollzockt"],
+  "config_flow": true,
+  "dependencies": ["http", "websocket_api"],
+  "documentation": "https://github.com/tollzockt/HA-Essens-planer-",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/tollzockt/HA-Essens-planer-/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

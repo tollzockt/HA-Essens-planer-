@@ -1,0 +1,468 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Essensplaner einrichten",
+        "description": "Essensplaner mit Rezepten, Wochenplan und Einkaufsliste. Funktioniert mit Assist, Sprachassistenten und LLM-Agenten (z. B. Jarvis).",
+        "data": {
+          "import_starter_recipes": "Beispielrezepte importieren",
+          "default_servings": "Standard-Portionen"
+        },
+        "data_description": {
+          "import_starter_recipes": "Fügt einige klassische Rezepte hinzu, damit du sofort loslegen kannst.",
+          "default_servings": "Wird beim Planen von Mahlzeiten verwendet."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Der Essensplaner ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Essensplaner Optionen",
+        "data": {
+          "default_servings": "Standard-Portionen",
+          "enabled_meals": "Mahlzeiten",
+          "default_meal": "Standard-Mahlzeit",
+          "pantry_staples": "Vorratsschrank",
+          "shopping_sync_entity": "Einkaufsliste kopieren nach",
+          "register_intents": "Sprachassistent / LLM-Tools",
+          "show_panel": "Seitenleisten-Panel",
+          "time_fruehstueck": "Uhrzeit: Frühstück",
+          "time_mittagessen": "Uhrzeit: Mittagessen",
+          "time_snack": "Uhrzeit: Snack",
+          "time_abendessen": "Uhrzeit: Abendessen"
+        },
+        "data_description": {
+          "default_servings": "Wird beim Planen von Mahlzeiten verwendet.",
+          "enabled_meals": "Welche Mahlzeiten du planst.",
+          "default_meal": "Wird genommen, wenn keine Mahlzeit genannt wird (z. B. „Plane Lasagne für Freitag“).",
+          "pantry_staples": "Kommagetrennt. Diese Zutaten landen nie auf der Einkaufsliste.",
+          "shopping_sync_entity": "Optional: weitere To-do-Liste (z. B. Bring!, Einkaufsliste), die die Einträge ebenfalls erhält.",
+          "register_intents": "Registriert Intents, damit Assist, Jarvis und andere LLM-Agenten (auch per MCP) den Planer nutzen können.",
+          "show_panel": "Zeigt die Essensplaner-App in der Seitenleiste."
+        }
+      }
+    },
+    "error": {
+      "no_meals": "Bitte mindestens eine Mahlzeit auswählen."
+    }
+  },
+  "selector": {
+    "meal": {
+      "options": {
+        "fruehstueck": "Frühstück",
+        "mittagessen": "Mittagessen",
+        "snack": "Snack",
+        "abendessen": "Abendessen"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": {
+        "name": "Heute"
+      },
+      "tomorrow": {
+        "name": "Morgen"
+      },
+      "next_meal": {
+        "name": "Nächste Mahlzeit"
+      },
+      "week_plan": {
+        "name": "Wochenplan"
+      },
+      "recipes": {
+        "name": "Rezepte"
+      }
+    },
+    "calendar": {
+      "meal_plan": {
+        "name": "Essensplan"
+      }
+    },
+    "todo": {
+      "shopping_list": {
+        "name": "Einkaufsliste"
+      }
+    }
+  },
+  "exceptions": {
+    "recipe_not_found": {
+      "message": "Kein Rezept „{name}“ gefunden."
+    },
+    "recipe_exists": {
+      "message": "Es gibt bereits ein Rezept „{name}“."
+    },
+    "name_required": {
+      "message": "Ein Name ist erforderlich."
+    },
+    "invalid_date": {
+      "message": "Das Datum „{date}“ wurde nicht verstanden."
+    },
+    "invalid_meal": {
+      "message": "Unbekannte Mahlzeit „{meal}“."
+    },
+    "not_loaded": {
+      "message": "Der Essensplaner ist nicht eingerichtet."
+    },
+    "no_recipe_found": {
+      "message": "Auf {url} wurde kein Rezept gefunden."
+    },
+    "download_failed": {
+      "message": "{url} konnte nicht geladen werden: {error}"
+    },
+    "invalid_url": {
+      "message": "„{url}“ ist keine gültige URL."
+    },
+    "shopping_item_not_found": {
+      "message": "Eintrag auf der Einkaufsliste nicht gefunden."
+    }
+  },
+  "services": {
+    "add_recipe": {
+      "name": "Rezept hinzufügen",
+      "description": "Speichert ein neues Rezept.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name des Rezepts."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Anzahl der Portionen."
+        },
+        "ingredients": {
+          "name": "Zutaten",
+          "description": "Eine Zutat pro Zeile, z. B. „400 g Spaghetti“."
+        },
+        "steps": {
+          "name": "Zubereitung",
+          "description": "Ein Arbeitsschritt pro Zeile."
+        },
+        "tags": {
+          "name": "Kategorien",
+          "description": "Kommagetrennt, z. B. „vegetarisch, schnell“."
+        },
+        "prep_time": {
+          "name": "Vorbereitungszeit",
+          "description": "In Minuten."
+        },
+        "cook_time": {
+          "name": "Kochzeit",
+          "description": "In Minuten."
+        },
+        "total_time": {
+          "name": "Gesamtzeit",
+          "description": "In Minuten."
+        },
+        "notes": {
+          "name": "Notizen",
+          "description": "Freitext-Notizen."
+        },
+        "source_url": {
+          "name": "Quelle",
+          "description": "Woher das Rezept stammt."
+        },
+        "image": {
+          "name": "Bild-URL",
+          "description": "Foto des Gerichts."
+        },
+        "favorite": {
+          "name": "Favorit",
+          "description": "Als Favorit markieren."
+        },
+        "rating": {
+          "name": "Bewertung",
+          "description": "0–5 Sterne."
+        }
+      }
+    },
+    "update_recipe": {
+      "name": "Rezept ändern",
+      "description": "Ändert ein vorhandenes Rezept.",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder ID des Rezepts."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name des Rezepts."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Anzahl der Portionen."
+        },
+        "ingredients": {
+          "name": "Zutaten",
+          "description": "Eine Zutat pro Zeile, z. B. „400 g Spaghetti“."
+        },
+        "steps": {
+          "name": "Zubereitung",
+          "description": "Ein Arbeitsschritt pro Zeile."
+        },
+        "tags": {
+          "name": "Kategorien",
+          "description": "Kommagetrennt, z. B. „vegetarisch, schnell“."
+        },
+        "prep_time": {
+          "name": "Vorbereitungszeit",
+          "description": "In Minuten."
+        },
+        "cook_time": {
+          "name": "Kochzeit",
+          "description": "In Minuten."
+        },
+        "total_time": {
+          "name": "Gesamtzeit",
+          "description": "In Minuten."
+        },
+        "notes": {
+          "name": "Notizen",
+          "description": "Freitext-Notizen."
+        },
+        "source_url": {
+          "name": "Quelle",
+          "description": "Woher das Rezept stammt."
+        },
+        "image": {
+          "name": "Bild-URL",
+          "description": "Foto des Gerichts."
+        },
+        "favorite": {
+          "name": "Favorit",
+          "description": "Als Favorit markieren."
+        },
+        "rating": {
+          "name": "Bewertung",
+          "description": "0–5 Sterne."
+        }
+      }
+    },
+    "delete_recipe": {
+      "name": "Rezept löschen",
+      "description": "Löscht ein Rezept.",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder ID des Rezepts."
+        }
+      }
+    },
+    "import_recipe": {
+      "name": "Rezept importieren",
+      "description": "Importiert ein Rezept von einer Webseite.",
+      "fields": {
+        "url": {
+          "name": "URL",
+          "description": "Webseite mit dem Rezept (schema.org/Recipe, z. B. Chefkoch)."
+        },
+        "tags": {
+          "name": "Kategorien",
+          "description": "Kommagetrennt, z. B. „vegetarisch, schnell“."
+        },
+        "favorite": {
+          "name": "Favorit",
+          "description": "Als Favorit markieren."
+        }
+      }
+    },
+    "get_recipes": {
+      "name": "Rezepte abrufen",
+      "description": "Durchsucht die Rezeptsammlung.",
+      "fields": {
+        "query": {
+          "name": "Suche",
+          "description": "Sucht in Namen, Kategorien und Zutaten."
+        },
+        "tag": {
+          "name": "Kategorie",
+          "description": "Nur Rezepte mit dieser Kategorie."
+        },
+        "max_time": {
+          "name": "Max. Zeit",
+          "description": "Maximale Gesamtzeit in Minuten."
+        },
+        "favorites_only": {
+          "name": "Nur Favoriten",
+          "description": "Nur Favoriten zurückgeben."
+        }
+      }
+    },
+    "get_recipe": {
+      "name": "Rezept abrufen",
+      "description": "Liefert ein Rezept, umgerechnet auf die Portionen.",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder ID des Rezepts."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Anzahl der Portionen."
+        }
+      }
+    },
+    "plan_meal": {
+      "name": "Mahlzeit planen",
+      "description": "Trägt ein Rezept oder Freitext in den Essensplan ein.",
+      "fields": {
+        "date": {
+          "name": "Datum",
+          "description": "z. B. „heute“, „morgen“, „Freitag“, „24.12.“ oder JJJJ-MM-TT."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Frühstück, Mittagessen, Snack oder Abendessen."
+        },
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder ID des Rezepts."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Freitext ohne Rezept (z. B. „Pizza bestellen“)."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Anzahl der Portionen."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Notiz zu dieser Mahlzeit."
+        }
+      }
+    },
+    "remove_meal": {
+      "name": "Mahlzeit entfernen",
+      "description": "Entfernt eine Mahlzeit (oder einen ganzen Tag) aus dem Plan.",
+      "fields": {
+        "date": {
+          "name": "Datum",
+          "description": "z. B. „heute“, „morgen“, „Freitag“, „24.12.“ oder JJJJ-MM-TT."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Frühstück, Mittagessen, Snack oder Abendessen."
+        }
+      }
+    },
+    "get_plan": {
+      "name": "Essensplan abrufen",
+      "description": "Liefert den Essensplan für mehrere Tage.",
+      "fields": {
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Erster Tag (Standard: heute)."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Anzahl der Tage."
+        }
+      }
+    },
+    "suggest_recipes": {
+      "name": "Rezepte vorschlagen",
+      "description": "Schlägt Rezepte vor (Favoriten und lange nicht Gekochtes zuerst).",
+      "fields": {
+        "count": {
+          "name": "Anzahl",
+          "description": "Anzahl der Vorschläge."
+        },
+        "tag": {
+          "name": "Kategorie",
+          "description": "Nur Rezepte mit dieser Kategorie."
+        },
+        "max_time": {
+          "name": "Max. Zeit",
+          "description": "Maximale Gesamtzeit in Minuten."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Frühstück, Mittagessen, Snack oder Abendessen."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "z. B. „heute“, „morgen“, „Freitag“, „24.12.“ oder JJJJ-MM-TT."
+        }
+      }
+    },
+    "auto_plan": {
+      "name": "Automatisch planen",
+      "description": "Füllt freie Plätze im Essensplan automatisch.",
+      "fields": {
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Erster Tag (Standard: heute)."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Anzahl der Tage."
+        },
+        "meals": {
+          "name": "Mahlzeiten",
+          "description": "Welche Mahlzeiten gefüllt werden (Standard: Standard-Mahlzeit)."
+        },
+        "tag": {
+          "name": "Kategorie",
+          "description": "Nur Rezepte mit dieser Kategorie."
+        },
+        "max_time": {
+          "name": "Max. Zeit",
+          "description": "Maximale Gesamtzeit in Minuten."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Anzahl der Portionen."
+        },
+        "overwrite": {
+          "name": "Überschreiben",
+          "description": "Bereits geplante Mahlzeiten ersetzen."
+        }
+      }
+    },
+    "generate_shopping_list": {
+      "name": "Einkaufsliste erstellen",
+      "description": "Erstellt die Einkaufsliste aus den geplanten Rezepten.",
+      "fields": {
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Erster Tag (Standard: heute)."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Anzahl der Tage."
+        },
+        "replace": {
+          "name": "Ersetzen",
+          "description": "Zuvor erzeugte Einträge ersetzen."
+        },
+        "sync": {
+          "name": "Synchronisieren",
+          "description": "Auch in die eingestellte externe To-do-Liste kopieren."
+        }
+      }
+    },
+    "mark_cooked": {
+      "name": "Als gekocht markieren",
+      "description": "Merkt sich, dass ein Gericht gekocht wurde (bessere Vorschläge).",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder ID des Rezepts."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "z. B. „heute“, „morgen“, „Freitag“, „24.12.“ oder JJJJ-MM-TT."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Frühstück, Mittagessen, Snack oder Abendessen."
+        }
+      }
+    }
+  }
+}

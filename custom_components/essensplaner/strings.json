@@ -1,0 +1,468 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Essensplaner",
+        "description": "Meal planner with recipes, week plan and shopping list. Works with Assist / voice assistants and LLM agents.",
+        "data": {
+          "import_starter_recipes": "Import starter recipes",
+          "default_servings": "Default servings"
+        },
+        "data_description": {
+          "import_starter_recipes": "Adds a few classic German recipes so you can start right away.",
+          "default_servings": "Used when planning meals."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Essensplaner is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Essensplaner options",
+        "data": {
+          "default_servings": "Default servings",
+          "enabled_meals": "Meals",
+          "default_meal": "Default meal",
+          "pantry_staples": "Pantry staples",
+          "shopping_sync_entity": "Copy shopping list to",
+          "register_intents": "Voice assistant / LLM tools",
+          "show_panel": "Sidebar panel",
+          "time_fruehstueck": "Time: Breakfast",
+          "time_mittagessen": "Time: Lunch",
+          "time_snack": "Time: Snack",
+          "time_abendessen": "Time: Dinner"
+        },
+        "data_description": {
+          "default_servings": "Used when planning meals.",
+          "enabled_meals": "Which meals you plan.",
+          "default_meal": "Used when no meal is given (e.g. 'Plan lasagna for Friday').",
+          "pantry_staples": "Comma separated. These never end up on the shopping list.",
+          "shopping_sync_entity": "Optional: another todo list (e.g. Bring!, Shopping list) that receives the items, too.",
+          "register_intents": "Registers intents so Assist, Jarvis and other LLM agents (also via MCP) can use the planner.",
+          "show_panel": "Shows the Essensplaner app in the sidebar."
+        }
+      }
+    },
+    "error": {
+      "no_meals": "Select at least one meal."
+    }
+  },
+  "selector": {
+    "meal": {
+      "options": {
+        "fruehstueck": "Breakfast",
+        "mittagessen": "Lunch",
+        "snack": "Snack",
+        "abendessen": "Dinner"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": {
+        "name": "Today"
+      },
+      "tomorrow": {
+        "name": "Tomorrow"
+      },
+      "next_meal": {
+        "name": "Next meal"
+      },
+      "week_plan": {
+        "name": "Week plan"
+      },
+      "recipes": {
+        "name": "Recipes"
+      }
+    },
+    "calendar": {
+      "meal_plan": {
+        "name": "Meal plan"
+      }
+    },
+    "todo": {
+      "shopping_list": {
+        "name": "Shopping list"
+      }
+    }
+  },
+  "exceptions": {
+    "recipe_not_found": {
+      "message": "No recipe \"{name}\" found."
+    },
+    "recipe_exists": {
+      "message": "A recipe \"{name}\" already exists."
+    },
+    "name_required": {
+      "message": "A name is required."
+    },
+    "invalid_date": {
+      "message": "Could not understand the date \"{date}\"."
+    },
+    "invalid_meal": {
+      "message": "Unknown meal \"{meal}\"."
+    },
+    "not_loaded": {
+      "message": "The Essensplaner is not set up."
+    },
+    "no_recipe_found": {
+      "message": "No recipe found on {url}."
+    },
+    "download_failed": {
+      "message": "Could not load {url}: {error}"
+    },
+    "invalid_url": {
+      "message": "\"{url}\" is not a valid URL."
+    },
+    "shopping_item_not_found": {
+      "message": "Shopping list item not found."
+    }
+  },
+  "services": {
+    "add_recipe": {
+      "name": "Add recipe",
+      "description": "Saves a new recipe.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name of the recipe."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Number of servings."
+        },
+        "ingredients": {
+          "name": "Ingredients",
+          "description": "One ingredient per line, e.g. '400 g Spaghetti'."
+        },
+        "steps": {
+          "name": "Steps",
+          "description": "One step per line."
+        },
+        "tags": {
+          "name": "Tags",
+          "description": "Comma separated categories, e.g. 'vegetarian, quick'."
+        },
+        "prep_time": {
+          "name": "Preparation time",
+          "description": "Minutes."
+        },
+        "cook_time": {
+          "name": "Cooking time",
+          "description": "Minutes."
+        },
+        "total_time": {
+          "name": "Total time",
+          "description": "Minutes."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Free text notes."
+        },
+        "source_url": {
+          "name": "Source URL",
+          "description": "Where the recipe comes from."
+        },
+        "image": {
+          "name": "Image URL",
+          "description": "Picture of the dish."
+        },
+        "favorite": {
+          "name": "Favorite",
+          "description": "Mark as favorite."
+        },
+        "rating": {
+          "name": "Rating",
+          "description": "0-5 stars."
+        }
+      }
+    },
+    "update_recipe": {
+      "name": "Update recipe",
+      "description": "Changes an existing recipe.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Recipe name or ID."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the recipe."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Number of servings."
+        },
+        "ingredients": {
+          "name": "Ingredients",
+          "description": "One ingredient per line, e.g. '400 g Spaghetti'."
+        },
+        "steps": {
+          "name": "Steps",
+          "description": "One step per line."
+        },
+        "tags": {
+          "name": "Tags",
+          "description": "Comma separated categories, e.g. 'vegetarian, quick'."
+        },
+        "prep_time": {
+          "name": "Preparation time",
+          "description": "Minutes."
+        },
+        "cook_time": {
+          "name": "Cooking time",
+          "description": "Minutes."
+        },
+        "total_time": {
+          "name": "Total time",
+          "description": "Minutes."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Free text notes."
+        },
+        "source_url": {
+          "name": "Source URL",
+          "description": "Where the recipe comes from."
+        },
+        "image": {
+          "name": "Image URL",
+          "description": "Picture of the dish."
+        },
+        "favorite": {
+          "name": "Favorite",
+          "description": "Mark as favorite."
+        },
+        "rating": {
+          "name": "Rating",
+          "description": "0-5 stars."
+        }
+      }
+    },
+    "delete_recipe": {
+      "name": "Delete recipe",
+      "description": "Deletes a recipe.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Recipe name or ID."
+        }
+      }
+    },
+    "import_recipe": {
+      "name": "Import recipe",
+      "description": "Imports a recipe from a web page.",
+      "fields": {
+        "url": {
+          "name": "URL",
+          "description": "Web page with the recipe (schema.org/Recipe, e.g. Chefkoch)."
+        },
+        "tags": {
+          "name": "Tags",
+          "description": "Comma separated categories, e.g. 'vegetarian, quick'."
+        },
+        "favorite": {
+          "name": "Favorite",
+          "description": "Mark as favorite."
+        }
+      }
+    },
+    "get_recipes": {
+      "name": "Get recipes",
+      "description": "Searches the recipe collection.",
+      "fields": {
+        "query": {
+          "name": "Search",
+          "description": "Text searched in names, tags and ingredients."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Only recipes with this category."
+        },
+        "max_time": {
+          "name": "Max. time",
+          "description": "Maximum total time in minutes."
+        },
+        "favorites_only": {
+          "name": "Favorites only",
+          "description": "Only return favorites."
+        }
+      }
+    },
+    "get_recipe": {
+      "name": "Get recipe",
+      "description": "Returns a recipe scaled to the given servings.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Recipe name or ID."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Number of servings."
+        }
+      }
+    },
+    "plan_meal": {
+      "name": "Plan meal",
+      "description": "Puts a recipe or free text into the meal plan.",
+      "fields": {
+        "date": {
+          "name": "Date",
+          "description": "e.g. 'today', 'morgen', 'Freitag', '24.12.' or YYYY-MM-DD."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Breakfast, lunch, snack or dinner."
+        },
+        "recipe": {
+          "name": "Recipe",
+          "description": "Recipe name or ID."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Free text if there is no recipe (e.g. 'Pizza delivery')."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Number of servings."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Note for this meal."
+        }
+      }
+    },
+    "remove_meal": {
+      "name": "Remove meal",
+      "description": "Removes a meal (or a whole day) from the plan.",
+      "fields": {
+        "date": {
+          "name": "Date",
+          "description": "e.g. 'today', 'morgen', 'Freitag', '24.12.' or YYYY-MM-DD."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Breakfast, lunch, snack or dinner."
+        }
+      }
+    },
+    "get_plan": {
+      "name": "Get meal plan",
+      "description": "Returns the meal plan for several days.",
+      "fields": {
+        "start_date": {
+          "name": "Start date",
+          "description": "First day (default: today)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days."
+        }
+      }
+    },
+    "suggest_recipes": {
+      "name": "Suggest recipes",
+      "description": "Suggests recipes (favorites and dishes not cooked lately first).",
+      "fields": {
+        "count": {
+          "name": "Count",
+          "description": "Number of suggestions."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Only recipes with this category."
+        },
+        "max_time": {
+          "name": "Max. time",
+          "description": "Maximum total time in minutes."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Breakfast, lunch, snack or dinner."
+        },
+        "date": {
+          "name": "Date",
+          "description": "e.g. 'today', 'morgen', 'Freitag', '24.12.' or YYYY-MM-DD."
+        }
+      }
+    },
+    "auto_plan": {
+      "name": "Auto plan",
+      "description": "Fills empty slots of the meal plan automatically.",
+      "fields": {
+        "start_date": {
+          "name": "Start date",
+          "description": "First day (default: today)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days."
+        },
+        "meals": {
+          "name": "Meals",
+          "description": "Meals to fill (default: default meal)."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Only recipes with this category."
+        },
+        "max_time": {
+          "name": "Max. time",
+          "description": "Maximum total time in minutes."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Number of servings."
+        },
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Replace already planned meals."
+        }
+      }
+    },
+    "generate_shopping_list": {
+      "name": "Generate shopping list",
+      "description": "Creates the shopping list from the planned recipes.",
+      "fields": {
+        "start_date": {
+          "name": "Start date",
+          "description": "First day (default: today)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days."
+        },
+        "replace": {
+          "name": "Replace",
+          "description": "Replace previously generated items."
+        },
+        "sync": {
+          "name": "Sync",
+          "description": "Also copy to the configured external todo list."
+        }
+      }
+    },
+    "mark_cooked": {
+      "name": "Mark as cooked",
+      "description": "Remembers that a dish was cooked (improves suggestions).",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Recipe name or ID."
+        },
+        "date": {
+          "name": "Date",
+          "description": "e.g. 'today', 'morgen', 'Freitag', '24.12.' or YYYY-MM-DD."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Breakfast, lunch, snack or dinner."
+        }
+      }
+    }
+  }
+}

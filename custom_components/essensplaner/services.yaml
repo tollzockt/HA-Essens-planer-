@@ -1,0 +1,240 @@
+add_recipe:
+  fields:
+    name:
+      required: true
+      example: "Spaghetti Bolognese"
+      selector:
+        text:
+    servings: &servings
+      example: 4
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    ingredients: &ingredients
+      example: "400 g Spaghetti\n500 g Hackfleisch\n1 Zwiebel"
+      selector:
+        text:
+          multiline: true
+    steps: &steps
+      example: "Zwiebel würfeln und anbraten.\nHackfleisch dazugeben."
+      selector:
+        text:
+          multiline: true
+    tags: &tags
+      example: "Pasta, Klassiker"
+      selector:
+        text:
+    prep_time: &prep_time
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: min
+          mode: box
+    cook_time: &cook_time
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: min
+          mode: box
+    total_time: &total_time
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: min
+          mode: box
+    notes: &notes
+      selector:
+        text:
+          multiline: true
+    source_url: &source_url
+      selector:
+        text:
+          type: url
+    image: &image
+      selector:
+        text:
+          type: url
+    favorite: &favorite
+      selector:
+        boolean:
+    rating: &rating
+      selector:
+        number:
+          min: 0
+          max: 5
+          mode: slider
+
+update_recipe:
+  fields:
+    recipe: &recipe
+      required: true
+      example: "Spaghetti Bolognese"
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    servings: *servings
+    ingredients: *ingredients
+    steps: *steps
+    tags: *tags
+    prep_time: *prep_time
+    cook_time: *cook_time
+    total_time: *total_time
+    notes: *notes
+    source_url: *source_url
+    image: *image
+    favorite: *favorite
+    rating: *rating
+
+delete_recipe:
+  fields:
+    recipe: *recipe
+
+import_recipe:
+  fields:
+    url:
+      required: true
+      example: "https://www.chefkoch.de/rezepte/..."
+      selector:
+        text:
+          type: url
+    tags: *tags
+    favorite: *favorite
+
+get_recipes:
+  fields:
+    query:
+      example: "Hähnchen"
+      selector:
+        text:
+    tag: &tag
+      example: "vegetarisch"
+      selector:
+        text:
+    max_time: &max_time
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: min
+          mode: box
+    favorites_only:
+      default: false
+      selector:
+        boolean:
+
+get_recipe:
+  fields:
+    recipe: *recipe
+    servings: *servings
+
+plan_meal:
+  fields:
+    date: &date
+      example: "morgen"
+      selector:
+        text:
+    meal: &meal
+      example: "abendessen"
+      selector:
+        select:
+          translation_key: meal
+          options:
+            - fruehstueck
+            - mittagessen
+            - snack
+            - abendessen
+    recipe:
+      example: "Lasagne"
+      selector:
+        text:
+    title:
+      example: "Pizza bestellen"
+      selector:
+        text:
+    servings: *servings
+    note:
+      selector:
+        text:
+
+remove_meal:
+  fields:
+    date: *date
+    meal: *meal
+
+get_plan:
+  fields:
+    start_date: &start_date
+      example: "heute"
+      selector:
+        text:
+    days: &days
+      default: 7
+      selector:
+        number:
+          min: 1
+          max: 62
+          mode: box
+
+suggest_recipes:
+  fields:
+    count:
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 20
+          mode: box
+    tag: *tag
+    max_time: *max_time
+    meal: *meal
+    date: *date
+
+auto_plan:
+  fields:
+    start_date: *start_date
+    days: *days
+    meals:
+      selector:
+        select:
+          translation_key: meal
+          multiple: true
+          options:
+            - fruehstueck
+            - mittagessen
+            - snack
+            - abendessen
+    tag: *tag
+    max_time: *max_time
+    servings: *servings
+    overwrite:
+      default: false
+      selector:
+        boolean:
+
+generate_shopping_list:
+  fields:
+    start_date: *start_date
+    days: *days
+    replace:
+      default: true
+      selector:
+        boolean:
+    sync:
+      default: true
+      selector:
+        boolean:
+
+mark_cooked:
+  fields:
+    recipe:
+      selector:
+        text:
+    date: *date
+    meal: *meal

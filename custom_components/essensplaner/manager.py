@@ -1,0 +1,920 @@
+"""Data management for the Essensplaner integration."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from datetime import date, datetime, time, timedelta
+import difflib
+import json
+import logging
+from pathlib import Path
+import random
+from typing import Any
+import uuid
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
+
+from .const import (
+    ALL_MEALS,
+    CONF_DEFAULT_MEAL,
+    CONF_DEFAULT_SERVINGS,
+    CONF_ENABLED_MEALS,
+    CONF_MEAL_TIME_PREFIX,
+    CONF_PANTRY,
+    CONF_SYNC_TODO,
+    DEFAULT_ENABLED_MEALS,
+    DEFAULT_MEAL,
+    DEFAULT_MEAL_TIMES,
+    DEFAULT_PANTRY,
+    DEFAULT_SERVINGS,
+    DOMAIN,
+    EVENT_UPDATED,
+    MEAL_BREAKFAST,
+    MEAL_LABELS,
+    MEAL_SNACK,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+)
+from .dates import WEEKDAY_NAMES
+from .ingredients import (
+    aggregate,
+    fold,
+    format_ingredient,
+    guess_category,
+    ingredient_key,
+    normalize_ingredient,
+    parse_ingredient,
+    scale_ingredient,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+SAVE_DELAY = 1
+
+BREAKFAST_TAGS = {"fruehstueck", "breakfast", "brunch", "morgens"}
+SNACK_TAGS = {
+    "snack",
+    "snacks",
+    "dessert",
+    "nachtisch",
+    "kuchen",
+    "gebaeck",
+    "zwischenmahlzeit",
+    "suessspeise",
+}
+
+MAIN_TAGS = {"hauptgericht", "hauptspeise", "mittagessen", "abendessen", "dinner", "lunch"}
+
+# German messages for errors (used by intents / voice answers)
+ERROR_MESSAGES_DE = {
+    "recipe_not_found": "Ich habe kein Rezept „{name}“ gefunden.",
+    "recipe_exists": "Es gibt bereits ein Rezept „{name}“.",
+    "name_required": "Bitte gib einen Namen an.",
+    "invalid_date": "Ich habe das Datum „{date}“ nicht verstanden.",
+    "invalid_meal": "Die Mahlzeit „{meal}“ kenne ich nicht.",
+    "not_loaded": "Der Essensplaner ist nicht eingerichtet.",
+    "no_recipe_found": "Auf der Seite {url} habe ich kein Rezept gefunden.",
+    "download_failed": "Die Seite {url} konnte nicht geladen werden ({error}).",
+    "invalid_url": "„{url}“ ist keine gültige Internetadresse.",
+    "shopping_item_not_found": "Den Eintrag habe ich auf der Einkaufsliste nicht gefunden.",
+}
+
+
+def error_message(err: HomeAssistantError) -> str:
+    """Return a German message for an error raised by the manager."""
+    key = getattr(err, "translation_key", None)
+    if key in ERROR_MESSAGES_DE:
+        try:
+            return ERROR_MESSAGES_DE[key].format(**(err.translation_placeholders or {}))
+        except (KeyError, IndexError):
+            pass
+    return str(err)
+
+
+def _error(key: str, **placeholders: Any) -> ServiceValidationError:
+    return ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key=key,
+        translation_placeholders={k: str(v) for k, v in placeholders.items()},
+    )
+
+
+def _split_lines(value: Any, separators: tuple[str, ...] = ("\n",)) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        result: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                continue
+            result.extend(_split_lines(item, separators))
+        return result
+    text = str(value)
+    for sep in separators[1:]:
+        text = text.replace(sep, separators[0])
+    return [line.strip(" \t-•*") for line in text.split(separators[0]) if line.strip(" \t-•*")]
+
+
+def _to_int(value: Any, minimum: int | None = None) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        number = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    if minimum is not None and number < minimum:
+        return None
+    return number
+
+
+class EssensplanerManager:
+    """Holds recipes, the meal plan and the shopping list."""
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize the manager."""
+        self.hass = hass
+        self.entry = entry
+        self._store: Store[dict[str, Any]] = Store(
+            hass, STORAGE_VERSION, f"{STORAGE_KEY}.{entry.entry_id}"
+        )
+        self.recipes: dict[str, dict[str, Any]] = {}
+        self.plan: dict[str, dict[str, dict[str, Any]]] = {}
+        self.shopping: list[dict[str, Any]] = []
+        self._listeners: list[Callable[[], None]] = []
+
+    # ------------------------------------------------------------------
+    # Options
+    # ------------------------------------------------------------------
+
+    @property
+    def options(self) -> dict[str, Any]:
+        """Return the merged config entry data/options."""
+        return {**self.entry.data, **self.entry.options}
+
+    @property
+    def default_servings(self) -> int:
+        """Default number of servings."""
+        return _to_int(self.options.get(CONF_DEFAULT_SERVINGS), 1) or DEFAULT_SERVINGS
+
+    @property
+    def default_meal(self) -> str:
+        """Default meal slot."""
+        meal = self.options.get(CONF_DEFAULT_MEAL, DEFAULT_MEAL)
+        return meal if meal in ALL_MEALS else DEFAULT_MEAL
+
+    @property
+    def enabled_meals(self) -> list[str]:
+        """Meal slots in use, sorted by time."""
+        meals = self.options.get(CONF_ENABLED_MEALS) or DEFAULT_ENABLED_MEALS
+        meals = [m for m in meals if m in ALL_MEALS] or list(DEFAULT_ENABLED_MEALS)
+        return sorted(meals, key=self.meal_time)
+
+    @property
+    def pantry(self) -> list[str]:
+        """Pantry staples that never land on the shopping list."""
+        text = self.options.get(CONF_PANTRY, DEFAULT_PANTRY) or ""
+        return [p.strip() for p in str(text).replace(";", ",").split(",") if p.strip()]
+
+    @property
+    def sync_entity(self) -> str | None:
+        """External todo list the shopping list is copied to."""
+        return self.options.get(CONF_SYNC_TODO) or None
+
+    def meal_time(self, meal: str) -> time:
+        """Return the configured time of a meal slot."""
+        value = self.options.get(f"{CONF_MEAL_TIME_PREFIX}{meal}") or DEFAULT_MEAL_TIMES.get(
+            meal, "12:00"
+        )
+        parsed = dt_util.parse_time(str(value))
+        return parsed or time(12, 0)
+
+    def today(self) -> date:
+        """Return today's local date."""
+        return dt_util.now().date()
+
+    # ------------------------------------------------------------------
+    # Persistence & listeners
+    # ------------------------------------------------------------------
+
+    async def async_load(self, import_starter: bool = False) -> None:
+        """Load data from storage."""
+        data = await self._store.async_load()
+        if data is None:
+            data = {"recipes": {}, "plan": {}, "shopping": []}
+            if import_starter:
+                for recipe in await self.hass.async_add_executor_job(_load_starter_recipes):
+                    built = self._build_recipe(recipe)
+                    data["recipes"][built["id"]] = built
+            await self._store.async_save(data)
+        self.recipes = data.get("recipes", {})
+        self.plan = data.get("plan", {})
+        self.shopping = data.get("shopping", [])
+
+    async def async_save_now(self) -> None:
+        """Write data to disk immediately."""
+        await self._store.async_save(self._data_to_store())
+
+    def _data_to_store(self) -> dict[str, Any]:
+        return {"recipes": self.recipes, "plan": self.plan, "shopping": self.shopping}
+
+    @callback
+    def async_add_listener(self, update_callback: Callable[[], None]) -> Callable[[], None]:
+        """Listen for data updates."""
+        self._listeners.append(update_callback)
+
+        @callback
+        def remove_listener() -> None:
+            if update_callback in self._listeners:
+                self._listeners.remove(update_callback)
+
+        return remove_listener
+
+    @callback
+    def _changed(self, change: str) -> None:
+        self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
+        for update_callback in list(self._listeners):
+            update_callback()
+        self.hass.bus.async_fire(EVENT_UPDATED, {"change": change})
+
+    @callback
+    def async_refresh_listeners(self) -> None:
+        """Ask entities to refresh (e.g. at midnight)."""
+        for update_callback in list(self._listeners):
+            update_callback()
+
+    # ------------------------------------------------------------------
+    # Recipes
+    # ------------------------------------------------------------------
+
+    def _build_recipe(
+        self, data: dict[str, Any], existing: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        recipe = dict(existing or {})
+        now = dt_util.utcnow().isoformat()
+        if not existing:
+            recipe.update(
+                {
+                    "id": uuid.uuid4().hex[:12],
+                    "created": now,
+                    "last_cooked": None,
+                    "cooked_count": 0,
+                    "favorite": False,
+                    "rating": 0,
+                    "tags": [],
+                    "ingredients": [],
+                    "steps": [],
+                    "notes": "",
+                    "source_url": "",
+                    "image": "",
+                    "prep_time": None,
+                    "cook_time": None,
+                    "total_time": None,
+                    "servings": self.default_servings,
+                }
+            )
+        if "name" in data:
+            name = str(data["name"] or "").strip()
+            if not name:
+                raise _error("name_required")
+            recipe["name"] = name
+        if not recipe.get("name"):
+            raise _error("name_required")
+        if "servings" in data and data["servings"] not in (None, ""):
+            recipe["servings"] = _to_int(data["servings"], 1) or recipe.get(
+                "servings", self.default_servings
+            )
+        if "ingredients" in data and data["ingredients"] is not None:
+            raw = data["ingredients"]
+            items: list[Any]
+            if isinstance(raw, str):
+                items = _split_lines(raw, ("\n", ";"))
+            elif isinstance(raw, list):
+                items = [i for i in raw if i not in (None, "")]
+            else:
+                items = [raw]
+            recipe["ingredients"] = [normalize_ingredient(i) for i in items]
+        if "steps" in data and data["steps"] is not None:
+            recipe["steps"] = _split_lines(data["steps"])
+        if "tags" in data and data["tags"] is not None:
+            tags = data["tags"]
+            if isinstance(tags, str):
+                tags = tags.split(",")
+            seen: set[str] = set()
+            clean: list[str] = []
+            for tag in tags:
+                tag = str(tag).strip()
+                if tag and fold(tag) not in seen:
+                    seen.add(fold(tag))
+                    clean.append(tag)
+            recipe["tags"] = clean
+        for key in ("prep_time", "cook_time", "total_time"):
+            if key in data:
+                recipe[key] = _to_int(data[key], 0)
+        if recipe.get("total_time") is None and (
+            recipe.get("prep_time") or recipe.get("cook_time")
+        ):
+            recipe["total_time"] = (recipe.get("prep_time") or 0) + (recipe.get("cook_time") or 0)
+        for key in ("notes", "source_url", "image"):
+            if key in data and data[key] is not None:
+                recipe[key] = str(data[key]).strip()
+        if "favorite" in data and data["favorite"] is not None:
+            recipe["favorite"] = bool(data["favorite"])
+        if "rating" in data and data["rating"] is not None:
+            recipe["rating"] = max(0, min(5, _to_int(data["rating"]) or 0))
+        recipe["updated"] = now
+        return recipe
+
+    def add_recipe(self, data: dict[str, Any], allow_duplicate: bool = False) -> dict[str, Any]:
+        """Add a recipe."""
+        name = str(data.get("name") or "").strip()
+        if not name:
+            raise _error("name_required")
+        if not allow_duplicate and (existing := self.get_recipe_by_name(name)):
+            raise _error("recipe_exists", name=existing["name"])
+        recipe = self._build_recipe(data)
+        self.recipes[recipe["id"]] = recipe
+        self._changed("recipe_added")
+        return recipe
+
+    def upsert_imported_recipe(self, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        """Add or update an imported recipe (matched by source URL)."""
+        url = data.get("source_url")
+        for recipe in self.recipes.values():
+            if url and recipe.get("source_url") == url:
+                updated = self._build_recipe(data, recipe)
+                self.recipes[updated["id"]] = updated
+                self._changed("recipe_updated")
+                return updated, False
+        name = data.get("name") or ""
+        if self.get_recipe_by_name(name):
+            data = {**data, "name": f"{name} (Import)"}
+        recipe = self._build_recipe(data)
+        self.recipes[recipe["id"]] = recipe
+        self._changed("recipe_added")
+        return recipe, True
+
+    def update_recipe(self, recipe_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing recipe."""
+        recipe = self.recipes.get(recipe_id)
+        if recipe is None:
+            raise _error("recipe_not_found", name=recipe_id)
+        updated = self._build_recipe(data, recipe)
+        self.recipes[recipe_id] = updated
+        # keep plan titles in sync
+        for meals in self.plan.values():
+            for entry in meals.values():
+                if entry.get("recipe_id") == recipe_id:
+                    entry["title"] = updated["name"]
+        self._changed("recipe_updated")
+        return updated
+
+    def delete_recipe(self, recipe_id: str) -> dict[str, Any]:
+        """Delete a recipe. Planned meals keep their title."""
+        recipe = self.recipes.pop(recipe_id, None)
+        if recipe is None:
+            raise _error("recipe_not_found", name=recipe_id)
+        for meals in self.plan.values():
+            for entry in meals.values():
+                if entry.get("recipe_id") == recipe_id:
+                    entry["recipe_id"] = None
+        self._changed("recipe_deleted")
+        return recipe
+
+    def get_recipe_by_name(self, name: str) -> dict[str, Any] | None:
+        """Exact (case/umlaut-insensitive) name match."""
+        key = fold(name)
+        for recipe in self.recipes.values():
+            if fold(recipe["name"]) == key:
+                return recipe
+        return None
+
+    def find_recipe(self, query: str | None) -> dict[str, Any] | None:
+        """Find the best matching recipe for a (spoken) name."""
+        if not query:
+            return None
+        if query in self.recipes:
+            return self.recipes[query]
+        key = fold(query)
+        if not key:
+            return None
+        by_key = {fold(r["name"]): r for r in self.recipes.values()}
+        if key in by_key:
+            return by_key[key]
+        contains = [r for k, r in by_key.items() if key in k]
+        if contains:
+            return min(contains, key=lambda r: len(r["name"]))
+        contained = [r for k, r in by_key.items() if k and k in key]
+        if contained:
+            return max(contained, key=lambda r: len(r["name"]))
+        close = difflib.get_close_matches(key, list(by_key), n=1, cutoff=0.72)
+        if close:
+            return by_key[close[0]]
+        # token overlap ("Bolognese" -> "Spaghetti Bolognese")
+        words = {w for w in key.split() if len(w) > 3}
+        best: tuple[float, dict[str, Any] | None] = (0.0, None)
+        for name_key, recipe in by_key.items():
+            name_words = set(name_key.split())
+            if not words or not name_words:
+                continue
+            score = 0.0
+            for word in words:
+                for name_word in name_words:
+                    ratio = difflib.SequenceMatcher(None, word, name_word).ratio()
+                    if ratio > 0.8:
+                        score += ratio
+            if score > best[0]:
+                best = (score, recipe)
+        return best[1]
+
+    def resolve_recipe(
+        self, recipe_id: str | None = None, name: str | None = None
+    ) -> dict[str, Any]:
+        """Return a recipe by id or name or raise."""
+        if recipe_id and recipe_id in self.recipes:
+            return self.recipes[recipe_id]
+        if recipe := self.find_recipe(name or recipe_id):
+            return recipe
+        raise _error("recipe_not_found", name=name or recipe_id or "")
+
+    @staticmethod
+    def recipe_tags_folded(recipe: dict[str, Any]) -> set[str]:
+        """Folded tags of a recipe."""
+        return {fold(t) for t in recipe.get("tags", [])}
+
+    def search_recipes(
+        self,
+        query: str | None = None,
+        tag: str | None = None,
+        max_time: int | None = None,
+        favorites_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Search recipes by text (name, tags, ingredients), tag and time."""
+        result = []
+        qkey = fold(query) if query else ""
+        tkey = fold(tag) if tag else ""
+        for recipe in self.recipes.values():
+            if favorites_only and not recipe.get("favorite"):
+                continue
+            if tkey and not any(tkey == t or tkey in t for t in self.recipe_tags_folded(recipe)):
+                continue
+            if max_time and (recipe.get("total_time") or 0) > max_time:
+                continue
+            if qkey:
+                haystack = " ".join(
+                    [
+                        fold(recipe["name"]),
+                        " ".join(self.recipe_tags_folded(recipe)),
+                        " ".join(fold(i.get("name", "")) for i in recipe.get("ingredients", [])),
+                    ]
+                )
+                if not all(word in haystack for word in qkey.split()):
+                    continue
+            result.append(recipe)
+        result.sort(key=lambda r: (not r.get("favorite"), fold(r["name"])))
+        return result
+
+    def recipe_summary(self, recipe: dict[str, Any]) -> dict[str, Any]:
+        """Short representation of a recipe."""
+        return {
+            "id": recipe["id"],
+            "name": recipe["name"],
+            "servings": recipe.get("servings"),
+            "total_time": recipe.get("total_time"),
+            "tags": recipe.get("tags", []),
+            "favorite": recipe.get("favorite", False),
+            "rating": recipe.get("rating", 0),
+            "last_cooked": recipe.get("last_cooked"),
+            "cooked_count": recipe.get("cooked_count", 0),
+            "image": recipe.get("image") or None,
+        }
+
+    def recipe_view(self, recipe: dict[str, Any], servings: int | None = None) -> dict[str, Any]:
+        """Full recipe, scaled to the given servings."""
+        base = recipe.get("servings") or self.default_servings
+        target = servings or base
+        factor = target / base if base else 1
+        ingredients = [scale_ingredient(i, factor) for i in recipe.get("ingredients", [])]
+        return {
+            **recipe,
+            "servings": target,
+            "original_servings": base,
+            "ingredients": ingredients,
+            "ingredient_lines": [format_ingredient(i) for i in ingredients],
+        }
+
+    def mark_cooked(
+        self, recipe: dict[str, Any] | None, day: date | None = None, meal: str | None = None
+    ) -> dict[str, Any] | None:
+        """Mark a recipe (and the planned meal) as cooked."""
+        day = day or self.today()
+        meals = self.plan.get(day.isoformat(), {})
+        entry = None
+        if meal and meal in meals:
+            entry = meals[meal]
+        elif recipe is None and meals:
+            entry = next(iter(meals.values()))
+        elif recipe is not None:
+            entry = next((e for e in meals.values() if e.get("recipe_id") == recipe["id"]), None)
+        if entry is not None:
+            entry["cooked"] = True
+            if recipe is None and entry.get("recipe_id"):
+                recipe = self.recipes.get(entry["recipe_id"])
+        if recipe is not None:
+            recipe["last_cooked"] = day.isoformat()
+            recipe["cooked_count"] = int(recipe.get("cooked_count") or 0) + 1
+        self._changed("cooked")
+        return recipe
+
+    # ------------------------------------------------------------------
+    # Meal plan
+    # ------------------------------------------------------------------
+
+    def plan_meal(
+        self,
+        day: date,
+        meal: str,
+        recipe: dict[str, Any] | None = None,
+        title: str | None = None,
+        servings: int | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        """Put a recipe (or free text) into the meal plan."""
+        if meal not in ALL_MEALS:
+            raise _error("invalid_meal", meal=meal)
+        if recipe is None and not (title or "").strip():
+            raise _error("name_required")
+        entry = {
+            "recipe_id": recipe["id"] if recipe else None,
+            "title": recipe["name"] if recipe else str(title).strip(),
+            "servings": servings or self.default_servings,
+            "note": (note or "").strip(),
+            "cooked": False,
+            "added": dt_util.utcnow().isoformat(),
+        }
+        self.plan.setdefault(day.isoformat(), {})[meal] = entry
+        self._cleanup_plan()
+        self._changed("plan")
+        return self.entry_view(day, meal, entry)
+
+    def remove_meal(self, day: date, meal: str | None = None) -> list[dict[str, Any]]:
+        """Remove one meal or a whole day from the plan."""
+        key = day.isoformat()
+        meals = self.plan.get(key, {})
+        removed: list[dict[str, Any]] = []
+        for slot in list(meals):
+            if meal is None or slot == meal:
+                removed.append(self.entry_view(day, slot, meals.pop(slot)))
+        if not meals:
+            self.plan.pop(key, None)
+        if removed:
+            self._changed("plan")
+        return removed
+
+    def _cleanup_plan(self) -> None:
+        """Drop plan entries older than one year."""
+        limit = (self.today() - timedelta(days=365)).isoformat()
+        for key in [k for k in self.plan if k < limit]:
+            self.plan.pop(key, None)
+
+    def entry_view(self, day: date, meal: str, entry: dict[str, Any]) -> dict[str, Any]:
+        """Return a plan entry enriched with labels and recipe info."""
+        recipe = self.recipes.get(entry.get("recipe_id") or "")
+        meal_time = self.meal_time(meal)
+        return {
+            "date": day.isoformat(),
+            "weekday": WEEKDAY_NAMES[day.weekday()],
+            "meal": meal,
+            "meal_label": MEAL_LABELS.get(meal, meal),
+            "time": meal_time.strftime("%H:%M"),
+            "title": entry.get("title") or (recipe["name"] if recipe else ""),
+            "recipe_id": recipe["id"] if recipe else None,
+            "servings": entry.get("servings"),
+            "note": entry.get("note", ""),
+            "cooked": entry.get("cooked", False),
+            "total_time": recipe.get("total_time") if recipe else None,
+            "image": (recipe.get("image") or None) if recipe else None,
+        }
+
+    def day_meals(self, day: date) -> list[dict[str, Any]]:
+        """All planned meals of a day, sorted by time."""
+        meals = self.plan.get(day.isoformat(), {})
+        views = [self.entry_view(day, meal, entry) for meal, entry in meals.items()]
+        views.sort(key=lambda v: (v["time"], ALL_MEALS.index(v["meal"])))
+        return views
+
+    def plan_range(self, start: date, days: int) -> list[dict[str, Any]]:
+        """Plan for a range of days."""
+        return [
+            {
+                "date": (start + timedelta(days=offset)).isoformat(),
+                "weekday": WEEKDAY_NAMES[(start + timedelta(days=offset)).weekday()],
+                "meals": self.day_meals(start + timedelta(days=offset)),
+            }
+            for offset in range(max(1, days))
+        ]
+
+    def meal_datetime(self, day: date, meal: str) -> datetime:
+        """Local datetime of a meal."""
+        return datetime.combine(day, self.meal_time(meal), tzinfo=dt_util.get_default_time_zone())
+
+    def next_meal(self, now: datetime | None = None) -> dict[str, Any] | None:
+        """Return the next upcoming (or currently running) meal."""
+        now = now or dt_util.now()
+        today = now.date()
+        for offset in range(0, 15):
+            day = today + timedelta(days=offset)
+            for view in self.day_meals(day):
+                start = self.meal_datetime(day, view["meal"])
+                if start + timedelta(minutes=45) >= now:
+                    return view
+        return None
+
+    # ------------------------------------------------------------------
+    # Suggestions & auto planning
+    # ------------------------------------------------------------------
+
+    def _fits_meal(self, recipe: dict[str, Any], meal: str | None) -> bool:
+        tags = self.recipe_tags_folded(recipe)
+        is_breakfast = bool(tags & BREAKFAST_TAGS)
+        is_snack = bool(tags & SNACK_TAGS)
+        if meal == MEAL_BREAKFAST:
+            return is_breakfast
+        if meal == MEAL_SNACK:
+            return is_snack
+        if meal is None:
+            return True
+        return bool(tags & MAIN_TAGS) or not (is_breakfast or is_snack)
+
+    def suggest(
+        self,
+        count: int = 3,
+        tag: str | None = None,
+        max_time: int | None = None,
+        meal: str | None = None,
+        around: date | None = None,
+        exclude: set[str] | None = None,
+        rng: random.Random | None = None,
+    ) -> list[dict[str, Any]]:
+        """Suggest recipes – prefers favourites and things not cooked lately."""
+        rng = rng or random.Random()
+        exclude = exclude or set()
+        around = around or self.today()
+        candidates = [
+            r
+            for r in self.search_recipes(tag=tag, max_time=max_time)
+            if r["id"] not in exclude and self._fits_meal(r, meal)
+        ]
+        recently_planned: set[str] = set()
+        for offset in range(-6, 7):
+            for entry in self.plan.get((around + timedelta(days=offset)).isoformat(), {}).values():
+                if entry.get("recipe_id"):
+                    recently_planned.add(entry["recipe_id"])
+
+        weights = []
+        for recipe in candidates:
+            weight = 1.0
+            last = recipe.get("last_cooked")
+            if not last:
+                weight += 1.5
+            else:
+                try:
+                    days_ago = (around - date.fromisoformat(last)).days
+                    weight += min(max(days_ago, 0), 60) / 15
+                    if days_ago < 5:
+                        weight *= 0.2
+                except ValueError:
+                    pass
+            if recipe.get("favorite"):
+                weight += 2
+            weight += (recipe.get("rating") or 0) * 0.4
+            if recipe["id"] in recently_planned:
+                weight *= 0.1
+            weights.append(weight)
+
+        chosen: list[dict[str, Any]] = []
+        pool = list(zip(candidates, weights, strict=True))
+        while pool and len(chosen) < max(1, count):
+            total = sum(w for _, w in pool)
+            pick = rng.uniform(0, total)
+            upto = 0.0
+            for index, (recipe, weight) in enumerate(pool):
+                upto += weight
+                if upto >= pick:
+                    chosen.append(recipe)
+                    pool.pop(index)
+                    break
+            else:  # pragma: no cover - floating point safety
+                chosen.append(pool.pop()[0])
+        return chosen
+
+    def auto_plan(
+        self,
+        start: date,
+        days: int,
+        meals: list[str] | None = None,
+        tag: str | None = None,
+        max_time: int | None = None,
+        overwrite: bool = False,
+        servings: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fill empty slots of the plan with suggestions."""
+        meals = meals or [self.default_meal]
+        planned: list[dict[str, Any]] = []
+        used: set[str] = set()
+        for offset in range(max(1, days)):
+            day = start + timedelta(days=offset)
+            existing = self.plan.get(day.isoformat(), {})
+            for meal in meals:
+                if meal in existing and not overwrite:
+                    continue
+                suggestion = self.suggest(
+                    1, tag=tag, max_time=max_time, meal=meal, around=day, exclude=used
+                )
+                if not suggestion:
+                    continue
+                recipe = suggestion[0]
+                used.add(recipe["id"])
+                entry = {
+                    "recipe_id": recipe["id"],
+                    "title": recipe["name"],
+                    "servings": servings or self.default_servings,
+                    "note": "",
+                    "cooked": False,
+                    "added": dt_util.utcnow().isoformat(),
+                }
+                self.plan.setdefault(day.isoformat(), {})[meal] = entry
+                planned.append(self.entry_view(day, meal, entry))
+        if planned:
+            self._changed("plan")
+        return planned
+
+    # ------------------------------------------------------------------
+    # Shopping list
+    # ------------------------------------------------------------------
+
+    def generate_shopping_list(
+        self, start: date, days: int, replace: bool = True
+    ) -> dict[str, Any]:
+        """Create shopping list items from the planned recipes."""
+        entries: list[tuple[dict[str, Any], str]] = []
+        meal_count = 0
+        free_text: list[str] = []
+        for offset in range(max(1, days)):
+            day = start + timedelta(days=offset)
+            for entry in self.plan.get(day.isoformat(), {}).values():
+                recipe = self.recipes.get(entry.get("recipe_id") or "")
+                if recipe is None:
+                    if entry.get("title"):
+                        free_text.append(entry["title"])
+                    continue
+                meal_count += 1
+                base = recipe.get("servings") or self.default_servings
+                factor = (entry.get("servings") or base) / base
+                entries.extend(
+                    (scale_ingredient(i, factor), recipe["name"])
+                    for i in recipe.get("ingredients", [])
+                )
+
+        aggregated = aggregate(entries, self.pantry)
+        previous = {i.get("key"): i for i in self.shopping if i.get("source") == "plan"}
+        if replace:
+            self.shopping = [i for i in self.shopping if i.get("source") != "plan"]
+
+        new_items: list[dict[str, Any]] = []
+        for item in aggregated:
+            old = previous.get(item["key"])
+            status = (
+                "completed"
+                if old
+                and old.get("status") == "completed"
+                and old.get("summary") == item["summary"]
+                else "needs_action"
+            )
+            description = item["category"]
+            if item["recipes"]:
+                description += " · " + ", ".join(item["recipes"])
+            shopping_item = {
+                "uid": uuid.uuid4().hex,
+                "summary": item["summary"],
+                "status": status,
+                "description": description,
+                "source": "plan",
+                "key": item["key"],
+                "category": item["category"],
+            }
+            new_items.append(shopping_item)
+        self.shopping.extend(new_items)
+        self._changed("shopping")
+        return {
+            "start_date": start.isoformat(),
+            "days": days,
+            "meals": meal_count,
+            "meals_without_recipe": free_text,
+            "items": [
+                {
+                    "summary": i["summary"],
+                    "category": i["category"],
+                    "description": i["description"],
+                    "status": i["status"],
+                }
+                for i in new_items
+            ],
+        }
+
+    def shopping_add(
+        self, summary: str, description: str | None = None, status: str = "needs_action"
+    ) -> dict[str, Any]:
+        """Add a manual shopping item."""
+        parsed = parse_ingredient(summary)
+        item = {
+            "uid": uuid.uuid4().hex,
+            "summary": summary.strip(),
+            "status": status,
+            "description": description or "",
+            "source": "manual",
+            "key": ingredient_key(parsed["name"]),
+            "category": guess_category(parsed["name"]),
+        }
+        self.shopping.append(item)
+        self._changed("shopping")
+        return item
+
+    def shopping_update(
+        self,
+        uid: str,
+        summary: str | None = None,
+        status: str | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a shopping item."""
+        for item in self.shopping:
+            if item["uid"] == uid:
+                if summary is not None:
+                    item["summary"] = summary
+                if status is not None:
+                    item["status"] = status
+                if description is not None:
+                    item["description"] = description
+                self._changed("shopping")
+                return item
+        raise _error("shopping_item_not_found")
+
+    def shopping_delete(self, uids: list[str]) -> None:
+        """Delete shopping items."""
+        remove = set(uids)
+        self.shopping = [i for i in self.shopping if i["uid"] not in remove]
+        self._changed("shopping")
+
+    def shopping_move(self, uid: str, previous_uid: str | None) -> None:
+        """Re-order shopping items."""
+        item = next((i for i in self.shopping if i["uid"] == uid), None)
+        if item is None:
+            raise _error("shopping_item_not_found")
+        self.shopping.remove(item)
+        if previous_uid is None:
+            self.shopping.insert(0, item)
+        else:
+            index = next((n for n, i in enumerate(self.shopping) if i["uid"] == previous_uid), None)
+            if index is None:
+                self.shopping.append(item)
+            else:
+                self.shopping.insert(index + 1, item)
+        self._changed("shopping")
+
+    # ------------------------------------------------------------------
+    # Export for the panel / websocket
+    # ------------------------------------------------------------------
+
+    def export(self) -> dict[str, Any]:
+        """All data for the frontend panel."""
+        return {
+            "recipes": sorted(self.recipes.values(), key=lambda r: fold(r["name"])),
+            "plan": self.plan,
+            "shopping": self.shopping,
+            "meals": [
+                {
+                    "id": meal,
+                    "label": MEAL_LABELS[meal],
+                    "time": self.meal_time(meal).strftime("%H:%M"),
+                }
+                for meal in self.enabled_meals
+            ],
+            "all_meals": [{"id": meal, "label": MEAL_LABELS[meal]} for meal in ALL_MEALS],
+            "default_meal": self.default_meal,
+            "default_servings": self.default_servings,
+            "pantry": self.pantry,
+            "today": self.today().isoformat(),
+        }
+
+
+def _load_starter_recipes() -> list[dict[str, Any]]:
+    path = Path(__file__).parent / "starter_recipes.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        _LOGGER.warning("Could not load starter recipes: %s", err)
+        return []

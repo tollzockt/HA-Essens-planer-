@@ -1,0 +1,48 @@
+# Beispiel-Automationen (Einstellungen → Automationen → neu → YAML bearbeiten).
+
+# 1) Jeden Tag um 16:30 Uhr erinnern, was es heute Abend gibt.
+- alias: "Essensplaner: Erinnerung Abendessen"
+  triggers:
+    - trigger: time
+      at: "16:30:00"
+  conditions:
+    - condition: template
+      value_template: "{{ state_attr('sensor.essensplaner_today', 'abendessen') is not none }}"
+  actions:
+    - action: notify.notify
+      data:
+        title: "Heute Abend 🍽️"
+        message: >
+          Es gibt {{ state_attr('sensor.essensplaner_today', 'abendessen') }}.
+  mode: single
+
+# 2) Samstags um 9 Uhr automatisch die Einkaufsliste für die kommende Woche erstellen.
+- alias: "Essensplaner: Einkaufsliste am Samstag"
+  triggers:
+    - trigger: time
+      at: "09:00:00"
+  conditions:
+    - condition: time
+      weekday: sat
+  actions:
+    - action: essensplaner.generate_shopping_list
+      data:
+        start_date: heute
+        days: 7
+  mode: single
+
+# 3) Sonntags um 18 Uhr freie Abende der nächsten Woche automatisch füllen.
+- alias: "Essensplaner: Wochenplan auffüllen"
+  triggers:
+    - trigger: time
+      at: "18:00:00"
+  conditions:
+    - condition: time
+      weekday: sun
+  actions:
+    - action: essensplaner.auto_plan
+      data:
+        start_date: "nächste Woche"
+        days: 7
+        meals: [abendessen]
+  mode: single

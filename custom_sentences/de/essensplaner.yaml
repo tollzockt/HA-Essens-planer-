@@ -1,0 +1,212 @@
+# Deutsche Sätze für den eingebauten Home-Assistant-Sprachagenten.
+# Kopiere diese Datei nach /config/custom_sentences/de/essensplaner.yaml
+# und starte Home Assistant neu (bzw. Entwicklerwerkzeuge → YAML → Konversation neu laden).
+# LLM-Agenten (z. B. Jarvis/Hermes, OpenAI, Ollama, MCP) brauchen diese Datei NICHT –
+# sie bekommen die Essensplaner-Intents automatisch als Tools.
+language: de
+intents:
+  essensplaner_get_meals:
+    data:
+      - sentences:
+          - "was gibt [es|'s] {date} [zu essen]"
+          - "was gibt [es|'s] {date} zum {meal}"
+          - "was gibt [es|'s] zum {meal} [{date}]"
+          - "was (essen|kochen) wir {date} [zum {meal}]"
+          - "was (essen|kochen) wir zum {meal} [{date}]"
+          - "was steht {date} auf dem (essensplan|speiseplan|plan)"
+          - "was ist {date} geplant"
+  essensplaner_get_week_plan:
+    data:
+      - sentences:
+          - "was gibt [es|'s] diese woche [zu essen]"
+          - "wie sieht der (essensplan|speiseplan|wochenplan) aus"
+          - "(lies|sag) [mir] den (essensplan|speiseplan|wochenplan) [vor]"
+          - "was (essen|kochen) wir diese woche"
+  essensplaner_plan_meal:
+    data:
+      - sentences:
+          - "plane {dish} (für|am) {date} [zum {meal}]"
+          - "plane {dish} zum {meal} [(für|am)] {date}"
+          - "plane {dish} (für|zum) {meal}"
+          - "(setz|setze|trag|trage) {dish} (für|am) {date} [zum {meal}] (auf den|in den) (essensplan|speiseplan|plan) [ein]"
+  essensplaner_remove_meal:
+    data:
+      - sentences:
+          - "(lösche|entferne|streiche) [das essen|die mahlzeit|alles] (von|für) {date} [zum {meal}] [aus dem (essensplan|speiseplan|plan)]"
+          - "(lösche|entferne|streiche) [das|den|die] {meal} (von|für) {date} [aus dem (essensplan|speiseplan|plan)]"
+  essensplaner_suggest_recipes:
+    data:
+      - sentences:
+          - "was soll ich [heute] kochen"
+          - "was (könnte|sollte|soll) ich [heute] kochen"
+          - "was (könnten|sollten|sollen) wir [heute] (kochen|essen)"
+          - "(schlag|schlage) [mir|uns] [ein|etwas|was] [rezept|gericht|essen] vor"
+          - "hast du eine idee (fürs|für das|für) (essen|kochen|abendessen|mittagessen)"
+          - "(schlag|schlage) [mir|uns] [ein|etwas|was] {tag} [rezept|gericht|essen] vor"
+          - "was {tag}[es] (könnte|soll|sollte) ich kochen"
+  essensplaner_get_recipe:
+    data:
+      - sentences:
+          - "was brauche ich für {dish}"
+          - "welche zutaten brauche ich für {dish}"
+          - "wie (koche|mache|kocht|macht) (ich|man) {dish}"
+          - "(zeig|zeige|lies|sag) [mir] das rezept (für|von) {dish} [vor]"
+          - "(lies|sag) [mir] das rezept [vor]"
+          - "was brauche ich (fürs|für das|für) (essen|abendessen|mittagessen|kochen)"
+  essensplaner_search_recipes:
+    data:
+      - sentences:
+          - "welche rezepte (habe ich|haben wir|gibt es) mit {query}"
+          - "(suche|finde) rezepte mit {query}"
+          - "welche rezepte (habe ich|haben wir|gibt es)"
+  essensplaner_create_shopping_list:
+    data:
+      - sentences:
+          - "(erstelle|mach|mache|schreib|schreibe) [mir|uns] die einkaufsliste [für die woche]"
+          - "(setz|setze|schreib|schreibe) die zutaten auf die einkaufsliste"
+  essensplaner_auto_plan:
+    data:
+      - sentences:
+          - "plane [mir|uns] die (woche|nächsten tage)"
+          - "(füll|fülle) den (essensplan|speiseplan|wochenplan) [automatisch] [aus]"
+          - "(erstelle|mach|mache) [mir|uns] einen (essensplan|speiseplan|wochenplan)"
+      - sentences:
+          - "plane [mir|uns] die nächste woche"
+          - "(erstelle|mach|mache) [mir|uns] einen (essensplan|speiseplan|wochenplan) für nächste woche"
+        slots:
+          start_date: "nächste woche"
+  essensplaner_mark_cooked:
+    data:
+      - sentences:
+          - "wir haben [heute] {dish} gekocht"
+          - "ich habe [heute] {dish} gekocht"
+          - "{dish} (ist|wurde) gekocht"
+lists:
+  date:
+    values:
+      - "heute"
+      - "morgen"
+      - "übermorgen"
+      - "gestern"
+      - "heute mittag"
+      - "heute abend"
+      - "heute früh"
+      - "morgen früh"
+      - "morgen mittag"
+      - "morgen abend"
+      - "übermorgen mittag"
+      - "übermorgen abend"
+      - "am wochenende"
+      - "nächste woche"
+      - "montag"
+      - "am montag"
+      - "montag mittag"
+      - "montag abend"
+      - "am montag mittag"
+      - "am montag abend"
+      - "nächsten montag"
+      - "kommenden montag"
+      - "dienstag"
+      - "am dienstag"
+      - "dienstag mittag"
+      - "dienstag abend"
+      - "am dienstag mittag"
+      - "am dienstag abend"
+      - "nächsten dienstag"
+      - "kommenden dienstag"
+      - "mittwoch"
+      - "am mittwoch"
+      - "mittwoch mittag"
+      - "mittwoch abend"
+      - "am mittwoch mittag"
+      - "am mittwoch abend"
+      - "nächsten mittwoch"
+      - "kommenden mittwoch"
+      - "donnerstag"
+      - "am donnerstag"
+      - "donnerstag mittag"
+      - "donnerstag abend"
+      - "am donnerstag mittag"
+      - "am donnerstag abend"
+      - "nächsten donnerstag"
+      - "kommenden donnerstag"
+      - "freitag"
+      - "am freitag"
+      - "freitag mittag"
+      - "freitag abend"
+      - "am freitag mittag"
+      - "am freitag abend"
+      - "nächsten freitag"
+      - "kommenden freitag"
+      - "samstag"
+      - "am samstag"
+      - "samstag mittag"
+      - "samstag abend"
+      - "am samstag mittag"
+      - "am samstag abend"
+      - "nächsten samstag"
+      - "kommenden samstag"
+      - "sonntag"
+      - "am sonntag"
+      - "sonntag mittag"
+      - "sonntag abend"
+      - "am sonntag mittag"
+      - "am sonntag abend"
+      - "nächsten sonntag"
+      - "kommenden sonntag"
+  meal:
+    values:
+      - "frühstück"
+      - "mittagessen"
+      - "mittag"
+      - "abendessen"
+      - "abendbrot"
+      - "abend"
+      - "snack"
+      - "nachmittag"
+  tag:
+    values:
+      - in: "vegetarisch"
+        out: "vegetarisch"
+      - in: "vegetarisches"
+        out: "vegetarisch"
+      - in: "veganes"
+        out: "vegan"
+      - in: "vegan"
+        out: "vegan"
+      - in: "schnelles"
+        out: "schnell"
+      - in: "schnell"
+        out: "schnell"
+      - in: "schnelles gericht"
+        out: "schnell"
+      - in: "mit pasta"
+        out: "Pasta"
+      - in: "pasta"
+        out: "Pasta"
+      - in: "suppe"
+        out: "Suppe"
+      - in: "eine suppe"
+        out: "Suppe"
+      - in: "fisch"
+        out: "Fisch"
+      - in: "mit fisch"
+        out: "Fisch"
+      - in: "mit hähnchen"
+        out: "Hähnchen"
+      - in: "hähnchen"
+        out: "Hähnchen"
+      - in: "günstiges"
+        out: "günstig"
+      - in: "scharfes"
+        out: "scharf"
+      - in: "süßes"
+        out: "süß"
+      - in: "fürs frühstück"
+        out: "Frühstück"
+      - in: "zum frühstück"
+        out: "Frühstück"
+  dish:
+    wildcard: true
+  query:
+    wildcard: true
