@@ -1,0 +1,105 @@
+blueprint:
+  name: "Essensplaner: Erinnerung ans Essen"
+  description: >
+    Erinnert zu einer festen Uhrzeit daran, was heute geplant ist – als Push-Nachricht
+    aufs Handy und/oder als Sprachausgabe über einen Lautsprecher (z. B. den Jarvis-Satelliten).
+    Ist für die gewählte Mahlzeit nichts geplant, passiert nichts.
+  domain: automation
+  author: Essensplaner
+  source_url: https://github.com/tollzockt/HA-Essens-planer-/blob/HEAD/blueprints/automation/essensplaner/erinnerung.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    reminder_time:
+      name: Uhrzeit
+      description: Wann erinnert werden soll (am besten mit etwas Vorlauf zum Kochen).
+      default: "16:30:00"
+      selector:
+        time: {}
+    meal:
+      name: Mahlzeit
+      default: abendessen
+      selector:
+        select:
+          options:
+            - label: Frühstück
+              value: fruehstueck
+            - label: Mittagessen
+              value: mittagessen
+            - label: Snack
+              value: snack
+            - label: Abendessen
+              value: abendessen
+    notify_devices:
+      name: Handys (Push-Nachricht)
+      description: Geräte mit der Home-Assistant-App.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+    speakers:
+      name: Lautsprecher (Sprachausgabe)
+      default: []
+      selector:
+        entity:
+          domain: media_player
+          multiple: true
+    tts_engine:
+      name: Sprachausgabe-Dienst
+      description: Nur nötig, wenn Lautsprecher gewählt sind (z. B. Piper oder Home Assistant Cloud).
+      default: ""
+      selector:
+        entity:
+          domain: tts
+
+triggers:
+  - trigger: time
+    at: !input reminder_time
+
+variables:
+  meal: !input meal
+  notify_devices: !input notify_devices
+  speakers: !input speakers
+  tts_engine: !input tts_engine
+  labels:
+    fruehstueck: Frühstück
+    mittagessen: Mittagessen
+    snack: Snack
+    abendessen: Abendessen
+  planned: >
+    {{ (state_attr('sensor.essensplaner_today', 'meals') or [])
+       | selectattr('meal', 'eq', meal) | list | first | default(none) }}
+  message: >
+    {% if planned %}Heute {{ 'als' if meal == 'snack' else 'zum' }} {{ labels[meal] }}
+    gibt es {{ planned.title }}{% if planned.total_time %} – das dauert etwa
+    {{ planned.total_time }} Minuten{% endif %}.{% endif %}
+
+conditions:
+  - condition: template
+    value_template: "{{ planned is not none }}"
+
+actions:
+  - repeat:
+      for_each: "{{ notify_devices }}"
+      sequence:
+        - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          continue_on_error: true
+          data:
+            title: "🍽️ {{ labels[meal] }}"
+            message: "{{ message }}"
+            data:
+              url: /essensplaner
+              clickAction: /essensplaner
+  - if:
+      - condition: template
+        value_template: "{{ speakers | count > 0 and tts_engine not in ['', none] }}"
+    then:
+      - action: tts.speak
+        target:
+          entity_id: "{{ tts_engine }}"
+        data:
+          media_player_entity_id: "{{ speakers }}"
+          message: "{{ message }}"
+
+mode: single

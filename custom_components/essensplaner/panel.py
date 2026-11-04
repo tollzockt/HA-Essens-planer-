@@ -12,12 +12,21 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 
-from .const import DOMAIN, EVENT_UPDATED, NAME, PANEL_COMPONENT, PANEL_STATIC_URL, PANEL_URL_PATH
+from .const import (
+    CARD_FILE,
+    DOMAIN,
+    EVENT_UPDATED,
+    NAME,
+    PANEL_COMPONENT,
+    PANEL_STATIC_URL,
+    PANEL_URL_PATH,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 _STATIC_REGISTERED = f"{DOMAIN}_static_registered"
+_CARD_REGISTERED = f"{DOMAIN}_card_registered"
 
 
 def _version() -> str:
@@ -28,13 +37,12 @@ def _version() -> str:
         return "0"
 
 
-async def async_register_panel(hass: HomeAssistant) -> bool:
-    """Register the sidebar panel. Returns False if the frontend is unavailable."""
-    if "frontend" not in hass.config.components:
-        _LOGGER.debug("Frontend not loaded, skipping panel")
+async def _async_register_static(hass: HomeAssistant) -> bool:
+    """Serve the frontend folder. Returns False if the frontend is unavailable."""
+    if "frontend" not in hass.config.components or hass.http is None:
+        _LOGGER.debug("Frontend not loaded, skipping panel and card")
         return False
     # Imported lazily so the integration also works without the frontend (tests).
-    from homeassistant.components import panel_custom
     from homeassistant.components.http import StaticPathConfig
 
     if not hass.data.get(_STATIC_REGISTERED):
@@ -42,6 +50,25 @@ async def async_register_panel(hass: HomeAssistant) -> bool:
             [StaticPathConfig(PANEL_STATIC_URL, str(FRONTEND_DIR), cache_headers=False)]
         )
         hass.data[_STATIC_REGISTERED] = True
+    return True
+
+
+async def async_register_card(hass: HomeAssistant) -> None:
+    """Load the dashboard card on every frontend page (no manual resource needed)."""
+    if hass.data.get(_CARD_REGISTERED) or not await _async_register_static(hass):
+        return
+    from homeassistant.components.frontend import add_extra_js_url
+
+    version = await hass.async_add_executor_job(_version)
+    add_extra_js_url(hass, f"{PANEL_STATIC_URL}/{CARD_FILE}?v={version}")
+    hass.data[_CARD_REGISTERED] = True
+
+
+async def async_register_panel(hass: HomeAssistant) -> bool:
+    """Register the sidebar panel. Returns False if the frontend is unavailable."""
+    if not await _async_register_static(hass):
+        return False
+    from homeassistant.components import panel_custom
 
     version = await hass.async_add_executor_job(_version)
     await panel_custom.async_register_panel(

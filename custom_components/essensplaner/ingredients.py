@@ -434,6 +434,19 @@ def _singular(word: str) -> str:
     return word
 
 
+_ARTICLES = ("der ", "die ", "das ", "den ", "dem ", "ein ", "eine ", "einen ", "einem ")
+
+
+def strip_article(text: str) -> str:
+    """'die Lasagne' -> 'Lasagne' (for spoken dish names)."""
+    cleaned = " ".join(str(text).split())
+    lower = cleaned.lower()
+    for article in _ARTICLES:
+        if lower.startswith(article) and len(cleaned) > len(article):
+            return cleaned[len(article) :]
+    return cleaned
+
+
 def ingredient_key(name: str) -> str:
     """Return a key used to merge equal ingredients."""
     words = [w for w in name.lower().split() if w.strip(".,") not in _ADJECTIVES]

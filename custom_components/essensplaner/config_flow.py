@@ -24,9 +24,11 @@ import voluptuous as vol
 
 from .const import (
     ALL_MEALS,
+    CONF_AUTO_COOKED,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
     CONF_ENABLED_MEALS,
+    CONF_EXCLUDED,
     CONF_IMPORT_STARTER,
     CONF_MEAL_TIME_PREFIX,
     CONF_PANTRY,
@@ -153,6 +155,10 @@ class EssensplanerOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_PANTRY, default=options.get(CONF_PANTRY, DEFAULT_PANTRY)
                 ): TextSelector(TextSelectorConfig(multiline=True)),
+                vol.Optional(CONF_EXCLUDED, default=options.get(CONF_EXCLUDED, "")): TextSelector(),
+                vol.Required(
+                    CONF_AUTO_COOKED, default=options.get(CONF_AUTO_COOKED, True)
+                ): BooleanSelector(),
                 vol.Optional(
                     CONF_SYNC_TODO,
                     description={"suggested_value": options.get(CONF_SYNC_TODO)},

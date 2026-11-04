@@ -23,12 +23,17 @@ from .const import (
 )
 from .intents import async_register_intents, async_remove_intents
 from .manager import EssensplanerManager
-from .panel import async_register_panel, async_remove_panel, async_setup_websocket
+from .panel import (
+    async_register_card,
+    async_register_panel,
+    async_remove_panel,
+    async_setup_websocket,
+)
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.CALENDAR, Platform.SENSOR, Platform.TODO]
+PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR, Platform.TODO]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -60,6 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
 
         entry.async_on_unload(_remove_intents)
 
+    await async_register_card(hass)  # dashboard card, loaded on every frontend page
     if options.get(CONF_SHOW_PANEL, True) and await async_register_panel(hass):
 
         @callback
@@ -74,6 +80,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
         manager.async_refresh_listeners()
 
     entry.async_on_unload(async_track_time_change(hass, _refresh, minute="/15", second=0))
+
+    @callback
+    def _auto_cooked(now: datetime | None = None) -> None:
+        """Count yesterday's planned meals as cooked."""
+        manager.async_auto_mark_cooked()
+
+    _auto_cooked()
+    entry.async_on_unload(async_track_time_change(hass, _auto_cooked, hour=0, minute=5, second=0))
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 

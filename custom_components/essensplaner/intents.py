@@ -9,6 +9,7 @@ valid tool name (lower case snake case).
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -18,9 +19,17 @@ import voluptuous as vol
 
 from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK
 from .dates import describe_date
+from .ingredients import strip_article
 from .manager import EssensplanerManager, error_message
 from .recipe_import import async_fetch_recipe
-from .services import async_sync_shopping, resolve_day, resolve_meal, resolve_meals
+from .services import (
+    async_sync_shopping,
+    resolve_day,
+    resolve_meal,
+    resolve_meals,
+    resolve_move,
+    split_list,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,6 +45,9 @@ INTENT_AUTO_PLAN = "essensplaner_auto_plan"
 INTENT_ADD_RECIPE = "essensplaner_add_recipe"
 INTENT_IMPORT_RECIPE = "essensplaner_import_recipe"
 INTENT_MARK_COOKED = "essensplaner_mark_cooked"
+INTENT_COOK_WITH = "essensplaner_cook_with"
+INTENT_GET_SHOPPING = "essensplaner_get_shopping_list"
+INTENT_MOVE_MEAL = "essensplaner_move_meal"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -201,7 +213,7 @@ class PlanMealIntent(_EssensplanerIntent):
         day, hint = resolve_day(manager, values.get("date"))
         meal = resolve_meal(manager, values.get("meal"), hint)
         assert meal is not None
-        dish = str(values["dish"]).strip()
+        dish = strip_article(str(values["dish"]))
         recipe = manager.find_recipe(dish)
         previous = manager.plan.get(day.isoformat(), {}).get(meal)
         entry = manager.plan_meal(
@@ -539,6 +551,122 @@ class MarkCookedIntent(_EssensplanerIntent):
         }
 
 
+class CookWithIntent(_EssensplanerIntent):
+    """What can I cook with what I have?"""
+
+    intent_type = INTENT_COOK_WITH
+    description = (
+        "Essensplaner: findet Rezepte aus der Sammlung, die vorhandene Zutaten verwenden "
+        "('Was kann ich mit Hähnchen, Reis und Paprika kochen?', 'Ich habe noch Zucchini, "
+        "was mache ich damit?'). Sagt auch, was noch fehlt. Finds recipes using given ingredients."
+    )
+    slot_schema = {
+        vol.Required(
+            "ingredients", description="Vorhandene Zutaten, kommagetrennt (z. B. 'Hähnchen, Reis')"
+        ): cv.string,
+        vol.Optional("meal", description=_MEAL_DESC): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        meal = resolve_meal(manager, values.get("meal"), None, default=False)
+        wanted = split_list(values["ingredients"])
+        results = manager.find_by_ingredients(wanted, 3, meal)
+        data = {"recipes": results}
+        if not results:
+            return f"Mit {_join(wanted)} habe ich leider kein passendes Rezept.", data
+        best = results[0]
+        speech = f"Mit {_join(best['uses'])} kannst du {best['name']} kochen"
+        missing = best["missing"]
+        if not missing:
+            speech += " – du hast alles da"
+        elif len(missing) <= 4:
+            speech += f". Dafür fehlt noch: {_join(missing)}"
+        else:
+            speech += f". Dafür fehlen noch {len(missing)} Zutaten, z. B. {_join(missing[:3])}"
+        speech += "."
+        if len(results) > 1:
+            speech += f" Außerdem würden {_join([r['name'] for r in results[1:]])} passen."
+        return speech, data
+
+
+class GetShoppingListIntent(_EssensplanerIntent):
+    """Read the shopping list."""
+
+    intent_type = INTENT_GET_SHOPPING
+    description = (
+        "Essensplaner: liest die offene Einkaufsliste vor, sortiert nach Supermarkt-Abteilung "
+        "('Was steht auf der Einkaufsliste?', 'Was muss ich einkaufen?'). Reads the shopping list."
+    )
+
+    async def _async_handle(self, hass, manager, values):
+        overview = manager.shopping_overview()
+        if not overview["open"]:
+            return "Die Einkaufsliste ist leer.", overview
+        parts = [
+            f"{category.replace('&', 'und')}: {', '.join(items)}"
+            for category, items in overview["groups"].items()
+        ]
+        count = overview["open"]
+        speech = (
+            f"Auf der Einkaufsliste {'steht' if count == 1 else 'stehen'} {count} "
+            f"{'Eintrag' if count == 1 else 'Einträge'}. " + ". ".join(parts) + "."
+        )
+        return speech, overview
+
+
+class MoveMealIntent(_EssensplanerIntent):
+    """Move (or swap) a planned meal."""
+
+    intent_type = INTENT_MOVE_MEAL
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: verschiebt eine geplante Mahlzeit auf einen anderen Tag oder eine andere "
+        "Mahlzeit; ist das Ziel belegt, werden beide getauscht ('Verschiebe die Lasagne auf "
+        "Samstag', 'Leg das Essen von heute auf morgen'). Moves or swaps planned meals."
+    )
+    slot_schema = {
+        vol.Optional("dish", description="Geplantes Gericht, das verschoben wird"): cv.string,
+        vol.Optional("from_date", description="Bisheriger Tag. " + _DATE_DESC): cv.string,
+        vol.Optional("from_meal", description="Bisherige Mahlzeit. " + _MEAL_DESC): cv.string,
+        vol.Required("to_date", description="Neuer Tag. " + _DATE_DESC): cv.string,
+        vol.Optional("to_meal", description="Neue Mahlzeit (Standard: wie bisher)"): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        dish = values.get("dish")
+        from_date = values.get("from_date")
+        if dish:
+            # "das Essen von heute" -> from_date "heute"
+            match = re.match(
+                r"^(?:das |die )?(?:essen|mahlzeit|gericht)(?: von| vom| für)? (.+)$",
+                strip_article(dish),
+                re.IGNORECASE,
+            )
+            if match and not from_date:
+                dish, from_date = None, match.group(1)
+        src_day, src_meal, dst_day, dst_meal = resolve_move(
+            manager,
+            dish,
+            from_date,
+            values.get("from_meal"),
+            values["to_date"],
+            values.get("to_meal"),
+        )
+        result = manager.move_meal(src_day, src_meal, dst_day, dst_meal)
+        today = manager.today()
+        moved = result["moved"]
+        speech = (
+            f"Ich habe {moved['title']} auf {describe_date(dst_day, today).removeprefix('am ')} "
+            f"{_PREPOSITION[dst_meal]} verschoben."
+        )
+        if swapped := result["swapped"]:
+            speech += (
+                f" {swapped['title']} gibt es dafür {describe_date(src_day, today)} "
+                f"{_PREPOSITION[src_meal]}."
+            )
+        return speech, result
+
+
 INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetMealsIntent,
     GetWeekPlanIntent,
@@ -552,6 +680,9 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     AddRecipeIntent,
     ImportRecipeIntent,
     MarkCookedIntent,
+    CookWithIntent,
+    GetShoppingListIntent,
+    MoveMealIntent,
 ]
 
 

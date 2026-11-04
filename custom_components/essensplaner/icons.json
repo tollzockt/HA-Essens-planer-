@@ -1,32 +1,98 @@
 {
   "entity": {
     "sensor": {
-      "today": { "default": "mdi:silverware-fork-knife" },
-      "tomorrow": { "default": "mdi:silverware-fork-knife" },
-      "next_meal": { "default": "mdi:food" },
-      "week_plan": { "default": "mdi:calendar-week" },
-      "recipes": { "default": "mdi:book-open-variant" }
+      "today": {
+        "default": "mdi:silverware-fork-knife"
+      },
+      "tomorrow": {
+        "default": "mdi:silverware-fork-knife"
+      },
+      "next_meal": {
+        "default": "mdi:food"
+      },
+      "week_plan": {
+        "default": "mdi:calendar-week"
+      },
+      "recipes": {
+        "default": "mdi:book-open-variant"
+      }
     },
     "calendar": {
-      "meal_plan": { "default": "mdi:calendar-heart" }
+      "meal_plan": {
+        "default": "mdi:calendar-heart"
+      }
     },
     "todo": {
-      "shopping_list": { "default": "mdi:cart" }
+      "shopping_list": {
+        "default": "mdi:cart"
+      }
+    },
+    "button": {
+      "create_shopping_list": {
+        "default": "mdi:cart-plus"
+      },
+      "auto_plan_week": {
+        "default": "mdi:auto-fix"
+      }
     }
   },
   "services": {
-    "add_recipe": { "service": "mdi:book-plus" },
-    "update_recipe": { "service": "mdi:book-edit" },
-    "delete_recipe": { "service": "mdi:book-remove" },
-    "import_recipe": { "service": "mdi:web-plus" },
-    "get_recipes": { "service": "mdi:book-search" },
-    "get_recipe": { "service": "mdi:book-open-page-variant" },
-    "plan_meal": { "service": "mdi:calendar-plus" },
-    "remove_meal": { "service": "mdi:calendar-remove" },
-    "get_plan": { "service": "mdi:calendar-week" },
-    "suggest_recipes": { "service": "mdi:lightbulb-on" },
-    "auto_plan": { "service": "mdi:auto-fix" },
-    "generate_shopping_list": { "service": "mdi:cart-plus" },
-    "mark_cooked": { "service": "mdi:pot-steam" }
+    "add_recipe": {
+      "service": "mdi:book-plus"
+    },
+    "update_recipe": {
+      "service": "mdi:book-edit"
+    },
+    "delete_recipe": {
+      "service": "mdi:book-remove"
+    },
+    "import_recipe": {
+      "service": "mdi:web-plus"
+    },
+    "get_recipes": {
+      "service": "mdi:book-search"
+    },
+    "get_recipe": {
+      "service": "mdi:book-open-page-variant"
+    },
+    "plan_meal": {
+      "service": "mdi:calendar-plus"
+    },
+    "remove_meal": {
+      "service": "mdi:calendar-remove"
+    },
+    "get_plan": {
+      "service": "mdi:calendar-week"
+    },
+    "suggest_recipes": {
+      "service": "mdi:lightbulb-on"
+    },
+    "auto_plan": {
+      "service": "mdi:auto-fix"
+    },
+    "generate_shopping_list": {
+      "service": "mdi:cart-plus"
+    },
+    "mark_cooked": {
+      "service": "mdi:pot-steam"
+    },
+    "move_meal": {
+      "service": "mdi:calendar-arrow-right"
+    },
+    "copy_plan": {
+      "service": "mdi:content-copy"
+    },
+    "find_by_ingredients": {
+      "service": "mdi:fridge-outline"
+    },
+    "get_shopping_list": {
+      "service": "mdi:cart-outline"
+    },
+    "export_recipes": {
+      "service": "mdi:export"
+    },
+    "import_recipes": {
+      "service": "mdi:import"
+    }
   }
 }

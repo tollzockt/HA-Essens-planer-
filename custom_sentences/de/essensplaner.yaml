@@ -81,6 +81,26 @@ intents:
           - "wir haben [heute] {dish} gekocht"
           - "ich habe [heute] {dish} gekocht"
           - "{dish} (ist|wurde) gekocht"
+  essensplaner_cook_with:
+    data:
+      - sentences:
+          - "was (kann|könnte|soll) ich mit {ingredients} (kochen|machen)"
+          - "was (kann|könnte|soll) ich aus {ingredients} (kochen|machen)"
+          - "was (können|könnten|sollen) wir mit {ingredients} (kochen|machen)"
+          - "ich habe [noch] {ingredients} [da|übrig] was (kann|soll) ich (damit|daraus) (kochen|machen)"
+  essensplaner_get_shopping_list:
+    data:
+      - sentences:
+          - "was steht auf der einkaufsliste"
+          - "(lies|sag) [mir] die einkaufsliste [vor]"
+          - "was (muss|soll) ich (einkaufen|kaufen|besorgen)"
+          - "was (müssen|sollen) wir (einkaufen|kaufen|besorgen)"
+  essensplaner_move_meal:
+    data:
+      - sentences:
+          - "(verschiebe|verschieb|leg|lege|schieb|schiebe) {dish} (auf|nach) {date:to_date} [zum {meal:to_meal}]"
+          - "(verschiebe|verschieb|leg|lege|schieb|schiebe) das essen von {date:from_date} (auf|nach) {date:to_date}"
+          - "tausche [das essen von] {date:from_date} (und|mit) {date:to_date}"
 lists:
   date:
     values:
@@ -209,4 +229,6 @@ lists:
   dish:
     wildcard: true
   query:
+    wildcard: true
+  ingredients:
     wildcard: true

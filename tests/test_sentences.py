@@ -69,6 +69,23 @@ def test_all_intents_exist(intents: Intents) -> None:
             "essensplaner_mark_cooked",
             {"dish": "linsensuppe"},
         ),
+        (
+            "was kann ich mit hähnchen und reis kochen",
+            "essensplaner_cook_with",
+            {"ingredients": "hähnchen und reis"},
+        ),
+        ("was steht auf der einkaufsliste", "essensplaner_get_shopping_list", {}),
+        ("was muss ich einkaufen", "essensplaner_get_shopping_list", {}),
+        (
+            "verschiebe die lasagne auf samstag",
+            "essensplaner_move_meal",
+            {"dish": "die lasagne", "to_date": "samstag"},
+        ),
+        (
+            "tausche montag und dienstag",
+            "essensplaner_move_meal",
+            {"from_date": "montag", "to_date": "dienstag"},
+        ),
     ],
 )
 def test_sentences(intents: Intents, sentence: str, intent_name: str, slots: dict) -> None:

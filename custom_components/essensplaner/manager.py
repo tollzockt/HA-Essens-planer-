@@ -20,9 +20,11 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     ALL_MEALS,
+    CONF_AUTO_COOKED,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
     CONF_ENABLED_MEALS,
+    CONF_EXCLUDED,
     CONF_MEAL_TIME_PREFIX,
     CONF_PANTRY,
     CONF_SYNC_TODO,
@@ -42,13 +44,16 @@ from .const import (
 from .dates import WEEKDAY_NAMES
 from .ingredients import (
     aggregate,
+    category_rank,
     fold,
     format_ingredient,
     guess_category,
     ingredient_key,
+    is_pantry_item,
     normalize_ingredient,
     parse_ingredient,
     scale_ingredient,
+    strip_article,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -81,6 +86,9 @@ ERROR_MESSAGES_DE = {
     "download_failed": "Die Seite {url} konnte nicht geladen werden ({error}).",
     "invalid_url": "„{url}“ ist keine gültige Internetadresse.",
     "shopping_item_not_found": "Den Eintrag habe ich auf der Einkaufsliste nicht gefunden.",
+    "meal_not_planned": "Am {date} ist zu dieser Mahlzeit nichts geplant.",
+    "dish_not_planned": "„{name}“ ist in den nächsten Tagen nicht geplant.",
+    "invalid_json": "Die Rezeptdaten konnten nicht gelesen werden.",
 }
 
 
@@ -178,6 +186,17 @@ class EssensplanerManager:
         """Pantry staples that never land on the shopping list."""
         text = self.options.get(CONF_PANTRY, DEFAULT_PANTRY) or ""
         return [p.strip() for p in str(text).replace(";", ",").split(",") if p.strip()]
+
+    @property
+    def excluded(self) -> list[str]:
+        """Tags or ingredients that should never be suggested."""
+        text = self.options.get(CONF_EXCLUDED) or ""
+        return [p.strip() for p in str(text).replace(";", ",").split(",") if p.strip()]
+
+    @property
+    def auto_mark_cooked(self) -> bool:
+        """Count planned meals as cooked once the day is over."""
+        return bool(self.options.get(CONF_AUTO_COOKED, True))
 
     @property
     def sync_entity(self) -> str | None:
@@ -519,15 +538,47 @@ class EssensplanerManager:
             entry = next(iter(meals.values()))
         elif recipe is not None:
             entry = next((e for e in meals.values() if e.get("recipe_id") == recipe["id"]), None)
+        already = False
         if entry is not None:
+            already = bool(entry.get("cooked"))
             entry["cooked"] = True
+            entry.pop("auto_cooked", None)
             if recipe is None and entry.get("recipe_id"):
                 recipe = self.recipes.get(entry["recipe_id"])
-        if recipe is not None:
-            recipe["last_cooked"] = day.isoformat()
-            recipe["cooked_count"] = int(recipe.get("cooked_count") or 0) + 1
+        if recipe is not None and not already:
+            self._count_cooked(recipe, day)
         self._changed("cooked")
         return recipe
+
+    @staticmethod
+    def _count_cooked(recipe: dict[str, Any], day: date) -> None:
+        last = recipe.get("last_cooked")
+        if not last or last < day.isoformat():
+            recipe["last_cooked"] = day.isoformat()
+        recipe["cooked_count"] = int(recipe.get("cooked_count") or 0) + 1
+
+    @callback
+    def async_auto_mark_cooked(self) -> int:
+        """Count past planned meals (last 7 days) as cooked."""
+        if not self.auto_mark_cooked:
+            return 0
+        today = self.today()
+        start = (today - timedelta(days=7)).isoformat()
+        count = 0
+        for key in sorted(self.plan):
+            if not start <= key < today.isoformat():
+                continue
+            for entry in self.plan[key].values():
+                recipe = self.recipes.get(entry.get("recipe_id") or "")
+                if recipe is None or entry.get("cooked"):
+                    continue
+                entry["cooked"] = True
+                entry["auto_cooked"] = True
+                self._count_cooked(recipe, date.fromisoformat(key))
+                count += 1
+        if count:
+            self._changed("cooked")
+        return count
 
     # ------------------------------------------------------------------
     # Meal plan
@@ -573,6 +624,72 @@ class EssensplanerManager:
         if removed:
             self._changed("plan")
         return removed
+
+    def move_meal(
+        self, from_day: date, from_meal: str, to_day: date, to_meal: str
+    ) -> dict[str, Any]:
+        """Move a planned meal. An occupied target is swapped."""
+        for meal in (from_meal, to_meal):
+            if meal not in ALL_MEALS:
+                raise _error("invalid_meal", meal=meal)
+        source = self.plan.get(from_day.isoformat(), {})
+        if from_meal not in source:
+            raise _error("meal_not_planned", date=from_day.isoformat())
+        entry = source.pop(from_meal)
+        target = self.plan.setdefault(to_day.isoformat(), {})
+        swapped = target.pop(to_meal, None)
+        target[to_meal] = entry
+        if swapped is not None:
+            self.plan.setdefault(from_day.isoformat(), {})[from_meal] = swapped
+        for key in (from_day.isoformat(), to_day.isoformat()):
+            if not self.plan.get(key):
+                self.plan.pop(key, None)
+        self._changed("plan")
+        return {
+            "moved": self.entry_view(to_day, to_meal, entry),
+            "swapped": self.entry_view(from_day, from_meal, swapped) if swapped else None,
+        }
+
+    def copy_plan(
+        self, source: date, target: date, days: int = 7, overwrite: bool = False
+    ) -> list[dict[str, Any]]:
+        """Copy the plan of a range of days (e.g. last week) to another start date."""
+        copied: list[dict[str, Any]] = []
+        for offset in range(max(1, days)):
+            src_day = source + timedelta(days=offset)
+            dst_day = target + timedelta(days=offset)
+            for meal, entry in self.plan.get(src_day.isoformat(), {}).items():
+                existing = self.plan.get(dst_day.isoformat(), {})
+                if meal in existing and not overwrite:
+                    continue
+                new_entry = {
+                    **entry,
+                    "cooked": False,
+                    "added": dt_util.utcnow().isoformat(),
+                }
+                new_entry.pop("auto_cooked", None)
+                self.plan.setdefault(dst_day.isoformat(), {})[meal] = new_entry
+                copied.append(self.entry_view(dst_day, meal, new_entry))
+        if copied:
+            self._changed("plan")
+        return copied
+
+    def find_planned(
+        self, dish: str, around: date | None = None, days: int = 14
+    ) -> tuple[date, str] | None:
+        """Find the closest planned meal (today or later first) matching a dish name."""
+        around = around or self.today()
+        dish = strip_article(dish)
+        key = fold(dish)
+        recipe = self.find_recipe(dish)
+        for offset in sorted(range(-3, days), key=lambda o: (o < 0, abs(o))):
+            day = around + timedelta(days=offset)
+            for view in self.day_meals(day):
+                if (recipe and view.get("recipe_id") == recipe["id"]) or (
+                    key and key in fold(view["title"])
+                ):
+                    return day, view["meal"]
+        return None
 
     def _cleanup_plan(self) -> None:
         """Drop plan entries older than one year."""
@@ -649,6 +766,66 @@ class EssensplanerManager:
             return True
         return bool(tags & MAIN_TAGS) or not (is_breakfast or is_snack)
 
+    def is_excluded(self, recipe: dict[str, Any]) -> bool:
+        """True if the recipe has an excluded tag or ingredient."""
+        excluded = self.excluded
+        if not excluded:
+            return False
+        tags = self.recipe_tags_folded(recipe)
+        names = [i.get("name", "") for i in recipe.get("ingredients", [])]
+        for item in excluded:
+            key = fold(item)
+            if key in tags:
+                return True
+            if any(is_pantry_item(name, [item]) or key in fold(name) for name in names):
+                return True
+        return False
+
+    def find_by_ingredients(
+        self, available: list[str], count: int = 5, meal: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Rank recipes by how well they use the given ingredients."""
+        wanted = [(a.strip(), ingredient_key(a)) for a in available if a and a.strip()]
+        wanted = [(a, k) for a, k in wanted if k]
+        if not wanted:
+            return []
+        results = []
+        for recipe in self.recipes.values():
+            if meal and not self._fits_meal(recipe, meal):
+                continue
+            relevant = [
+                i
+                for i in recipe.get("ingredients", [])
+                if i.get("name") and not is_pantry_item(i["name"], self.pantry)
+            ]
+            if not relevant:
+                continue
+            used: set[str] = set()
+            matched_ingredients: set[int] = set()
+            for label, key in wanted:
+                for index, ingredient in enumerate(relevant):
+                    ikey = ingredient_key(ingredient["name"])
+                    if key == ikey or key in ikey or (len(ikey) > 3 and ikey in key):
+                        used.add(label)
+                        matched_ingredients.add(index)
+            if not used:
+                continue
+            missing = [
+                format_ingredient(i) for n, i in enumerate(relevant) if n not in matched_ingredients
+            ]
+            results.append(
+                {
+                    **self.recipe_summary(recipe),
+                    "uses": sorted(used),
+                    "missing": missing,
+                    "coverage": round(len(matched_ingredients) / len(relevant), 2),
+                }
+            )
+        results.sort(
+            key=lambda r: (-len(r["uses"]), -r["coverage"], len(r["missing"]), fold(r["name"]))
+        )
+        return results[: max(1, count)]
+
     def suggest(
         self,
         count: int = 3,
@@ -666,7 +843,7 @@ class EssensplanerManager:
         candidates = [
             r
             for r in self.search_recipes(tag=tag, max_time=max_time)
-            if r["id"] not in exclude and self._fits_meal(r, meal)
+            if r["id"] not in exclude and self._fits_meal(r, meal) and not self.is_excluded(r)
         ]
         recently_planned: set[str] = set()
         for offset in range(-6, 7):
@@ -886,6 +1063,73 @@ class EssensplanerManager:
         self._changed("shopping")
 
     # ------------------------------------------------------------------
+    # Backup / sharing
+    # ------------------------------------------------------------------
+
+    _EXPORT_FIELDS = (
+        "name",
+        "servings",
+        "prep_time",
+        "cook_time",
+        "total_time",
+        "tags",
+        "ingredients",
+        "steps",
+        "notes",
+        "source_url",
+        "image",
+        "favorite",
+        "rating",
+    )
+
+    def export_recipes(self, recipe_ids: list[str] | None = None) -> list[dict[str, Any]]:
+        """Recipes in a portable format."""
+        recipes = [r for r in self.recipes.values() if recipe_ids is None or r["id"] in recipe_ids]
+        recipes.sort(key=lambda r: fold(r["name"]))
+        return [{k: r.get(k) for k in self._EXPORT_FIELDS} for r in recipes]
+
+    def import_recipes(
+        self, recipes: list[dict[str, Any]], overwrite: bool = False
+    ) -> dict[str, list[str]]:
+        """Import recipes (e.g. from export_recipes). Existing names are skipped or updated."""
+        result: dict[str, list[str]] = {"added": [], "updated": [], "skipped": []}
+        for data in recipes:
+            if not isinstance(data, dict) or not str(data.get("name") or "").strip():
+                continue
+            data = {k: v for k, v in data.items() if k in self._EXPORT_FIELDS}
+            existing = self.get_recipe_by_name(str(data["name"]))
+            if existing and not overwrite:
+                result["skipped"].append(existing["name"])
+                continue
+            if existing:
+                updated = self._build_recipe(data, existing)
+                self.recipes[updated["id"]] = updated
+                result["updated"].append(updated["name"])
+            else:
+                recipe = self._build_recipe(data)
+                self.recipes[recipe["id"]] = recipe
+                result["added"].append(recipe["name"])
+        if result["added"] or result["updated"]:
+            self._changed("recipes_imported")
+        return result
+
+    def shopping_overview(self) -> dict[str, Any]:
+        """Open shopping items grouped by aisle."""
+        groups: dict[str, list[str]] = {}
+        done = 0
+        for item in self.shopping:
+            if item.get("status") == "completed":
+                done += 1
+                continue
+            groups.setdefault(item.get("category") or "Sonstiges", []).append(item["summary"])
+        ordered = dict(sorted(groups.items(), key=lambda g: category_rank(g[0])))
+        return {
+            "open": sum(len(v) for v in ordered.values()),
+            "completed": done,
+            "groups": ordered,
+        }
+
+    # ------------------------------------------------------------------
     # Export for the panel / websocket
     # ------------------------------------------------------------------
 
@@ -903,10 +1147,18 @@ class EssensplanerManager:
                 }
                 for meal in self.enabled_meals
             ],
-            "all_meals": [{"id": meal, "label": MEAL_LABELS[meal]} for meal in ALL_MEALS],
+            "all_meals": [
+                {
+                    "id": meal,
+                    "label": MEAL_LABELS[meal],
+                    "time": self.meal_time(meal).strftime("%H:%M"),
+                }
+                for meal in ALL_MEALS
+            ],
             "default_meal": self.default_meal,
             "default_servings": self.default_servings,
             "pantry": self.pantry,
+            "excluded": self.excluded,
             "today": self.today().isoformat(),
         }
 

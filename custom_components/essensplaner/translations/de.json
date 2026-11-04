@@ -30,6 +30,8 @@
           "shopping_sync_entity": "Einkaufsliste kopieren nach",
           "register_intents": "Sprachassistent / LLM-Tools",
           "show_panel": "Seitenleisten-Panel",
+          "excluded": "Nie vorschlagen",
+          "auto_mark_cooked": "Geplantes automatisch als gekocht zählen",
           "time_fruehstueck": "Uhrzeit: Frühstück",
           "time_mittagessen": "Uhrzeit: Mittagessen",
           "time_snack": "Uhrzeit: Snack",
@@ -42,7 +44,9 @@
           "pantry_staples": "Kommagetrennt. Diese Zutaten landen nie auf der Einkaufsliste.",
           "shopping_sync_entity": "Optional: weitere To-do-Liste (z. B. Bring!, Einkaufsliste), die die Einträge ebenfalls erhält.",
           "register_intents": "Registriert Intents, damit Assist, Jarvis und andere LLM-Agenten (auch per MCP) den Planer nutzen können.",
-          "show_panel": "Zeigt die Essensplaner-App in der Seitenleiste."
+          "show_panel": "Zeigt die Essensplaner-App in der Seitenleiste.",
+          "excluded": "Kommagetrennte Kategorien oder Zutaten, die Vorschläge und automatische Planung vermeiden, z. B. „Fisch, Pilze“.",
+          "auto_mark_cooked": "Nach Ablauf des Tages zählen geplante Rezepte als gekocht (bessere Vorschläge)."
         }
       }
     },
@@ -61,6 +65,14 @@
     }
   },
   "entity": {
+    "button": {
+      "create_shopping_list": {
+        "name": "Einkaufsliste erstellen"
+      },
+      "auto_plan_week": {
+        "name": "Woche automatisch planen"
+      }
+    },
     "sensor": {
       "today": {
         "name": "Heute"
@@ -119,6 +131,15 @@
     },
     "shopping_item_not_found": {
       "message": "Eintrag auf der Einkaufsliste nicht gefunden."
+    },
+    "meal_not_planned": {
+      "message": "Am {date} ist zu dieser Mahlzeit nichts geplant."
+    },
+    "dish_not_planned": {
+      "message": "„{name}“ ist in den nächsten Tagen nicht geplant."
+    },
+    "invalid_json": {
+      "message": "Die Rezeptdaten konnten nicht gelesen werden."
     }
   },
   "services": {
@@ -461,6 +482,101 @@
         "meal": {
           "name": "Mahlzeit",
           "description": "Frühstück, Mittagessen, Snack oder Abendessen."
+        }
+      }
+    },
+    "move_meal": {
+      "name": "Mahlzeit verschieben",
+      "description": "Verschiebt eine geplante Mahlzeit auf einen anderen Tag oder eine andere Mahlzeit; ein belegtes Ziel wird getauscht.",
+      "fields": {
+        "recipe": {
+          "name": "Rezept",
+          "description": "Name oder ID des Rezepts."
+        },
+        "from_date": {
+          "name": "Von Datum",
+          "description": "Tag, an dem die Mahlzeit jetzt geplant ist (optional, wenn ein Rezept angegeben ist)."
+        },
+        "from_meal": {
+          "name": "Von Mahlzeit",
+          "description": "Mahlzeit, für die es jetzt geplant ist."
+        },
+        "to_date": {
+          "name": "Nach Datum",
+          "description": "Neuer Tag."
+        },
+        "to_meal": {
+          "name": "Nach Mahlzeit",
+          "description": "Neue Mahlzeit (Standard: wie bisher). Ein belegter Platz wird getauscht."
+        }
+      }
+    },
+    "copy_plan": {
+      "name": "Essensplan kopieren",
+      "description": "Kopiert den Plan mehrerer Tage, z. B. letzte Woche in diese Woche.",
+      "fields": {
+        "source_start": {
+          "name": "Quelle ab",
+          "description": "Erster Tag, der kopiert wird (Standard: Montag letzter Woche)."
+        },
+        "target_start": {
+          "name": "Ziel ab",
+          "description": "Erster Tag, in den kopiert wird (Standard: Montag dieser Woche)."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Anzahl der Tage."
+        },
+        "overwrite": {
+          "name": "Überschreiben",
+          "description": "Bereits geplante Mahlzeiten ersetzen."
+        }
+      }
+    },
+    "find_by_ingredients": {
+      "name": "Rezepte nach Zutaten finden",
+      "description": "Was kann ich mit dem kochen, was ich da habe?",
+      "fields": {
+        "ingredients": {
+          "name": "Zutaten",
+          "description": "Was du da hast, z. B. „Hähnchen, Reis, Paprika“."
+        },
+        "count": {
+          "name": "Anzahl",
+          "description": "Anzahl der Vorschläge."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Frühstück, Mittagessen, Snack oder Abendessen."
+        }
+      }
+    },
+    "get_shopping_list": {
+      "name": "Einkaufsliste abrufen",
+      "description": "Liefert die offenen Einträge nach Abteilung gruppiert.",
+      "fields": {}
+    },
+    "export_recipes": {
+      "name": "Rezepte exportieren",
+      "description": "Liefert Rezepte in einem portablen Format (Backup, Teilen).",
+      "fields": {
+        "recipes": {
+          "name": "Rezepte",
+          "description": "Nur diese Rezepte (Standard: alle)."
+        }
+      }
+    },
+    "import_recipes": {
+      "name": "Rezepte importieren",
+      "description": "Importiert Rezepte aus export_recipes-Daten.",
+      "fields": {
+        "recipes": {
+          "name": "Rezepte",
+          "description": "Liste von Rezepten (wie von export_recipes geliefert) oder JSON-Text."
+        },
+        "overwrite": {
+          "name": "Überschreiben",
+          "description": "Rezepte mit gleichem Namen aktualisieren."
         }
       }
     }

@@ -30,6 +30,8 @@
           "shopping_sync_entity": "Copy shopping list to",
           "register_intents": "Voice assistant / LLM tools",
           "show_panel": "Sidebar panel",
+          "excluded": "Never suggest",
+          "auto_mark_cooked": "Count planned meals as cooked",
           "time_fruehstueck": "Time: Breakfast",
           "time_mittagessen": "Time: Lunch",
           "time_snack": "Time: Snack",
@@ -42,7 +44,9 @@
           "pantry_staples": "Comma separated. These never end up on the shopping list.",
           "shopping_sync_entity": "Optional: another todo list (e.g. Bring!, Shopping list) that receives the items, too.",
           "register_intents": "Registers intents so Assist, Jarvis and other LLM agents (also via MCP) can use the planner.",
-          "show_panel": "Shows the Essensplaner app in the sidebar."
+          "show_panel": "Shows the Essensplaner app in the sidebar.",
+          "excluded": "Comma separated tags or ingredients that suggestions and auto planning avoid, e.g. 'Fisch, Pilze'.",
+          "auto_mark_cooked": "After the day is over, planned recipes count as cooked (better suggestions)."
         }
       }
     },
@@ -61,6 +65,14 @@
     }
   },
   "entity": {
+    "button": {
+      "create_shopping_list": {
+        "name": "Create shopping list"
+      },
+      "auto_plan_week": {
+        "name": "Auto plan week"
+      }
+    },
     "sensor": {
       "today": {
         "name": "Today"
@@ -119,6 +131,15 @@
     },
     "shopping_item_not_found": {
       "message": "Shopping list item not found."
+    },
+    "meal_not_planned": {
+      "message": "Nothing is planned for this meal on {date}."
+    },
+    "dish_not_planned": {
+      "message": "\"{name}\" is not planned in the next days."
+    },
+    "invalid_json": {
+      "message": "The recipe data could not be read."
     }
   },
   "services": {
@@ -461,6 +482,101 @@
         "meal": {
           "name": "Meal",
           "description": "Breakfast, lunch, snack or dinner."
+        }
+      }
+    },
+    "move_meal": {
+      "name": "Move meal",
+      "description": "Moves a planned meal to another day or meal; an occupied target is swapped.",
+      "fields": {
+        "recipe": {
+          "name": "Recipe",
+          "description": "Recipe name or ID."
+        },
+        "from_date": {
+          "name": "From date",
+          "description": "Day the meal is planned now (optional if a recipe is given)."
+        },
+        "from_meal": {
+          "name": "From meal",
+          "description": "Meal it is planned for now."
+        },
+        "to_date": {
+          "name": "To date",
+          "description": "New day."
+        },
+        "to_meal": {
+          "name": "To meal",
+          "description": "New meal (default: same as before). An occupied slot is swapped."
+        }
+      }
+    },
+    "copy_plan": {
+      "name": "Copy meal plan",
+      "description": "Copies the plan of several days, e.g. last week to this week.",
+      "fields": {
+        "source_start": {
+          "name": "Source start",
+          "description": "First day to copy from (default: Monday of last week)."
+        },
+        "target_start": {
+          "name": "Target start",
+          "description": "First day to copy to (default: Monday of this week)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days."
+        },
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Replace already planned meals."
+        }
+      }
+    },
+    "find_by_ingredients": {
+      "name": "Find recipes by ingredients",
+      "description": "Which recipes can I cook with what I have?",
+      "fields": {
+        "ingredients": {
+          "name": "Ingredients",
+          "description": "What you have, e.g. 'chicken, rice, peppers'."
+        },
+        "count": {
+          "name": "Count",
+          "description": "Number of suggestions."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Breakfast, lunch, snack or dinner."
+        }
+      }
+    },
+    "get_shopping_list": {
+      "name": "Get shopping list",
+      "description": "Returns the open items grouped by aisle.",
+      "fields": {}
+    },
+    "export_recipes": {
+      "name": "Export recipes",
+      "description": "Returns recipes in a portable format (backup, sharing).",
+      "fields": {
+        "recipes": {
+          "name": "Recipes",
+          "description": "Only these recipes (default: all)."
+        }
+      }
+    },
+    "import_recipes": {
+      "name": "Import recipes",
+      "description": "Imports recipes from export_recipes data.",
+      "fields": {
+        "recipes": {
+          "name": "Recipes",
+          "description": "List of recipes (as returned by export_recipes) or JSON text."
+        },
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Update recipes with the same name."
         }
       }
     }

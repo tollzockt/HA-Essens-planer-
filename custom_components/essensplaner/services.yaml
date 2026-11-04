@@ -238,3 +238,82 @@ mark_cooked:
         text:
     date: *date
     meal: *meal
+
+move_meal:
+  fields:
+    recipe:
+      example: "Lasagne"
+      selector:
+        text:
+    from_date:
+      example: "Freitag"
+      selector:
+        text:
+    from_meal: &from_meal
+      selector:
+        select:
+          translation_key: meal
+          options:
+            - fruehstueck
+            - mittagessen
+            - snack
+            - abendessen
+    to_date:
+      required: true
+      example: "Samstag"
+      selector:
+        text:
+    to_meal: *from_meal
+
+copy_plan:
+  fields:
+    source_start:
+      example: "2026-11-02"
+      selector:
+        text:
+    target_start:
+      example: "2026-11-09"
+      selector:
+        text:
+    days: *days
+    overwrite:
+      default: false
+      selector:
+        boolean:
+
+find_by_ingredients:
+  fields:
+    ingredients:
+      required: true
+      example: "Hähnchen, Reis, Paprika"
+      selector:
+        text:
+    count:
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: box
+    meal: *meal
+
+get_shopping_list:
+
+export_recipes:
+  fields:
+    recipes:
+      example: "Lasagne"
+      selector:
+        text:
+          multiple: true
+
+import_recipes:
+  fields:
+    recipes:
+      required: true
+      selector:
+        object:
+    overwrite:
+      default: false
+      selector:
+        boolean:

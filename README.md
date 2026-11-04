@@ -1,19 +1,32 @@
 # 🍽️ Essensplaner für Home Assistant
 
-Ein Essensplaner mit **Rezeptsammlung, Wochenplan und automatischer Einkaufsliste**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
+Ein Essensplaner mit **Rezeptsammlung, Wochenplan, Kochmodus und automatischer Einkaufsliste**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
 
-> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane Lasagne für Freitag.“ · „Schlag mir was Vegetarisches vor.“ · „Was brauche ich für Chili con Carne?“ · „Erstelle die Einkaufsliste.“
+> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane Lasagne für Freitag.“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Verschiebe die Lasagne auf Samstag.“ · „Erstelle die Einkaufsliste.“ · „Was steht auf der Einkaufsliste?“
+
+![Wochenplan](docs/images/wochenplan.png)
 
 ## Funktionen
 
 | Bereich | Was es kann |
 |---|---|
-| 📖 **Rezepte** | Eigene Rezepte mit Zutaten, Schritten, Zeiten, Kategorien, Bild, Favoriten und Bewertung. **Import per Link** von Chefkoch, Lecker, Eat Smarter, BBC Good Food & allen Seiten mit schema.org-Rezepten. Portionen werden automatisch umgerechnet. 15 Beispielrezepte zum Start. |
-| 🗓️ **Wochenplan** | Frühstück, Mittag, Snack und Abendessen pro Tag, mit Rezept oder Freitext („Pizza bestellen“). Woche **automatisch füllen**, wobei Favoriten und lange nicht Gekochtes bevorzugt werden und keine Wiederholungen vorkommen. |
-| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. Optional zusätzlich in eine andere To-do-Liste kopieren (z. B. Bring!). |
-| 🗣️ **Jarvis / Assist / LLM** | 12 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
-| 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Wochenplan, Rezepten und Einkaufsliste, passend zu Hell/Dunkel-Theme und Handy. |
-| 🏠 **Entitäten** | Sensoren (heute, morgen, nächste Mahlzeit, Wochenplan, Rezepte), Kalender und To-do-Liste, also nutzbar in Dashboards und Automationen. |
+| 📖 **Rezepte** | Eigene Rezepte mit Zutaten, Schritten, Zeiten, Kategorien, Bild, Favoriten und ⭐ Bewertung. **Import per Link** von Chefkoch, Lecker, Eat Smarter, BBC Good Food & allen Seiten mit schema.org-Rezepten. Portionen werden automatisch umgerechnet. Sortieren nach „zuletzt gekocht“, „schnellste“, „beste Bewertung“ … 15 Beispielrezepte zum Start. **Export/Import** als JSON. |
+| 🗓️ **Wochenplan** | Frühstück, Mittag, Snack und Abendessen, mit Rezept oder Freitext („Pizza bestellen“). **Drag & Drop** (belegte Plätze werden getauscht), **„Letzte Woche übernehmen“**, Woche **automatisch füllen**, wobei Favoriten und lange nicht Gekochtes bevorzugt werden und „Nie vorschlagen“-Zutaten vermieden werden. |
+| 👩‍🍳 **Kochmodus** | Vollbild Schritt für Schritt mit großer Schrift, Zutaten zum Abhaken, **Timer aus dem Rezepttext** („15 Minuten köcheln“ → ⏱ mit Signalton). Der Bildschirm bleibt an. Blättern per Wischen oder Pfeiltasten. |
+| 🧊 **Was kann ich kochen?** | Rezepte zu den Zutaten, die du da hast, mit Angabe, was noch fehlt. |
+| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
+| 🗣️ **Jarvis / Assist / LLM** | 15 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
+| 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte, Wochenplan, Rezepten und Einkaufsliste, passend zu Hell/Dunkel-Theme und Handy. |
+| 🖼️ **Dashboard-Karte** | `custom:essensplaner-card` (Heute · Nächste Mahlzeit · Woche), ideal fürs Küchen- oder Esszimmer-Tablet. |
+| 🏠 **Entitäten & Blueprints** | Sensoren, Kalender, To-do-Liste und Buttons, dazu fertige Blueprints für Essens-Erinnerung und Wochen-Routine. |
+
+| Kochmodus | Was kann ich kochen? |
+|---|---|
+| ![Kochmodus](docs/images/kochmodus.png) | ![Was kann ich kochen](docs/images/was-kann-ich-kochen.png) |
+
+| Rezepte | Handy | Einkaufsliste |
+|---|---|---|
+| ![Rezepte](docs/images/rezepte.png) | ![Handy](docs/images/handy-wochenplan.png) | ![Einkaufsliste](docs/images/handy-einkaufsliste.png) |
 
 ## Installation
 
@@ -48,11 +61,14 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_get_meals` | „Was gibt es heute/morgen Abend/am Freitag zu essen?“ |
 | `essensplaner_get_week_plan` | „Wie sieht der Essensplan diese Woche aus?“ |
 | `essensplaner_plan_meal` | „Plane Lasagne für Freitag zum Abendessen.“ |
+| `essensplaner_move_meal` | „Verschiebe die Lasagne auf Samstag.“ · „Tausche Montag und Dienstag.“ |
 | `essensplaner_remove_meal` | „Lösche das Essen von morgen.“ |
 | `essensplaner_suggest_recipes` | „Was soll ich heute kochen?“ · „Schlag mir was Schnelles vor.“ |
+| `essensplaner_cook_with` | „Was kann ich mit Hähnchen, Reis und Paprika kochen?“ |
 | `essensplaner_get_recipe` | „Was brauche ich für Chili con Carne für 6 Personen?“ · „Lies mir das Rezept vor.“ |
 | `essensplaner_search_recipes` | „Welche Rezepte habe ich mit Hähnchen?“ |
 | `essensplaner_create_shopping_list` | „Erstelle die Einkaufsliste für die Woche.“ |
+| `essensplaner_get_shopping_list` | „Was steht auf der Einkaufsliste?“ · „Was muss ich einkaufen?“ |
 | `essensplaner_auto_plan` | „Plane mir die nächste Woche (vegetarisch).“ |
 | `essensplaner_add_recipe` | „Speichere ein Rezept Rührei mit 3 Eiern, Butter und Salz.“ |
 | `essensplaner_import_recipe` | „Importiere das Rezept von https://www.chefkoch.de/…“ |
@@ -63,16 +79,42 @@ Datumsangaben werden in natürlicher Sprache verstanden: *heute, morgen, übermo
 ### Eingebauter Sprachagent (ohne LLM)
 Datei [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) nach `/config/custom_sentences/de/` kopieren und Home Assistant neu starten.
 
+## 🖼️ Dashboard-Karte
+
+Die Karte wird von der Integration automatisch geladen. Im Dashboard: **Karte hinzufügen → „Essensplaner“** (mit visuellem Editor).
+
+![Dashboard-Karte](docs/images/dashboard-karte.png)
+
+```yaml
+type: custom:essensplaner-card
+mode: next              # today | next | week
+show_ingredients: true  # nur bei "next"
+# title: Heute bei uns  # optional, "" blendet die Kopfzeile aus
+# days: 7               # nur bei "week"
+# start: monday         # "today" (Standard) oder "monday"
+```
+
+Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dashboard.yaml).
+
+## 🧩 Blueprints
+
+| Blueprint | Was er macht | Import |
+|---|---|---|
+| **Erinnerung ans Essen** | Zur gewünschten Uhrzeit Push-Nachricht und/oder Sprachausgabe („Heute zum Abendessen gibt es Lasagne – das dauert etwa 90 Minuten.“) | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Ftollzockt%2FHA-Essens-planer-%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Fessensplaner%2Ferinnerung.yaml) |
+| **Wochen-Routine** | Einmal pro Woche freie Mahlzeiten füllen, die Einkaufsliste erstellen und eine Zusammenfassung schicken | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Ftollzockt%2FHA-Essens-planer-%2Fblob%2FHEAD%2Fblueprints%2Fautomation%2Fessensplaner%2Fwochenroutine.yaml) |
+
 ## Entitäten
 
 | Entität | Inhalt |
 |---|---|
-| `sensor.essensplaner_today` / `_tomorrow` | Geplante Gerichte; Attribute je Mahlzeit (`fruehstueck`, `mittagessen`, `abendessen` …) |
-| `sensor.essensplaner_next_meal` | Nächste Mahlzeit mit Zutaten (auf Portionen skaliert) und Zubereitung, Bild als Entity-Picture |
+| `sensor.essensplaner_today` / `_tomorrow` | Geplante Gerichte; Attribute je Mahlzeit (`fruehstueck`, `mittagessen`, `abendessen` …), Bild als Entity-Picture |
+| `sensor.essensplaner_next_meal` | Nächste Mahlzeit mit Zutaten (auf Portionen skaliert) und Zubereitung |
 | `sensor.essensplaner_week_plan` | Anzahl geplanter Mahlzeiten (7 Tage), Plan als Attribut `days` / `summary` |
 | `sensor.essensplaner_recipes` | Anzahl Rezepte; Namen, Favoriten, Kategorien |
 | `calendar.essensplaner_meal_plan` | Alle Mahlzeiten als Termine (Termine anlegen/löschen plant bzw. entfernt Mahlzeiten) |
 | `todo.essensplaner_shopping_list` | Die Einkaufsliste |
+| `button.essensplaner_create_shopping_list` | Einkaufsliste für die nächsten 7 Tage erstellen |
+| `button.essensplaner_auto_plan_week` | Freie Plätze der nächsten 7 Tage automatisch füllen |
 
 ## Aktionen (Services)
 
@@ -83,10 +125,13 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.add_recipe` / `update_recipe` / `delete_recipe` | Rezepte verwalten |
 | `essensplaner.import_recipe` | Rezept von URL importieren |
 | `essensplaner.get_recipes` / `get_recipe` | Suchen / Rezept (skaliert) abrufen |
+| `essensplaner.find_by_ingredients` | Rezepte zu vorhandenen Zutaten |
 | `essensplaner.plan_meal` / `remove_meal` / `get_plan` | Wochenplan |
+| `essensplaner.move_meal` / `copy_plan` | Verschieben/Tauschen, Wochen kopieren |
 | `essensplaner.suggest_recipes` / `auto_plan` | Vorschläge / automatisch planen |
-| `essensplaner.generate_shopping_list` | Einkaufsliste erzeugen |
+| `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen / abrufen |
 | `essensplaner.mark_cooked` | Als gekocht merken (bessere Vorschläge) |
+| `essensplaner.export_recipes` / `import_recipes` | Backup & Teilen |
 
 ```yaml
 action: essensplaner.plan_meal
@@ -98,20 +143,25 @@ data:
 ```
 
 ```yaml
-action: essensplaner.get_recipe
+action: essensplaner.find_by_ingredients
 data:
-  recipe: Chili con Carne
-  servings: 6
-response_variable: rezept
+  ingredients: Hähnchen, Reis, Paprika
+response_variable: ideen
 ```
 
-Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml) (Erinnerung ans Abendessen, Einkaufsliste am Samstag, Woche automatisch füllen) und [`examples/dashboard.yaml`](examples/dashboard.yaml).
+Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 
 ## Optionen
-*Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren*: Standard-Portionen, verwendete Mahlzeiten und Uhrzeiten, Standard-Mahlzeit, Vorratsschrank, Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren, Intents an/aus, Panel an/aus.
+*Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren*:
+- Standard-Portionen, verwendete Mahlzeiten und Uhrzeiten, Standard-Mahlzeit
+- Vorratsschrank: Zutaten, die nie auf die Einkaufsliste kommen
+- **Nie vorschlagen**: z. B. „Fisch, Pilze“
+- **Geplantes automatisch als gekocht zählen** (Standard: an)
+- Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren
+- Intents an/aus, Panel an/aus
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst.
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen).
 
 ## Entwicklung
 
@@ -121,4 +171,4 @@ pip install hassil home-assistant-intents  # Versionen passend zu components/con
 pytest
 ```
 
-Lizenz: MIT
+Änderungen: [CHANGELOG.md](CHANGELOG.md) · Lizenz: MIT

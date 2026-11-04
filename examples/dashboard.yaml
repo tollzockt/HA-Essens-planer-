@@ -8,7 +8,24 @@ sections:
   - type: grid
     cards:
       - type: heading
-        heading: Heute & morgen
+        heading: Essensplaner-Karte
+      # Eigene Karte der Integration (wird automatisch geladen):
+      - type: custom:essensplaner-card
+        mode: next
+        show_ingredients: true
+      - type: custom:essensplaner-card
+        mode: today
+      - type: custom:essensplaner-card
+        mode: week
+        start: monday
+      - type: tile
+        entity: button.essensplaner_auto_plan_week
+      - type: tile
+        entity: button.essensplaner_create_shopping_list
+  - type: grid
+    cards:
+      - type: heading
+        heading: Heute & morgen (Standardkarten)
       - type: tile
         entity: sensor.essensplaner_today
         name: Heute

@@ -65,6 +65,12 @@ class DaySensor(EssensplanerEntity, SensorEntity):
         return _truncate(" · ".join(f"{m['meal_label']}: {m['title']}" for m in meals))
 
     @property
+    def entity_picture(self) -> str | None:
+        """Image of the main meal (dinner first)."""
+        meals = sorted(self._meals, key=lambda m: m["meal"] != self.manager.default_meal)
+        return next((m["image"] for m in meals if m.get("image")), None)
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Per meal details."""
         day = self.manager.today() + timedelta(days=self._offset)

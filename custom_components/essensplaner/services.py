@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -50,19 +51,25 @@ from .const import (
     DOMAIN,
     SERVICE_ADD_RECIPE,
     SERVICE_AUTO_PLAN,
+    SERVICE_COPY_PLAN,
     SERVICE_DELETE_RECIPE,
+    SERVICE_EXPORT_RECIPES,
+    SERVICE_FIND_BY_INGREDIENTS,
     SERVICE_GET_PLAN,
     SERVICE_GET_RECIPE,
     SERVICE_GET_RECIPES,
+    SERVICE_GET_SHOPPING_LIST,
     SERVICE_IMPORT_RECIPE,
+    SERVICE_IMPORT_RECIPES,
     SERVICE_MARK_COOKED,
+    SERVICE_MOVE_MEAL,
     SERVICE_PLAN_MEAL,
     SERVICE_REMOVE_MEAL,
     SERVICE_SHOPPING_LIST,
     SERVICE_SUGGEST,
     SERVICE_UPDATE_RECIPE,
 )
-from .dates import DateParseError, parse_date, parse_meal
+from .dates import DateParseError, parse_date, parse_meal, week_start
 from .ingredients import fold
 from .recipe_import import async_fetch_recipe
 
@@ -165,6 +172,84 @@ MARK_COOKED_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MEAL): cv.string,
     }
 )
+MOVE_MEAL_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_RECIPE): cv.string,
+        vol.Optional("from_date"): cv.string,
+        vol.Optional("from_meal"): cv.string,
+        vol.Required("to_date"): cv.string,
+        vol.Optional("to_meal"): cv.string,
+    }
+)
+COPY_PLAN_SCHEMA = vol.Schema(
+    {
+        vol.Optional("source_start"): cv.string,
+        vol.Optional("target_start"): cv.string,
+        vol.Optional(ATTR_DAYS, default=7): _DAYS,
+        vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean,
+    }
+)
+FIND_BY_INGREDIENTS_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_INGREDIENTS): vol.Any(cv.string, [cv.string]),
+        vol.Optional(ATTR_COUNT, default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=50)),
+        vol.Optional(ATTR_MEAL): cv.string,
+    }
+)
+EMPTY_SCHEMA = vol.Schema({})
+EXPORT_SCHEMA = vol.Schema({vol.Optional("recipes"): vol.All(cv.ensure_list, [cv.string])})
+IMPORT_RECIPES_SCHEMA = vol.Schema(
+    {
+        vol.Required("recipes"): vol.Any(cv.string, [dict]),
+        vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean,
+    }
+)
+
+
+def split_list(value: Any) -> list[str]:
+    """Split 'Hähnchen, Reis und Paprika' into items."""
+    if isinstance(value, list):
+        items = [str(v) for v in value]
+    else:
+        text = str(value or "")
+        for sep in (";", "\n", " und ", " and ", " sowie ", "&"):
+            text = text.replace(sep, ",")
+        items = text.split(",")
+    return [i.strip() for i in items if i.strip()]
+
+
+def resolve_move(
+    manager: EssensplanerManager,
+    dish: str | None,
+    from_date: str | None,
+    from_meal: str | None,
+    to_date: str,
+    to_meal: str | None,
+) -> tuple[date, str, date, str]:
+    """Work out source and target of a move."""
+    if from_date or not dish:
+        src_day, hint = resolve_day(manager, from_date)
+        src_meal = resolve_meal(manager, from_meal, hint, default=False)
+        if src_meal is None:
+            planned = manager.plan.get(src_day.isoformat(), {})
+            if dish and (found := manager.find_planned(dish, src_day, days=1)):
+                src_meal = found[1]
+            elif len(planned) == 1:
+                src_meal = next(iter(planned))
+            else:
+                src_meal = manager.default_meal
+    else:
+        found = manager.find_planned(dish)
+        if found is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="dish_not_planned",
+                translation_placeholders={"name": dish},
+            )
+        src_day, src_meal = found
+    dst_day, dst_hint = resolve_day(manager, to_date)
+    dst_meal = resolve_meal(manager, to_meal, dst_hint, default=False) or src_meal
+    return src_day, src_meal, dst_day, dst_meal
 
 
 def get_manager(hass: HomeAssistant) -> EssensplanerManager:
@@ -404,6 +489,67 @@ def async_setup_services(hass: HomeAssistant) -> None:
         recipe = manager.mark_cooked(recipe, day, meal)
         return {"recipe": manager.recipe_summary(recipe) if recipe else None}
 
+    async def move_meal(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        src_day, src_meal, dst_day, dst_meal = resolve_move(
+            manager,
+            call.data.get(ATTR_RECIPE),
+            call.data.get("from_date"),
+            call.data.get("from_meal"),
+            call.data["to_date"],
+            call.data.get("to_meal"),
+        )
+        return manager.move_meal(src_day, src_meal, dst_day, dst_meal)
+
+    async def copy_plan(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        if call.data.get("target_start"):
+            target, _ = resolve_day(manager, call.data["target_start"])
+        else:
+            target = week_start(manager.today())
+        if call.data.get("source_start"):
+            source, _ = resolve_day(manager, call.data["source_start"])
+        else:
+            source = target - timedelta(days=7)
+        copied = manager.copy_plan(
+            source, target, call.data[ATTR_DAYS], overwrite=call.data[ATTR_OVERWRITE]
+        )
+        return {"copied": copied}
+
+    async def find_by_ingredients(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        meal = resolve_meal(manager, call.data.get(ATTR_MEAL), None, default=False)
+        return {
+            "recipes": manager.find_by_ingredients(
+                split_list(call.data[ATTR_INGREDIENTS]), call.data[ATTR_COUNT], meal
+            )
+        }
+
+    async def get_shopping_list(call: ServiceCall) -> ServiceResponse:
+        return get_manager(hass).shopping_overview()
+
+    async def export_recipes(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        ids = None
+        if names := call.data.get("recipes"):
+            ids = [manager.resolve_recipe(name=n)["id"] for n in names]
+        return {"version": 1, "recipes": manager.export_recipes(ids)}
+
+    async def import_recipes(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        recipes = call.data["recipes"]
+        if isinstance(recipes, str):
+            try:
+                parsed = json.loads(recipes)
+            except ValueError as err:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="invalid_json"
+                ) from err
+            recipes = parsed.get("recipes", []) if isinstance(parsed, dict) else parsed
+        if not isinstance(recipes, list):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_json")
+        return manager.import_recipes(recipes, overwrite=call.data[ATTR_OVERWRITE])
+
     services: list[tuple[str, Any, vol.Schema]] = [
         (SERVICE_ADD_RECIPE, add_recipe, ADD_RECIPE_SCHEMA),
         (SERVICE_UPDATE_RECIPE, update_recipe, UPDATE_RECIPE_SCHEMA),
@@ -418,6 +564,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_AUTO_PLAN, auto_plan, AUTO_PLAN_SCHEMA),
         (SERVICE_SHOPPING_LIST, shopping_list, SHOPPING_SCHEMA),
         (SERVICE_MARK_COOKED, mark_cooked, MARK_COOKED_SCHEMA),
+        (SERVICE_MOVE_MEAL, move_meal, MOVE_MEAL_SCHEMA),
+        (SERVICE_COPY_PLAN, copy_plan, COPY_PLAN_SCHEMA),
+        (SERVICE_FIND_BY_INGREDIENTS, find_by_ingredients, FIND_BY_INGREDIENTS_SCHEMA),
+        (SERVICE_GET_SHOPPING_LIST, get_shopping_list, EMPTY_SCHEMA),
+        (SERVICE_EXPORT_RECIPES, export_recipes, EXPORT_SCHEMA),
+        (SERVICE_IMPORT_RECIPES, import_recipes, IMPORT_RECIPES_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

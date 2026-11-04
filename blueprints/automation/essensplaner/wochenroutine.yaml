@@ -1,0 +1,126 @@
+blueprint:
+  name: "Essensplaner: Wochen-Routine"
+  description: >
+    Einmal pro Woche automatisch freie Mahlzeiten der nächsten 7 Tage füllen und die
+    Einkaufsliste erstellen – optional mit Push-Nachricht, was geplant wurde.
+  domain: automation
+  author: Essensplaner
+  source_url: https://github.com/tollzockt/HA-Essens-planer-/blob/HEAD/blueprints/automation/essensplaner/wochenroutine.yaml
+  homeassistant:
+    min_version: "2025.4.0"
+  input:
+    weekday:
+      name: Wochentag
+      default: sat
+      selector:
+        select:
+          options:
+            - label: Montag
+              value: mon
+            - label: Dienstag
+              value: tue
+            - label: Mittwoch
+              value: wed
+            - label: Donnerstag
+              value: thu
+            - label: Freitag
+              value: fri
+            - label: Samstag
+              value: sat
+            - label: Sonntag
+              value: sun
+    run_time:
+      name: Uhrzeit
+      default: "09:00:00"
+      selector:
+        time: {}
+    auto_plan:
+      name: Freie Abende automatisch planen
+      default: true
+      selector:
+        boolean: {}
+    meals:
+      name: Welche Mahlzeiten automatisch planen
+      default:
+        - abendessen
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Frühstück
+              value: fruehstueck
+            - label: Mittagessen
+              value: mittagessen
+            - label: Snack
+              value: snack
+            - label: Abendessen
+              value: abendessen
+    shopping_list:
+      name: Einkaufsliste erstellen
+      default: true
+      selector:
+        boolean: {}
+    notify_devices:
+      name: Handys (Push-Nachricht)
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+
+triggers:
+  - trigger: time
+    at: !input run_time
+
+conditions:
+  - condition: time
+    weekday: !input weekday
+
+variables:
+  do_plan: !input auto_plan
+  do_shopping: !input shopping_list
+  meals: !input meals
+  notify_devices: !input notify_devices
+
+actions:
+  - variables:
+      planned_titles: []
+      shopping_count: 0
+  - if:
+      - condition: template
+        value_template: "{{ do_plan }}"
+    then:
+      - action: essensplaner.auto_plan
+        data:
+          start_date: heute
+          days: 7
+          meals: "{{ meals }}"
+        response_variable: plan_result
+      - variables:
+          planned_titles: "{{ plan_result.planned | map(attribute='title') | list }}"
+  - if:
+      - condition: template
+        value_template: "{{ do_shopping }}"
+    then:
+      - action: essensplaner.generate_shopping_list
+        data:
+          start_date: heute
+          days: 7
+        response_variable: shopping_result
+      - variables:
+          shopping_count: "{{ shopping_result['items'] | count }}"
+  - repeat:
+      for_each: "{{ notify_devices }}"
+      sequence:
+        - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          continue_on_error: true
+          data:
+            title: "🗓️ Essensplan für die Woche"
+            message: >
+              {% if planned_titles %}Neu geplant: {{ planned_titles | join(', ') }}. {% endif %}
+              {% if do_shopping %}Die Einkaufsliste hat {{ shopping_count }} Artikel.{% endif %}
+            data:
+              url: /essensplaner
+              clickAction: /essensplaner
+
+mode: single

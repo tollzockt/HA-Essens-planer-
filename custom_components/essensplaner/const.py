@@ -44,6 +44,8 @@ CONF_SYNC_TODO: Final = "shopping_sync_entity"
 CONF_REGISTER_INTENTS: Final = "register_intents"
 CONF_SHOW_PANEL: Final = "show_panel"
 CONF_MEAL_TIME_PREFIX: Final = "time_"
+CONF_EXCLUDED: Final = "excluded"
+CONF_AUTO_COOKED: Final = "auto_mark_cooked"
 
 DEFAULT_SERVINGS: Final = 2
 DEFAULT_MEAL: Final = MEAL_DINNER
@@ -64,6 +66,12 @@ SERVICE_SUGGEST: Final = "suggest_recipes"
 SERVICE_AUTO_PLAN: Final = "auto_plan"
 SERVICE_SHOPPING_LIST: Final = "generate_shopping_list"
 SERVICE_MARK_COOKED: Final = "mark_cooked"
+SERVICE_MOVE_MEAL: Final = "move_meal"
+SERVICE_COPY_PLAN: Final = "copy_plan"
+SERVICE_FIND_BY_INGREDIENTS: Final = "find_by_ingredients"
+SERVICE_GET_SHOPPING_LIST: Final = "get_shopping_list"
+SERVICE_EXPORT_RECIPES: Final = "export_recipes"
+SERVICE_IMPORT_RECIPES: Final = "import_recipes"
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"
@@ -99,3 +107,4 @@ ATTR_SYNC: Final = "sync"
 PANEL_URL_PATH: Final = DOMAIN
 PANEL_STATIC_URL: Final = f"/{DOMAIN}_static"
 PANEL_COMPONENT: Final = "essensplaner-panel"
+CARD_FILE: Final = "essensplaner-card.js"
