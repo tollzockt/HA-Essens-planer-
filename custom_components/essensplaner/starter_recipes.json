@@ -4,7 +4,11 @@
     "servings": 4,
     "prep_time": 15,
     "cook_time": 40,
-    "tags": ["Hauptgericht", "Pasta", "Klassiker"],
+    "tags": [
+      "Hauptgericht",
+      "Pasta",
+      "Klassiker"
+    ],
     "ingredients": [
       "400 g Spaghetti",
       "500 g Rinderhackfleisch",
@@ -33,7 +37,11 @@
     "servings": 4,
     "prep_time": 15,
     "cook_time": 35,
-    "tags": ["Hauptgericht", "Eintopf", "scharf"],
+    "tags": [
+      "Hauptgericht",
+      "Eintopf",
+      "scharf"
+    ],
     "ingredients": [
       "500 g Rinderhackfleisch",
       "2 Zwiebeln",
@@ -64,7 +72,12 @@
     "servings": 4,
     "prep_time": 15,
     "cook_time": 25,
-    "tags": ["Hauptgericht", "vegetarisch", "vegan", "Curry"],
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "Curry"
+    ],
     "ingredients": [
       "250 g Basmatireis",
       "1 Dose Kichererbsen (400 g)",
@@ -93,7 +106,13 @@
     "servings": 4,
     "prep_time": 10,
     "cook_time": 20,
-    "tags": ["Hauptgericht", "Frühstück", "vegetarisch", "süß", "schnell"],
+    "tags": [
+      "Hauptgericht",
+      "Frühstück",
+      "vegetarisch",
+      "süß",
+      "schnell"
+    ],
     "ingredients": [
       "250 g Weizenmehl",
       "500 ml Milch",
@@ -114,7 +133,12 @@
     "servings": 4,
     "prep_time": 15,
     "cook_time": 35,
-    "tags": ["Hauptgericht", "Suppe", "vegetarisch", "günstig"],
+    "tags": [
+      "Hauptgericht",
+      "Suppe",
+      "vegetarisch",
+      "günstig"
+    ],
     "ingredients": [
       "250 g Tellerlinsen",
       "300 g Kartoffeln",
@@ -141,7 +165,11 @@
     "servings": 2,
     "prep_time": 15,
     "cook_time": 30,
-    "tags": ["Hauptgericht", "vegetarisch", "Ofen"],
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Ofen"
+    ],
     "ingredients": [
       "400 g Kartoffeln",
       "2 Paprika",
@@ -166,7 +194,11 @@
     "servings": 4,
     "prep_time": 10,
     "cook_time": 25,
-    "tags": ["Hauptgericht", "Hähnchen", "schnell"],
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "schnell"
+    ],
     "ingredients": [
       "500 g Hähnchenbrust",
       "250 g Reis",
@@ -194,7 +226,12 @@
     "servings": 4,
     "prep_time": 15,
     "cook_time": 25,
-    "tags": ["Hauptgericht", "Suppe", "vegetarisch", "Klassiker"],
+    "tags": [
+      "Hauptgericht",
+      "Suppe",
+      "vegetarisch",
+      "Klassiker"
+    ],
     "ingredients": [
       "1 kg Kartoffeln",
       "2 Karotten",
@@ -222,7 +259,12 @@
     "servings": 4,
     "prep_time": 30,
     "cook_time": 60,
-    "tags": ["Hauptgericht", "Pasta", "Ofen", "Klassiker"],
+    "tags": [
+      "Hauptgericht",
+      "Pasta",
+      "Ofen",
+      "Klassiker"
+    ],
     "ingredients": [
       "250 g Lasagneplatten",
       "500 g Rinderhackfleisch",
@@ -253,7 +295,11 @@
     "name": "Overnight Oats",
     "servings": 2,
     "prep_time": 10,
-    "tags": ["Frühstück", "vegetarisch", "schnell"],
+    "tags": [
+      "Frühstück",
+      "vegetarisch",
+      "schnell"
+    ],
     "ingredients": [
       "100 g Haferflocken",
       "200 ml Milch",
@@ -274,7 +320,12 @@
     "servings": 2,
     "prep_time": 10,
     "cook_time": 20,
-    "tags": ["Hauptgericht", "Frühstück", "vegetarisch", "schnell"],
+    "tags": [
+      "Hauptgericht",
+      "Frühstück",
+      "vegetarisch",
+      "schnell"
+    ],
     "ingredients": [
       "4 Eier",
       "1 Dose gehackte Tomaten (400 g)",
@@ -302,7 +353,11 @@
     "servings": 4,
     "prep_time": 15,
     "cook_time": 10,
-    "tags": ["Hauptgericht", "Hähnchen", "schnell"],
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "schnell"
+    ],
     "ingredients": [
       "8 Wraps",
       "400 g Hähnchenbrust",
@@ -329,7 +384,12 @@
     "servings": 2,
     "prep_time": 5,
     "cook_time": 10,
-    "tags": ["Hauptgericht", "Pasta", "vegetarisch", "schnell"],
+    "tags": [
+      "Hauptgericht",
+      "Pasta",
+      "vegetarisch",
+      "schnell"
+    ],
     "ingredients": [
       "250 g Spaghetti",
       "4 Zehen Knoblauch",
@@ -351,7 +411,11 @@
     "servings": 2,
     "prep_time": 10,
     "cook_time": 30,
-    "tags": ["Hauptgericht", "Fisch", "Ofen"],
+    "tags": [
+      "Hauptgericht",
+      "Fisch",
+      "Ofen"
+    ],
     "ingredients": [
       "300 g Lachsfilet",
       "600 g Kartoffeln",
@@ -374,7 +438,12 @@
     "servings": 12,
     "prep_time": 15,
     "cook_time": 55,
-    "tags": ["Snack", "Kuchen", "vegetarisch", "Backen"],
+    "tags": [
+      "Snack",
+      "Kuchen",
+      "vegetarisch",
+      "Backen"
+    ],
     "ingredients": [
       "3 reife Bananen",
       "250 g Weizenmehl",
@@ -390,6 +459,3198 @@
       "Bananen zerdrücken und mit geschmolzener Butter, Zucker und Eiern verrühren.",
       "Mehl, Backpulver und Salz unterheben, gehackte Walnüsse zugeben.",
       "Teig in die Form füllen und etwa 55 Minuten backen (Stäbchenprobe)."
+    ]
+  },
+  {
+    "name": "Königsberger Klopse",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "Klassiker",
+      "Hackfleisch"
+    ],
+    "ingredients": [
+      "1 Brötchen (vom Vortag)",
+      "500 g gemischtes Hackfleisch",
+      "1 Zwiebel",
+      "1 Ei",
+      "1 TL mittelscharfer Senf",
+      "1 l Gemüsebrühe",
+      "1 Lorbeerblatt",
+      "40 g Butter",
+      "40 g Mehl",
+      "100 ml Schlagsahne",
+      "1 Eigelb",
+      "3 EL Kapern",
+      "1 EL Zitronensaft",
+      "1 Prise Zucker",
+      "800 g Kartoffeln (festkochend)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Brötchen in Wasser einweichen, gut ausdrücken und mit Hackfleisch, fein gewürfelter Zwiebel, Ei, Senf, Salz und Pfeffer verkneten. Mit nassen Händen 12 gleich große Klopse formen.",
+      "Brühe mit dem Lorbeerblatt aufkochen, die Klopse hineinlegen und bei schwacher Hitze 15 Minuten gar ziehen lassen. Inzwischen Kartoffeln schälen und in Salzwasser 20 Minuten kochen.",
+      "Klopse mit einer Schaumkelle herausheben und warm halten, 600 ml der Brühe abmessen.",
+      "Butter in einem Topf schmelzen, Mehl einrühren und kurz anschwitzen. Die Brühe nach und nach unter Rühren zugießen und die Sauce 5 Minuten leise köcheln lassen.",
+      "Sahne mit Eigelb verquirlen und in die nicht mehr kochende Sauce rühren. Kapern und Zitronensaft zugeben und mit Salz, Pfeffer und Zucker abschmecken.",
+      "Klopse in der Sauce kurz erwärmen und mit den Salzkartoffeln servieren."
+    ]
+  },
+  {
+    "name": "Rindergulasch",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 130,
+    "tags": [
+      "Hauptgericht",
+      "Rind",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "1 kg Rindergulasch",
+      "500 g Zwiebeln",
+      "2 Zehen Knoblauch",
+      "1 rote Paprika",
+      "3 EL Rapsöl",
+      "2 EL Tomatenmark",
+      "2 EL Paprikapulver (edelsüß)",
+      "1 TL Paprikapulver (rosenscharf)",
+      "1 TL Kümmel (gemahlen)",
+      "1 TL Majoran (getrocknet)",
+      "750 ml Rinderbrühe",
+      "1 Lorbeerblatt",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Fleisch trocken tupfen, Zwiebeln grob würfeln, Knoblauch fein hacken und die Paprika in mundgerechte Stücke schneiden.",
+      "Öl in einem Bräter stark erhitzen und das Fleisch portionsweise rundherum kräftig anbraten, dann herausnehmen.",
+      "Zwiebeln im Bratfett 10 Minuten goldbraun braten. Knoblauch, Tomatenmark und beide Paprikasorten zugeben und unter Rühren kurz mitrösten.",
+      "Fleisch zurück in den Topf geben, mit der Brühe ablöschen, Kümmel, Majoran und Lorbeerblatt zugeben und zugedeckt bei schwacher Hitze 90 Minuten schmoren lassen.",
+      "Paprika unterrühren und weitere 20 Minuten schmoren, bis das Fleisch zart ist. Mit Salz und Pfeffer abschmecken; dazu passen Nudeln, Spätzle oder Kartoffeln."
+    ]
+  },
+  {
+    "name": "Schweineschnitzel mit Bratkartoffeln",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 45,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Klassiker",
+      "Kinder"
+    ],
+    "ingredients": [
+      "4 Schweineschnitzel (à 150 g)",
+      "1 kg Kartoffeln (festkochend)",
+      "1 Zwiebel",
+      "2 Eier",
+      "60 g Mehl",
+      "100 g Paniermehl",
+      "100 ml Rapsöl",
+      "3 EL Butterschmalz",
+      "1 TL Paprikapulver (edelsüß)",
+      "1 Zitrone",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln mit Schale in Salzwasser 20 Minuten kochen, abgießen, etwas abkühlen lassen, pellen und in Scheiben schneiden.",
+      "Schnitzel zwischen Frischhaltefolie dünn klopfen, mit Salz und Pfeffer würzen und nacheinander in Mehl, verquirlten Eiern und Paniermehl wenden.",
+      "Butterschmalz in einer großen Pfanne erhitzen und die Kartoffelscheiben darin 15 Minuten goldbraun braten. Die gewürfelte Zwiebel in den letzten 5 Minuten zugeben und alles mit Salz, Pfeffer und Paprika würzen.",
+      "Öl in einer zweiten Pfanne erhitzen und die Schnitzel darin pro Seite 3 Minuten goldbraun ausbacken, dabei die Pfanne leicht schwenken.",
+      "Schnitzel kurz auf Küchenpapier abtropfen lassen und mit Bratkartoffeln, Zitronenspalten und gehackter Petersilie servieren."
+    ]
+  },
+  {
+    "name": "Frikadellen mit Kartoffelpüree",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "Hackfleisch",
+      "Klassiker",
+      "Kinder",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 Brötchen (vom Vortag)",
+      "500 g gemischtes Hackfleisch",
+      "1 Zwiebel",
+      "1 Ei",
+      "1 TL mittelscharfer Senf",
+      "1 TL Paprikapulver (edelsüß)",
+      "2 EL Rapsöl",
+      "1 kg Kartoffeln (mehligkochend)",
+      "200 ml Milch",
+      "40 g Butter",
+      "1 Prise Muskatnuss (gerieben)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln schälen, vierteln und in Salzwasser 20 Minuten weich kochen.",
+      "Brötchen in Wasser einweichen, gut ausdrücken und mit Hackfleisch, fein gewürfelter Zwiebel, Ei, Senf, Paprika, Salz und Pfeffer gründlich verkneten.",
+      "Aus der Masse 8 flache Frikadellen formen und im heißen Öl bei mittlerer Hitze von jeder Seite 5 Minuten braten.",
+      "Milch mit Butter erwärmen. Kartoffeln abgießen, fein stampfen und die warme Milch nach und nach unterrühren.",
+      "Püree mit Salz und Muskat abschmecken und mit den Frikadellen servieren."
+    ]
+  },
+  {
+    "name": "Hähnchengeschnetzeltes in Rahmsauce",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "Pfanne",
+      "schnell"
+    ],
+    "ingredients": [
+      "600 g Hähnchenbrust",
+      "250 g Champignons",
+      "1 Zwiebel",
+      "2 EL Rapsöl",
+      "1 EL Mehl",
+      "150 ml Hühnerbrühe",
+      "200 ml Schlagsahne",
+      "1 TL Paprikapulver (edelsüß)",
+      "1/2 Bund Petersilie",
+      "250 g Langkornreis",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Reis in leicht gesalzenem Wasser 15 Minuten garen. Hähnchenbrust in dünne Streifen schneiden, Zwiebel würfeln und Champignons in Scheiben schneiden.",
+      "Fleisch im heißen Öl portionsweise 4 Minuten kräftig anbraten, mit Salz, Pfeffer und Paprika würzen und herausnehmen.",
+      "Zwiebel und Champignons im Bratfett 5 Minuten braten, mit Mehl bestäuben und kurz anschwitzen.",
+      "Mit Brühe und Sahne ablöschen und die Sauce 5 Minuten sämig einköcheln lassen.",
+      "Fleisch zurück in die Sauce geben, kurz erhitzen, mit Salz und Pfeffer abschmecken und mit gehackter Petersilie und Reis servieren."
+    ]
+  },
+  {
+    "name": "Rinderrouladen mit Rotkohl",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 105,
+    "tags": [
+      "Hauptgericht",
+      "Rind",
+      "Klassiker",
+      "Sonntagsessen"
+    ],
+    "ingredients": [
+      "4 Rinderrouladen (à 180 g)",
+      "4 TL mittelscharfer Senf",
+      "4 Scheiben durchwachsener Speck",
+      "2 Gewürzgurken",
+      "2 Zwiebeln",
+      "1 Karotte",
+      "2 EL Butterschmalz",
+      "1 EL Tomatenmark",
+      "200 ml Rotwein (trocken)",
+      "400 ml Rinderbrühe",
+      "1 Lorbeerblatt",
+      "1 EL Speisestärke",
+      "1 Kopf Rotkohl (1 kg)",
+      "2 Äpfel (säuerlich)",
+      "1 EL Butter",
+      "2 EL Rotweinessig",
+      "2 EL Zucker",
+      "2 Gewürznelken",
+      "800 g Kartoffeln (festkochend)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Rouladen flach ausbreiten, salzen, pfeffern und dünn mit Senf bestreichen. Mit je 1 Scheibe Speck, Streifen von 1 Zwiebel und Gurkenstreifen belegen, fest aufrollen und mit Rouladennadeln oder Küchengarn fixieren.",
+      "Rouladen im heißen Butterschmalz rundherum kräftig anbraten und herausnehmen. Die zweite Zwiebel und die Karotte würfeln, im Bratfett anrösten, Tomatenmark kurz mitrösten und mit Rotwein ablöschen.",
+      "Brühe und Lorbeerblatt zugeben, die Rouladen hineinlegen und zugedeckt bei schwacher Hitze 90 Minuten schmoren lassen.",
+      "Inzwischen Rotkohl in feine Streifen schneiden und die Äpfel würfeln. Beides in Butter andünsten, Essig, Zucker, Nelken, Salz und 100 ml Wasser zugeben und zugedeckt 50 Minuten schmoren lassen.",
+      "Kartoffeln schälen und in Salzwasser 20 Minuten kochen.",
+      "Rouladen herausnehmen, die Sauce durch ein Sieb streichen, mit in kaltem Wasser angerührter Stärke binden und mit Salz und Pfeffer abschmecken. Rouladen mit Sauce, Rotkohl und Kartoffeln servieren."
+    ]
+  },
+  {
+    "name": "Currywurst mit Ofenpommes",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Ofen",
+      "Kinder",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 kg Kartoffeln (festkochend)",
+      "4 EL Rapsöl",
+      "2 TL Paprikapulver (edelsüß)",
+      "6 Bratwürste",
+      "1 Zwiebel",
+      "2 EL Currypulver",
+      "2 EL Tomatenmark",
+      "400 g passierte Tomaten",
+      "2 EL Zucker",
+      "2 EL Apfelessig",
+      "1 TL Worcestersauce",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 220 °C Ober-/Unterhitze vorheizen. Kartoffeln schälen, in Stäbchen schneiden, trocken tupfen und mit 3 EL Öl, 1 TL Paprikapulver und Salz mischen.",
+      "Kartoffelstäbchen auf einem mit Backpapier belegten Blech verteilen und 30 Minuten goldbraun backen, dabei einmal wenden.",
+      "Für die Sauce die Zwiebel fein würfeln und im restlichen Öl glasig dünsten. 1 EL Currypulver, das restliche Paprikapulver und Tomatenmark kurz mitrösten.",
+      "Passierte Tomaten, Zucker, Essig und Worcestersauce zugeben und 15 Minuten einköcheln lassen. Die Sauce fein pürieren und mit Salz und Pfeffer abschmecken.",
+      "Bratwürste in einer Pfanne rundherum 10 Minuten braten, in Scheiben schneiden, mit der Sauce übergießen und mit dem restlichen Currypulver bestäuben. Mit den Ofenpommes servieren."
+    ]
+  },
+  {
+    "name": "Hackbraten",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 65,
+    "tags": [
+      "Hauptgericht",
+      "Hackfleisch",
+      "Ofen",
+      "Klassiker",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 Brötchen (vom Vortag)",
+      "750 g gemischtes Hackfleisch",
+      "1 Zwiebel",
+      "2 Eier",
+      "1 EL mittelscharfer Senf",
+      "1 TL Majoran (getrocknet)",
+      "1 TL Paprikapulver (edelsüß)",
+      "6 Scheiben Frühstücksspeck",
+      "1 EL Rapsöl",
+      "250 ml Rinderbrühe",
+      "100 ml Schlagsahne",
+      "1 TL Speisestärke",
+      "800 g Kartoffeln (festkochend)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 180 °C Ober-/Unterhitze vorheizen. Brötchen in Wasser einweichen und gut ausdrücken, Zwiebel fein würfeln.",
+      "Hackfleisch mit Brötchen, Zwiebel, Eiern, Senf, Majoran, Paprika, Salz und Pfeffer zu einer glatten Masse verkneten und zu einem länglichen Laib formen.",
+      "Eine Auflaufform mit Öl ausstreichen, den Laib hineinsetzen, mit den Speckscheiben belegen und die Brühe angießen. Im Ofen 60 Minuten garen und zwischendurch mit dem Bratensaft begießen.",
+      "Inzwischen die Kartoffeln schälen und in Salzwasser 20 Minuten kochen.",
+      "Hackbraten aus der Form nehmen und 5 Minuten ruhen lassen. Den Bratenfond in einen kleinen Topf gießen, Sahne zugeben, aufkochen, mit angerührter Stärke binden und abschmecken.",
+      "Hackbraten in Scheiben schneiden und mit Sauce und Kartoffeln servieren."
+    ]
+  },
+  {
+    "name": "Hähnchenschenkel aus dem Ofen mit Gemüse",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 50,
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "Ofen",
+      "günstig"
+    ],
+    "ingredients": [
+      "4 Hähnchenschenkel (à 250 g)",
+      "800 g Kartoffeln (festkochend)",
+      "3 Karotten",
+      "1 Zucchini",
+      "1 rote Paprika",
+      "2 rote Zwiebeln",
+      "3 Zehen Knoblauch",
+      "4 EL Olivenöl",
+      "2 TL Paprikapulver (edelsüß)",
+      "1 TL Thymian (getrocknet)",
+      "1 TL Rosmarin (getrocknet)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen. Kartoffeln waschen und vierteln, Karotten in dicke Scheiben und Zwiebeln in Spalten schneiden.",
+      "2 EL Öl mit Paprikapulver, gepresstem Knoblauch, Salz und Pfeffer verrühren und die Hähnchenschenkel rundherum damit einreiben.",
+      "Kartoffeln, Karotten und Zwiebeln mit dem restlichen Öl, Thymian, Rosmarin und Salz mischen und auf einem tiefen Backblech verteilen. Die Schenkel mit der Hautseite nach oben darauflegen.",
+      "Alles 25 Minuten im Ofen garen. Inzwischen Zucchini und Paprika in grobe Stücke schneiden, auf dem Blech verteilen und weitere 25 Minuten backen, bis die Haut knusprig ist.",
+      "Hähnchen und Gemüse kurz abschmecken und direkt vom Blech servieren."
+    ]
+  },
+  {
+    "name": "Gefüllte Paprika mit Hackfleisch",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 50,
+    "tags": [
+      "Hauptgericht",
+      "Hackfleisch",
+      "Ofen",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "4 große Paprikaschoten",
+      "100 g Langkornreis",
+      "400 g gemischtes Hackfleisch",
+      "1 Zwiebel",
+      "1 Zehe Knoblauch",
+      "1 Ei",
+      "1 TL Paprikapulver (edelsüß)",
+      "1 TL Oregano (getrocknet)",
+      "1 EL Rapsöl",
+      "1 EL Tomatenmark",
+      "1 Dose gehackte Tomaten (400 g)",
+      "200 ml Gemüsebrühe",
+      "1 Prise Zucker",
+      "100 g Gouda (gerieben)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Reis in Salzwasser 10 Minuten vorgaren und abgießen. Backofen auf 180 °C Ober-/Unterhitze vorheizen.",
+      "Von den Paprikaschoten einen Deckel abschneiden und Kerne sowie weiße Trennwände entfernen.",
+      "Hackfleisch mit Reis, fein gewürfelter Zwiebel, Ei, Paprikapulver, Oregano, Salz und Pfeffer verkneten und in die Paprika füllen.",
+      "Knoblauch fein hacken und im Öl andünsten, Tomatenmark kurz mitrösten, gehackte Tomaten und Brühe zugeben, mit Salz, Pfeffer und Zucker würzen und in eine Auflaufform gießen.",
+      "Paprika in die Sauce setzen, die Deckel auflegen und 40 Minuten im Ofen garen. Deckel abnehmen, Käse auf die Füllung streuen und weitere 10 Minuten überbacken."
+    ]
+  },
+  {
+    "name": "Kohlrouladen",
+    "servings": 4,
+    "prep_time": 40,
+    "cook_time": 60,
+    "tags": [
+      "Hauptgericht",
+      "Hackfleisch",
+      "Klassiker",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 Kopf Weißkohl (1,5 kg)",
+      "1 Brötchen (vom Vortag)",
+      "500 g gemischtes Hackfleisch",
+      "1 Zwiebel",
+      "1 Ei",
+      "1 TL Majoran (getrocknet)",
+      "2 EL Butterschmalz",
+      "1 EL Tomatenmark",
+      "500 ml Rinderbrühe",
+      "1 TL Kümmel",
+      "100 ml Schlagsahne",
+      "1 EL Speisestärke",
+      "800 g Kartoffeln (festkochend)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Den Strunk vom Weißkohl keilförmig herausschneiden und den Kohl in einen großen Topf mit kochendem Salzwasser legen. Nach und nach 8 große Blätter ablösen, jeweils 3 Minuten blanchieren und kalt abschrecken.",
+      "Dicke Blattrippen flach schneiden. Brötchen einweichen, ausdrücken und mit Hackfleisch, gewürfelter Zwiebel, Ei, Majoran, Salz und Pfeffer verkneten.",
+      "Jeweils 2 Kohlblätter überlappend auslegen, ein Viertel der Füllung daraufgeben, die Seiten einschlagen, fest aufrollen und mit Küchengarn binden.",
+      "Rouladen im Butterschmalz rundherum anbraten, Tomatenmark kurz mitrösten, mit Brühe ablöschen, Kümmel zugeben und zugedeckt 45 Minuten schmoren lassen.",
+      "Inzwischen Kartoffeln schälen und in Salzwasser 20 Minuten kochen.",
+      "Rouladen herausnehmen und das Garn entfernen. Die Sauce mit Sahne und angerührter Stärke binden, abschmecken und mit Rouladen und Kartoffeln servieren."
+    ]
+  },
+  {
+    "name": "Hühnerfrikassee",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 45,
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "Klassiker",
+      "Kinder"
+    ],
+    "ingredients": [
+      "600 g Hähnchenbrust",
+      "1 l Hühnerbrühe",
+      "1 Zwiebel",
+      "250 g Champignons",
+      "1 Glas Spargelabschnitte (330 g)",
+      "150 g Erbsen (TK)",
+      "40 g Butter",
+      "40 g Mehl",
+      "100 ml Schlagsahne",
+      "1 EL Zitronensaft",
+      "1 Prise Zucker",
+      "1 Prise Muskatnuss (gerieben)",
+      "250 g Langkornreis",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Brühe aufkochen, die Hähnchenbrust hineinlegen und bei schwacher Hitze 20 Minuten gar ziehen lassen. Herausnehmen, etwas abkühlen lassen und in mundgerechte Stücke schneiden; die Brühe aufheben.",
+      "Reis in leicht gesalzenem Wasser 15 Minuten garen. Zwiebel würfeln, Champignons vierteln und den Spargel abtropfen lassen.",
+      "Butter in einem Topf schmelzen, Zwiebel und Champignons darin 5 Minuten dünsten, mit Mehl bestäuben und kurz anschwitzen.",
+      "600 ml der Brühe nach und nach unter Rühren zugießen und die Sauce 10 Minuten leise köcheln lassen.",
+      "Erbsen, Spargel, Fleisch und Sahne zugeben und 5 Minuten erhitzen. Mit Zitronensaft, Salz, Pfeffer, Zucker und Muskat abschmecken und mit dem Reis servieren."
+    ]
+  },
+  {
+    "name": "Jägerschnitzel mit Spätzle",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "400 g Mehl (für die Spätzle)",
+      "4 Eier",
+      "150 ml Mineralwasser (mit Kohlensäure)",
+      "1 Prise Muskatnuss (gerieben)",
+      "1 EL Butter",
+      "4 Schweineschnitzel (à 150 g)",
+      "2 EL Mehl (zum Wenden)",
+      "2 EL Butterschmalz",
+      "400 g Champignons",
+      "1 Zwiebel",
+      "1 EL Tomatenmark",
+      "250 ml Rinderbrühe",
+      "150 ml Schlagsahne",
+      "1 TL Speisestärke",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Mehl, Eier, Mineralwasser, 1 TL Salz und Muskat mit einem Kochlöffel zu einem zähen Teig schlagen, bis er Blasen wirft, und 10 Minuten ruhen lassen.",
+      "Teig portionsweise mit einem Spätzlehobel in kochendes Salzwasser drücken. Sobald die Spätzle nach 2 Minuten oben schwimmen, abschöpfen und in der Butter schwenken.",
+      "Schnitzel flach klopfen, salzen, pfeffern, dünn in Mehl wenden und im Butterschmalz pro Seite 3 Minuten braten. Herausnehmen und warm halten.",
+      "Zwiebel würfeln, Champignons in Scheiben schneiden und im Bratfett 6 Minuten kräftig anbraten, dann das Tomatenmark kurz mitrösten.",
+      "Mit Brühe und Sahne ablöschen und 5 Minuten köcheln lassen. Mit angerührter Stärke leicht binden und mit Salz und Pfeffer abschmecken.",
+      "Schnitzel kurz in die Sauce legen und mit Spätzle und gehackter Petersilie servieren."
+    ]
+  },
+  {
+    "name": "Schweinemedaillons mit Champignonrahm",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Pfanne"
+    ],
+    "ingredients": [
+      "600 g Schweinefilet",
+      "300 g braune Champignons",
+      "2 Schalotten",
+      "1 Zehe Knoblauch",
+      "2 EL Butterschmalz",
+      "150 ml Gemüsebrühe",
+      "200 ml Schlagsahne",
+      "1 TL mittelscharfer Senf",
+      "1/2 Bund Schnittlauch",
+      "400 g Bandnudeln",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 80 °C Ober-/Unterhitze vorheizen. Schweinefilet von Sehnen befreien, in 8 Medaillons schneiden und leicht flach drücken.",
+      "Medaillons salzen, pfeffern und im heißen Butterschmalz von jeder Seite 3 Minuten anbraten. Auf einem Teller im Ofen 10 Minuten nachgaren lassen.",
+      "Bandnudeln in Salzwasser nach Packungsangabe kochen. Schalotten und Knoblauch fein würfeln, Champignons in Scheiben schneiden.",
+      "Pilze im Bratfett 5 Minuten kräftig anbraten, Schalotten und Knoblauch zugeben und kurz mitdünsten, dann mit der Brühe ablöschen.",
+      "Sahne und Senf einrühren und 5 Minuten sämig köcheln lassen. Den ausgetretenen Fleischsaft zugeben und mit Salz und Pfeffer abschmecken.",
+      "Medaillons mit Champignonrahm, Nudeln und Schnittlauchröllchen servieren."
+    ]
+  },
+  {
+    "name": "Chicken Tikka Masala",
+    "servings": 4,
+    "prep_time": 50,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "Indisch"
+    ],
+    "ingredients": [
+      "700 g Hähnchenbrust",
+      "1 Becher Naturjoghurt (150 g)",
+      "1 EL Zitronensaft",
+      "3 TL Garam Masala",
+      "2 TL Paprikapulver (edelsüß)",
+      "1 TL Kurkuma",
+      "1 TL Kreuzkümmel (gemahlen)",
+      "1/2 TL Chilipulver",
+      "1 Zwiebel",
+      "3 Zehen Knoblauch",
+      "1 Stück Ingwer (3 cm)",
+      "2 EL Rapsöl",
+      "2 EL Tomatenmark",
+      "1 Dose gehackte Tomaten (400 g)",
+      "1 TL Zucker",
+      "150 ml Schlagsahne",
+      "1/2 Bund Koriander",
+      "300 g Basmatireis",
+      "Salz"
+    ],
+    "steps": [
+      "Hähnchen in mundgerechte Würfel schneiden und mit Joghurt, Zitronensaft, 1 TL Garam Masala, Paprikapulver, Kurkuma und Salz vermengen. Abgedeckt im Kühlschrank 30 Minuten marinieren.",
+      "Basmatireis in leicht gesalzenem Wasser 12 Minuten garen.",
+      "Fleisch aus der Marinade nehmen und in einer großen Pfanne in 1 EL Öl portionsweise 5 Minuten scharf anbraten, dann herausnehmen.",
+      "Zwiebel, Knoblauch und Ingwer fein hacken und im restlichen Öl 5 Minuten dünsten. Restliches Garam Masala, Kreuzkümmel, Chili und Tomatenmark kurz mitrösten.",
+      "Gehackte Tomaten und Zucker zugeben und 10 Minuten köcheln lassen. Die Sauce fein pürieren und die Sahne einrühren.",
+      "Fleisch in die Sauce geben und 5 Minuten darin gar ziehen lassen. Mit Salz abschmecken und mit gehacktem Koriander und Reis servieren."
+    ]
+  },
+  {
+    "name": "Hähnchen süß-sauer",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "Hähnchen",
+      "Asiatisch",
+      "Pfanne"
+    ],
+    "ingredients": [
+      "600 g Hähnchenbrust",
+      "3 EL Speisestärke",
+      "3 EL Sojasauce",
+      "1 rote Paprika",
+      "1 grüne Paprika",
+      "1 Zwiebel",
+      "2 Karotten",
+      "1 Zehe Knoblauch",
+      "1 Stück Ingwer (2 cm)",
+      "1 Dose Ananasstücke (340 g)",
+      "3 EL Tomatenketchup",
+      "3 EL Reisessig",
+      "2 EL brauner Zucker",
+      "3 EL Rapsöl",
+      "300 g Jasminreis",
+      "Salz"
+    ],
+    "steps": [
+      "Jasminreis in leicht gesalzenem Wasser 15 Minuten garen. Hähnchen in Würfel schneiden und mit 1 EL Sojasauce und 2 EL Stärke vermengen.",
+      "Paprika und Zwiebel in Stücke, Karotten in dünne Scheiben schneiden, Knoblauch und Ingwer fein hacken. Ananas abtropfen lassen und dabei 100 ml Saft auffangen.",
+      "Für die Sauce Ananassaft, Ketchup, Reisessig, Zucker, restliche Sojasauce und die übrige Stärke glatt verrühren.",
+      "Hähnchen im heißen Öl im Wok oder in einer großen Pfanne 5 Minuten goldbraun braten und herausnehmen.",
+      "Gemüse, Knoblauch und Ingwer im Bratfett 4 Minuten unter Rühren braten, Ananas zugeben und die Sauce angießen.",
+      "Sauce unter Rühren 2 Minuten andicken lassen, das Fleisch unterheben und mit dem Reis servieren."
+    ]
+  },
+  {
+    "name": "Gyros-Pfanne mit Tzatziki",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Griechisch",
+      "Pfanne"
+    ],
+    "ingredients": [
+      "600 g Schweinenackensteaks (ohne Knochen)",
+      "2 Zwiebeln",
+      "3 Zehen Knoblauch",
+      "4 EL Olivenöl",
+      "1 TL Oregano (getrocknet)",
+      "1 TL Thymian (getrocknet)",
+      "1 TL Paprikapulver (edelsüß)",
+      "1/2 TL Kreuzkümmel (gemahlen)",
+      "1 Salatgurke",
+      "500 g griechischer Joghurt",
+      "1 EL Zitronensaft",
+      "2 Tomaten",
+      "4 Pitabrote",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Für das Tzatziki die Gurke grob raspeln, leicht salzen und 10 Minuten ziehen lassen, dann kräftig ausdrücken.",
+      "Gurke mit Joghurt, 2 gepressten Knoblauchzehen, 1 EL Olivenöl, Zitronensaft, Salz und Pfeffer verrühren und kalt stellen.",
+      "Fleisch in dünne Streifen schneiden und mit der restlichen gepressten Knoblauchzehe, Oregano, Thymian, Paprika, Kreuzkümmel, Salz und Pfeffer vermengen. Zwiebeln in Ringe schneiden.",
+      "Fleisch im restlichen Öl in einer großen Pfanne portionsweise 6 Minuten scharf anbraten, Zwiebeln zugeben und weitere 4 Minuten mitbraten.",
+      "Pitabrote kurz in einer Pfanne erwärmen und mit Gyros, Tomatenwürfeln und Tzatziki servieren."
+    ]
+  },
+  {
+    "name": "Leberkäse mit Spiegelei und Kartoffelsalat",
+    "servings": 4,
+    "prep_time": 40,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Klassiker",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 kg Kartoffeln (festkochend)",
+      "1 Zwiebel",
+      "250 ml Rinderbrühe",
+      "4 EL Weißweinessig",
+      "1 TL mittelscharfer Senf",
+      "1 TL Zucker",
+      "4 EL Rapsöl",
+      "1/2 Bund Schnittlauch",
+      "4 Scheiben Leberkäse (à 150 g)",
+      "4 Eier",
+      "1 EL Butterschmalz",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln mit Schale in Salzwasser 20 Minuten kochen, abgießen, kurz ausdampfen lassen, pellen und noch warm in dünne Scheiben schneiden.",
+      "Zwiebel fein würfeln und in der Brühe 2 Minuten aufkochen. Essig, Senf, Zucker, Salz und Pfeffer einrühren.",
+      "Heiße Marinade über die Kartoffeln gießen, vorsichtig mischen, das Öl unterheben und den Salat 30 Minuten durchziehen lassen. Zum Schluss mit Schnittlauchröllchen bestreuen.",
+      "Leberkäse im Butterschmalz von jeder Seite 3 Minuten knusprig braten und warm halten.",
+      "Eier in derselben Pfanne aufschlagen und bei mittlerer Hitze 4 Minuten zu Spiegeleiern braten. Leicht salzen und mit Leberkäse und Kartoffelsalat servieren."
+    ]
+  },
+  {
+    "name": "Szegediner Gulasch",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 90,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Eintopf",
+      "günstig"
+    ],
+    "ingredients": [
+      "800 g Schweinegulasch",
+      "3 Zwiebeln",
+      "2 Zehen Knoblauch",
+      "2 EL Schweineschmalz",
+      "1 EL Tomatenmark",
+      "2 EL Paprikapulver (edelsüß)",
+      "1 TL Paprikapulver (rosenscharf)",
+      "1 TL Kümmel",
+      "400 ml Gemüsebrühe",
+      "1 Lorbeerblatt",
+      "600 g Sauerkraut",
+      "1 Becher saure Sahne (200 g)",
+      "800 g Kartoffeln (festkochend)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebeln in Streifen schneiden und Knoblauch hacken. Das Fleisch im heißen Schmalz in einem Bräter portionsweise kräftig anbraten.",
+      "Zwiebeln zugeben und 8 Minuten mitbraten. Knoblauch, Tomatenmark, beide Paprikasorten und Kümmel kurz mitrösten.",
+      "Mit der Brühe ablöschen, Lorbeerblatt zugeben und zugedeckt 45 Minuten schmoren lassen.",
+      "Sauerkraut abtropfen lassen, etwas auflockern, unter das Fleisch mischen und weitere 30 Minuten schmoren lassen. Inzwischen Kartoffeln schälen und in Salzwasser 20 Minuten kochen.",
+      "Gulasch mit Salz und Pfeffer abschmecken und mit je einem Klecks saurer Sahne und den Kartoffeln servieren."
+    ]
+  },
+  {
+    "name": "Bratwurst mit Sauerkraut und Kartoffelpüree",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "Schwein",
+      "Klassiker",
+      "günstig"
+    ],
+    "ingredients": [
+      "4 grobe Bratwürste (à 150 g)",
+      "1 EL Rapsöl",
+      "1 Zwiebel",
+      "1 Apfel",
+      "1 EL Schweineschmalz",
+      "600 g Sauerkraut",
+      "200 ml Gemüsebrühe",
+      "1 Lorbeerblatt",
+      "4 Wacholderbeeren",
+      "1 TL Zucker",
+      "1 kg Kartoffeln (mehligkochend)",
+      "200 ml Milch",
+      "40 g Butter",
+      "1 Prise Muskatnuss (gerieben)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel würfeln, Apfel schälen und klein schneiden. Zwiebel im Schmalz glasig dünsten, Sauerkraut, Apfel, Brühe, Lorbeerblatt, angedrückte Wacholderbeeren und Zucker zugeben und zugedeckt 30 Minuten schmoren lassen.",
+      "Kartoffeln schälen, vierteln und in Salzwasser 20 Minuten weich kochen.",
+      "Bratwürste im Öl bei mittlerer Hitze rundherum 12 Minuten braun braten.",
+      "Milch mit Butter erwärmen. Kartoffeln abgießen, stampfen, die Milch nach und nach unterrühren und das Püree mit Salz und Muskat abschmecken.",
+      "Lorbeerblatt und Wacholderbeeren aus dem Sauerkraut entfernen, mit Salz und Pfeffer abschmecken und mit Bratwurst und Püree servieren."
+    ]
+  },
+  {
+    "name": "Putengeschnetzeltes mit Paprika",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "Pute",
+      "Pfanne",
+      "schnell"
+    ],
+    "ingredients": [
+      "600 g Putenbrust",
+      "1 rote Paprika",
+      "1 gelbe Paprika",
+      "1 Zwiebel",
+      "1 Zehe Knoblauch",
+      "2 EL Rapsöl",
+      "1 EL Tomatenmark",
+      "2 TL Paprikapulver (edelsüß)",
+      "200 ml Gemüsebrühe",
+      "1 Becher Schmand (200 g)",
+      "300 g Langkornreis",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Reis in leicht gesalzenem Wasser 15 Minuten garen. Putenbrust und Paprika in feine Streifen, Zwiebel in Spalten schneiden und Knoblauch hacken.",
+      "Fleisch im heißen Öl portionsweise 3 Minuten scharf anbraten, salzen, pfeffern und herausnehmen.",
+      "Zwiebel, Paprika und Knoblauch im Bratfett 5 Minuten braten, dann Tomatenmark und Paprikapulver kurz mitrösten.",
+      "Mit der Brühe ablöschen, den Schmand einrühren und 5 Minuten köcheln lassen.",
+      "Fleisch zurück in die Pfanne geben, kurz erhitzen, mit Salz und Pfeffer abschmecken und mit gehackter Petersilie und Reis servieren."
+    ]
+  },
+  {
+    "name": "Hausgemachte Burger",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "Hackfleisch",
+      "Amerikanisch",
+      "Kinder"
+    ],
+    "ingredients": [
+      "600 g Rinderhackfleisch",
+      "4 Burgerbrötchen",
+      "4 Scheiben Cheddar",
+      "2 Tomaten",
+      "1 rote Zwiebel",
+      "1/2 Kopf Eisbergsalat",
+      "2 Gewürzgurken",
+      "1 EL Rapsöl",
+      "3 EL Mayonnaise",
+      "2 EL Tomatenketchup",
+      "1 TL mittelscharfer Senf",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Hackfleisch mit Salz und Pfeffer nur kurz verkneten, in 4 Portionen teilen und zu flachen Patties formen, die etwas größer als die Brötchen sind. In die Mitte jeweils eine kleine Mulde drücken.",
+      "Mayonnaise, Ketchup und Senf zu einer Burgersauce verrühren. Tomaten, Zwiebel und Gewürzgurken in Scheiben schneiden und den Salat in Blätter zupfen.",
+      "Patties in einer Grillpfanne im heißen Öl von jeder Seite 4 Minuten braten. In der letzten Minute je 1 Scheibe Cheddar auflegen und schmelzen lassen.",
+      "Brötchen aufschneiden und mit der Schnittfläche nach unten 1 Minute in der Pfanne anrösten.",
+      "Brötchen mit Sauce bestreichen, mit Salat, Patty, Tomate, Zwiebel und Gurke belegen und sofort servieren."
+    ]
+  },
+  {
+    "name": "Käse-Lauch-Suppe mit Hackfleisch",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "Suppe",
+      "Hackfleisch",
+      "günstig"
+    ],
+    "ingredients": [
+      "500 g gemischtes Hackfleisch",
+      "3 Stangen Lauch",
+      "1 Zwiebel",
+      "250 g Champignons",
+      "1 EL Rapsöl",
+      "1 l Gemüsebrühe",
+      "200 g Sahne-Schmelzkäse",
+      "150 g Kräuter-Schmelzkäse",
+      "1 Prise Muskatnuss (gerieben)",
+      "1 Baguette",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Lauch längs halbieren, gründlich waschen und in feine Ringe schneiden. Zwiebel würfeln und Champignons in Scheiben schneiden.",
+      "Hackfleisch im Öl in einem großen Topf krümelig braten, Zwiebel zugeben, 3 Minuten mitbraten und mit Salz und Pfeffer würzen.",
+      "Lauch und Champignons zugeben und 5 Minuten andünsten.",
+      "Mit der Brühe aufgießen und 15 Minuten köcheln lassen.",
+      "Schmelzkäse in Stücken einrühren und bei schwacher Hitze schmelzen lassen, ohne die Suppe noch einmal zu kochen. Mit Salz, Pfeffer und Muskat abschmecken und mit Baguette servieren."
+    ]
+  },
+  {
+    "name": "Käsespätzle",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Klassiker",
+      "Ofen"
+    ],
+    "ingredients": [
+      "400 g Weizenmehl (Type 405)",
+      "4 Eier",
+      "150 ml Mineralwasser (mit Kohlensäure)",
+      "1 TL Salz",
+      "200 g Bergkäse (gerieben)",
+      "100 g Emmentaler (gerieben)",
+      "3 Zwiebeln",
+      "40 g Butter",
+      "1/2 Bund Schnittlauch",
+      "1 Prise Muskatnuss",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Mehl, Eier, Mineralwasser und Salz mit einem Kochlöffel kräftig zu einem zähen Teig schlagen, bis er Blasen wirft, und 10 Minuten ruhen lassen.",
+      "Zwiebeln in feine Ringe schneiden und in 30 g Butter bei mittlerer Hitze unter gelegentlichem Wenden 15 Minuten goldbraun braten.",
+      "Backofen auf 180 °C Ober-/Unterhitze vorheizen. Den Teig portionsweise mit einer Spätzlepresse oder vom Brett in siedendes Salzwasser schaben und die Spätzle mit einer Schaumkelle herausheben, sobald sie an der Oberfläche schwimmen.",
+      "Eine Auflaufform mit der restlichen Butter fetten und Spätzle und Käse lagenweise einschichten, jede Lage mit Pfeffer und Muskat würzen.",
+      "Im Ofen 15 Minuten backen, bis der Käse geschmolzen ist, dann mit den Röstzwiebeln und Schnittlauchröllchen bestreut servieren."
+    ]
+  },
+  {
+    "name": "Kartoffelgratin",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 50,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Ofen",
+      "Französisch"
+    ],
+    "ingredients": [
+      "1,2 kg Kartoffeln (festkochend)",
+      "250 ml Schlagsahne",
+      "250 ml Milch",
+      "1 Zehe Knoblauch",
+      "1 EL Butter",
+      "120 g Reibekäse",
+      "1 TL Thymian (getrocknet)",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 180 °C Ober-/Unterhitze vorheizen. Kartoffeln schälen und in etwa 3 mm dünne Scheiben hobeln.",
+      "Eine Auflaufform mit der halbierten Knoblauchzehe ausreiben und mit der Butter einfetten.",
+      "Sahne und Milch mit Thymian, Salz, Pfeffer und Muskat verrühren. Die Kartoffelscheiben dachziegelartig in die Form schichten und mit der Sahnemilch übergießen.",
+      "Mit Reibekäse bestreuen und im Ofen 50 Minuten backen, bis die Kartoffeln weich sind und die Oberfläche goldbraun ist.",
+      "Das Gratin vor dem Servieren 5 Minuten ruhen lassen, damit es sich gut portionieren lässt."
+    ]
+  },
+  {
+    "name": "Gemüselasagne",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 55,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Ofen",
+      "Pasta",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "250 g Lasagneplatten (ohne Vorkochen)",
+      "1 Zucchini",
+      "1 rote Paprika",
+      "2 Karotten",
+      "200 g Champignons",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "2 EL Olivenöl",
+      "2 EL Tomatenmark",
+      "1 Dose gehackte Tomaten (400 g)",
+      "1 TL Oregano (getrocknet)",
+      "50 g Butter",
+      "50 g Weizenmehl",
+      "600 ml Milch",
+      "1 Prise Muskatnuss",
+      "150 g Reibekäse",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel und Knoblauch fein hacken, Zucchini, Paprika, Karotten und Champignons klein würfeln. Das Gemüse im Olivenöl 5 Minuten anbraten.",
+      "Tomatenmark kurz mitrösten, gehackte Tomaten und Oregano zugeben, mit Salz und Pfeffer würzen und 10 Minuten köcheln lassen.",
+      "Für die Béchamelsauce Butter schmelzen, Mehl einrühren und kurz anschwitzen. Nach und nach die Milch einrühren und unter Rühren 5 Minuten köcheln lassen, dann mit Salz, Pfeffer und Muskat abschmecken.",
+      "Backofen auf 180 °C Ober-/Unterhitze vorheizen. In einer Auflaufform abwechselnd Béchamel, Lasagneplatten und Gemüsesauce schichten und mit Béchamel abschließen.",
+      "Mit Reibekäse bestreuen und 40 Minuten backen. Vor dem Anschneiden 10 Minuten ruhen lassen."
+    ]
+  },
+  {
+    "name": "Spinat-Ricotta-Cannelloni",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 45,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Ofen",
+      "Pasta",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "250 g Cannelloni (ohne Vorkochen)",
+      "450 g Blattspinat (TK)",
+      "250 g Ricotta",
+      "1 Ei",
+      "60 g Hartkäse (vegetarisch, gerieben)",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 EL Olivenöl",
+      "800 g gehackte Tomaten (2 Dosen)",
+      "1 TL Oregano (getrocknet)",
+      "1 Prise Zucker",
+      "125 g Mozzarella",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Spinat auftauen lassen, kräftig ausdrücken und grob hacken. Mit Ricotta, Ei, der Hälfte des Hartkäses, Salz, Pfeffer und Muskat zu einer Füllung verrühren.",
+      "Zwiebel und Knoblauch fein würfeln und im Olivenöl glasig dünsten. Tomaten, Oregano und Zucker zugeben, 10 Minuten köcheln lassen und mit Salz und Pfeffer abschmecken.",
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen und die Hälfte der Tomatensauce in eine Auflaufform geben. Die Füllung in einen Gefrierbeutel geben, eine Ecke abschneiden und die Cannelloni damit füllen.",
+      "Die Cannelloni nebeneinander in die Form legen, mit der restlichen Sauce bedecken und mit zerzupftem Mozzarella und dem übrigen Hartkäse bestreuen.",
+      "Mit Alufolie abgedeckt 20 Minuten backen, dann die Folie entfernen und weitere 15 Minuten goldbraun überbacken."
+    ]
+  },
+  {
+    "name": "Kürbissuppe",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "günstig",
+      "Suppe",
+      "Herbst"
+    ],
+    "ingredients": [
+      "1 Hokkaido-Kürbis (1 kg)",
+      "2 Kartoffeln (mehligkochend)",
+      "1 Zwiebel",
+      "1 Zehe Knoblauch",
+      "1 Stück Ingwer (2 cm)",
+      "2 EL Rapsöl",
+      "1 TL Currypulver",
+      "800 ml Gemüsebrühe",
+      "1 Dose Kokosmilch (400 ml)",
+      "30 g Kürbiskerne",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kürbis waschen, halbieren, entkernen und mitsamt Schale in Würfel schneiden. Kartoffeln schälen und würfeln, Zwiebel, Knoblauch und Ingwer fein hacken.",
+      "Zwiebel, Knoblauch und Ingwer im Öl 3 Minuten andünsten und das Currypulver kurz mitrösten.",
+      "Kürbis und Kartoffeln zugeben, mit der Gemüsebrühe aufgießen und zugedeckt 20 Minuten köcheln lassen, bis alles weich ist.",
+      "Kokosmilch einrühren, dabei einige Esslöffel zum Garnieren zurückbehalten, und die Suppe fein pürieren. Mit Salz, Pfeffer und Muskat abschmecken.",
+      "Kürbiskerne in einer Pfanne ohne Fett 3 Minuten rösten und zusammen mit der restlichen Kokosmilch auf der Suppe verteilen."
+    ]
+  },
+  {
+    "name": "Tomatensuppe",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "schnell",
+      "günstig",
+      "Suppe",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "800 g geschälte Tomaten (2 Dosen)",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 Karotte",
+      "3 EL Olivenöl",
+      "1 EL Tomatenmark",
+      "500 ml Gemüsebrühe",
+      "1 TL Zucker",
+      "1 Bund Basilikum",
+      "4 Scheiben Bauernbrot",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel, Knoblauch und Karotte fein würfeln und in 1 EL Olivenöl 5 Minuten andünsten.",
+      "Tomatenmark kurz mitrösten, dann Tomaten samt Saft, Gemüsebrühe und Zucker zugeben und 15 Minuten köcheln lassen.",
+      "Inzwischen das Brot in Würfel schneiden und im restlichen Olivenöl in einer Pfanne 5 Minuten knusprig rösten.",
+      "Die Hälfte der Basilikumblätter in die Suppe geben, alles fein pürieren und mit Salz und Pfeffer abschmecken.",
+      "Die Suppe mit den Croûtons und den übrigen Basilikumblättern servieren."
+    ]
+  },
+  {
+    "name": "Erbseneintopf",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 60,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "günstig",
+      "Eintopf",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "400 g Schälerbsen (grün, getrocknet)",
+      "1,5 l Gemüsebrühe",
+      "500 g Kartoffeln (mehligkochend)",
+      "2 Karotten",
+      "150 g Knollensellerie",
+      "1 Stange Lauch",
+      "1 Zwiebel",
+      "2 EL Rapsöl",
+      "1 Lorbeerblatt",
+      "1 TL Majoran (getrocknet)",
+      "1 TL Paprikapulver (geräuchert)",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Die Schälerbsen in einem Sieb gründlich abspülen. Zwiebel würfeln und im Öl in einem großen Topf glasig dünsten.",
+      "Erbsen, Gemüsebrühe und Lorbeerblatt zugeben, aufkochen und zugedeckt 30 Minuten köcheln lassen.",
+      "Kartoffeln, Karotten und Sellerie schälen und würfeln, Lauch in Ringe schneiden. Gemüse, Majoran und Paprikapulver in den Topf geben und weitere 25 Minuten köcheln lassen, dabei ab und zu umrühren.",
+      "Das Lorbeerblatt entfernen und einen Teil des Eintopfs mit dem Kartoffelstampfer zerdrücken, damit er schön sämig wird.",
+      "Mit Salz und Pfeffer abschmecken und mit gehackter Petersilie bestreut servieren."
+    ]
+  },
+  {
+    "name": "Minestrone",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "günstig",
+      "Suppe",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "2 Karotten",
+      "2 Stangen Staudensellerie",
+      "1 Zucchini",
+      "200 g Kartoffeln (festkochend)",
+      "150 g grüne Bohnen",
+      "3 EL Olivenöl",
+      "1 Dose gehackte Tomaten (400 g)",
+      "1,2 l Gemüsebrühe",
+      "1 TL Oregano (getrocknet)",
+      "1 Dose weiße Bohnen (400 g)",
+      "100 g Suppennudeln (ohne Ei, z. B. Ditalini)",
+      "1/2 Bund Basilikum",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel, Knoblauch, Karotten, Sellerie, Zucchini und Kartoffeln in kleine Würfel schneiden und die grünen Bohnen in kurze Stücke brechen.",
+      "Zwiebel, Knoblauch, Karotten und Sellerie im Olivenöl in einem großen Topf 5 Minuten anschwitzen.",
+      "Kartoffeln, grüne Bohnen, Tomaten, Gemüsebrühe und Oregano zugeben und 15 Minuten köcheln lassen.",
+      "Zucchini, die abgespülten weißen Bohnen und die Nudeln einrühren und weitere 10 Minuten köcheln lassen, bis die Nudeln gar sind.",
+      "Mit Salz und Pfeffer abschmecken und mit frisch gezupftem Basilikum servieren."
+    ]
+  },
+  {
+    "name": "Rote-Linsen-Dal",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "schnell",
+      "günstig",
+      "Indisch"
+    ],
+    "ingredients": [
+      "250 g rote Linsen",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 Stück Ingwer (3 cm)",
+      "2 EL Rapsöl",
+      "1 TL Kurkuma",
+      "1 TL Kreuzkümmel (gemahlen)",
+      "1 TL Garam Masala",
+      "1/2 TL Chiliflocken",
+      "1 Dose gehackte Tomaten (400 g)",
+      "1 Dose Kokosmilch (400 ml)",
+      "400 ml Gemüsebrühe",
+      "1/2 Zitrone (Saft)",
+      "1/2 Bund Koriander",
+      "250 g Basmatireis",
+      "Salz"
+    ],
+    "steps": [
+      "Den Reis nach Packungsangabe garen. Zwiebel, Knoblauch und Ingwer fein hacken und die Linsen in einem Sieb abspülen.",
+      "Die Zwiebel im Öl 4 Minuten anbraten, dann Knoblauch, Ingwer und alle Gewürze zugeben und unter Rühren kurz anrösten, bis es duftet.",
+      "Linsen, Tomaten, Kokosmilch und Gemüsebrühe zugeben, aufkochen und 15 Minuten köcheln lassen, bis die Linsen zerfallen; dabei gelegentlich umrühren.",
+      "Das Dal mit Salz und Zitronensaft abschmecken.",
+      "Mit gehacktem Koriander bestreuen und zusammen mit dem Reis servieren."
+    ]
+  },
+  {
+    "name": "Pilzrisotto",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Italienisch",
+      "Herbst"
+    ],
+    "ingredients": [
+      "300 g Risottoreis",
+      "400 g braune Champignons",
+      "10 g getrocknete Steinpilze",
+      "1 Zwiebel",
+      "1 Zehe Knoblauch",
+      "2 EL Olivenöl",
+      "150 ml trockener Weißwein",
+      "1 l Gemüsebrühe",
+      "40 g Butter",
+      "60 g Hartkäse (vegetarisch, gerieben)",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Die Steinpilze in 200 ml heißem Wasser 10 Minuten einweichen, dann ausdrücken und hacken. Das Einweichwasser durch ein feines Sieb zur Gemüsebrühe gießen und die Brühe heiß halten.",
+      "Champignons in Scheiben schneiden, in 1 EL Olivenöl bei starker Hitze 5 Minuten goldbraun braten, salzen und beiseitestellen.",
+      "Zwiebel und Knoblauch fein würfeln und im restlichen Öl glasig dünsten. Den Reis zugeben, 2 Minuten unter Rühren anschwitzen und mit dem Weißwein ablöschen.",
+      "Nach und nach heiße Brühe angießen, sodass der Reis stets knapp bedeckt ist, und unter häufigem Rühren 18 Minuten garen. Nach der Hälfte der Zeit die Steinpilze unterrühren.",
+      "Champignons, Butter und Hartkäse unterziehen, mit Salz und Pfeffer abschmecken, 2 Minuten zugedeckt ruhen lassen und mit gehackter Petersilie servieren."
+    ]
+  },
+  {
+    "name": "Zucchinipuffer mit Kräuterquark",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Pfanne",
+      "Kinder"
+    ],
+    "ingredients": [
+      "3 Zucchini (600 g)",
+      "2 Frühlingszwiebeln",
+      "2 Eier",
+      "60 g Weizenmehl",
+      "50 g Reibekäse",
+      "4 EL Rapsöl",
+      "500 g Speisequark (20 % Fett)",
+      "4 EL Milch",
+      "1 Bund gemischte Kräuter (Schnittlauch, Petersilie, Dill)",
+      "1 Zehe Knoblauch",
+      "1/2 Zitrone (Saft)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Die Zucchini grob raspeln, mit 1 TL Salz mischen und 10 Minuten ziehen lassen. Anschließend in einem sauberen Küchentuch kräftig ausdrücken.",
+      "Für den Kräuterquark Quark und Milch glatt rühren, die Kräuter fein hacken und mit dem gepressten Knoblauch unterrühren. Mit Zitronensaft, Salz und Pfeffer abschmecken.",
+      "Frühlingszwiebeln in feine Ringe schneiden und mit Zucchini, Eiern, Mehl und Reibekäse zu einem Teig verrühren; mit Pfeffer würzen.",
+      "Das Öl in einer Pfanne erhitzen, jeweils einen gehäuften Esslöffel Teig hineingeben, flach drücken und pro Seite 3 Minuten goldbraun braten.",
+      "Die Puffer kurz auf Küchenpapier abtropfen lassen und mit dem Kräuterquark servieren."
+    ]
+  },
+  {
+    "name": "Kartoffelpuffer mit Apfelmus",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Klassiker",
+      "Pfanne",
+      "Kinder"
+    ],
+    "ingredients": [
+      "1,2 kg Kartoffeln (mehligkochend)",
+      "1 Zwiebel",
+      "2 Eier",
+      "3 EL Weizenmehl",
+      "1 Prise Muskatnuss",
+      "100 ml Rapsöl (zum Braten)",
+      "4 Äpfel (säuerlich, z. B. Boskop)",
+      "100 ml Wasser",
+      "2 EL Zucker",
+      "1 Prise Zimt",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Für das Apfelmus die Äpfel schälen, entkernen und würfeln. Mit Wasser, Zucker und Zimt aufkochen, zugedeckt 10 Minuten weich köcheln und anschließend grob zerdrücken.",
+      "Kartoffeln schälen und zusammen mit der Zwiebel fein reiben. Die Masse in einem Küchentuch kräftig ausdrücken, damit möglichst viel Flüssigkeit austritt.",
+      "Die Kartoffelmasse mit Eiern und Mehl verrühren und mit Salz, Pfeffer und Muskat würzen.",
+      "Reichlich Öl in einer großen Pfanne erhitzen, pro Puffer 2 EL Teig hineingeben, flach streichen und von jeder Seite 4 Minuten knusprig braten.",
+      "Die fertigen Puffer auf Küchenpapier abtropfen lassen, im Backofen bei 80 °C warm halten und mit dem Apfelmus servieren."
+    ]
+  },
+  {
+    "name": "Ratatouille",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "Französisch",
+      "Eintopf"
+    ],
+    "ingredients": [
+      "1 Aubergine",
+      "2 Zucchini",
+      "1 rote Paprika",
+      "1 gelbe Paprika",
+      "2 Zwiebeln",
+      "3 Zehen Knoblauch",
+      "4 EL Olivenöl",
+      "2 EL Tomatenmark",
+      "1 Dose stückige Tomaten (400 g)",
+      "2 TL Kräuter der Provence",
+      "1 TL Zucker",
+      "1/2 Bund Basilikum",
+      "1 Baguette",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Aubergine, Zucchini und Paprika in etwa 2 cm große Würfel schneiden, Zwiebeln in Spalten schneiden und den Knoblauch fein hacken.",
+      "Die Auberginenwürfel in 2 EL Olivenöl in einem großen Topf 5 Minuten kräftig anbraten und wieder herausnehmen.",
+      "Zwiebeln, Knoblauch und Paprika im restlichen Öl 5 Minuten anbraten und das Tomatenmark kurz mitrösten.",
+      "Auberginen, Zucchini, Tomaten, Kräuter der Provence und Zucker zugeben, salzen, pfeffern und zugedeckt bei mittlerer Hitze 25 Minuten schmoren, dabei gelegentlich umrühren.",
+      "Abschmecken, mit gezupftem Basilikum bestreuen und mit frischem Baguette servieren."
+    ]
+  },
+  {
+    "name": "Falafel-Bowl mit Hummus",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "günstig",
+      "Orientalisch",
+      "Ofen"
+    ],
+    "ingredients": [
+      "1 Dose Kichererbsen (400 g, für die Falafel)",
+      "1 Dose Kichererbsen (400 g, für den Hummus)",
+      "1 Zwiebel",
+      "3 Zehen Knoblauch",
+      "1 Bund Petersilie",
+      "2 TL Kreuzkümmel (gemahlen)",
+      "1 TL Koriander (gemahlen)",
+      "3 EL Weizenmehl",
+      "1 TL Backpulver",
+      "5 EL Olivenöl",
+      "3 EL Tahini",
+      "1 Zitrone (Saft)",
+      "200 g Bulgur",
+      "400 ml Gemüsebrühe",
+      "1 Salatgurke",
+      "250 g Kirschtomaten",
+      "1 Kopf Romanasalat",
+      "1 Prise Paprikapulver (edelsüß)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen. Beide Dosen Kichererbsen abgießen, gut abspülen und abtropfen lassen.",
+      "Eine Dose Kichererbsen mit Zwiebel, 2 Zehen Knoblauch, Petersilie, Kreuzkümmel, Koriander, Mehl, Backpulver und 1 TL Salz im Mixer zu einer groben, formbaren Masse hacken. Daraus 16 kleine Bällchen formen, leicht flach drücken, auf ein mit Backpapier belegtes Blech setzen und mit 2 EL Olivenöl beträufeln.",
+      "Die Falafel 25 Minuten backen und nach der Hälfte der Zeit einmal wenden.",
+      "Währenddessen den Bulgur in die kochende Gemüsebrühe geben und zugedeckt bei schwacher Hitze 10 Minuten quellen lassen. Gurke würfeln, Tomaten halbieren und den Salat in Streifen schneiden.",
+      "Für den Hummus die übrigen Kichererbsen mit Tahini, Zitronensaft, restlichem Knoblauch, 3 EL Olivenöl, 4 EL Wasser, Salz und Pfeffer cremig pürieren.",
+      "Bulgur, Gemüse und Falafel in Schalen anrichten, jeweils einen großen Klecks Hummus daraufsetzen und mit Paprikapulver bestäuben."
+    ]
+  },
+  {
+    "name": "Gefüllte Zucchini mit Couscous und Feta",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Ofen",
+      "Orientalisch"
+    ],
+    "ingredients": [
+      "4 Zucchini (mittelgroß)",
+      "150 g Couscous",
+      "150 ml Gemüsebrühe",
+      "200 g Feta",
+      "1 rote Paprika",
+      "2 Frühlingszwiebeln",
+      "1 Zehe Knoblauch",
+      "250 g Kirschtomaten",
+      "3 EL Olivenöl",
+      "1 TL Paprikapulver (edelsüß)",
+      "1/2 TL Kreuzkümmel (gemahlen)",
+      "1/2 Bund Petersilie",
+      "1/2 Zitrone (Saft)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen. Die Zucchini längs halbieren, mit einem Teelöffel aushöhlen, dabei einen Rand von 1 cm stehen lassen, und das Fruchtfleisch fein hacken.",
+      "Den Couscous mit der heißen Gemüsebrühe übergießen, zugedeckt 5 Minuten quellen lassen und mit einer Gabel auflockern.",
+      "Paprika, Frühlingszwiebeln und Knoblauch fein würfeln und mit dem Zucchinifleisch in 1 EL Olivenöl 4 Minuten braten. Mit Paprikapulver, Kreuzkümmel, Salz und Pfeffer würzen.",
+      "Gemüse, Couscous, gehackte Petersilie, Zitronensaft und die Hälfte des zerbröselten Fetas mischen und in die Zucchinihälften füllen.",
+      "Die Zucchini in eine geölte Auflaufform setzen, die Kirschtomaten dazwischen verteilen, mit dem restlichen Feta bestreuen, mit dem übrigen Olivenöl beträufeln und 25 Minuten backen."
+    ]
+  },
+  {
+    "name": "Semmelknödel mit Pilzrahm",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Klassiker",
+      "Herbst"
+    ],
+    "ingredients": [
+      "6 Brötchen (vom Vortag, 300 g)",
+      "250 ml Milch",
+      "3 Eier",
+      "2 Zwiebeln",
+      "20 g Butter",
+      "1 Bund Petersilie",
+      "1 Prise Muskatnuss",
+      "500 g Champignons",
+      "1 EL Rapsöl",
+      "150 ml Gemüsebrühe",
+      "200 ml Schlagsahne",
+      "1 TL Speisestärke",
+      "1/2 Zitrone (Saft)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Die Brötchen in kleine Würfel schneiden. Milch lauwarm erhitzen, über das Brot gießen und 10 Minuten einweichen lassen.",
+      "Eine Zwiebel fein würfeln und in der Butter glasig dünsten. Zusammen mit den Eiern, der Hälfte der gehackten Petersilie, Salz, Pfeffer und Muskat zum Brot geben und mit den Händen zu einem formbaren Teig verkneten.",
+      "Mit nassen Händen 8 Knödel formen, in siedendes Salzwasser legen und 20 Minuten gar ziehen lassen; das Wasser soll dabei nur leicht simmern.",
+      "Inzwischen die Champignons in Scheiben schneiden, die zweite Zwiebel würfeln und beides im Öl 6 Minuten kräftig anbraten.",
+      "Mit Gemüsebrühe und Sahne ablöschen und 5 Minuten köcheln lassen. Die Speisestärke in wenig kaltem Wasser anrühren, die Sauce damit binden und mit Salz, Pfeffer und Zitronensaft abschmecken.",
+      "Die Knödel mit dem Pilzrahm anrichten und mit der restlichen Petersilie bestreuen."
+    ]
+  },
+  {
+    "name": "Chili sin Carne",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 40,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "günstig",
+      "Mexikanisch",
+      "Eintopf"
+    ],
+    "ingredients": [
+      "100 g Sojagranulat",
+      "300 ml Gemüsebrühe",
+      "2 Zwiebeln",
+      "2 Zehen Knoblauch",
+      "1 rote Paprika",
+      "1 gelbe Paprika",
+      "3 EL Rapsöl",
+      "2 EL Tomatenmark",
+      "2 TL Kreuzkümmel (gemahlen)",
+      "2 TL Paprikapulver (geräuchert)",
+      "1 TL Chiliflocken",
+      "1 TL Oregano (getrocknet)",
+      "1 TL Kakaopulver (ungesüßt)",
+      "800 g gehackte Tomaten (2 Dosen)",
+      "1 Dose Kidneybohnen (400 g)",
+      "1 Dose schwarze Bohnen (400 g)",
+      "1 Dose Mais (285 g)",
+      "1 Limette (Saft)",
+      "250 g Langkornreis",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Das Sojagranulat in der heißen Gemüsebrühe 10 Minuten quellen lassen und anschließend gut ausdrücken. Zwiebeln, Knoblauch und Paprika würfeln.",
+      "Das Sojagranulat im Öl in einem großen Topf 5 Minuten kräftig anbraten, bis es leicht gebräunt ist, dann Zwiebeln und Knoblauch zugeben und kurz mitbraten.",
+      "Tomatenmark, Kreuzkümmel, Paprikapulver, Chiliflocken, Oregano und Kakao kurz anrösten. Paprika und Tomaten zugeben und 20 Minuten köcheln lassen.",
+      "Inzwischen den Reis nach Packungsangabe garen.",
+      "Bohnen und Mais abspülen, unter das Chili rühren und weitere 10 Minuten köcheln lassen. Mit Salz, Pfeffer und Limettensaft abschmecken und mit dem Reis servieren."
+    ]
+  },
+  {
+    "name": "Brokkoli-Nudelauflauf",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Auflauf",
+      "Kinder"
+    ],
+    "ingredients": [
+      "300 g Penne",
+      "1 Kopf Brokkoli (500 g)",
+      "200 ml Schlagsahne",
+      "200 ml Milch",
+      "2 Eier",
+      "1 Zehe Knoblauch",
+      "150 g Reibekäse",
+      "1 EL Butter",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen. Den Brokkoli in kleine Röschen teilen, den Strunk schälen und klein würfeln.",
+      "Die Nudeln in reichlich Salzwasser nach Packungsangabe kochen und in den letzten 3 Minuten den Brokkoli mitgaren. Alles abgießen und gut abtropfen lassen.",
+      "Sahne, Milch und Eier verquirlen, den Knoblauch dazupressen, die Hälfte des Käses unterrühren und kräftig mit Salz, Pfeffer und Muskat würzen.",
+      "Nudeln und Brokkoli in eine mit Butter gefettete Auflaufform geben, den Guss darübergießen und mit dem restlichen Käse bestreuen.",
+      "Im Ofen 25 Minuten backen, bis der Guss gestockt und die Oberfläche goldbraun ist."
+    ]
+  },
+  {
+    "name": "Gemüse-Quiche",
+    "servings": 4,
+    "prep_time": 45,
+    "cook_time": 45,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Ofen",
+      "Französisch"
+    ],
+    "ingredients": [
+      "200 g Weizenmehl",
+      "100 g Butter (kalt)",
+      "1 Ei",
+      "2 EL Wasser (kalt)",
+      "1 Prise Salz",
+      "1 TL Butter (für die Form)",
+      "1 Stange Lauch",
+      "1 rote Paprika",
+      "1 Zucchini",
+      "1 EL Olivenöl",
+      "3 Eier",
+      "200 ml Schlagsahne",
+      "100 ml Milch",
+      "120 g Reibekäse",
+      "1 Prise Muskatnuss",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Mehl, Salz, die kalte Butter in Stücken, 1 Ei und das kalte Wasser rasch zu einem glatten Mürbeteig verkneten, in Frischhaltefolie wickeln und 30 Minuten kalt stellen.",
+      "Lauch in Ringe schneiden, Paprika und Zucchini würfeln und alles im Olivenöl 5 Minuten andünsten. Mit Salz und Pfeffer würzen und leicht abkühlen lassen.",
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen. Den Teig ausrollen, eine gefettete Tarteform (26 cm) damit auslegen, einen Rand hochziehen und den Boden mehrmals mit einer Gabel einstechen.",
+      "Die 3 Eier mit Sahne und Milch verquirlen, den Käse unterrühren und mit Salz, Pfeffer und Muskat würzen. Das Gemüse auf dem Teig verteilen und den Guss darübergießen.",
+      "Die Quiche im unteren Drittel des Ofens 40 Minuten backen, bis der Guss gestockt und goldbraun ist.",
+      "Vor dem Anschneiden 10 Minuten abkühlen lassen."
+    ]
+  },
+  {
+    "name": "Linsen-Bolognese",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 40,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "günstig",
+      "Pasta",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "200 g Berglinsen",
+      "400 g Spaghetti (Hartweizen)",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "2 Karotten",
+      "2 Stangen Staudensellerie",
+      "3 EL Olivenöl",
+      "2 EL Tomatenmark",
+      "1 Dose gehackte Tomaten (400 g)",
+      "500 g passierte Tomaten",
+      "500 ml Gemüsebrühe",
+      "1 TL Oregano (getrocknet)",
+      "1 TL Thymian (getrocknet)",
+      "1 TL Zucker",
+      "1 EL Balsamicoessig",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel, Knoblauch, Karotten und Sellerie fein würfeln und die Linsen in einem Sieb abspülen.",
+      "Das Gemüse im Olivenöl 5 Minuten anschwitzen, dann das Tomatenmark zugeben und kurz mitrösten.",
+      "Linsen, gehackte und passierte Tomaten, Gemüsebrühe, Oregano, Thymian und Zucker zugeben und zugedeckt 30 Minuten köcheln lassen, bis die Linsen weich sind; bei Bedarf noch Wasser nachgießen.",
+      "In der Zwischenzeit die Spaghetti nach Packungsangabe in Salzwasser kochen.",
+      "Die Sauce mit Balsamico, Salz und Pfeffer abschmecken und mit den Spaghetti servieren."
+    ]
+  },
+  {
+    "name": "Ofenkartoffeln mit Kräuterquark",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 40,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Ofen",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "1,5 kg Kartoffeln (festkochend, mittelgroß)",
+      "3 EL Olivenöl",
+      "1 TL Paprikapulver (edelsüß)",
+      "1 TL Rosmarin (getrocknet)",
+      "1 TL Meersalz (grob)",
+      "500 g Speisequark (20 % Fett)",
+      "100 ml Milch",
+      "1 Bund Schnittlauch",
+      "1/2 Bund Petersilie",
+      "1 Zehe Knoblauch",
+      "1/2 Zitrone (Saft)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen. Die Kartoffeln gründlich waschen, trocken tupfen und längs halbieren.",
+      "Olivenöl mit Paprikapulver, Rosmarin und Meersalz verrühren und die Kartoffelhälften darin wenden.",
+      "Die Kartoffeln mit der Schnittfläche nach unten auf ein mit Backpapier belegtes Blech legen und 40 Minuten backen, bis sie innen weich und außen knusprig sind.",
+      "Inzwischen Quark und Milch glatt rühren, Schnittlauch und Petersilie fein hacken und mit dem gepressten Knoblauch unterrühren. Mit Zitronensaft, Salz und Pfeffer abschmecken und bis zum Servieren kalt stellen.",
+      "Die heißen Ofenkartoffeln mit dem Kräuterquark servieren."
+    ]
+  },
+  {
+    "name": "Spargel mit Sauce Hollandaise und Kartoffeln",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Klassiker",
+      "Frühling"
+    ],
+    "ingredients": [
+      "2 kg weißer Spargel",
+      "800 g Kartoffeln (festkochend)",
+      "1 TL Zucker",
+      "220 g Butter",
+      "3 Eigelb (Größe M)",
+      "2 EL trockener Weißwein",
+      "1/2 Zitrone (Saft)",
+      "1 Prise Cayennepfeffer",
+      "1/2 Bund Petersilie",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Den Spargel von oben nach unten schälen und die holzigen Enden abschneiden. Die Kartoffeln schälen und in Salzwasser 20 Minuten garen.",
+      "Reichlich Wasser mit Salz, Zucker und 20 g Butter aufkochen, den Spargel hineinlegen und bei mittlerer Hitze 12 Minuten garen, bis er bissfest ist.",
+      "Für die Hollandaise die restliche Butter schmelzen und leicht abkühlen lassen. Eigelb, Weißwein und Zitronensaft in einer Metallschüssel über einem heißen, nicht kochenden Wasserbad 4 Minuten cremig aufschlagen.",
+      "Die flüssige Butter zuerst tropfenweise, dann in dünnem Strahl unter ständigem Schlagen einlaufen lassen, bis eine dicke, glänzende Sauce entsteht. Mit Salz, Pfeffer und Cayennepfeffer abschmecken.",
+      "Kartoffeln abgießen und mit gehackter Petersilie bestreuen. Den Spargel gut abtropfen lassen und zusammen mit Kartoffeln und Sauce Hollandaise servieren."
+    ]
+  },
+  {
+    "name": "Bunter Linsensalat mit Feta",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Salat"
+    ],
+    "ingredients": [
+      "250 g Berglinsen",
+      "1 Lorbeerblatt",
+      "1 rote Paprika",
+      "1 gelbe Paprika",
+      "1/2 Salatgurke",
+      "250 g Kirschtomaten",
+      "1 rote Zwiebel",
+      "1 Bund Petersilie",
+      "3 EL Apfelessig",
+      "1 TL Senf (mittelscharf)",
+      "1 TL Honig",
+      "4 EL Olivenöl",
+      "200 g Feta",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Die Linsen abspülen und mit dem Lorbeerblatt in reichlich ungesalzenem Wasser 25 Minuten bissfest garen. Abgießen, das Lorbeerblatt entfernen und die Linsen abkühlen lassen.",
+      "Paprika, Gurke und rote Zwiebel fein würfeln, die Kirschtomaten vierteln und die Petersilie hacken.",
+      "Für das Dressing Essig, Senf, Honig, Salz und Pfeffer verrühren und das Olivenöl kräftig unterschlagen.",
+      "Linsen, Gemüse, Petersilie und Dressing gründlich mischen und 10 Minuten durchziehen lassen, dann nochmals abschmecken.",
+      "Den Feta zerbröseln und vor dem Servieren über den Salat streuen."
+    ]
+  },
+  {
+    "name": "Spaghetti Carbonara",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "schnell",
+      "Pasta",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "400 g Spaghetti",
+      "150 g Pancetta (in Würfeln)",
+      "3 Eier",
+      "1 Eigelb",
+      "80 g Pecorino (frisch gerieben)",
+      "40 g Parmesan (frisch gerieben)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Spaghetti in reichlich Salzwasser 9 Minuten bissfest kochen.",
+      "Währenddessen Eier, Eigelb, Pecorino und Parmesan in einer Schüssel verquirlen und kräftig mit frisch gemahlenem Pfeffer würzen.",
+      "Pancetta in einer großen Pfanne ohne Fett 5 Minuten knusprig auslassen und die Pfanne anschließend vom Herd ziehen.",
+      "Spaghetti abgießen, dabei eine Tasse Nudelwasser auffangen, und die Nudeln tropfnass zum Speck in die Pfanne geben.",
+      "Eiermischung mit einem Schuss Nudelwasser zügig unterrühren, bis eine cremige Sauce entsteht – die Pfanne darf dabei nicht mehr auf der heißen Platte stehen, sonst stockt das Ei.",
+      "Sofort auf vorgewärmte Teller verteilen und mit frisch gemahlenem Pfeffer servieren."
+    ]
+  },
+  {
+    "name": "Penne all'arrabbiata",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "schnell",
+      "günstig",
+      "Pasta",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "400 g Penne",
+      "2 Dosen geschälte Tomaten (à 400 g)",
+      "3 Zehen Knoblauch",
+      "2 getrocknete Chilischoten",
+      "4 EL Olivenöl",
+      "1 EL Tomatenmark",
+      "1/2 Bund glatte Petersilie",
+      "1 Prise Zucker",
+      "Salz"
+    ],
+    "steps": [
+      "Knoblauch in feine Scheiben schneiden, Chilischoten zerbröseln und die Petersilie hacken.",
+      "Olivenöl in einem Topf erhitzen und Knoblauch und Chili darin 2 Minuten sanft anschwitzen, ohne dass der Knoblauch braun wird.",
+      "Tomatenmark kurz mitrösten, die Tomaten dazugeben, mit dem Kochlöffel zerdrücken und mit Salz und Zucker würzen; die Sauce offen 15 Minuten köcheln lassen.",
+      "Inzwischen die Penne in Salzwasser 11 Minuten bissfest kochen und abgießen.",
+      "Nudeln mit der Sauce vermischen, abschmecken und mit Petersilie bestreut servieren."
+    ]
+  },
+  {
+    "name": "Nudeln mit Lachs-Sahne-Sauce",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "schnell",
+      "Pasta",
+      "Fisch"
+    ],
+    "ingredients": [
+      "400 g Bandnudeln",
+      "300 g Lachsfilet (ohne Haut)",
+      "1 Zwiebel",
+      "1 Zehe Knoblauch",
+      "1 EL Butter",
+      "200 ml Schlagsahne",
+      "100 ml Gemüsebrühe",
+      "1 Bio-Zitrone",
+      "1/2 Bund Dill",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Bandnudeln in Salzwasser 8 Minuten bissfest kochen und abgießen.",
+      "Lachs in mundgerechte Würfel schneiden, Zwiebel und Knoblauch fein würfeln und den Dill hacken.",
+      "Butter in einer Pfanne erhitzen, Zwiebel und Knoblauch darin 3 Minuten glasig dünsten und mit Sahne und Brühe ablöschen.",
+      "Lachswürfel in die Sauce legen und bei kleiner Hitze 5 Minuten gar ziehen lassen.",
+      "Mit abgeriebener Zitronenschale, einem Spritzer Zitronensaft, Salz und Pfeffer abschmecken, Dill unterheben und die Nudeln vorsichtig untermischen."
+    ]
+  },
+  {
+    "name": "Tortellini in Schinken-Sahne-Sauce",
+    "servings": 4,
+    "prep_time": 5,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "schnell",
+      "günstig",
+      "Pasta",
+      "Kinder"
+    ],
+    "ingredients": [
+      "500 g Tortellini (Kühlregal, mit Käsefüllung)",
+      "200 g Kochschinken (in Würfeln)",
+      "1 Zwiebel",
+      "1 EL Butter",
+      "200 ml Schlagsahne",
+      "100 ml Milch",
+      "100 g TK-Erbsen",
+      "50 g Parmesan (gerieben)",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel fein würfeln und in der Butter 3 Minuten glasig dünsten.",
+      "Schinkenwürfel dazugeben und 2 Minuten mitbraten.",
+      "Sahne, Milch und Erbsen zugießen und die Sauce 5 Minuten leise köcheln lassen, bis sie leicht eindickt.",
+      "Tortellini in siedendem Salzwasser 4 Minuten garen und abgießen.",
+      "Parmesan in die Sauce rühren, mit Salz, Pfeffer und Muskat abschmecken und die Tortellini darin schwenken."
+    ]
+  },
+  {
+    "name": "Mac and Cheese",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Pasta",
+      "Ofen",
+      "Kinder"
+    ],
+    "ingredients": [
+      "400 g Hörnchennudeln",
+      "50 g Butter",
+      "40 g Mehl",
+      "700 ml Milch",
+      "200 g Cheddar (gerieben)",
+      "100 g Gouda (gerieben)",
+      "1 TL Senf (mittelscharf)",
+      "1 Prise Muskatnuss",
+      "30 g Semmelbrösel",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen und die Nudeln in Salzwasser 6 Minuten vorkochen, sodass sie noch deutlich Biss haben; abgießen.",
+      "Butter in einem Topf schmelzen, Mehl einrühren und 1 Minute anschwitzen, dann die Milch nach und nach unterrühren und 5 Minuten köcheln lassen, bis die Sauce bindet.",
+      "Topf vom Herd nehmen und drei Viertel des Käses sowie Senf, Muskat, Salz und Pfeffer einrühren, bis eine glatte Käsesauce entsteht.",
+      "Nudeln unter die Sauce mischen, alles in eine gefettete Auflaufform füllen und mit dem restlichen Käse und den Semmelbröseln bestreuen.",
+      "Im Ofen 20 Minuten goldbraun überbacken und heiß servieren."
+    ]
+  },
+  {
+    "name": "Pasta mit Tomaten-Mascarpone-Sauce",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "schnell",
+      "Pasta",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "400 g Fusilli",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "2 EL Olivenöl",
+      "1 EL Tomatenmark",
+      "1 Dose stückige Tomaten (400 g)",
+      "250 g Mascarpone",
+      "1 TL getrockneter Oregano",
+      "1 Prise Zucker",
+      "1/2 Bund Basilikum",
+      "40 g Parmesan (oder vegetarischer Hartkäse, gerieben)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel und Knoblauch fein würfeln und im Olivenöl 3 Minuten glasig anschwitzen.",
+      "Tomatenmark kurz mitrösten, stückige Tomaten und Oregano zugeben, mit Salz, Pfeffer und Zucker würzen und 10 Minuten köcheln lassen.",
+      "Inzwischen die Fusilli in Salzwasser 10 Minuten bissfest kochen und dabei eine Tasse Nudelwasser auffangen.",
+      "Mascarpone in die Tomatensauce rühren, bis sie cremig und hellrot ist, und bei Bedarf mit einem Schuss Nudelwasser verlängern.",
+      "Abgetropfte Nudeln untermischen und mit gezupftem Basilikum und geriebenem Käse servieren."
+    ]
+  },
+  {
+    "name": "Gnocchi-Pfanne mit Spinat und Tomaten",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "schnell",
+      "Pfanne",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "800 g Gnocchi (Kühlregal)",
+      "250 g Kirschtomaten",
+      "150 g Babyspinat",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "3 EL Olivenöl",
+      "50 g Parmesan (oder vegetarischer Hartkäse, gerieben)",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel und Knoblauch fein würfeln, Kirschtomaten halbieren und den Spinat waschen und abtropfen lassen.",
+      "2 EL Olivenöl in einer großen Pfanne erhitzen, die Gnocchi darin 8 Minuten rundum goldbraun braten und herausnehmen.",
+      "Restliches Öl in die Pfanne geben, Zwiebel und Knoblauch 2 Minuten anschwitzen und die Tomaten 3 Minuten mitbraten.",
+      "Spinat portionsweise zugeben und unter Rühren zusammenfallen lassen.",
+      "Gnocchi zurück in die Pfanne geben, alles mit Salz, Pfeffer und Muskat würzen und mit dem Käse bestreut servieren."
+    ]
+  },
+  {
+    "name": "Gebratene Nudeln mit Gemüse",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "schnell",
+      "günstig",
+      "Pfanne",
+      "Asiatisch"
+    ],
+    "ingredients": [
+      "250 g Mie-Nudeln",
+      "2 Karotten",
+      "1 rote Paprika",
+      "200 g Chinakohl",
+      "150 g Sojasprossen",
+      "1 Bund Frühlingszwiebeln",
+      "2 Zehen Knoblauch",
+      "1 Stück Ingwer (2 cm)",
+      "3 EL Rapsöl",
+      "4 EL Sojasauce",
+      "2 EL süße Chilisauce",
+      "1 TL Sesamöl"
+    ],
+    "steps": [
+      "Mie-Nudeln in heißem Wasser 4 Minuten ziehen lassen, abgießen und kalt abschrecken.",
+      "Karotten in feine Stifte, Paprika und Chinakohl in Streifen und Frühlingszwiebeln in Ringe schneiden; Knoblauch und Ingwer fein hacken.",
+      "Öl im Wok oder in einer großen Pfanne stark erhitzen und Karotten und Paprika darin 3 Minuten unter Rühren braten.",
+      "Chinakohl, Sprossen, Knoblauch und Ingwer zugeben und weitere 2 Minuten pfannenrühren.",
+      "Nudeln dazugeben, mit Sojasauce, Chilisauce und Sesamöl würzen und 3 Minuten unter ständigem Wenden braten; mit Frühlingszwiebeln bestreut servieren."
+    ]
+  },
+  {
+    "name": "Gebratener Reis mit Ei",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "schnell",
+      "günstig",
+      "Reis",
+      "Pfanne",
+      "Asiatisch"
+    ],
+    "ingredients": [
+      "300 g Langkornreis (am Vortag gekocht und gekühlt)",
+      "4 Eier",
+      "150 g TK-Erbsen",
+      "2 Karotten",
+      "1 Bund Frühlingszwiebeln",
+      "2 Zehen Knoblauch",
+      "3 EL Rapsöl",
+      "4 EL Sojasauce",
+      "1 TL Sesamöl",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Karotten klein würfeln, Frühlingszwiebeln in Ringe schneiden, dabei Weißes und Grünes trennen, und den Knoblauch fein hacken; Eier verquirlen.",
+      "1 EL Öl im Wok erhitzen, die Eier hineingeben, unter Rühren 2 Minuten stocken lassen und als Rührei herausnehmen.",
+      "Restliches Öl erhitzen und Karotten, Knoblauch und das Weiße der Frühlingszwiebeln 3 Minuten braten.",
+      "Kalten Reis und Erbsen zugeben und bei hoher Hitze 5 Minuten braten, bis der Reis an einigen Stellen leicht knusprig wird.",
+      "Rührei untermischen, mit Sojasauce, Sesamöl und Pfeffer abschmecken und mit dem Grün der Frühlingszwiebeln bestreut servieren."
+    ]
+  },
+  {
+    "name": "Paella mit Hähnchen",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 45,
+    "tags": [
+      "Hauptgericht",
+      "Reis",
+      "Spanisch",
+      "Hähnchen"
+    ],
+    "ingredients": [
+      "500 g Hähnchenbrust",
+      "300 g Paellareis (oder Risottoreis)",
+      "1 Zwiebel",
+      "3 Zehen Knoblauch",
+      "1 rote Paprika",
+      "1 gelbe Paprika",
+      "2 Tomaten",
+      "150 g TK-Erbsen",
+      "900 ml Hühnerbrühe",
+      "1 Pck. Safranfäden (0,1 g)",
+      "2 TL Paprikapulver (edelsüß)",
+      "4 EL Olivenöl",
+      "1 Zitrone",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Hähnchen in mundgerechte Stücke schneiden, Zwiebel und Knoblauch fein würfeln, Paprika in Streifen schneiden und die Tomaten klein würfeln.",
+      "Olivenöl in einer Paellapfanne oder großen, breiten Pfanne erhitzen, das Hähnchen mit Salz, Pfeffer und Paprikapulver würzen und 6 Minuten rundum anbraten.",
+      "Zwiebel, Knoblauch und Paprika zugeben und 4 Minuten mitbraten, dann Tomaten und Reis unterrühren, bis die Körner glasig glänzen.",
+      "Safran in der heißen Brühe auflösen, alles in die Pfanne gießen, einmal umrühren und offen 20 Minuten köcheln lassen, ohne weiter zu rühren.",
+      "Erbsen darüberstreuen und weitere 5 Minuten garen, bis der Reis die Flüssigkeit vollständig aufgenommen hat.",
+      "Pfanne vom Herd nehmen, mit einem sauberen Küchentuch abdecken, 5 Minuten ruhen lassen und mit Zitronenspalten servieren."
+    ]
+  },
+  {
+    "name": "Zitronen-Risotto mit Erbsen",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Reis",
+      "Italienisch"
+    ],
+    "ingredients": [
+      "300 g Risottoreis",
+      "1 Zwiebel",
+      "1 Zehe Knoblauch",
+      "2 EL Olivenöl",
+      "40 g Butter",
+      "100 ml trockener Weißwein",
+      "1 l Gemüsebrühe",
+      "200 g TK-Erbsen",
+      "1 Bio-Zitrone",
+      "60 g Parmesan (oder vegetarischer Hartkäse, gerieben)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Brühe in einem Topf erhitzen und warm halten; Zwiebel und Knoblauch fein würfeln.",
+      "Olivenöl und die Hälfte der Butter in einem breiten Topf erhitzen, Zwiebel und Knoblauch 3 Minuten glasig dünsten, dann den Reis zugeben und 2 Minuten unter Rühren anschwitzen.",
+      "Mit dem Weißwein ablöschen und einkochen lassen, dann nach und nach je eine Kelle heiße Brühe angießen und unter häufigem Rühren vom Reis aufnehmen lassen.",
+      "So weiterverfahren, bis der Reis nach 18 Minuten cremig und noch bissfest ist; die Erbsen in den letzten 5 Minuten mitgaren.",
+      "Topf vom Herd nehmen und abgeriebene Zitronenschale, 2 EL Zitronensaft, die restliche Butter und den Käse unterrühren.",
+      "Mit Salz und Pfeffer abschmecken, zugedeckt 2 Minuten ruhen lassen und sofort servieren."
+    ]
+  },
+  {
+    "name": "Pizza Margherita",
+    "servings": 4,
+    "prep_time": 90,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "günstig",
+      "Ofen",
+      "Italienisch",
+      "Party"
+    ],
+    "ingredients": [
+      "500 g Weizenmehl (Type 550)",
+      "1 Pck. Trockenhefe (7 g)",
+      "300 ml lauwarmes Wasser",
+      "1 TL Zucker",
+      "2 TL Salz",
+      "4 EL Olivenöl",
+      "400 g passierte Tomaten",
+      "1 Zehe Knoblauch",
+      "1 TL getrockneter Oregano",
+      "250 g Mozzarella (2 Kugeln)",
+      "1/2 Bund Basilikum",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Mehl, Trockenhefe, Zucker und Salz in einer Schüssel mischen, Wasser und 2 EL Olivenöl zugeben und alles 8 Minuten zu einem glatten, elastischen Teig kneten.",
+      "Teig abgedeckt an einem warmen Ort 60 Minuten gehen lassen, bis er sein Volumen deutlich vergrößert hat.",
+      "Passierte Tomaten mit gepresstem Knoblauch, Oregano, dem restlichen Olivenöl, Salz und Pfeffer verrühren und den Backofen auf 250 °C Ober-/Unterhitze vorheizen.",
+      "Teig halbieren, jede Hälfte auf einem mit Backpapier belegten Blech dünn ausrollen und mit der Tomatensauce bestreichen.",
+      "Mozzarella in Stücke zupfen, auf den Pizzen verteilen und die Bleche nacheinander im unteren Drittel des Ofens je 12 Minuten backen.",
+      "Mit frischen Basilikumblättern belegen und sofort servieren."
+    ]
+  },
+  {
+    "name": "Flammkuchen",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "günstig",
+      "Ofen",
+      "Französisch",
+      "Party"
+    ],
+    "ingredients": [
+      "250 g Weizenmehl (Type 405)",
+      "125 ml Wasser",
+      "3 EL Rapsöl",
+      "1/2 TL Salz",
+      "200 g Schmand",
+      "100 g Crème fraîche",
+      "150 g Speckwürfel",
+      "2 Zwiebeln",
+      "1 Prise Muskatnuss",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 250 °C Ober-/Unterhitze vorheizen und zwei Backbleche mit Backpapier belegen.",
+      "Mehl, Wasser, Öl und Salz zu einem glatten, geschmeidigen Teig verkneten und abgedeckt 10 Minuten ruhen lassen.",
+      "Zwiebeln in hauchdünne Ringe schneiden und Schmand mit Crème fraîche, Pfeffer, Muskat und einer Prise Salz glatt rühren.",
+      "Teig halbieren, jede Hälfte sehr dünn auf dem Backpapier ausrollen, mit der Schmandcreme bestreichen und Zwiebeln und Speck darauf verteilen.",
+      "Flammkuchen nacheinander auf der untersten Schiene je 12 Minuten backen, bis der Rand knusprig und leicht gebräunt ist, und in Stücke geschnitten servieren."
+    ]
+  },
+  {
+    "name": "Tacos mit Hackfleisch",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "schnell",
+      "Mexikanisch",
+      "Hackfleisch",
+      "Party"
+    ],
+    "ingredients": [
+      "500 g Rinderhackfleisch",
+      "1 Pck. Taco-Schalen (12 Stück)",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 EL Rapsöl",
+      "2 EL Tomatenmark",
+      "2 TL Paprikapulver (edelsüß)",
+      "1 TL Kreuzkümmel (gemahlen)",
+      "1/2 TL Chilipulver",
+      "100 ml Wasser",
+      "1/2 Kopf Eisbergsalat",
+      "2 Tomaten",
+      "150 g Reibekäse (Cheddar oder Gouda)",
+      "200 g Schmand",
+      "1 Limette",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Zwiebel und Knoblauch fein würfeln, Eisbergsalat in feine Streifen schneiden und die Tomaten klein würfeln.",
+      "Öl in einer Pfanne erhitzen, das Hackfleisch darin 5 Minuten krümelig braten und Zwiebel und Knoblauch 2 Minuten mitbraten.",
+      "Tomatenmark und Gewürze einrühren, Wasser angießen und 5 Minuten köcheln lassen, bis die Füllung saftig, aber nicht mehr flüssig ist; mit Salz, Pfeffer und Limettensaft abschmecken.",
+      "Taco-Schalen im vorgeheizten Ofen bei 180 °C Ober-/Unterhitze 3 Minuten erwärmen.",
+      "Schalen mit der Hackfleischfüllung füllen und mit Salat, Tomaten, Käse und einem Klecks Schmand belegen."
+    ]
+  },
+  {
+    "name": "Burrito-Bowl",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "Reis",
+      "Mexikanisch",
+      "Hähnchen"
+    ],
+    "ingredients": [
+      "250 g Langkornreis",
+      "500 g Hähnchenbrust",
+      "1 Dose schwarze Bohnen (400 g)",
+      "1 Dose Mais (285 g)",
+      "2 Avocados",
+      "250 g Kirschtomaten",
+      "1 rote Zwiebel",
+      "2 Limetten",
+      "1/2 Bund Koriander",
+      "200 g saure Sahne",
+      "2 EL Rapsöl",
+      "2 TL Paprikapulver (geräuchert)",
+      "1 TL Kreuzkümmel (gemahlen)",
+      "1/2 TL Chiliflocken",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Reis in Salzwasser 15 Minuten garen, abgießen und mit der Hälfte des gehackten Korianders und dem Saft einer halben Limette vermischen.",
+      "Hähnchen in Streifen schneiden, mit Paprikapulver, Kreuzkümmel, Chiliflocken, Salz und Pfeffer würzen und im heißen Öl 8 Minuten rundum goldbraun braten.",
+      "Bohnen und Mais abgießen, abspülen und in einem kleinen Topf 3 Minuten erwärmen.",
+      "Kirschtomaten vierteln, die rote Zwiebel fein würfeln und beides mit Salz und dem Saft einer halben Limette zu einer schnellen Salsa vermengen; Avocados in Spalten schneiden.",
+      "Reis auf Schalen verteilen, Hähnchen, Bohnen, Mais, Salsa und Avocado nebeneinander darauf anrichten und mit saurer Sahne, dem restlichen Koriander und Limettenspalten servieren."
+    ]
+  },
+  {
+    "name": "Rotes Thai-Curry mit Hähnchen",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "Thailändisch",
+      "Asiatisch",
+      "Hähnchen"
+    ],
+    "ingredients": [
+      "500 g Hähnchenbrust",
+      "300 g Jasminreis",
+      "2 EL rote Currypaste",
+      "1 Dose Kokosmilch (400 ml)",
+      "150 ml Hühnerbrühe",
+      "1 rote Paprika",
+      "1 Karotte",
+      "200 g Zuckerschoten",
+      "1 EL Rapsöl",
+      "2 EL Fischsauce",
+      "1 TL brauner Zucker",
+      "1 Limette",
+      "1/2 Bund Koriander"
+    ],
+    "steps": [
+      "Jasminreis mit der doppelten Menge Wasser aufkochen und zugedeckt bei kleiner Hitze 15 Minuten quellen lassen.",
+      "Hähnchen und Paprika in Streifen, die Karotte in dünne Scheiben schneiden und die Zuckerschoten halbieren.",
+      "Öl im Wok erhitzen, die Currypaste darin 1 Minute anrösten, bis sie duftet, dann das Hähnchen zugeben und 4 Minuten anbraten.",
+      "Kokosmilch und Brühe angießen, Karotte und Paprika zugeben und 6 Minuten köcheln lassen.",
+      "Zuckerschoten hinzufügen und weitere 3 Minuten garen, dann mit Fischsauce, Zucker und Limettensaft abschmecken.",
+      "Curry mit gehacktem Koriander bestreuen und zusammen mit dem Reis servieren."
+    ]
+  },
+  {
+    "name": "Teriyaki-Hähnchen mit Reis",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "schnell",
+      "Reis",
+      "Asiatisch",
+      "Hähnchen"
+    ],
+    "ingredients": [
+      "600 g Hähnchenbrust",
+      "300 g Langkornreis",
+      "300 g Brokkoli",
+      "6 EL Sojasauce",
+      "3 EL Honig",
+      "2 EL Reisessig",
+      "1 Zehe Knoblauch",
+      "1 Stück Ingwer (2 cm)",
+      "1 TL Speisestärke",
+      "2 EL Rapsöl",
+      "1 EL Sesam",
+      "3 Frühlingszwiebeln"
+    ],
+    "steps": [
+      "Reis in Salzwasser 15 Minuten garen.",
+      "Für die Sauce Sojasauce, Honig, Reisessig, 4 EL Wasser, gepressten Knoblauch, geriebenen Ingwer und Speisestärke glatt verrühren.",
+      "Hähnchen in Würfel schneiden und im heißen Öl 6 Minuten rundum goldbraun braten.",
+      "Brokkoli in kleine Röschen teilen und in Salzwasser 4 Minuten bissfest garen.",
+      "Sauce zum Hähnchen gießen und unter Rühren 2 Minuten einkochen lassen, bis sie glänzt und das Fleisch rundum überzieht.",
+      "Hähnchen mit Reis und Brokkoli anrichten und mit Sesam und Frühlingszwiebelringen bestreuen."
+    ]
+  },
+  {
+    "name": "Moussaka",
+    "servings": 4,
+    "prep_time": 35,
+    "cook_time": 60,
+    "tags": [
+      "Hauptgericht",
+      "Auflauf",
+      "Griechisch",
+      "Hackfleisch"
+    ],
+    "ingredients": [
+      "2 Auberginen",
+      "500 g Kartoffeln (festkochend)",
+      "500 g Rinderhackfleisch",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 Dose stückige Tomaten (400 g)",
+      "2 EL Tomatenmark",
+      "1 TL Zimt",
+      "1 TL getrockneter Oregano",
+      "6 EL Olivenöl",
+      "50 g Butter",
+      "50 g Mehl",
+      "500 ml Milch",
+      "1 Ei",
+      "60 g Parmesan (gerieben)",
+      "1 Prise Muskatnuss",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Auberginen in 1 cm dicke Scheiben schneiden, salzen und 15 Minuten Wasser ziehen lassen, dann trocken tupfen und portionsweise in Olivenöl von beiden Seiten goldbraun braten.",
+      "Kartoffeln schälen, in dünne Scheiben schneiden und in Salzwasser 8 Minuten vorgaren.",
+      "Zwiebel und Knoblauch würfeln und mit dem Hackfleisch krümelig anbraten, Tomatenmark kurz mitrösten, Tomaten, Zimt und Oregano zugeben, mit Salz und Pfeffer würzen und 15 Minuten köcheln lassen.",
+      "Für die Béchamelsauce Butter schmelzen, Mehl einrühren, die Milch nach und nach zugießen und 5 Minuten köcheln lassen; vom Herd nehmen und Ei, die Hälfte des Käses, Salz und Muskat unterrühren.",
+      "Backofen auf 180 °C Ober-/Unterhitze vorheizen und Kartoffeln, die Hälfte der Auberginen, die Hackfleischsauce und die übrigen Auberginen in eine Auflaufform schichten, mit der Béchamelsauce bedecken und mit dem restlichen Käse bestreuen.",
+      "Moussaka 45 Minuten backen, bis die Oberfläche goldbraun ist, und vor dem Anschneiden 10 Minuten ruhen lassen."
+    ]
+  },
+  {
+    "name": "Couscous-Salat mit Gemüse",
+    "servings": 4,
+    "prep_time": 25,
+    "cook_time": 5,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "vegan",
+      "schnell",
+      "günstig",
+      "Salat",
+      "Party"
+    ],
+    "ingredients": [
+      "250 g Couscous",
+      "300 ml Gemüsebrühe",
+      "1 Salatgurke",
+      "1 rote Paprika",
+      "250 g Kirschtomaten",
+      "1 Dose Kichererbsen (400 g)",
+      "1 rote Zwiebel",
+      "1 Bund glatte Petersilie",
+      "1/2 Bund Minze",
+      "2 Zitronen",
+      "5 EL Olivenöl",
+      "1 TL Kreuzkümmel (gemahlen)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Gemüsebrühe aufkochen, über den Couscous gießen, abdecken und 5 Minuten quellen lassen; anschließend mit einer Gabel auflockern und abkühlen lassen.",
+      "Gurke, Paprika und rote Zwiebel fein würfeln, Kirschtomaten vierteln und die Kichererbsen abspülen und abtropfen lassen.",
+      "Petersilie und Minze fein hacken und für das Dressing den Saft der Zitronen mit Olivenöl, Kreuzkümmel, Salz und Pfeffer verquirlen.",
+      "Couscous mit Gemüse, Kichererbsen, Kräutern und Dressing vermengen und 10 Minuten durchziehen lassen.",
+      "Vor dem Servieren noch einmal mit Salz, Pfeffer und Zitronensaft abschmecken."
+    ]
+  },
+  {
+    "name": "Klassischer Nudelsalat",
+    "servings": 4,
+    "prep_time": 50,
+    "cook_time": 10,
+    "tags": [
+      "Hauptgericht",
+      "günstig",
+      "Salat",
+      "Pasta",
+      "Party"
+    ],
+    "ingredients": [
+      "400 g Spiralnudeln",
+      "150 g TK-Erbsen",
+      "250 g Fleischwurst",
+      "1 Glas Gewürzgurken (330 g Abtropfgewicht)",
+      "1 rote Paprika",
+      "150 g Salatmayonnaise",
+      "150 g Joghurt",
+      "1 TL Senf (mittelscharf)",
+      "1/2 Bund Schnittlauch",
+      "1 Prise Zucker",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Nudeln in Salzwasser 10 Minuten bissfest kochen, die Erbsen in den letzten 2 Minuten mitgaren, dann alles abgießen, kalt abschrecken und gut abtropfen lassen.",
+      "Fleischwurst pellen und in kleine Würfel schneiden, Gewürzgurken und Paprika ebenfalls würfeln und den Schnittlauch in Röllchen schneiden.",
+      "Mayonnaise, Joghurt, Senf und 5 EL Gurkenwasser aus dem Glas verrühren und mit Zucker, Salz und Pfeffer kräftig würzen.",
+      "Nudeln, Erbsen, Wurst, Gurken und Paprika mit dem Dressing gründlich vermengen.",
+      "Salat abgedeckt im Kühlschrank 30 Minuten durchziehen lassen, noch einmal abschmecken und mit Schnittlauch bestreut servieren."
+    ]
+  },
+  {
+    "name": "Quesadillas mit Bohnen und Käse",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "schnell",
+      "günstig",
+      "Pfanne",
+      "Mexikanisch"
+    ],
+    "ingredients": [
+      "1 Pck. Weizentortillas (8 Stück)",
+      "1 Dose Kidneybohnen (400 g)",
+      "1 Dose Mais (285 g)",
+      "1 rote Paprika",
+      "3 Frühlingszwiebeln",
+      "200 g Reibekäse (Cheddar oder Gouda)",
+      "1 TL Kreuzkümmel (gemahlen)",
+      "1 TL Paprikapulver (edelsüß)",
+      "1 EL Rapsöl",
+      "200 g saure Sahne",
+      "1 Glas Tomatensalsa (200 g)",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Bohnen und Mais abgießen, abspülen und abtropfen lassen; Paprika fein würfeln und die Frühlingszwiebeln in Ringe schneiden.",
+      "Bohnen in einer Schüssel mit einer Gabel grob zerdrücken und mit Mais, Paprika, Frühlingszwiebeln, Kreuzkümmel, Paprikapulver, Salz und Pfeffer vermischen.",
+      "Vier Tortillas mit der Bohnenmischung und dem Käse belegen und jeweils mit einer zweiten Tortilla bedecken.",
+      "Eine Pfanne dünn mit Öl auspinseln und die Quesadillas einzeln bei mittlerer Hitze je Seite 2 Minuten goldbraun braten, bis der Käse geschmolzen ist.",
+      "In Viertel schneiden und mit saurer Sahne und Salsa servieren."
+    ]
+  },
+  {
+    "name": "Ofen-Feta-Pasta",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 30,
+    "tags": [
+      "Hauptgericht",
+      "vegetarisch",
+      "Pasta",
+      "Ofen"
+    ],
+    "ingredients": [
+      "400 g Rigatoni",
+      "200 g Feta",
+      "500 g Kirschtomaten",
+      "3 Zehen Knoblauch",
+      "1 rote Chilischote",
+      "5 EL Olivenöl",
+      "1 TL getrockneter Oregano",
+      "100 g Babyspinat",
+      "1/2 Bund Basilikum",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Backofen auf 200 °C Ober-/Unterhitze vorheizen und die Chilischote in feine Ringe schneiden.",
+      "Kirschtomaten und geschälte Knoblauchzehen in eine Auflaufform geben, den Feta im Ganzen in die Mitte legen, alles mit Olivenöl beträufeln und mit Oregano, Chili, Salz und Pfeffer würzen.",
+      "Im Ofen 30 Minuten backen, bis die Tomaten aufplatzen und der Feta weich und leicht gebräunt ist.",
+      "Inzwischen die Rigatoni in Salzwasser 12 Minuten bissfest kochen und dabei eine Tasse Nudelwasser auffangen.",
+      "Feta, Tomaten und Knoblauch direkt in der Form mit einer Gabel zu einer cremigen Sauce zerdrücken und den Spinat unterheben.",
+      "Nudeln mit einem Schuss Nudelwasser untermischen und mit gezupftem Basilikum servieren."
+    ]
+  },
+  {
+    "name": "Bami Goreng",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 15,
+    "tags": [
+      "Hauptgericht",
+      "Pfanne",
+      "Asiatisch",
+      "Hähnchen"
+    ],
+    "ingredients": [
+      "250 g Mie-Nudeln",
+      "400 g Hähnchenbrust",
+      "2 Eier",
+      "2 Karotten",
+      "200 g Weißkohl",
+      "1 Stange Lauch",
+      "1 Zwiebel",
+      "2 Zehen Knoblauch",
+      "1 Stück Ingwer (2 cm)",
+      "3 EL Rapsöl",
+      "4 EL Ketjap Manis (süße Sojasauce)",
+      "2 EL Sojasauce",
+      "1 TL Sambal Oelek"
+    ],
+    "steps": [
+      "Mie-Nudeln mit kochendem Wasser übergießen, 4 Minuten ziehen lassen und in einem Sieb gut abtropfen lassen.",
+      "Hähnchen in dünne Streifen, Karotten in Stifte sowie Weißkohl und Lauch in feine Streifen schneiden; Zwiebel, Knoblauch und Ingwer fein hacken.",
+      "Eier verquirlen, in 1 EL heißem Öl im Wok 2 Minuten zu einem dünnen Omelett stocken lassen, herausnehmen und in Streifen schneiden.",
+      "Restliches Öl stark erhitzen, Hähnchen 4 Minuten scharf anbraten, dann Zwiebel, Knoblauch, Ingwer und Gemüse zugeben und 4 Minuten unter Rühren mitbraten.",
+      "Nudeln, Ketjap Manis, Sojasauce und Sambal Oelek dazugeben und alles 3 Minuten kräftig durchschwenken.",
+      "Bami Goreng auf Teller verteilen und mit den Omelettstreifen belegt servieren."
+    ]
+  },
+  {
+    "name": "Fischstäbchen mit Kartoffelpüree",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "Fisch",
+      "Kinder",
+      "günstig"
+    ],
+    "ingredients": [
+      "800 g mehligkochende Kartoffeln",
+      "200 ml Milch",
+      "30 g Butter",
+      "1 Prise Muskatnuss",
+      "20 Fischstäbchen (TK)",
+      "3 EL Rapsöl",
+      "300 g TK-Erbsen",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln schälen, in grobe Stücke schneiden und in Salzwasser 20 Minuten weich kochen.",
+      "Erbsen in wenig Salzwasser 5 Minuten garen, abgießen und warm halten.",
+      "Öl in einer großen Pfanne erhitzen und die Fischstäbchen bei mittlerer Hitze von jeder Seite 4 Minuten goldbraun braten.",
+      "Milch erwärmen. Kartoffeln abgießen, Milch und Butter zugeben und alles zu einem glatten Püree stampfen, mit Salz und Muskat abschmecken.",
+      "Fischstäbchen mit Püree und Erbsen auf Tellern anrichten."
+    ]
+  },
+  {
+    "name": "Seelachsfilet in Senfsauce mit Kartoffeln",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "Fisch",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "800 g festkochende Kartoffeln",
+      "600 g Seelachsfilet",
+      "1 Zitrone",
+      "1 Zwiebel",
+      "30 g Butter",
+      "2 EL Weizenmehl",
+      "250 ml Gemüsebrühe",
+      "200 ml Sahne",
+      "2 EL mittelscharfer Senf",
+      "1 EL körniger Senf",
+      "1 Bund Dill",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln schälen, halbieren und in Salzwasser 20 Minuten garen.",
+      "Fisch abspülen, trocken tupfen, in vier Stücke teilen, mit Zitronensaft beträufeln und leicht salzen.",
+      "Zwiebel fein würfeln und in der Butter glasig dünsten. Mehl darüberstäuben, kurz anschwitzen und Brühe und Sahne nach und nach einrühren; die Sauce 5 Minuten köcheln lassen.",
+      "Beide Senfsorten unterrühren, mit Salz und Pfeffer abschmecken. Die Fischstücke in die Sauce legen und zugedeckt bei schwacher Hitze 8 Minuten gar ziehen lassen.",
+      "Dill hacken, über den Fisch streuen und mit den Kartoffeln servieren."
+    ]
+  },
+  {
+    "name": "Matjes nach Hausfrauenart mit Pellkartoffeln",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "Fisch",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "8 Matjesfilets",
+      "1 kg kleine festkochende Kartoffeln",
+      "2 rote Zwiebeln",
+      "2 säuerliche Äpfel",
+      "4 Gewürzgurken",
+      "1 Becher saure Sahne (200 g)",
+      "1 Becher Schmand (200 g)",
+      "150 g Naturjoghurt",
+      "2 EL Gurkenwasser",
+      "1 TL Zucker",
+      "1 Bund Dill",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln gründlich waschen und mit der Schale in Salzwasser 25 Minuten garen.",
+      "Zwiebeln in dünne Ringe schneiden, Äpfel entkernen und würfeln, Gewürzgurken in Scheiben schneiden und den Dill fein hacken.",
+      "Saure Sahne, Schmand, Joghurt und Gurkenwasser glatt rühren, mit Zucker, Salz und Pfeffer abschmecken und Zwiebeln, Äpfel, Gurken und Dill unterheben.",
+      "Matjesfilets trocken tupfen, bei Bedarf halbieren, in die Sauce legen und im Kühlschrank 20 Minuten durchziehen lassen.",
+      "Kartoffeln abgießen, kurz ausdampfen lassen, pellen und zusammen mit dem Matjes in der Sauce servieren."
+    ]
+  },
+  {
+    "name": "Garnelen-Knoblauch-Pfanne mit Baguette",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 10,
+    "tags": [
+      "Hauptgericht",
+      "Fisch",
+      "Party",
+      "schnell"
+    ],
+    "ingredients": [
+      "500 g Garnelen (roh, geschält)",
+      "6 Zehen Knoblauch",
+      "1 rote Chilischote",
+      "5 EL Olivenöl",
+      "30 g Butter",
+      "100 ml Weißwein",
+      "1 Bio-Zitrone",
+      "1 Bund glatte Petersilie",
+      "1 Baguette",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Garnelen abspülen und gut trocken tupfen. Knoblauch in feine Scheiben schneiden, Chili entkernen und fein hacken, Petersilie hacken.",
+      "Olivenöl in einer großen Pfanne stark erhitzen, Garnelen darin 2 Minuten rundherum anbraten und herausnehmen.",
+      "Butter, Knoblauch und Chili in die Pfanne geben und kurz anschwitzen, ohne dass der Knoblauch braun wird. Mit Weißwein ablöschen und 2 Minuten einköcheln lassen.",
+      "Garnelen zurück in die Pfanne geben, Zitronenschale und -saft sowie die Petersilie unterrühren und mit Salz und Pfeffer würzen.",
+      "Baguette in Scheiben schneiden und zum Eintunken in die Knoblauchsauce dazu reichen."
+    ]
+  },
+  {
+    "name": "Backfisch mit Remoulade und Kartoffelsalat",
+    "servings": 4,
+    "prep_time": 30,
+    "cook_time": 35,
+    "tags": [
+      "Hauptgericht",
+      "Fisch",
+      "Klassiker"
+    ],
+    "ingredients": [
+      "1 kg festkochende Kartoffeln",
+      "1 Zwiebel",
+      "200 ml Gemüsebrühe",
+      "4 EL Weißweinessig",
+      "1 TL mittelscharfer Senf",
+      "1 Bund Schnittlauch",
+      "600 g Kabeljaufilet",
+      "150 g Weizenmehl",
+      "2 Eier",
+      "150 ml Mineralwasser (sprudelnd, kalt)",
+      "1 l Rapsöl (davon 4 EL für den Salat)",
+      "150 g Mayonnaise",
+      "100 g Naturjoghurt",
+      "2 Gewürzgurken",
+      "1 EL Kapern",
+      "1/2 Bund glatte Petersilie",
+      "1 Zitrone",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Kartoffeln mit Schale 20 Minuten kochen, pellen und in Scheiben schneiden. Zwiebel fein würfeln, mit Brühe, Essig und Senf aufkochen, salzen, pfeffern und heiß über die Kartoffeln gießen; 4 EL Öl und Schnittlauchröllchen unterheben und 30 Minuten ziehen lassen.",
+      "Für die Remoulade Gewürzgurken, Kapern und Petersilie fein hacken, mit Mayonnaise, Joghurt und 1 EL Zitronensaft verrühren und mit Salz und Pfeffer abschmecken.",
+      "Mehl, Eier, Mineralwasser und 1/2 TL Salz zu einem glatten Backteig verrühren. Fisch in acht Stücke schneiden, trocken tupfen, salzen und mit Zitronensaft beträufeln.",
+      "Das übrige Öl in einem hohen Topf auf 170 °C erhitzen. Fischstücke durch den Teig ziehen, abtropfen lassen und portionsweise 5 Minuten goldbraun ausbacken.",
+      "Backfisch kurz auf Küchenpapier abtropfen lassen und mit Remoulade, Kartoffelsalat und Zitronenspalten servieren."
+    ]
+  },
+  {
+    "name": "Rührei mit Schnittlauch",
+    "servings": 2,
+    "prep_time": 5,
+    "cook_time": 5,
+    "tags": [
+      "Frühstück",
+      "Klassiker",
+      "vegetarisch",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "4 Eier",
+      "4 EL Milch",
+      "1 EL Butter",
+      "1/2 Bund Schnittlauch",
+      "2 Scheiben Bauernbrot",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Eier mit Milch, Salz und Pfeffer in einer Schüssel verquirlen. Schnittlauch in feine Röllchen schneiden.",
+      "Butter in einer beschichteten Pfanne bei mittlerer Hitze schmelzen und die Eimasse hineingießen.",
+      "Die Masse mit einem Pfannenwender immer wieder vom Rand zur Mitte schieben und 3 Minuten stocken lassen, bis das Rührei gerade fest, aber noch cremig ist.",
+      "Rührei mit Schnittlauch bestreuen und mit dem Brot servieren."
+    ]
+  },
+  {
+    "name": "Porridge mit Apfel und Zimt",
+    "servings": 2,
+    "prep_time": 5,
+    "cook_time": 10,
+    "tags": [
+      "Frühstück",
+      "süß",
+      "vegetarisch",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "80 g zarte Haferflocken",
+      "400 ml Milch",
+      "1 Prise Salz",
+      "1 Apfel",
+      "1 TL Butter",
+      "1 TL Zimt",
+      "1 EL Honig",
+      "2 EL Walnusskerne (gehackt)"
+    ],
+    "steps": [
+      "Haferflocken mit Milch und Salz in einem kleinen Topf aufkochen und bei schwacher Hitze unter Rühren 5 Minuten quellen lassen.",
+      "Apfel waschen, entkernen und klein würfeln. Butter in einer Pfanne schmelzen und die Apfelwürfel mit dem Zimt 3 Minuten andünsten.",
+      "Honig unter den Porridge rühren; ist er zu dick, einen Schuss Milch ergänzen.",
+      "Porridge in zwei Schalen füllen und mit den Zimtäpfeln und Walnüssen bestreut servieren."
+    ]
+  },
+  {
+    "name": "Joghurt-Bowl mit Früchten und Granola",
+    "servings": 2,
+    "prep_time": 10,
+    "cook_time": 0,
+    "tags": [
+      "Frühstück",
+      "süß",
+      "vegetarisch",
+      "schnell"
+    ],
+    "ingredients": [
+      "400 g Naturjoghurt (3,5 % Fett)",
+      "1 Banane",
+      "150 g Heidelbeeren",
+      "100 g Erdbeeren",
+      "1 Kiwi",
+      "80 g Knuspermüsli (Granola)",
+      "1 EL Chiasamen",
+      "2 TL Honig"
+    ],
+    "steps": [
+      "Beeren waschen und abtropfen lassen. Erdbeeren vierteln, Banane in Scheiben schneiden, Kiwi schälen und würfeln.",
+      "Joghurt glatt rühren und auf zwei Schalen verteilen.",
+      "Früchte auf dem Joghurt anrichten, Granola und Chiasamen darüberstreuen und mit Honig beträufeln."
+    ]
+  },
+  {
+    "name": "Avocado-Toast mit Ei",
+    "servings": 2,
+    "prep_time": 10,
+    "cook_time": 8,
+    "tags": [
+      "Frühstück",
+      "Amerikanisch",
+      "vegetarisch",
+      "schnell"
+    ],
+    "ingredients": [
+      "4 Scheiben Vollkornbrot",
+      "2 reife Avocados",
+      "1/2 Zitrone",
+      "4 Eier",
+      "1 EL Olivenöl",
+      "1 Prise Chiliflocken",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Brotscheiben im Toaster oder in einer trockenen Pfanne goldbraun rösten.",
+      "Avocados halbieren, entkernen, das Fruchtfleisch herauslösen und mit Zitronensaft, Salz und Pfeffer grob zerdrücken.",
+      "Olivenöl in einer Pfanne erhitzen, die Eier hineinschlagen und bei mittlerer Hitze 4 Minuten braten, bis das Eiweiß fest und das Eigelb noch flüssig ist.",
+      "Avocadocreme auf die Toasts streichen, je ein Spiegelei daraufsetzen und mit Chiliflocken, Salz und Pfeffer bestreuen."
+    ]
+  },
+  {
+    "name": "Arme Ritter",
+    "servings": 2,
+    "prep_time": 5,
+    "cook_time": 10,
+    "tags": [
+      "Frühstück",
+      "süß",
+      "Klassiker",
+      "vegetarisch",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "4 Scheiben Weißbrot (vom Vortag)",
+      "2 Eier",
+      "150 ml Milch",
+      "1 Pck. Vanillezucker",
+      "1 Prise Salz",
+      "2 EL Butter",
+      "2 EL Zucker",
+      "1 TL Zimt"
+    ],
+    "steps": [
+      "Eier, Milch, Vanillezucker und Salz in einem tiefen Teller verquirlen. Zucker und Zimt in einer kleinen Schale mischen.",
+      "Brotscheiben nacheinander von beiden Seiten in die Eiermilch legen, bis sie sich gut vollgesogen haben.",
+      "Butter in einer Pfanne erhitzen und die Scheiben bei mittlerer Hitze von jeder Seite 3 Minuten goldbraun braten.",
+      "Noch warm mit Zimtzucker bestreuen und servieren, zum Beispiel mit Apfelmus oder frischen Beeren."
+    ]
+  },
+  {
+    "name": "Amerikanische Pancakes",
+    "servings": 2,
+    "prep_time": 10,
+    "cook_time": 15,
+    "tags": [
+      "Frühstück",
+      "süß",
+      "Amerikanisch",
+      "vegetarisch",
+      "schnell"
+    ],
+    "ingredients": [
+      "150 g Weizenmehl",
+      "1 TL Backpulver",
+      "1 EL Zucker",
+      "1 Prise Salz",
+      "1 Ei",
+      "200 ml Milch",
+      "30 g Butter (geschmolzen)",
+      "1 TL Rapsöl (für die Pfanne)",
+      "4 EL Ahornsirup",
+      "125 g Heidelbeeren"
+    ],
+    "steps": [
+      "Mehl, Backpulver, Zucker und Salz in einer Schüssel mischen.",
+      "Ei, Milch und geschmolzene Butter verquirlen, zur Mehlmischung geben und nur kurz zu einem dicken, glatten Teig verrühren. Den Teig 5 Minuten ruhen lassen.",
+      "Eine beschichtete Pfanne dünn mit Öl auspinseln und bei mittlerer Hitze erhitzen. Pro Pancake 2 EL Teig hineingeben.",
+      "Backen, bis sich an der Oberfläche Bläschen zeigen, nach etwa 2 Minuten wenden und weitere 2 Minuten goldbraun backen.",
+      "Pancakes stapeln und mit Ahornsirup und Heidelbeeren servieren."
+    ]
+  },
+  {
+    "name": "Kaiserschmarrn",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 20,
+    "tags": [
+      "Hauptgericht",
+      "süß",
+      "Österreichisch",
+      "Klassiker",
+      "vegetarisch"
+    ],
+    "ingredients": [
+      "6 Eier",
+      "400 ml Milch",
+      "250 g Weizenmehl",
+      "3 EL Zucker",
+      "1 Pck. Vanillezucker",
+      "1 Prise Salz",
+      "50 g Rosinen",
+      "60 g Butter",
+      "2 EL Puderzucker",
+      "1 Glas Apfelmus (360 g)"
+    ],
+    "steps": [
+      "Eier trennen. Eigelbe mit Milch, Mehl, Vanillezucker und Salz zu einem glatten Teig verrühren und 10 Minuten quellen lassen.",
+      "Eiweiße mit 2 EL Zucker zu steifem Schnee schlagen und vorsichtig unter den Teig heben.",
+      "Die Hälfte der Butter in einer großen Pfanne erhitzen, den Teig hineingießen, Rosinen darüberstreuen und bei mittlerer Hitze 5 Minuten stocken lassen, bis die Unterseite goldbraun ist.",
+      "Den Teig vierteln, wenden und weitere 4 Minuten backen, dann mit zwei Pfannenwendern in mundgerechte Stücke reißen.",
+      "Restliche Butter und 1 EL Zucker zugeben und den Schmarrn unter Wenden 2 Minuten leicht karamellisieren. Mit Puderzucker bestäuben und mit Apfelmus servieren."
+    ]
+  },
+  {
+    "name": "Apfelkuchen vom Blech",
+    "servings": 20,
+    "prep_time": 30,
+    "cook_time": 40,
+    "tags": [
+      "Snack",
+      "Kuchen",
+      "Backen",
+      "Klassiker",
+      "vegetarisch"
+    ],
+    "ingredients": [
+      "250 g weiche Butter (plus 1 TL für das Blech)",
+      "250 g Zucker",
+      "1 Pck. Vanillezucker",
+      "1 Prise Salz",
+      "5 Eier",
+      "400 g Weizenmehl",
+      "1 Pck. Backpulver",
+      "150 ml Milch",
+      "1,5 kg säuerliche Äpfel (z. B. Boskoop)",
+      "2 EL Zitronensaft",
+      "3 EL brauner Zucker",
+      "1 TL Zimt",
+      "50 g Mandelblättchen"
+    ],
+    "steps": [
+      "Backofen auf 170 °C Umluft vorheizen und ein tiefes Backblech fetten oder mit Backpapier auslegen. Äpfel schälen, vierteln, entkernen, in Spalten schneiden und mit Zitronensaft mischen.",
+      "Butter, Zucker, Vanillezucker und Salz cremig rühren, dann die Eier einzeln jeweils gut unterrühren.",
+      "Mehl mit Backpulver mischen und abwechselnd mit der Milch kurz unterrühren. Den Teig gleichmäßig auf dem Blech verstreichen.",
+      "Apfelspalten dicht an dicht leicht in den Teig drücken. Braunen Zucker mit Zimt mischen und zusammen mit den Mandelblättchen darüberstreuen.",
+      "Den Kuchen 40 Minuten backen, bis er goldbraun ist und an einem hineingestochenen Holzstäbchen kein Teig mehr kleben bleibt. Auf dem Blech abkühlen lassen und in 20 Stücke schneiden."
+    ]
+  },
+  {
+    "name": "Marmorkuchen",
+    "servings": 16,
+    "prep_time": 20,
+    "cook_time": 55,
+    "tags": [
+      "Snack",
+      "Kuchen",
+      "Backen",
+      "Klassiker",
+      "vegetarisch"
+    ],
+    "ingredients": [
+      "250 g weiche Butter (plus 1 EL für die Form)",
+      "200 g Zucker",
+      "1 Pck. Vanillezucker",
+      "1 Prise Salz",
+      "4 Eier",
+      "375 g Weizenmehl (plus 1 EL für die Form)",
+      "1 Pck. Backpulver",
+      "150 ml Milch",
+      "3 EL Backkakao",
+      "2 EL Puderzucker"
+    ],
+    "steps": [
+      "Backofen auf 160 °C Umluft vorheizen. Eine Gugelhupfform (24 cm) mit Butter fetten und mit Mehl ausstäuben.",
+      "Butter, Zucker, Vanillezucker und Salz hell und cremig schlagen, dann die Eier einzeln unterrühren.",
+      "Mehl und Backpulver mischen und abwechselnd mit 125 ml Milch unterrühren. Die Hälfte des Teigs in die Form füllen.",
+      "Kakao und die restliche Milch unter den übrigen Teig rühren, auf den hellen Teig geben und mit einer Gabel spiralförmig durchziehen.",
+      "Den Kuchen 55 Minuten backen und die Stäbchenprobe machen. 10 Minuten in der Form ruhen lassen, dann stürzen, auskühlen lassen und mit Puderzucker bestäuben."
+    ]
+  },
+  {
+    "name": "Waffeln",
+    "servings": 10,
+    "prep_time": 15,
+    "cook_time": 15,
+    "tags": [
+      "Snack",
+      "süß",
+      "Kinder",
+      "vegetarisch",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "125 g weiche Butter",
+      "75 g Zucker",
+      "1 Pck. Vanillezucker",
+      "1 Prise Salz",
+      "3 Eier",
+      "250 g Weizenmehl",
+      "1 TL Backpulver",
+      "250 ml Milch",
+      "1 TL Rapsöl (für das Waffeleisen)",
+      "2 EL Puderzucker"
+    ],
+    "steps": [
+      "Butter, Zucker, Vanillezucker und Salz cremig rühren und die Eier nacheinander unterrühren.",
+      "Mehl mit Backpulver mischen und abwechselnd mit der Milch zu einem glatten, dickflüssigen Teig verrühren. Den Teig 10 Minuten quellen lassen.",
+      "Waffeleisen vorheizen und dünn mit Öl einpinseln.",
+      "Jeweils eine kleine Kelle Teig in die Mitte geben, das Eisen schließen und jede Waffel 3 Minuten goldbraun backen.",
+      "Waffeln auf einem Kuchengitter kurz abkühlen lassen, damit sie knusprig bleiben, und mit Puderzucker bestäuben."
+    ]
+  },
+  {
+    "name": "Schoko-Muffins",
+    "servings": 12,
+    "prep_time": 15,
+    "cook_time": 22,
+    "tags": [
+      "Snack",
+      "Backen",
+      "süß",
+      "Kinder",
+      "vegetarisch"
+    ],
+    "ingredients": [
+      "200 g Weizenmehl",
+      "30 g Backkakao",
+      "2 TL Backpulver",
+      "1/2 TL Natron",
+      "1 Prise Salz",
+      "100 g Zartbitterschokolade",
+      "2 Eier",
+      "150 g Zucker",
+      "1 Pck. Vanillezucker",
+      "100 ml Rapsöl",
+      "200 ml Buttermilch"
+    ],
+    "steps": [
+      "Backofen auf 160 °C Umluft vorheizen und ein Muffinblech mit 12 Papierförmchen auslegen.",
+      "Mehl, Kakao, Backpulver, Natron und Salz in einer Schüssel mischen. Schokolade grob hacken und untermengen.",
+      "Eier, Zucker, Vanillezucker, Öl und Buttermilch in einer zweiten Schüssel kräftig verquirlen.",
+      "Die flüssigen Zutaten zu den trockenen geben und nur so lange verrühren, bis alles gerade eben feucht ist.",
+      "Teig auf die Förmchen verteilen und 22 Minuten backen. In der Form 5 Minuten abkühlen lassen, dann herausnehmen und auf einem Gitter auskühlen lassen."
+    ]
+  },
+  {
+    "name": "Milchreis mit Kirschen",
+    "servings": 4,
+    "prep_time": 5,
+    "cook_time": 35,
+    "tags": [
+      "Snack",
+      "süß",
+      "Klassiker",
+      "vegetarisch",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 l Milch",
+      "250 g Milchreis",
+      "3 EL Zucker",
+      "1 Pck. Vanillezucker",
+      "1 Prise Salz",
+      "1 EL Butter",
+      "1 Glas Sauerkirschen (720 ml)",
+      "1 EL Speisestärke",
+      "1/2 TL Zimt"
+    ],
+    "steps": [
+      "Milch mit Butter, Zucker, Vanillezucker und Salz in einem Topf aufkochen, den Milchreis einrühren und einmal kurz aufwallen lassen.",
+      "Hitze auf die kleinste Stufe stellen und den Reis zugedeckt 30 Minuten quellen lassen; dabei gelegentlich umrühren, damit nichts am Boden ansetzt.",
+      "Kirschen in einem Sieb abtropfen lassen und den Saft auffangen. Stärke mit 4 EL Saft glatt rühren, den restlichen Saft aufkochen, die Stärke einrühren und 1 Minute köcheln lassen, dann die Kirschen unterheben.",
+      "Milchreis in Schalen füllen, mit den warmen Kirschen anrichten und mit Zimt bestäuben."
+    ]
+  },
+  {
+    "name": "Gemüsesticks mit Hummus",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 0,
+    "tags": [
+      "Snack",
+      "Party",
+      "vegetarisch",
+      "vegan",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 Dose Kichererbsen (400 g)",
+      "3 EL Tahini (Sesammus)",
+      "1 Zehe Knoblauch",
+      "1 Zitrone",
+      "4 EL Olivenöl",
+      "1/2 TL Kreuzkümmel",
+      "1/2 TL Paprikapulver (edelsüß)",
+      "Salz",
+      "3 Karotten",
+      "1 Salatgurke",
+      "2 Paprikaschoten (rot und gelb)",
+      "3 Stangen Staudensellerie"
+    ],
+    "steps": [
+      "Kichererbsen in ein Sieb abgießen, dabei 4 EL der Flüssigkeit auffangen, und kurz abspülen.",
+      "Kichererbsen mit Tahini, Knoblauch, dem Saft der Zitrone, 3 EL Olivenöl, Kreuzkümmel und der aufgefangenen Flüssigkeit im Mixer 2 Minuten cremig pürieren und mit Salz abschmecken.",
+      "Karotten schälen, Gurke, Paprika und Sellerie waschen und alles in fingerlange Sticks schneiden.",
+      "Hummus in eine Schale füllen, mit dem restlichen Olivenöl beträufeln, mit Paprikapulver bestäuben und mit den Gemüsesticks servieren."
+    ]
+  },
+  {
+    "name": "Bruschetta",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 5,
+    "tags": [
+      "Snack",
+      "Italienisch",
+      "Party",
+      "vegetarisch",
+      "vegan",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "1 Ciabatta",
+      "500 g reife Tomaten (z. B. Roma)",
+      "2 Zehen Knoblauch",
+      "1 Bund Basilikum",
+      "5 EL Olivenöl",
+      "1 TL Aceto balsamico",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Tomaten waschen, entkernen und fein würfeln. Basilikum in feine Streifen schneiden und eine Knoblauchzehe fein hacken.",
+      "Tomaten mit gehacktem Knoblauch, Basilikum, 3 EL Olivenöl und Balsamico mischen, salzen, pfeffern und 10 Minuten ziehen lassen.",
+      "Ciabatta schräg in 12 Scheiben schneiden, mit dem restlichen Öl beträufeln und unter dem Backofengrill 3 Minuten goldbraun rösten.",
+      "Die gerösteten Brote mit der halbierten zweiten Knoblauchzehe einreiben, die Tomatenmischung darauf verteilen und sofort servieren."
+    ]
+  },
+  {
+    "name": "Toast Hawaii",
+    "servings": 4,
+    "prep_time": 10,
+    "cook_time": 12,
+    "tags": [
+      "Hauptgericht",
+      "Klassiker",
+      "Kinder",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "8 Scheiben Toastbrot",
+      "2 EL Butter",
+      "8 Scheiben gekochter Schinken",
+      "1 Dose Ananasscheiben (580 ml)",
+      "8 Scheiben Gouda",
+      "8 Cocktailkirschen"
+    ],
+    "steps": [
+      "Backofen auf 180 °C Umluft vorheizen und ein Blech mit Backpapier auslegen. Ananas in einem Sieb gut abtropfen lassen.",
+      "Toastscheiben leicht antoasten, dünn mit Butter bestreichen und auf das Blech legen.",
+      "Jede Scheibe mit einer Scheibe Schinken, einer Ananasscheibe und einer Scheibe Gouda belegen.",
+      "Im Ofen 10 Minuten überbacken, bis der Käse geschmolzen und leicht gebräunt ist. Jeweils eine Cocktailkirsche in die Mitte setzen und heiß servieren."
+    ]
+  },
+  {
+    "name": "Bauernfrühstück",
+    "servings": 4,
+    "prep_time": 15,
+    "cook_time": 25,
+    "tags": [
+      "Hauptgericht",
+      "Klassiker",
+      "günstig"
+    ],
+    "ingredients": [
+      "800 g festkochende Kartoffeln (am Vortag gekocht)",
+      "150 g Speckwürfel",
+      "2 Zwiebeln",
+      "6 Eier",
+      "100 ml Milch",
+      "2 EL Butterschmalz",
+      "1 Bund Schnittlauch",
+      "4 Gewürzgurken",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Gekochte Kartoffeln pellen und in Scheiben schneiden, Zwiebeln würfeln und Schnittlauch in Röllchen schneiden.",
+      "Butterschmalz in einer großen Pfanne erhitzen und die Kartoffelscheiben unter gelegentlichem Wenden 12 Minuten goldbraun braten.",
+      "Speck und Zwiebeln zugeben, weitere 5 Minuten mitbraten und mit Salz und Pfeffer würzen.",
+      "Eier mit Milch, Salz, Pfeffer und der Hälfte des Schnittlauchs verquirlen, über die Kartoffeln gießen und bei mittlerer Hitze 5 Minuten stocken lassen, dabei die Masse ab und zu vorsichtig vom Boden lösen.",
+      "Mit dem restlichen Schnittlauch bestreuen und mit Gewürzgurken servieren."
+    ]
+  },
+  {
+    "name": "Strammer Max",
+    "servings": 4,
+    "prep_time": 5,
+    "cook_time": 10,
+    "tags": [
+      "Hauptgericht",
+      "Klassiker",
+      "schnell",
+      "günstig"
+    ],
+    "ingredients": [
+      "8 Scheiben Bauernbrot",
+      "3 EL Butter",
+      "8 Scheiben roher Schinken",
+      "8 Eier",
+      "1/2 Bund Schnittlauch",
+      "4 Gewürzgurken",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Brotscheiben mit 2 EL Butter bestreichen und mit je einer Scheibe Schinken belegen. Schnittlauch in Röllchen schneiden.",
+      "Restliche Butter in einer großen Pfanne erhitzen, die Eier nebeneinander hineinschlagen und bei mittlerer Hitze 4 Minuten zu Spiegeleiern braten; bei Bedarf in zwei Portionen arbeiten.",
+      "Spiegeleier mit Salz und Pfeffer würzen und je eines auf ein Schinkenbrot setzen.",
+      "Mit Schnittlauch bestreuen und mit Gewürzgurken servieren."
+    ]
+  },
+  {
+    "name": "Griechischer Salat",
+    "servings": 4,
+    "prep_time": 20,
+    "cook_time": 0,
+    "tags": [
+      "Hauptgericht",
+      "Salat",
+      "Griechisch",
+      "vegetarisch",
+      "schnell"
+    ],
+    "ingredients": [
+      "1 Salatgurke",
+      "500 g Tomaten",
+      "1 grüne Paprika",
+      "1 rote Zwiebel",
+      "150 g Kalamata-Oliven (entsteint)",
+      "400 g Feta",
+      "6 EL Olivenöl",
+      "2 EL Rotweinessig",
+      "1 TL Oregano (getrocknet)",
+      "1 Fladenbrot",
+      "Salz",
+      "Pfeffer"
+    ],
+    "steps": [
+      "Gurke längs halbieren und in dicke Scheiben schneiden, Tomaten in Spalten und Paprika in Streifen schneiden. Zwiebel schälen und in feine Ringe schneiden.",
+      "Für das Dressing 4 EL Olivenöl mit Essig, Salz und Pfeffer verquirlen.",
+      "Gemüse und Oliven mit dem Dressing mischen und 10 Minuten ziehen lassen.",
+      "Salat auf Teller verteilen, den Feta in groben Stücken darauflegen, mit Oregano bestreuen und mit dem restlichen Olivenöl beträufeln. Mit Fladenbrot servieren."
     ]
   }
 ]

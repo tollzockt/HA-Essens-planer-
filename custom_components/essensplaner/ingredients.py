@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import re
 from typing import Any
+import unicodedata
 
 # --------------------------------------------------------------------------
 # Units
@@ -410,14 +411,32 @@ _ADJECTIVES = {
     "etwas",
     "evtl",
     "evtl.",
+    "mittelscharf",
+    "mittelscharfer",
+    "scharf",
+    "scharfer",
+    "lauwarm",
+    "lauwarmes",
+    "lauwarme",
+    "kalt",
+    "kaltes",
+    "kalte",
+    "warmes",
+    "warme",
+    "grobe",
+    "grober",
+    "saeuerlich",
+    "säuerliche",
+    "säuerlicher",
 }
 
 _UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
 
 def fold(text: str) -> str:
-    """Lower case + umlaut folding + whitespace cleanup."""
+    """Lower case + umlaut folding + whitespace cleanup ('Crème fraîche' -> 'creme fraiche')."""
     text = text.lower().translate(_UMLAUTS)
+    text = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
     text = re.sub(r"[^a-z0-9 ]+", " ", text)
     return " ".join(text.split())
 
@@ -588,6 +607,8 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "croissant",
         "burgerbroetchen",
         "knaeckebrot",
+        "taco schale",
+        "tacoschale",
         "naan",
     ),
     "Fleisch & Fisch": (
@@ -628,6 +649,14 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "dorade",
         "muschel",
         "gyros",
+        "bratwuerste",
+        "wuerste",
+        "pancetta",
+        "matjes",
+        "hering",
+        "fleischwurst",
+        "schweinenacken",
+        "nackensteak",
         "geschnetzeltes",
         "wuerstchen",
         "wiener",
@@ -728,6 +757,9 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "graupe",
         "tortellini",
         "ravioli",
+        "cannelloni",
+        "sojagranulat",
+        "paellareis",
         "orzo",
     ),
     "Konserven & Gläser": (
@@ -767,6 +799,12 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "jalapeno",
         "antipasti",
         "kokoscreme",
+        "tahini",
+        "sauerkirsche",
+        "kirsche",
+        "cocktailkirsche",
+        "sojasprosse",
+        "schwarze bohne",
         "curry paste",
         "currypaste",
         "tahin",
@@ -818,6 +856,11 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "fond",
         "bruehwuerfel",
         "sambal",
+        "worcestersauce",
+        "ketjap manis",
+        "fischsauce",
+        "safran",
+        "safranfaeden",
         "sriracha",
         "tabasco",
         "vanilleextrakt",

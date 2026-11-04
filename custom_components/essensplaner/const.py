@@ -46,6 +46,21 @@ CONF_SHOW_PANEL: Final = "show_panel"
 CONF_MEAL_TIME_PREFIX: Final = "time_"
 CONF_EXCLUDED: Final = "excluded"
 CONF_AUTO_COOKED: Final = "auto_mark_cooked"
+CONF_BUDGET: Final = "weekly_budget"
+CONF_OFFERS_SOURCE: Final = "offers_source"
+CONF_ZIP: Final = "zip_code"
+CONF_STORES: Final = "offer_stores"
+CONF_WATCHLIST: Final = "offers_watchlist"
+CONF_STRATEGY: Final = "plan_strategy"
+
+OFFERS_OFF: Final = "off"
+OFFERS_MARKTGURU: Final = "marktguru"
+
+STRATEGY_BALANCED: Final = "balanced"
+STRATEGY_CHEAP: Final = "cheap"
+STRATEGY_OFFERS: Final = "offers"
+STRATEGY_VARIETY: Final = "variety"
+STRATEGIES: Final = [STRATEGY_BALANCED, STRATEGY_CHEAP, STRATEGY_OFFERS, STRATEGY_VARIETY]
 
 DEFAULT_SERVINGS: Final = 2
 DEFAULT_MEAL: Final = MEAL_DINNER
@@ -72,6 +87,15 @@ SERVICE_FIND_BY_INGREDIENTS: Final = "find_by_ingredients"
 SERVICE_GET_SHOPPING_LIST: Final = "get_shopping_list"
 SERVICE_EXPORT_RECIPES: Final = "export_recipes"
 SERVICE_IMPORT_RECIPES: Final = "import_recipes"
+SERVICE_CLEAR_SHOPPING: Final = "clear_shopping_list"
+SERVICE_IMPORT_STARTER: Final = "import_starter_recipes"
+SERVICE_REFRESH_OFFERS: Final = "refresh_offers"
+SERVICE_SEARCH_OFFERS: Final = "search_offers"
+SERVICE_GET_OFFERS: Final = "get_offers"
+SERVICE_ADD_OFFER: Final = "add_offer"
+SERVICE_REMOVE_OFFER: Final = "remove_offer"
+SERVICE_SET_PRICE: Final = "set_price"
+SERVICE_GET_COSTS: Final = "get_costs"
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"

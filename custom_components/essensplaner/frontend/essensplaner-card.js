@@ -21,6 +21,7 @@ import {
   addDays,
   dishEmoji,
   esc,
+  eur,
   fromIso,
   mondayOf,
   relativeDay,
@@ -186,6 +187,15 @@ class EssensplanerCard extends HTMLElement {
     this.shadowRoot.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => this._open()));
   }
 
+  _budgetLine() {
+    const week = this._data?.economy?.week;
+    if (!week || !week.total) return "";
+    const budget = this._data.economy.budget;
+    if (!budget) return `<span>💶 Woche ≈ <b>${eur(week.total)}</b></span>`;
+    const over = week.total > budget;
+    return `<span>💶 Woche ≈ <b style="color:${over ? "#c62828" : "inherit"}">${eur(week.total)}</b> / ${eur(budget)}</span>`;
+  }
+
   _head(title, sub) {
     const t = this._config.title ?? title;
     if (t === "") return "";
@@ -215,7 +225,7 @@ class EssensplanerCard extends HTMLElement {
     return `<div class="wrap">
         ${this._head("Heute", `${WEEKDAYS[weekdayIndex(d)]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`)}
         <div class="meals">${rows}</div>
-        <div class="foot">Morgen: <b>${tMain ? esc(tMain[1].title) : "noch frei"}</b></div>
+        <div class="foot"><span>Morgen: <b>${tMain ? esc(tMain[1].title) : "noch frei"}</b></span><span style="flex:1"></span>${this._budgetLine()}</div>
       </div>`;
   }
 
@@ -268,7 +278,8 @@ class EssensplanerCard extends HTMLElement {
         : `<span class="free">–</span>`;
       rows.push(`<div class="day ${iso === this._data.today ? "today" : ""}" data-open><div class="wd">${WEEKDAYS_SHORT[weekdayIndex(d)]}<small>${d.getDate()}. ${MONTHS[d.getMonth()]}</small></div><div class="items">${items}</div></div>`);
     }
-    return `<div class="wrap">${this._head("Essensplan")}<div class="days">${rows.join("")}</div></div>`;
+    const budget = this._budgetLine();
+    return `<div class="wrap">${this._head("Essensplan")}<div class="days">${rows.join("")}</div>${budget ? `<div class="foot">${budget}</div>` : ""}</div>`;
   }
 }
 

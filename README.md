@@ -1,8 +1,8 @@
 # 🍽️ Essensplaner für Home Assistant
 
-Ein Essensplaner mit **Rezeptsammlung, Wochenplan, Kochmodus und automatischer Einkaufsliste**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
+Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Preisen, Wochenbudget und Supermarkt-Angeboten**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
 
-> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane Lasagne für Freitag.“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Verschiebe die Lasagne auf Samstag.“ · „Erstelle die Einkaufsliste.“ · „Was steht auf der Einkaufsliste?“
+> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane mir die Woche günstig.“ · „Welche Angebote gibt es diese Woche?“ · „Wie viel Budget habe ich noch?“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Erstelle die Einkaufsliste.“
 
 ![Wochenplan](docs/images/wochenplan.png)
 
@@ -10,15 +10,21 @@ Ein Essensplaner mit **Rezeptsammlung, Wochenplan, Kochmodus und automatischer E
 
 | Bereich | Was es kann |
 |---|---|
-| 📖 **Rezepte** | Eigene Rezepte mit Zutaten, Schritten, Zeiten, Kategorien, Bild, Favoriten und ⭐ Bewertung. **Import per Link** von Chefkoch, Lecker, Eat Smarter, BBC Good Food & allen Seiten mit schema.org-Rezepten. Portionen werden automatisch umgerechnet. Sortieren nach „zuletzt gekocht“, „schnellste“, „beste Bewertung“ … 15 Beispielrezepte zum Start. **Export/Import** als JSON. |
-| 🗓️ **Wochenplan** | Frühstück, Mittag, Snack und Abendessen, mit Rezept oder Freitext („Pizza bestellen“). **Drag & Drop** (belegte Plätze werden getauscht), **„Letzte Woche übernehmen“**, Woche **automatisch füllen**, wobei Favoriten und lange nicht Gekochtes bevorzugt werden und „Nie vorschlagen“-Zutaten vermieden werden. |
+| 📖 **Rezepte** | Eigene Rezepte mit Zutaten, Schritten, Zeiten, Kategorien, Bild, Favoriten und ⭐ Bewertung. **Import per Link** von Chefkoch, Lecker, Eat Smarter, BBC Good Food & allen Seiten mit schema.org-Rezepten. Portionen werden automatisch umgerechnet. Sortieren nach „günstigste“, „zuletzt gekocht“, „schnellste“, „beste Bewertung“ … **107 Rezepte** zum Start (Klassiker, vegetarisch/vegan, Suppen, Pasta, international, Fisch, Frühstück, Kuchen). **Export/Import** als JSON. |
+| 🗓️ **Wochenplan** | Frühstück, Mittag, Snack und Abendessen, mit Rezept oder Freitext („Pizza bestellen“), Kosten je Mahlzeit. **Drag & Drop** (belegte Plätze werden getauscht), **„Letzte Woche übernehmen“**, Woche **automatisch planen** – *ausgewogen*, *günstig* (Budget), *Angebote nutzen* oder *Abwechslung*: Favoriten und lange nicht Gekochtes werden bevorzugt, ähnliche Gerichte an aufeinanderfolgenden Tagen und „Nie vorschlagen“-Zutaten vermieden. |
+| 💶 **Preise & Budget** | Richtpreise für über 200 Zutaten, eigene Preise, Kosten pro Rezept/Portion/Woche, **Wochenbudget** mit Restbudget. |
+| 🏷️ **Angebote** | **Aktuelle und kommende Angebote** von Aldi Süd/Nord, Lidl, REWE, EDEKA, Penny, Netto, Kaufland … (optional über marktguru.de nach Postleitzahl, täglich automatisch) oder selbst eingetragen. Angebote fließen in Rezeptkosten, Planung und Einkaufsliste ein; Normalpreise werden aus den Prospekten gelernt. Live-Preissuche im Panel. |
 | 👩‍🍳 **Kochmodus** | Vollbild Schritt für Schritt mit großer Schrift, Zutaten zum Abhaken, **Timer aus dem Rezepttext** („15 Minuten köcheln“ → ⏱ mit Signalton). Der Bildschirm bleibt an. Blättern per Wischen oder Pfeiltasten. |
 | 🧊 **Was kann ich kochen?** | Rezepte zu den Zutaten, die du da hast, mit Angabe, was noch fehlt. |
-| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
-| 🗣️ **Jarvis / Assist / LLM** | 15 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
+| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
+| 🗣️ **Jarvis / Assist / LLM** | 19 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
 | 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte, Wochenplan, Rezepten und Einkaufsliste, passend zu Hell/Dunkel-Theme und Handy. |
 | 🖼️ **Dashboard-Karte** | `custom:essensplaner-card` (Heute · Nächste Mahlzeit · Woche), ideal fürs Küchen- oder Esszimmer-Tablet. |
 | 🏠 **Entitäten & Blueprints** | Sensoren, Kalender, To-do-Liste und Buttons, dazu fertige Blueprints für Essens-Erinnerung und Wochen-Routine. |
+
+| Angebote & Budget | Rezept mit Kosten & Angebot |
+|---|---|
+| ![Angebote](docs/images/angebote.png) | ![Rezeptkosten](docs/images/rezept-kosten.png) |
 
 | Kochmodus | Was kann ich kochen? |
 |---|---|
@@ -69,7 +75,11 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_search_recipes` | „Welche Rezepte habe ich mit Hähnchen?“ |
 | `essensplaner_create_shopping_list` | „Erstelle die Einkaufsliste für die Woche.“ |
 | `essensplaner_get_shopping_list` | „Was steht auf der Einkaufsliste?“ · „Was muss ich einkaufen?“ |
-| `essensplaner_auto_plan` | „Plane mir die nächste Woche (vegetarisch).“ |
+| `essensplaner_clear_shopping_list` | „Lösche die Einkaufsliste.“ · „Entferne die erledigten Einträge.“ |
+| `essensplaner_auto_plan` | „Plane mir die nächste Woche (vegetarisch).“ · „Plane die Woche günstig / mit den Angeboten.“ |
+| `essensplaner_get_offers` | „Welche Angebote gibt es diese Woche?“ · „Wo ist Butter im Angebot?“ |
+| `essensplaner_add_offer` | „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro das Kilo bis Samstag.“ |
+| `essensplaner_get_costs` | „Was kostet der Essensplan diese Woche?“ · „Wie viel Budget habe ich noch?“ |
 | `essensplaner_add_recipe` | „Speichere ein Rezept Rührei mit 3 Eiern, Butter und Salz.“ |
 | `essensplaner_import_recipe` | „Importiere das Rezept von https://www.chefkoch.de/…“ |
 | `essensplaner_mark_cooked` | „Wir haben heute Linsensuppe gekocht.“ |
@@ -96,6 +106,19 @@ show_ingredients: true  # nur bei "next"
 
 Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dashboard.yaml).
 
+## 💶 Preise, Budget & Angebote
+
+*Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren → (zweiter Schritt) Budget & Angebote*:
+
+- **Wochenbudget** in Euro (0 = aus) – Panel, Sensoren und Jarvis zeigen Kosten und Restbudget; „günstig“ planen hält die Woche im Rahmen.
+- **Planungsart**: ausgewogen · günstig · Angebote nutzen · Abwechslung.
+- **Online-Angebote**: *marktguru.de* + **Postleitzahl** + Auswahl der **Supermärkte**. Die Integration fragt einmal täglich (morgens) die Angebote zu den Zutaten deiner Rezepte ab – aktuelle **und kommende** (ab nächster Woche) – und optional zu einer **Merkliste** (z. B. „Kaffee, Butter“).
+- Ohne Online-Quelle: Angebote im Panel oder per Sprache eintragen („Bei Lidl gibt es …“).
+
+**Wie genau sind die Preise?** Die Richtpreise sind typische Discounter-Preise (Schätzwerte). Sie werden ersetzt durch deine eigenen Preise (Panel → Angebote → 💶 Preise) und durch Normalpreise, die aus Prospekt-Angeboten gelernt werden. Rezeptkosten rechnen anteilig (was verbraucht wird), die Einkaufsliste mit ganzen Packungen.
+
+> ⚠️ **Hinweis zu marktguru.de:** Es gibt keine offizielle Schnittstelle der Supermärkte. Die Integration nutzt die inoffizielle Web-Schnittstelle von marktguru.de, die sich jederzeit ändern kann – bitte nur für private Zwecke. Home Assistant braucht dafür Internetzugriff auf `www.marktguru.de` und `api.marktguru.de`. Ist die Quelle nicht erreichbar, bleiben die zuletzt geladenen Angebote erhalten und der Fehler wird angezeigt.
+
 ## 🧩 Blueprints
 
 | Blueprint | Was er macht | Import |
@@ -115,6 +138,9 @@ Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dash
 | `todo.essensplaner_shopping_list` | Die Einkaufsliste |
 | `button.essensplaner_create_shopping_list` | Einkaufsliste für die nächsten 7 Tage erstellen |
 | `button.essensplaner_auto_plan_week` | Freie Plätze der nächsten 7 Tage automatisch füllen |
+| `sensor.essensplaner_week_cost` | Geschätzte Kosten des Plans dieser Woche (€), Budget, Kosten je Tag |
+| `sensor.essensplaner_budget_remaining` | Restbudget der Woche (€) |
+| `sensor.essensplaner_offers` | Anzahl aktueller Angebote, die zu deinen Rezepten passen; Top-Angebote als Attribut |
 
 ## Aktionen (Services)
 
@@ -132,6 +158,12 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen / abrufen |
 | `essensplaner.mark_cooked` | Als gekocht merken (bessere Vorschläge) |
 | `essensplaner.export_recipes` / `import_recipes` | Backup & Teilen |
+| `essensplaner.import_starter_recipes` | Fehlende mitgelieferte Rezepte (107) ergänzen |
+| `essensplaner.clear_shopping_list` | Einkaufsliste leeren (alle / erledigte / aus dem Plan) |
+| `essensplaner.get_costs` | Kosten & Restbudget |
+| `essensplaner.set_price` | Eigenen Preis für eine Zutat festlegen |
+| `essensplaner.refresh_offers` / `get_offers` / `search_offers` | Angebote laden, abrufen, live suchen |
+| `essensplaner.add_offer` / `remove_offer` | Angebot eintragen / löschen |
 
 ```yaml
 action: essensplaner.plan_meal
@@ -157,6 +189,7 @@ Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 - Vorratsschrank: Zutaten, die nie auf die Einkaufsliste kommen
 - **Nie vorschlagen**: z. B. „Fisch, Pilze“
 - **Geplantes automatisch als gekocht zählen** (Standard: an)
+- Schritt 2 **Budget & Angebote**: Wochenbudget, Planungsart, Online-Angebote, Postleitzahl, Supermärkte, Merkliste
 - Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren
 - Intents an/aus, Panel an/aus
 

@@ -15,6 +15,15 @@
       },
       "recipes": {
         "default": "mdi:book-open-variant"
+      },
+      "week_cost": {
+        "default": "mdi:cash-multiple"
+      },
+      "budget_remaining": {
+        "default": "mdi:piggy-bank-outline"
+      },
+      "offers": {
+        "default": "mdi:sale"
       }
     },
     "calendar": {
@@ -93,6 +102,33 @@
     },
     "import_recipes": {
       "service": "mdi:import"
+    },
+    "clear_shopping_list": {
+      "service": "mdi:cart-remove"
+    },
+    "import_starter_recipes": {
+      "service": "mdi:book-plus-multiple"
+    },
+    "refresh_offers": {
+      "service": "mdi:refresh"
+    },
+    "search_offers": {
+      "service": "mdi:tag-search"
+    },
+    "get_offers": {
+      "service": "mdi:sale"
+    },
+    "add_offer": {
+      "service": "mdi:tag-plus"
+    },
+    "remove_offer": {
+      "service": "mdi:tag-remove"
+    },
+    "set_price": {
+      "service": "mdi:currency-eur"
+    },
+    "get_costs": {
+      "service": "mdi:cash-multiple"
     }
   }
 }

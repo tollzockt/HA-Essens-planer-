@@ -48,10 +48,31 @@
           "excluded": "Comma separated tags or ingredients that suggestions and auto planning avoid, e.g. 'Fisch, Pilze'.",
           "auto_mark_cooked": "After the day is over, planned recipes count as cooked (better suggestions)."
         }
+      },
+      "economy": {
+        "title": "Budget & offers",
+        "description": "Weekly budget, planning style and supermarket offers. Online offers use the unofficial marktguru.de interface (leaflets of Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); it can change at any time – for private use only.",
+        "data": {
+          "weekly_budget": "Weekly budget",
+          "plan_strategy": "Planning style",
+          "offers_source": "Online offers",
+          "zip_code": "Zip code",
+          "offer_stores": "Supermarkets",
+          "offers_watchlist": "Watch list"
+        },
+        "data_description": {
+          "weekly_budget": "EUR per week for food, 0 = no budget.",
+          "plan_strategy": "Used for automatic planning and suggestions.",
+          "offers_source": "Where current and upcoming offers come from.",
+          "zip_code": "For the offers of the shops near you.",
+          "offer_stores": "Only offers of these shops.",
+          "offers_watchlist": "Additional products to look for, comma separated (e.g. 'Kaffee, Butter')."
+        }
       }
     },
     "error": {
-      "no_meals": "Select at least one meal."
+      "no_meals": "Select at least one meal.",
+      "invalid_zip": "Please enter a 5-digit zip code."
     }
   },
   "selector": {
@@ -61,6 +82,34 @@
         "mittagessen": "Lunch",
         "snack": "Snack",
         "abendessen": "Dinner"
+      }
+    },
+    "strategy": {
+      "options": {
+        "balanced": "Balanced",
+        "cheap": "Cheap (budget)",
+        "offers": "Use offers",
+        "variety": "Variety"
+      }
+    },
+    "offers_source": {
+      "options": {
+        "off": "Off (manual offers only)",
+        "marktguru": "marktguru.de (unofficial)"
+      }
+    },
+    "clear_mode": {
+      "options": {
+        "all": "All items",
+        "completed": "Completed items",
+        "plan": "Generated from the plan"
+      }
+    },
+    "offer_when": {
+      "options": {
+        "all": "All",
+        "current": "Current",
+        "upcoming": "Upcoming"
       }
     }
   },
@@ -74,6 +123,15 @@
       }
     },
     "sensor": {
+      "week_cost": {
+        "name": "Week cost"
+      },
+      "budget_remaining": {
+        "name": "Budget remaining"
+      },
+      "offers": {
+        "name": "Offers"
+      },
       "today": {
         "name": "Today"
       },
@@ -140,6 +198,18 @@
     },
     "invalid_json": {
       "message": "The recipe data could not be read."
+    },
+    "offers_disabled": {
+      "message": "Online offers are not enabled (Essensplaner → Configure)."
+    },
+    "invalid_zip": {
+      "message": "Please enter a valid zip code for offers in the options."
+    },
+    "invalid_strategy": {
+      "message": "Unknown planning strategy \"{strategy}\"."
+    },
+    "invalid_price": {
+      "message": "Could not understand the price \"{price}\"."
     }
   },
   "services": {
@@ -408,6 +478,10 @@
         "date": {
           "name": "Date",
           "description": "e.g. 'today', 'morgen', 'Freitag', '24.12.' or YYYY-MM-DD."
+        },
+        "strategy": {
+          "name": "Strategy",
+          "description": "balanced, cheap (budget), offers (use current offers) or variety."
         }
       }
     },
@@ -442,6 +516,10 @@
         "overwrite": {
           "name": "Overwrite",
           "description": "Replace already planned meals."
+        },
+        "strategy": {
+          "name": "Strategy",
+          "description": "balanced, cheap (budget), offers (use current offers) or variety."
         }
       }
     },
@@ -577,6 +655,146 @@
         "overwrite": {
           "name": "Overwrite",
           "description": "Update recipes with the same name."
+        }
+      }
+    },
+    "clear_shopping_list": {
+      "name": "Clear shopping list",
+      "description": "Removes all (or only completed / generated) items.",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "all, completed or only items generated from the plan."
+        }
+      }
+    },
+    "import_starter_recipes": {
+      "name": "Add recipe collection",
+      "description": "Adds all bundled recipes (100+) that are missing.",
+      "fields": {}
+    },
+    "refresh_offers": {
+      "name": "Refresh offers",
+      "description": "Loads current and upcoming supermarket offers (marktguru).",
+      "fields": {}
+    },
+    "search_offers": {
+      "name": "Search offers",
+      "description": "Searches offers for a product (live and saved).",
+      "fields": {
+        "query": {
+          "name": "Search",
+          "description": "Product or ingredient."
+        }
+      }
+    },
+    "get_offers": {
+      "name": "Get offers",
+      "description": "Returns saved offers matching the recipes.",
+      "fields": {
+        "when": {
+          "name": "When",
+          "description": "current, upcoming or all offers."
+        },
+        "query": {
+          "name": "Search",
+          "description": "Product or ingredient."
+        },
+        "store": {
+          "name": "Store",
+          "description": "e.g. Lidl, Aldi Süd, REWE."
+        },
+        "count": {
+          "name": "Count",
+          "description": "Maximum number of offers."
+        }
+      }
+    },
+    "add_offer": {
+      "name": "Add offer",
+      "description": "Saves an offer seen in a leaflet.",
+      "fields": {
+        "product": {
+          "name": "Product",
+          "description": "e.g. 'Hähnchenbrustfilet'."
+        },
+        "store": {
+          "name": "Store",
+          "description": "e.g. Lidl, Aldi Süd, REWE."
+        },
+        "price": {
+          "name": "Price",
+          "description": "Price in EUR."
+        },
+        "old_price": {
+          "name": "Regular price",
+          "description": "Price without the offer (optional)."
+        },
+        "pack": {
+          "name": "Package",
+          "description": "e.g. '1 kg', '500 g', '2 x 125 g'."
+        },
+        "valid_from": {
+          "name": "Valid from",
+          "description": "e.g. 'Montag' or YYYY-MM-DD."
+        },
+        "valid_to": {
+          "name": "Valid until",
+          "description": "e.g. 'Samstag' or YYYY-MM-DD."
+        }
+      }
+    },
+    "remove_offer": {
+      "name": "Remove offer",
+      "description": "Deletes a saved offer.",
+      "fields": {
+        "id": {
+          "name": "Offer ID",
+          "description": "ID from get_offers."
+        }
+      }
+    },
+    "set_price": {
+      "name": "Set price",
+      "description": "Stores your own price for an ingredient.",
+      "fields": {
+        "ingredient": {
+          "name": "Ingredient",
+          "description": "e.g. 'Butter'."
+        },
+        "price": {
+          "name": "Price",
+          "description": "Price in EUR."
+        },
+        "amount": {
+          "name": "Package size",
+          "description": "Amount of the package, e.g. 250."
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "g, ml, Stück, Bund …"
+        },
+        "store": {
+          "name": "Store",
+          "description": "e.g. Lidl, Aldi Süd, REWE."
+        },
+        "remove": {
+          "name": "Remove",
+          "description": "Remove the own price again (use the estimate)."
+        }
+      }
+    },
+    "get_costs": {
+      "name": "Get costs",
+      "description": "Estimated costs of the plan and remaining budget.",
+      "fields": {
+        "start_date": {
+          "name": "Start date",
+          "description": "First day (default: today)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days."
         }
       }
     }

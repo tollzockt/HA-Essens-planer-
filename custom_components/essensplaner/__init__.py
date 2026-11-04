@@ -2,27 +2,30 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_call_later, async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_IMPORT_STARTER,
     CONF_REGISTER_INTENTS,
     CONF_SHOW_PANEL,
     DOMAIN,
+    OFFERS_MARKTGURU,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
 from .intents import async_register_intents, async_remove_intents
 from .manager import EssensplanerManager
+from .offers import async_refresh_offers
 from .panel import (
     async_register_card,
     async_register_panel,
@@ -88,8 +91,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
 
     _auto_cooked()
     entry.async_on_unload(async_track_time_change(hass, _auto_cooked, hour=0, minute=5, second=0))
+
+    if manager.offers_source == OFFERS_MARKTGURU and manager.zip_code:
+        _setup_offer_refresh(hass, entry, manager)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+def _setup_offer_refresh(
+    hass: HomeAssistant, entry: EssensplanerConfigEntry, manager: EssensplanerManager
+) -> None:
+    """Refresh offers once a day and shortly after start if they are stale."""
+
+    async def _refresh(_now: datetime | None = None) -> None:
+        try:
+            meta = await async_refresh_offers(hass, manager)
+        except Exception:
+            _LOGGER.exception("Refreshing offers failed")
+            return
+        if meta.get("status") == "error":
+            _LOGGER.warning("Essensplaner offers: %s", "; ".join(meta.get("errors") or []))
+
+    last = manager.offers_meta.get("last_update")
+    stale = True
+    if last and (parsed := dt_util.parse_datetime(last)):
+        stale = dt_util.utcnow() - parsed > timedelta(hours=20)
+    if stale:
+        entry.async_on_unload(async_call_later(hass, 90, _refresh))
+    # spread the daily request over the morning (stable per installation)
+    minute = sum(ord(c) for c in entry.entry_id) % 50 + 5
+    entry.async_on_unload(async_track_time_change(hass, _refresh, hour=6, minute=minute, second=0))
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: EssensplanerConfigEntry) -> None:

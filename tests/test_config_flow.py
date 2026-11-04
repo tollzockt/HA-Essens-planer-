@@ -44,6 +44,32 @@ async def test_options_flow(hass: HomeAssistant, setup_integration) -> None:
             "show_panel": False,
         },
     )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "economy"
+    # marktguru needs a valid zip code
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "weekly_budget": 70,
+            "plan_strategy": "cheap",
+            "offers_source": "marktguru",
+            "zip_code": "12",
+            "offer_stores": ["lidl", "aldi-sued"],
+        },
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"zip_code": "invalid_zip"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "weekly_budget": 70,
+            "plan_strategy": "cheap",
+            "offers_source": "off",
+            "zip_code": "",
+            "offer_stores": ["lidl", "aldi-sued"],
+            "offers_watchlist": "Butter, Kaffee",
+        },
+    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["time_abendessen"] == "19:00"
     assert entry.options["default_servings"] == 4
@@ -51,3 +77,7 @@ async def test_options_flow(hass: HomeAssistant, setup_integration) -> None:
     manager = entry.runtime_data
     assert manager.default_meal == "mittagessen"
     assert manager.pantry == ["Salz", "Pfeffer", "Öl"]
+    assert manager.weekly_budget == 70
+    assert manager.strategy == "cheap"
+    assert manager.offer_stores == ["lidl", "aldi-sued"]
+    assert manager.watchlist == ["Butter", "Kaffee"]

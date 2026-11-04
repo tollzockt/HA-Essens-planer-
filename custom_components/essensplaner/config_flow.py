@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
@@ -25,16 +26,22 @@ import voluptuous as vol
 from .const import (
     ALL_MEALS,
     CONF_AUTO_COOKED,
+    CONF_BUDGET,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
     CONF_ENABLED_MEALS,
     CONF_EXCLUDED,
     CONF_IMPORT_STARTER,
     CONF_MEAL_TIME_PREFIX,
+    CONF_OFFERS_SOURCE,
     CONF_PANTRY,
     CONF_REGISTER_INTENTS,
     CONF_SHOW_PANEL,
+    CONF_STORES,
+    CONF_STRATEGY,
     CONF_SYNC_TODO,
+    CONF_WATCHLIST,
+    CONF_ZIP,
     DEFAULT_ENABLED_MEALS,
     DEFAULT_MEAL,
     DEFAULT_MEAL_TIMES,
@@ -42,7 +49,12 @@ from .const import (
     DEFAULT_SERVINGS,
     DOMAIN,
     NAME,
+    OFFERS_MARKTGURU,
+    OFFERS_OFF,
+    STRATEGIES,
+    STRATEGY_BALANCED,
 )
+from .offers import DEFAULT_STORES, STORES
 
 _SERVINGS_SELECTOR = NumberSelector(
     NumberSelectorConfig(min=1, max=20, step=1, mode=NumberSelectorMode.BOX)
@@ -128,7 +140,8 @@ class EssensplanerOptionsFlow(OptionsFlow):
                     key = f"{CONF_MEAL_TIME_PREFIX}{meal}"
                     if key in data:
                         data[key] = _normalize_time(data[key])
-                return self.async_create_entry(data=data)
+                self._general = data
+                return await self.async_step_economy()
 
         options = {**self.config_entry.options, **(user_input or {})}
         schema: dict[Any, Any] = {
@@ -173,3 +186,58 @@ class EssensplanerOptionsFlow(OptionsFlow):
             }
         )
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema), errors=errors)
+
+    async def async_step_economy(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Budget, planning strategy and supermarket offers."""
+        errors: dict[str, str] = {}
+        options = {**self.config_entry.options, **(user_input or {})}
+        if user_input is not None:
+            zip_code = str(user_input.get(CONF_ZIP) or "").strip()
+            if user_input.get(CONF_OFFERS_SOURCE) == OFFERS_MARKTGURU and not re.fullmatch(
+                r"\d{5}", zip_code
+            ):
+                errors[CONF_ZIP] = "invalid_zip"
+            else:
+                data = {**self.config_entry.options, **getattr(self, "_general", {}), **user_input}
+                data[CONF_ZIP] = zip_code
+                data[CONF_BUDGET] = float(user_input.get(CONF_BUDGET) or 0)
+                return self.async_create_entry(data=data)
+        schema = {
+            vol.Required(CONF_BUDGET, default=float(options.get(CONF_BUDGET) or 0)): NumberSelector(
+                NumberSelectorConfig(
+                    min=0, max=2000, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="€"
+                )
+            ),
+            vol.Required(
+                CONF_STRATEGY, default=options.get(CONF_STRATEGY, STRATEGY_BALANCED)
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=STRATEGIES, translation_key="strategy", mode=SelectSelectorMode.LIST
+                )
+            ),
+            vol.Required(
+                CONF_OFFERS_SOURCE, default=options.get(CONF_OFFERS_SOURCE, OFFERS_OFF)
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[OFFERS_OFF, OFFERS_MARKTGURU],
+                    translation_key="offers_source",
+                    mode=SelectSelectorMode.LIST,
+                )
+            ),
+            vol.Optional(CONF_ZIP, default=str(options.get(CONF_ZIP) or "")): TextSelector(),
+            vol.Required(
+                CONF_STORES, default=list(options.get(CONF_STORES) or DEFAULT_STORES)
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[{"value": k, "label": v} for k, v in STORES.items()],
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(CONF_WATCHLIST, default=options.get(CONF_WATCHLIST, "")): TextSelector(),
+        }
+        return self.async_show_form(
+            step_id="economy", data_schema=vol.Schema(schema), errors=errors
+        )

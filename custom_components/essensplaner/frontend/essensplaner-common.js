@@ -153,6 +153,17 @@ export const findTimers = (text) => {
   return found;
 };
 
+export const eur = (value) =>
+  value == null || Number.isNaN(Number(value))
+    ? "–"
+    : `${Number(value).toFixed(2).replace(".", ",")} €`;
+
+export const shortDate = (iso) => {
+  if (!iso) return "";
+  const d = fromIso(String(iso).slice(0, 10));
+  return `${WEEKDAYS_SHORT[weekdayIndex(d)]} ${d.getDate()}.${d.getMonth() + 1}.`;
+};
+
 export const formatClock = (seconds) => {
   const s = Math.max(0, Math.round(seconds));
   const h = Math.floor(s / 3600);

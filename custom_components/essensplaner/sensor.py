@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -35,6 +35,9 @@ async def async_setup_entry(
             NextMealSensor(manager),
             WeekPlanSensor(manager),
             RecipesSensor(manager),
+            WeekCostSensor(manager),
+            BudgetRemainingSensor(manager),
+            OffersSensor(manager),
         ]
     )
 
@@ -185,4 +188,106 @@ class RecipesSensor(EssensplanerEntity, SensorEntity):
             "recipes": [r["name"] for r in recipes][:300],
             "favorites": [r["name"] for r in recipes if r.get("favorite")],
             "tags": tags,
+        }
+
+
+class WeekCostSensor(EssensplanerEntity, SensorEntity):
+    """Estimated cost of this week's meal plan (Mon–Sun)."""
+
+    _attr_icon = "mdi:cash-multiple"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "EUR"
+    _attr_suggested_display_precision = 2
+    _unrecorded_attributes = frozenset({"days", "next_week"})
+
+    def __init__(self, manager: EssensplanerManager) -> None:
+        """Initialize the sensor."""
+        super().__init__(manager, "week_cost")
+
+    @property
+    def native_value(self) -> float:
+        """Estimated cost in EUR."""
+        return self.manager.week_overview()["total"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Budget and per-day costs."""
+        week = self.manager.week_overview()
+        next_week = self.manager.week_overview(self.manager.today() + timedelta(days=7))
+        return {
+            "budget": week["budget"],
+            "remaining": week["remaining"],
+            "over_budget": week["over_budget"],
+            "savings_by_offers": week["savings"],
+            "week_start": week["start"],
+            "days": {d["date"]: d["total"] for d in week["days"]},
+            "next_week": next_week["total"],
+            "estimate": True,
+        }
+
+
+class BudgetRemainingSensor(EssensplanerEntity, SensorEntity):
+    """Remaining weekly budget."""
+
+    _attr_icon = "mdi:piggy-bank-outline"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "EUR"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, manager: EssensplanerManager) -> None:
+        """Initialize the sensor."""
+        super().__init__(manager, "budget_remaining")
+
+    @property
+    def native_value(self) -> float | None:
+        """Budget minus planned costs (None without budget)."""
+        return self.manager.week_overview()["remaining"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The budget."""
+        return {"budget": self.manager.weekly_budget}
+
+
+class OffersSensor(EssensplanerEntity, SensorEntity):
+    """Current supermarket offers that fit the recipes."""
+
+    _attr_icon = "mdi:sale"
+    _attr_native_unit_of_measurement = "Angebote"
+    _unrecorded_attributes = frozenset({"offers", "upcoming"})
+
+    def __init__(self, manager: EssensplanerManager) -> None:
+        """Initialize the sensor."""
+        super().__init__(manager, "offers")
+
+    @property
+    def native_value(self) -> int:
+        """Number of current offers that are used in recipes."""
+        return sum(1 for o in self.manager.offers_view("current") if o["recipe_count"])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Top offers."""
+
+        def compact(offer: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "title": offer.get("title"),
+                "store": offer.get("store"),
+                "price": offer.get("price"),
+                "old_price": offer.get("old_price"),
+                "discount": offer.get("discount"),
+                "valid_to": offer.get("valid_to"),
+                "recipes": offer.get("recipes", [])[:3],
+            }
+
+        current = [o for o in self.manager.offers_view("current") if o["recipe_count"]]
+        upcoming = [o for o in self.manager.offers_view("upcoming") if o["recipe_count"]]
+        meta = self.manager.offers_meta
+        return {
+            "offers": [compact(o) for o in current[:25]],
+            "upcoming": [compact(o) for o in upcoming[:15]],
+            "upcoming_count": len(upcoming),
+            "source": self.manager.offers_source,
+            "last_update": meta.get("last_update"),
+            "status": meta.get("status"),
         }

@@ -132,8 +132,22 @@ def ws_subscribe(
     connection.send_result(msg["id"])
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/prices"})
+@callback
+def ws_get_prices(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """All known ingredient prices (estimates, learned, own)."""
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    if not entries:
+        connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
+        return
+    connection.send_result(msg["id"], {"prices": entries[0].runtime_data.prices_view()})
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
     websocket_api.async_register_command(hass, ws_get_data)
     websocket_api.async_register_command(hass, ws_subscribe)
+    websocket_api.async_register_command(hass, ws_get_prices)

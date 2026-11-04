@@ -195,6 +195,15 @@ suggest_recipes:
     max_time: *max_time
     meal: *meal
     date: *date
+    strategy: &strategy
+      selector:
+        select:
+          translation_key: strategy
+          options:
+            - balanced
+            - cheap
+            - offers
+            - variety
 
 auto_plan:
   fields:
@@ -217,6 +226,7 @@ auto_plan:
       default: false
       selector:
         boolean:
+    strategy: *strategy
 
 generate_shopping_list:
   fields:
@@ -317,3 +327,152 @@ import_recipes:
       default: false
       selector:
         boolean:
+
+clear_shopping_list:
+  fields:
+    mode:
+      default: all
+      selector:
+        select:
+          translation_key: clear_mode
+          options:
+            - all
+            - completed
+            - plan
+
+import_starter_recipes:
+
+refresh_offers:
+
+search_offers:
+  fields:
+    query:
+      required: true
+      example: "Hähnchenbrust"
+      selector:
+        text:
+
+get_offers:
+  fields:
+    when:
+      default: all
+      selector:
+        select:
+          translation_key: offer_when
+          options:
+            - all
+            - current
+            - upcoming
+    query:
+      example: "Butter"
+      selector:
+        text:
+    store:
+      example: "Lidl"
+      selector:
+        text:
+    count:
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 500
+          mode: box
+
+add_offer:
+  fields:
+    product:
+      required: true
+      example: "Hähnchenbrustfilet"
+      selector:
+        text:
+    store:
+      required: true
+      example: "Lidl"
+      selector:
+        text:
+    price:
+      required: true
+      example: 4.99
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 0.01
+          mode: box
+          unit_of_measurement: "€"
+    old_price:
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 0.01
+          mode: box
+          unit_of_measurement: "€"
+    pack:
+      example: "1 kg"
+      selector:
+        text:
+    valid_from:
+      example: "heute"
+      selector:
+        text:
+    valid_to:
+      example: "Samstag"
+      selector:
+        text:
+
+remove_offer:
+  fields:
+    id:
+      required: true
+      selector:
+        text:
+
+set_price:
+  fields:
+    ingredient:
+      required: true
+      example: "Butter"
+      selector:
+        text:
+    price:
+      example: 1.99
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 0.01
+          mode: box
+          unit_of_measurement: "€"
+    amount:
+      default: 1
+      example: 250
+      selector:
+        number:
+          min: 0
+          max: 100000
+          mode: box
+    unit:
+      default: Stück
+      example: g
+      selector:
+        text:
+    store:
+      example: "Aldi"
+      selector:
+        text:
+    remove:
+      default: false
+      selector:
+        boolean:
+
+get_costs:
+  fields:
+    start_date: *start_date
+    days:
+      selector:
+        number:
+          min: 1
+          max: 62
+          mode: box

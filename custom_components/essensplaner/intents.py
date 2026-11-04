@@ -8,6 +8,7 @@ valid tool name (lower case snake case).
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 import logging
 import re
 from typing import Any
@@ -19,15 +20,18 @@ import voluptuous as vol
 
 from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK
 from .dates import describe_date
-from .ingredients import strip_article
+from .ingredients import fold, strip_article
 from .manager import EssensplanerManager, error_message
+from .pricing import format_eur
 from .recipe_import import async_fetch_recipe
 from .services import (
     async_sync_shopping,
+    parse_price,
     resolve_day,
     resolve_meal,
     resolve_meals,
     resolve_move,
+    resolve_strategy,
     split_list,
 )
 
@@ -48,6 +52,10 @@ INTENT_MARK_COOKED = "essensplaner_mark_cooked"
 INTENT_COOK_WITH = "essensplaner_cook_with"
 INTENT_GET_SHOPPING = "essensplaner_get_shopping_list"
 INTENT_MOVE_MEAL = "essensplaner_move_meal"
+INTENT_CLEAR_SHOPPING = "essensplaner_clear_shopping_list"
+INTENT_GET_OFFERS = "essensplaner_get_offers"
+INTENT_ADD_OFFER = "essensplaner_add_offer"
+INTENT_GET_COSTS = "essensplaner_get_costs"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -436,6 +444,11 @@ class AutoPlanIntent(_EssensplanerIntent):
         vol.Optional(
             "tag", description="Nur Rezepte mit dieser Kategorie, z. B. 'vegetarisch'"
         ): cv.string,
+        vol.Optional(
+            "strategy",
+            description="'günstig' (Budget), 'angebote' (aktuelle Angebote nutzen), "
+            "'abwechslung' oder 'ausgewogen' (Standard)",
+        ): cv.string,
     }
 
     async def _async_handle(self, hass, manager, values):
@@ -445,6 +458,7 @@ class AutoPlanIntent(_EssensplanerIntent):
             int(values.get("days", 7)),
             meals=resolve_meals(manager, values.get("meal")),
             tag=values.get("tag"),
+            strategy=resolve_strategy(values.get("strategy")),
         )
         if not planned:
             return (
@@ -453,10 +467,17 @@ class AutoPlanIntent(_EssensplanerIntent):
                 {"planned": []},
             )
         parts = [f"{p['weekday']} {p['title']}" for p in planned]
-        return (
-            f"Ich habe {len(planned)} {'Mahlzeit' if len(planned) == 1 else 'Mahlzeiten'} eingeplant: {_join(parts)}.",
-            {"planned": planned},
+        speech = (
+            f"Ich habe {len(planned)} {'Mahlzeit' if len(planned) == 1 else 'Mahlzeiten'} "
+            f"eingeplant: {_join(parts)}."
         )
+        week = manager.week_overview(start)
+        if week["total"]:
+            speech += f" Die Woche kostet etwa {format_eur(week['total'])}"
+            if week.get("budget"):
+                speech += f" bei {format_eur(week['budget'])} Budget"
+            speech += "."
+        return speech, {"planned": planned, "week": week}
 
 
 class AddRecipeIntent(_EssensplanerIntent):
@@ -667,6 +688,169 @@ class MoveMealIntent(_EssensplanerIntent):
         return speech, result
 
 
+class ClearShoppingListIntent(_EssensplanerIntent):
+    """Empty the shopping list."""
+
+    intent_type = INTENT_CLEAR_SHOPPING
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: leert die Einkaufsliste ('Lösche die Einkaufsliste', 'Entferne die "
+        "erledigten Einträge'). Clears the shopping list."
+    )
+    slot_schema = {
+        vol.Optional(
+            "mode",
+            description="'alle' (Standard), 'erledigte' oder 'geplante' (aus dem Plan erzeugte)",
+        ): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        text = (values.get("mode") or "alle").lower()
+        mode = (
+            "completed"
+            if "erledig" in text or "abgehakt" in text or "completed" in text
+            else ("plan" if "plan" in text or "geplant" in text else "all")
+        )
+        removed = manager.shopping_clear(mode)
+        if not removed:
+            return "Da gab es nichts zu löschen.", {"removed": 0}
+        if mode == "completed":
+            return f"Ich habe {removed} erledigte Einträge entfernt.", {"removed": removed}
+        return f"Die Einkaufsliste ist jetzt leer ({removed} Einträge entfernt).", {
+            "removed": removed
+        }
+
+
+class GetOffersIntent(_EssensplanerIntent):
+    """Which supermarket offers are there?"""
+
+    intent_type = INTENT_GET_OFFERS
+    description = (
+        "Essensplaner: nennt aktuelle oder kommende Supermarkt-Angebote (Aldi, Lidl, Rewe …), "
+        "passend zu den eigenen Rezepten ('Welche Angebote gibt es diese Woche?', 'Wo ist "
+        "Butter im Angebot?'). Returns supermarket offers."
+    )
+    slot_schema = {
+        vol.Optional("query", description="Produkt/Zutat, z. B. 'Hähnchen'"): cv.string,
+        vol.Optional(
+            "when", description="'aktuell' (Standard), 'nächste Woche' oder 'alle'"
+        ): cv.string,
+        vol.Optional("store", description="Supermarkt, z. B. 'Lidl'"): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        when_text = fold(values.get("when") or "")
+        when = (
+            "upcoming"
+            if "naechst" in when_text or "kommend" in when_text
+            else ("all" if "alle" in when_text else "current")
+        )
+        offers = manager.offers_view(when, values.get("query"), values.get("store"), 50)
+        if not offers:
+            hint = ""
+            if manager.offers_source == "off" and not manager.offers:
+                hint = " Online-Angebote sind in den Optionen noch nicht aktiviert."
+            return f"Ich habe keine passenden Angebote gefunden.{hint}", {"offers": []}
+        top = offers[:5]
+        parts = []
+        for offer in top:
+            until = ""
+            if offer.get("valid_to"):
+                until = f" bis {describe_date(date.fromisoformat(offer['valid_to'][:10]), manager.today()).removeprefix('am ')}"
+            parts.append(
+                f"{offer['title']} bei {offer['store']} für {format_eur(offer['price'])}{until}"
+            )
+        speech = f"Ich habe {len(offers)} Angebote gefunden, zum Beispiel {_join(parts)}."
+        compact = [
+            {
+                k: o.get(k)
+                for k in (
+                    "title",
+                    "store",
+                    "price",
+                    "old_price",
+                    "valid_from",
+                    "valid_to",
+                    "recipes",
+                )
+            }
+            for o in offers[:20]
+        ]
+        return speech, {"offers": compact}
+
+
+class AddOfferIntent(_EssensplanerIntent):
+    """Remember an offer seen in a leaflet."""
+
+    intent_type = INTENT_ADD_OFFER
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: merkt sich ein Supermarkt-Angebot, damit es bei Planung und Einkaufsliste "
+        "berücksichtigt wird ('Bei Lidl gibt es Hähnchenbrust für 4,99 Euro das Kilo bis Samstag'). "
+        "Saves an offer."
+    )
+    slot_schema = {
+        vol.Required("product", description="Produkt, z. B. 'Hähnchenbrust'"): cv.string,
+        vol.Required("store", description="Supermarkt, z. B. 'Lidl'"): cv.string,
+        vol.Required("price", description="Preis in Euro, z. B. '4,99'"): cv.string,
+        vol.Optional("pack", description="Packungsgröße, z. B. '1 kg' oder '500 g'"): cv.string,
+        vol.Optional("valid_to", description="Gültig bis. " + _DATE_DESC): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        price = parse_price(values["price"])
+        valid_to = resolve_day(manager, values["valid_to"])[0] if values.get("valid_to") else None
+        offer = manager.add_offer(
+            values["product"], values["store"], price, values.get("pack"), None, valid_to
+        )
+        recipes = manager._recipes_using(offer["keys"])
+        speech = (
+            f"Ich habe mir {offer['title']} bei {offer['store']} für {format_eur(price)} gemerkt."
+        )
+        if recipes:
+            speech += f" Passt zum Beispiel zu {_join(recipes[:3])}."
+        return speech, {"offer": offer, "recipes": recipes[:10]}
+
+
+class GetCostsIntent(_EssensplanerIntent):
+    """Costs of the plan and remaining budget."""
+
+    intent_type = INTENT_GET_COSTS
+    description = (
+        "Essensplaner: geschätzte Kosten des Essensplans und Restbudget der Woche "
+        "('Was kostet der Essensplan diese Woche?', 'Wie viel Budget habe ich noch?'). "
+        "Returns plan costs and budget."
+    )
+    slot_schema = {
+        vol.Optional("week", description="'diese' (Standard) oder 'nächste' Woche"): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        day = manager.today()
+        if "naechst" in fold(values.get("week") or "") or "kommend" in fold(
+            values.get("week") or ""
+        ):
+            day += timedelta(days=7)
+        week = manager.week_overview(day)
+        meals = sum(1 for d in week["days"] for m in d["meals"] if m.get("cost") is not None)
+        label = "nächste Woche" if day != manager.today() else "diese Woche"
+        if not meals:
+            speech = f"Für {label} sind noch keine Rezepte geplant."
+        else:
+            speech = (
+                f"Die {meals} geplanten Mahlzeiten kosten {label} etwa {format_eur(week['total'])}."
+            )
+            if week.get("savings"):
+                speech += f" Durch Angebote sparst du ungefähr {format_eur(week['savings'])}."
+        if week.get("budget"):
+            remaining = week["remaining"]
+            if remaining is not None and remaining < 0:
+                speech += f" Das sind {format_eur(-remaining)} über dem Budget von {format_eur(week['budget'])}."
+            else:
+                speech += f" Vom Budget ({format_eur(week['budget'])}) sind noch {format_eur(remaining)} übrig."
+        return speech, week
+
+
 INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetMealsIntent,
     GetWeekPlanIntent,
@@ -683,6 +867,10 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     CookWithIntent,
     GetShoppingListIntent,
     MoveMealIntent,
+    ClearShoppingListIntent,
+    GetOffersIntent,
+    AddOfferIntent,
+    GetCostsIntent,
 ]
 
 

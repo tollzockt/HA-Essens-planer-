@@ -40,8 +40,10 @@ from .const import (
     MEAL_SNACK,
     STORAGE_KEY,
     STORAGE_VERSION,
+    STRATEGY_CHEAP,
 )
 from .dates import WEEKDAY_NAMES
+from .economy import EconomyMixin, load_default_prices
 from .ingredients import (
     aggregate,
     category_rank,
@@ -55,6 +57,7 @@ from .ingredients import (
     scale_ingredient,
     strip_article,
 )
+from .pricing import format_eur
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +92,10 @@ ERROR_MESSAGES_DE = {
     "meal_not_planned": "Am {date} ist zu dieser Mahlzeit nichts geplant.",
     "dish_not_planned": "„{name}“ ist in den nächsten Tagen nicht geplant.",
     "invalid_json": "Die Rezeptdaten konnten nicht gelesen werden.",
+    "offers_disabled": "Online-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren).",
+    "invalid_zip": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen.",
+    "invalid_strategy": "Die Planungsart „{strategy}“ kenne ich nicht.",
+    "invalid_price": "Den Preis „{price}“ habe ich nicht verstanden.",
 }
 
 
@@ -139,8 +146,8 @@ def _to_int(value: Any, minimum: int | None = None) -> int | None:
     return number
 
 
-class EssensplanerManager:
-    """Holds recipes, the meal plan and the shopping list."""
+class EssensplanerManager(EconomyMixin):
+    """Holds recipes, the meal plan, the shopping list, prices and offers."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the manager."""
@@ -153,6 +160,16 @@ class EssensplanerManager:
         self.plan: dict[str, dict[str, dict[str, Any]]] = {}
         self.shopping: list[dict[str, Any]] = []
         self._listeners: list[Callable[[], None]] = []
+        self.prices_user: dict[str, dict[str, Any]] = {}
+        self.prices_learned: dict[str, dict[str, Any]] = {}
+        self.offers: list[dict[str, Any]] = []
+        self.offers_meta: dict[str, Any] = {}
+        self.default_prices: list[dict[str, Any]] = []
+        self._price_book = None
+        self._offer_index = None
+        self._cost_cache: dict[tuple, dict[str, Any]] = {}
+        self._offer_name_cache: dict[str, list[dict[str, Any]]] = {}
+        self._offer_day_cache: dict[date, Any] = {}
 
     # ------------------------------------------------------------------
     # Options
@@ -232,13 +249,32 @@ class EssensplanerManager:
         self.recipes = data.get("recipes", {})
         self.plan = data.get("plan", {})
         self.shopping = data.get("shopping", [])
+        self.prices_user = data.get("prices", {})
+        self.prices_learned = data.get("prices_learned", {})
+        self.offers = data.get("offers", [])
+        self.offers_meta = data.get("offers_meta", {})
+        self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
+        self.cleanup_offers()
 
     async def async_save_now(self) -> None:
         """Write data to disk immediately."""
         await self._store.async_save(self._data_to_store())
 
     def _data_to_store(self) -> dict[str, Any]:
-        return {"recipes": self.recipes, "plan": self.plan, "shopping": self.shopping}
+        return {
+            "recipes": self.recipes,
+            "plan": self.plan,
+            "shopping": self.shopping,
+            "prices": self.prices_user,
+            "prices_learned": self.prices_learned,
+            "offers": self.offers,
+            "offers_meta": self.offers_meta,
+        }
+
+    async def async_import_starter_recipes(self) -> dict[str, list[str]]:
+        """Add all bundled recipes that are not in the collection yet."""
+        recipes = await self.hass.async_add_executor_job(_load_starter_recipes)
+        return self.import_recipes(recipes, overwrite=False)
 
     @callback
     def async_add_listener(self, update_callback: Callable[[], None]) -> Callable[[], None]:
@@ -425,7 +461,17 @@ class EssensplanerManager:
             return by_key[key]
         contains = [r for k, r in by_key.items() if key in k]
         if contains:
-            return min(contains, key=lambda r: len(r["name"]))
+            # ambiguous ("Bolognese"): favourites, often cooked, classics, then the shortest name
+            return min(
+                contains,
+                key=lambda r: (
+                    not r.get("favorite"),
+                    -(r.get("cooked_count") or 0),
+                    -(r.get("rating") or 0),
+                    "klassiker" not in self.recipe_tags_folded(r),
+                    len(r["name"]),
+                ),
+            )
         contained = [r for k, r in by_key.items() if k and k in key]
         if contained:
             return max(contained, key=lambda r: len(r["name"]))
@@ -523,6 +569,7 @@ class EssensplanerManager:
             "original_servings": base,
             "ingredients": ingredients,
             "ingredient_lines": [format_ingredient(i) for i in ingredients],
+            "cost": self.recipe_cost(recipe, target),
         }
 
     def mark_cooked(
@@ -835,8 +882,16 @@ class EssensplanerManager:
         around: date | None = None,
         exclude: set[str] | None = None,
         rng: random.Random | None = None,
+        strategy: str | None = None,
+        target_cost: float | None = None,
+        servings: int | None = None,
     ) -> list[dict[str, Any]]:
-        """Suggest recipes – prefers favourites and things not cooked lately."""
+        """Suggest recipes.
+
+        Prefers favourites, things not cooked lately, recipes with ingredients on offer,
+        recipes that fit the remaining budget and dishes that differ from the
+        neighbouring days.
+        """
         rng = rng or random.Random()
         exclude = exclude or set()
         around = around or self.today()
@@ -851,6 +906,10 @@ class EssensplanerManager:
                 if entry.get("recipe_id"):
                     recently_planned.add(entry["recipe_id"])
 
+        if target_cost is None and self.weekly_budget:
+            target_cost = self.budget_target(around)
+        median = self.median_cost(around, servings) if strategy == STRATEGY_CHEAP else None
+        neighbours = self._neighbour_signatures(around)
         weights = []
         for recipe in candidates:
             weight = 1.0
@@ -870,6 +929,15 @@ class EssensplanerManager:
             weight += (recipe.get("rating") or 0) * 0.4
             if recipe["id"] in recently_planned:
                 weight *= 0.1
+            weight *= self.economy_weight(
+                recipe,
+                around,
+                strategy=strategy,
+                target_cost=target_cost,
+                median_cost=median,
+                servings=servings,
+                neighbours=neighbours,
+            )
             weights.append(weight)
 
         chosen: list[dict[str, Any]] = []
@@ -897,8 +965,9 @@ class EssensplanerManager:
         max_time: int | None = None,
         overwrite: bool = False,
         servings: int | None = None,
+        strategy: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Fill empty slots of the plan with suggestions."""
+        """Fill empty slots of the plan with suggestions (budget, offers and variety aware)."""
         meals = meals or [self.default_meal]
         planned: list[dict[str, Any]] = []
         used: set[str] = set()
@@ -908,8 +977,17 @@ class EssensplanerManager:
             for meal in meals:
                 if meal in existing and not overwrite:
                     continue
+                target = self.budget_target(day, len(meals)) if self.weekly_budget else None
                 suggestion = self.suggest(
-                    1, tag=tag, max_time=max_time, meal=meal, around=day, exclude=used
+                    1,
+                    tag=tag,
+                    max_time=max_time,
+                    meal=meal,
+                    around=day,
+                    exclude=used,
+                    strategy=strategy,
+                    target_cost=target,
+                    servings=servings or self.default_servings,
                 )
                 if not suggestion:
                     continue
@@ -957,6 +1035,7 @@ class EssensplanerManager:
                 )
 
         aggregated = aggregate(entries, self.pantry)
+        total_price = self.price_shopping_items(aggregated, start)
         previous = {i.get("key"): i for i in self.shopping if i.get("source") == "plan"}
         if replace:
             self.shopping = [i for i in self.shopping if i.get("source") != "plan"]
@@ -971,17 +1050,28 @@ class EssensplanerManager:
                 and old.get("summary") == item["summary"]
                 else "needs_action"
             )
-            description = item["category"]
+            parts = [item["category"]]
+            if item.get("price") is not None:
+                parts.append(f"≈ {format_eur(item['price'])}")
+            if offer := item.get("offer"):
+                until = (
+                    f" bis {offer['valid_to'][8:10]}.{offer['valid_to'][5:7]}."
+                    if offer.get("valid_to")
+                    else ""
+                )
+                parts.append(f"🏷️ {offer['store']} {format_eur(offer['price'])}{until}")
             if item["recipes"]:
-                description += " · " + ", ".join(item["recipes"])
+                parts.append(", ".join(item["recipes"]))
             shopping_item = {
                 "uid": uuid.uuid4().hex,
                 "summary": item["summary"],
                 "status": status,
-                "description": description,
+                "description": " · ".join(parts),
                 "source": "plan",
                 "key": item["key"],
                 "category": item["category"],
+                "price": item.get("price"),
+                "offer": item.get("offer"),
             }
             new_items.append(shopping_item)
         self.shopping.extend(new_items)
@@ -991,16 +1081,33 @@ class EssensplanerManager:
             "days": days,
             "meals": meal_count,
             "meals_without_recipe": free_text,
+            "total_price": total_price,
             "items": [
                 {
                     "summary": i["summary"],
                     "category": i["category"],
                     "description": i["description"],
                     "status": i["status"],
+                    "price": i.get("price"),
+                    "offer": i.get("offer"),
                 }
                 for i in new_items
             ],
         }
+
+    def shopping_clear(self, mode: str = "all") -> int:
+        """Empty the shopping list. mode: all | completed | plan (generated items)."""
+        before = len(self.shopping)
+        if mode == "completed":
+            self.shopping = [i for i in self.shopping if i.get("status") != "completed"]
+        elif mode == "plan":
+            self.shopping = [i for i in self.shopping if i.get("source") != "plan"]
+        else:
+            self.shopping = []
+        removed = before - len(self.shopping)
+        if removed:
+            self._changed("shopping")
+        return removed
 
     def shopping_add(
         self, summary: str, description: str | None = None, status: str = "needs_action"
@@ -1117,16 +1224,27 @@ class EssensplanerManager:
         """Open shopping items grouped by aisle."""
         groups: dict[str, list[str]] = {}
         done = 0
+        total = 0.0
+        priced = 0
+        offers = []
         for item in self.shopping:
             if item.get("status") == "completed":
                 done += 1
                 continue
             groups.setdefault(item.get("category") or "Sonstiges", []).append(item["summary"])
+            if item.get("price") is not None:
+                total += item["price"]
+                priced += 1
+            if item.get("offer"):
+                offers.append({"item": item["summary"], **item["offer"]})
         ordered = dict(sorted(groups.items(), key=lambda g: category_rank(g[0])))
         return {
             "open": sum(len(v) for v in ordered.values()),
             "completed": done,
             "groups": ordered,
+            "estimated_total": round(total, 2),
+            "priced_items": priced,
+            "offers": offers,
         }
 
     # ------------------------------------------------------------------
@@ -1160,6 +1278,11 @@ class EssensplanerManager:
             "pantry": self.pantry,
             "excluded": self.excluded,
             "today": self.today().isoformat(),
+            "economy": self.economy_export(),
+            "offers": self.offers_view("all", limit=300),
+            "recipe_costs": {
+                rid: self.recipe_cost(recipe)["per_serving"] for rid, recipe in self.recipes.items()
+            },
         }
 
 

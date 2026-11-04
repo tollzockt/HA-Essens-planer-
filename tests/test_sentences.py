@@ -86,6 +86,17 @@ def test_all_intents_exist(intents: Intents) -> None:
             "essensplaner_move_meal",
             {"from_date": "montag", "to_date": "dienstag"},
         ),
+        ("lösche die einkaufsliste", "essensplaner_clear_shopping_list", {}),
+        (
+            "lösche alle erledigten einträge",
+            "essensplaner_clear_shopping_list",
+            {"mode": "erledigte"},
+        ),
+        ("welche angebote gibt es diese woche", "essensplaner_get_offers", {}),
+        ("wo ist butter im angebot", "essensplaner_get_offers", {"query": "butter"}),
+        ("wie viel budget habe ich noch", "essensplaner_get_costs", {}),
+        ("plane mir die woche günstig", "essensplaner_auto_plan", {"strategy": "günstig"}),
+        ("plane die woche mit den angeboten", "essensplaner_auto_plan", {"strategy": "angebote"}),
     ],
 )
 def test_sentences(intents: Intents, sentence: str, intent_name: str, slots: dict) -> None:

@@ -71,6 +71,15 @@ intents:
           - "(füll|fülle) den (essensplan|speiseplan|wochenplan) [automatisch] [aus]"
           - "(erstelle|mach|mache) [mir|uns] einen (essensplan|speiseplan|wochenplan)"
       - sentences:
+          - "plane [mir|uns] die woche (günstig|sparsam|preiswert)"
+          - "plane [mir|uns] eine (günstige|sparsame|preiswerte) woche"
+        slots:
+          strategy: "günstig"
+      - sentences:
+          - "plane [mir|uns] die woche mit [den] angeboten"
+        slots:
+          strategy: "angebote"
+      - sentences:
           - "plane [mir|uns] die nächste woche"
           - "(erstelle|mach|mache) [mir|uns] einen (essensplan|speiseplan|wochenplan) für nächste woche"
         slots:
@@ -101,6 +110,36 @@ intents:
           - "(verschiebe|verschieb|leg|lege|schieb|schiebe) {dish} (auf|nach) {date:to_date} [zum {meal:to_meal}]"
           - "(verschiebe|verschieb|leg|lege|schieb|schiebe) das essen von {date:from_date} (auf|nach) {date:to_date}"
           - "tausche [das essen von] {date:from_date} (und|mit) {date:to_date}"
+  essensplaner_clear_shopping_list:
+    data:
+      - sentences:
+          - "(leere|lösche|lösch) die [ganze|komplette] einkaufsliste"
+          - "(mach|mache) die einkaufsliste leer"
+      - sentences:
+          - "(lösche|entferne) [alle] (erledigten|abgehakten) (einträge|artikel|sachen) [von der einkaufsliste]"
+        slots:
+          mode: "erledigte"
+  essensplaner_get_offers:
+    data:
+      - sentences:
+          - "welche angebote gibt es [diese woche|gerade|aktuell]"
+          - "was ist [gerade|diese woche] im angebot"
+          - "wo (ist|gibt es) {query} [gerade] im angebot"
+          - "gibt es {query} [gerade] im angebot"
+      - sentences:
+          - "welche angebote gibt es nächste woche"
+        slots:
+          when: "nächste woche"
+  essensplaner_get_costs:
+    data:
+      - sentences:
+          - "was kostet der (essensplan|speiseplan|wochenplan) [diese woche]"
+          - "wie viel (budget|geld) habe ich [noch] [übrig] [für essen]"
+          - "wie teuer ist [der] (essensplan|speiseplan|wochenplan)"
+      - sentences:
+          - "was kostet der (essensplan|speiseplan|wochenplan) nächste woche"
+        slots:
+          week: "nächste"
 lists:
   date:
     values:

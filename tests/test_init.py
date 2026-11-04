@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import Context, HomeAssistant
@@ -23,6 +25,13 @@ WEEK_SENSOR = "sensor.essensplaner_week_plan"
 RECIPES_SENSOR = "sensor.essensplaner_recipes"
 CALENDAR = "calendar.essensplaner_meal_plan"
 TODO = "todo.essensplaner_shopping_list"
+STARTER_COUNT = len(
+    json.loads(
+        (
+            Path(__file__).parent.parent / "custom_components/essensplaner/starter_recipes.json"
+        ).read_text()
+    )
+)
 
 
 async def _call(hass: HomeAssistant, service: str, **data):
@@ -53,7 +62,7 @@ async def test_setup_creates_entities(hass: HomeAssistant, setup_integration) ->
         TODO,
     ):
         assert hass.states.get(entity_id) is not None, entity_id
-    assert int(hass.states.get(RECIPES_SENSOR).state) == 15
+    assert int(hass.states.get(RECIPES_SENSOR).state) == STARTER_COUNT >= 100
     assert hass.states.get(TODAY_SENSOR).state == "Nichts geplant"
     assert hass.states.get(TODO).state == "0"
 
@@ -91,30 +100,30 @@ async def test_recipe_crud(hass: HomeAssistant, setup_integration) -> None:
         "add_recipe",
         name="Testsuppe",
         servings=2,
-        ingredients="500 g Kürbis\n1 Zwiebel\n400 ml Kokosmilch",
+        ingredients="500 g Drachenfrucht\n1 Zwiebel\n400 ml Kokosmilch",
         steps="Schneiden.\nKochen.",
         tags="Suppe, vegetarisch",
         total_time=30,
     )
     recipe = added["recipe"]
-    assert recipe["ingredient_lines"] == ["500 g Kürbis", "1 Zwiebel", "400 ml Kokosmilch"]
+    assert recipe["ingredient_lines"] == ["500 g Drachenfrucht", "1 Zwiebel", "400 ml Kokosmilch"]
     assert recipe["steps"] == ["Schneiden.", "Kochen."]
 
     scaled = await _call(hass, "get_recipe", recipe="testsuppe", servings=4)
     assert scaled["recipe"]["ingredient_lines"] == [
-        "1 kg Kürbis",
+        "1 kg Drachenfrucht",
         "2 Zwiebeln",
         "800 ml Kokosmilch",
     ]
 
-    found = await _call(hass, "get_recipes", query="kürbis")
+    found = await _call(hass, "get_recipes", query="drachenfrucht")
     assert [r["name"] for r in found["recipes"]] == ["Testsuppe"]
 
     updated = await _call(hass, "update_recipe", recipe="Testsuppe", favorite=True)
     assert updated["recipe"]["favorite"] is True
 
     await _call(hass, "delete_recipe", recipe="Testsuppe")
-    found = await _call(hass, "get_recipes", query="kürbis")
+    found = await _call(hass, "get_recipes", query="drachenfrucht")
     assert found["count"] == 0
 
 
@@ -200,11 +209,8 @@ async def test_suggest_and_auto_plan(hass: HomeAssistant, setup_integration) -> 
     assert result["recipes"]
     assert all(any(t.lower() == "vegetarisch" for t in r["tags"]) for r in result["recipes"])
     breakfast = await _call(hass, "suggest_recipes", count=20, meal="frühstück")
-    assert {r["name"] for r in breakfast["recipes"]} <= {
-        "Overnight Oats",
-        "Pfannkuchen",
-        "Shakshuka",
-    }
+    assert breakfast["recipes"]
+    assert all("Frühstück" in r["tags"] for r in breakfast["recipes"])
     dinner = await _call(hass, "suggest_recipes", count=20, meal="abendessen")
     names = {r["name"] for r in dinner["recipes"]}
     assert "Overnight Oats" not in names

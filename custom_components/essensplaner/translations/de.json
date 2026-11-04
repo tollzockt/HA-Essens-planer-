@@ -48,10 +48,31 @@
           "excluded": "Kommagetrennte Kategorien oder Zutaten, die Vorschläge und automatische Planung vermeiden, z. B. „Fisch, Pilze“.",
           "auto_mark_cooked": "Nach Ablauf des Tages zählen geplante Rezepte als gekocht (bessere Vorschläge)."
         }
+      },
+      "economy": {
+        "title": "Budget & Angebote",
+        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Online-Angebote nutzen die inoffizielle Schnittstelle von marktguru.de (Prospekte von Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); sie kann sich jederzeit ändern – nur für private Nutzung.",
+        "data": {
+          "weekly_budget": "Wochenbudget",
+          "plan_strategy": "Planungsart",
+          "offers_source": "Online-Angebote",
+          "zip_code": "Postleitzahl",
+          "offer_stores": "Supermärkte",
+          "offers_watchlist": "Merkliste"
+        },
+        "data_description": {
+          "weekly_budget": "Euro pro Woche fürs Essen, 0 = kein Budget.",
+          "plan_strategy": "Für automatische Planung und Vorschläge.",
+          "offers_source": "Woher aktuelle und kommende Angebote kommen.",
+          "zip_code": "Für die Angebote der Märkte in deiner Nähe.",
+          "offer_stores": "Nur Angebote dieser Märkte.",
+          "offers_watchlist": "Zusätzliche Produkte, nach denen gesucht wird, kommagetrennt (z. B. „Kaffee, Butter“)."
+        }
       }
     },
     "error": {
-      "no_meals": "Bitte mindestens eine Mahlzeit auswählen."
+      "no_meals": "Bitte mindestens eine Mahlzeit auswählen.",
+      "invalid_zip": "Bitte eine 5-stellige Postleitzahl eingeben."
     }
   },
   "selector": {
@@ -61,6 +82,34 @@
         "mittagessen": "Mittagessen",
         "snack": "Snack",
         "abendessen": "Abendessen"
+      }
+    },
+    "strategy": {
+      "options": {
+        "balanced": "Ausgewogen",
+        "cheap": "Günstig (Budget)",
+        "offers": "Angebote nutzen",
+        "variety": "Abwechslung"
+      }
+    },
+    "offers_source": {
+      "options": {
+        "off": "Aus (nur eigene Angebote)",
+        "marktguru": "marktguru.de (inoffiziell)"
+      }
+    },
+    "clear_mode": {
+      "options": {
+        "all": "Alle Einträge",
+        "completed": "Erledigte Einträge",
+        "plan": "Aus dem Plan erzeugte"
+      }
+    },
+    "offer_when": {
+      "options": {
+        "all": "Alle",
+        "current": "Aktuell",
+        "upcoming": "Kommend"
       }
     }
   },
@@ -74,6 +123,15 @@
       }
     },
     "sensor": {
+      "week_cost": {
+        "name": "Kosten diese Woche"
+      },
+      "budget_remaining": {
+        "name": "Restbudget"
+      },
+      "offers": {
+        "name": "Passende Angebote"
+      },
       "today": {
         "name": "Heute"
       },
@@ -140,6 +198,18 @@
     },
     "invalid_json": {
       "message": "Die Rezeptdaten konnten nicht gelesen werden."
+    },
+    "offers_disabled": {
+      "message": "Online-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren)."
+    },
+    "invalid_zip": {
+      "message": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen."
+    },
+    "invalid_strategy": {
+      "message": "Unbekannte Planungsart „{strategy}“."
+    },
+    "invalid_price": {
+      "message": "Der Preis „{price}“ wurde nicht verstanden."
     }
   },
   "services": {
@@ -408,6 +478,10 @@
         "date": {
           "name": "Datum",
           "description": "z. B. „heute“, „morgen“, „Freitag“, „24.12.“ oder JJJJ-MM-TT."
+        },
+        "strategy": {
+          "name": "Strategie",
+          "description": "ausgewogen, günstig (Budget), Angebote nutzen oder Abwechslung."
         }
       }
     },
@@ -442,6 +516,10 @@
         "overwrite": {
           "name": "Überschreiben",
           "description": "Bereits geplante Mahlzeiten ersetzen."
+        },
+        "strategy": {
+          "name": "Strategie",
+          "description": "ausgewogen, günstig (Budget), Angebote nutzen oder Abwechslung."
         }
       }
     },
@@ -577,6 +655,146 @@
         "overwrite": {
           "name": "Überschreiben",
           "description": "Rezepte mit gleichem Namen aktualisieren."
+        }
+      }
+    },
+    "clear_shopping_list": {
+      "name": "Einkaufsliste leeren",
+      "description": "Entfernt alle (oder nur erledigte / aus dem Plan erzeugte) Einträge.",
+      "fields": {
+        "mode": {
+          "name": "Modus",
+          "description": "alle, erledigte oder nur aus dem Plan erzeugte Einträge."
+        }
+      }
+    },
+    "import_starter_recipes": {
+      "name": "Rezeptsammlung ergänzen",
+      "description": "Fügt alle mitgelieferten Rezepte (100+) hinzu, die noch fehlen.",
+      "fields": {}
+    },
+    "refresh_offers": {
+      "name": "Angebote aktualisieren",
+      "description": "Lädt aktuelle und kommende Supermarkt-Angebote (marktguru).",
+      "fields": {}
+    },
+    "search_offers": {
+      "name": "Angebote suchen",
+      "description": "Sucht Angebote für ein Produkt (live und gespeichert).",
+      "fields": {
+        "query": {
+          "name": "Suche",
+          "description": "Produkt oder Zutat."
+        }
+      }
+    },
+    "get_offers": {
+      "name": "Angebote abrufen",
+      "description": "Liefert gespeicherte Angebote passend zu den Rezepten.",
+      "fields": {
+        "when": {
+          "name": "Zeitraum",
+          "description": "aktuelle, kommende oder alle Angebote."
+        },
+        "query": {
+          "name": "Suche",
+          "description": "Produkt oder Zutat."
+        },
+        "store": {
+          "name": "Markt",
+          "description": "z. B. Lidl, Aldi Süd, REWE."
+        },
+        "count": {
+          "name": "Anzahl",
+          "description": "Maximale Anzahl Angebote."
+        }
+      }
+    },
+    "add_offer": {
+      "name": "Angebot hinzufügen",
+      "description": "Merkt sich ein Angebot aus einem Prospekt.",
+      "fields": {
+        "product": {
+          "name": "Produkt",
+          "description": "z. B. „Hähnchenbrustfilet“."
+        },
+        "store": {
+          "name": "Markt",
+          "description": "z. B. Lidl, Aldi Süd, REWE."
+        },
+        "price": {
+          "name": "Preis",
+          "description": "Preis in Euro."
+        },
+        "old_price": {
+          "name": "Normalpreis",
+          "description": "Preis ohne Angebot (optional)."
+        },
+        "pack": {
+          "name": "Packung",
+          "description": "z. B. „1 kg“, „500 g“, „2 x 125 g“."
+        },
+        "valid_from": {
+          "name": "Gültig ab",
+          "description": "z. B. „Montag“ oder JJJJ-MM-TT."
+        },
+        "valid_to": {
+          "name": "Gültig bis",
+          "description": "z. B. „Samstag“ oder JJJJ-MM-TT."
+        }
+      }
+    },
+    "remove_offer": {
+      "name": "Angebot entfernen",
+      "description": "Löscht ein gespeichertes Angebot.",
+      "fields": {
+        "id": {
+          "name": "Angebots-ID",
+          "description": "ID aus get_offers."
+        }
+      }
+    },
+    "set_price": {
+      "name": "Preis festlegen",
+      "description": "Speichert einen eigenen Preis für eine Zutat.",
+      "fields": {
+        "ingredient": {
+          "name": "Zutat",
+          "description": "z. B. „Butter“."
+        },
+        "price": {
+          "name": "Preis",
+          "description": "Preis in Euro."
+        },
+        "amount": {
+          "name": "Packungsgröße",
+          "description": "Menge der Packung, z. B. 250."
+        },
+        "unit": {
+          "name": "Einheit",
+          "description": "g, ml, Stück, Bund …"
+        },
+        "store": {
+          "name": "Markt",
+          "description": "z. B. Lidl, Aldi Süd, REWE."
+        },
+        "remove": {
+          "name": "Entfernen",
+          "description": "Eigenen Preis wieder entfernen (Schätzwert verwenden)."
+        }
+      }
+    },
+    "get_costs": {
+      "name": "Kosten abrufen",
+      "description": "Geschätzte Kosten des Plans und Restbudget.",
+      "fields": {
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Erster Tag (Standard: heute)."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Anzahl der Tage."
         }
       }
     }

@@ -181,5 +181,5 @@ async def test_buttons_and_diagnostics(
     assert int(hass.states.get(TODO).state) > 10
 
     diagnostics = await async_get_config_entry_diagnostics(hass, setup_integration)
-    assert diagnostics["counts"]["recipes"] == 15
+    assert diagnostics["counts"]["recipes"] >= 100
     assert diagnostics["counts"]["planned_next_7_days"] == 7

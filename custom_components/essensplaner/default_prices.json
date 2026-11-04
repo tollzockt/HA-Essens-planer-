@@ -1,0 +1,2048 @@
+[
+ {
+  "name": "Spaghetti",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Nudeln",
+   "Penne",
+   "Fusilli",
+   "Farfalle",
+   "Rigatoni",
+   "Makkaroni",
+   "Maccheroni",
+   "Tagliatelle",
+   "Bandnudeln",
+   "Pasta",
+   "Spirelli",
+   "Hörnchennudeln",
+   "Linguine"
+  ]
+ },
+ {
+  "name": "Lasagneplatten",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Tortellini",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Ravioli"
+  ]
+ },
+ {
+  "name": "Gnocchi",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.59
+ },
+ {
+  "name": "Spätzle",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Reis",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Langkornreis",
+   "Parboiled Reis"
+  ]
+ },
+ {
+  "name": "Basmatireis",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Jasminreis"
+  ]
+ },
+ {
+  "name": "Risottoreis",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Arborio-Reis",
+   "Paellareis"
+  ]
+ },
+ {
+  "name": "Milchreis",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.09
+ },
+ {
+  "name": "Couscous",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Bulgur",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Quinoa",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.99
+ },
+ {
+  "name": "Haferflocken",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.79
+ },
+ {
+  "name": "Tellerlinsen",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Linsen",
+   "Berglinsen"
+  ]
+ },
+ {
+  "name": "Rote Linsen",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.79
+ },
+ {
+  "name": "Mie-Nudeln",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Mienudeln",
+   "Asia-Nudeln",
+   "Eiernudeln",
+   "Ramen-Nudeln"
+  ]
+ },
+ {
+  "name": "Glasnudeln",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Reisnudeln"
+  ]
+ },
+ {
+  "name": "Granola",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Müsli",
+   "Knuspermüsli"
+  ]
+ },
+ {
+  "name": "Cornflakes",
+  "amount": 375,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Toastbrot",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Toast",
+   "Sandwichtoast"
+  ]
+ },
+ {
+  "name": "Baguette",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.79,
+  "aliases": [
+   "Baguettebrötchen"
+  ]
+ },
+ {
+  "name": "Brötchen",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.25,
+  "aliases": [
+   "Semmel",
+   "Aufbackbrötchen"
+  ]
+ },
+ {
+  "name": "Burgerbrötchen",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.25,
+  "aliases": [
+   "Burger Buns"
+  ]
+ },
+ {
+  "name": "Ciabatta",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.19
+ },
+ {
+  "name": "Fladenbrot",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.29,
+  "aliases": [
+   "Pita"
+  ]
+ },
+ {
+  "name": "Wraps",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.25,
+  "aliases": [
+   "Tortillas",
+   "Weizentortillas",
+   "Tortilla-Wraps",
+   "Tortilla"
+  ]
+ },
+ {
+  "name": "Knödelbrot",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.19,
+  "aliases": [
+   "Semmelwürfel"
+  ]
+ },
+ {
+  "name": "Paniermehl",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.79,
+  "aliases": [
+   "Semmelbrösel"
+  ]
+ },
+ {
+  "name": "Bauernbrot",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Brot",
+   "Mischbrot",
+   "Graubrot",
+   "Roggenbrot"
+  ]
+ },
+ {
+  "name": "Pizzateig",
+  "amount": 400,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Flammkuchenteig",
+  "amount": 260,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Blätterteig",
+  "amount": 275,
+  "unit": "g",
+  "price": 1.19
+ },
+ {
+  "name": "Mürbeteig",
+  "amount": 275,
+  "unit": "g",
+  "price": 1.19,
+  "aliases": [
+   "Quicheteig"
+  ]
+ },
+ {
+  "name": "Rinderhackfleisch",
+  "amount": 500,
+  "unit": "g",
+  "price": 4.99,
+  "aliases": [
+   "Hackfleisch vom Rind"
+  ]
+ },
+ {
+  "name": "Hackfleisch",
+  "amount": 500,
+  "unit": "g",
+  "price": 3.99,
+  "aliases": [
+   "Gemischtes Hackfleisch",
+   "Hackfleisch gemischt",
+   "Schweinehackfleisch",
+   "Mett"
+  ]
+ },
+ {
+  "name": "Hähnchenbrust",
+  "amount": 1000,
+  "unit": "g",
+  "price": 9.99,
+  "aliases": [
+   "Hähnchenbrustfilet",
+   "Hähnchenfilet",
+   "Hühnerbrust",
+   "Hähnchen"
+  ]
+ },
+ {
+  "name": "Hähnchenschenkel",
+  "amount": 1000,
+  "unit": "g",
+  "price": 4.49,
+  "aliases": [
+   "Hähnchenkeulen",
+   "Hähnchenunterschenkel"
+  ]
+ },
+ {
+  "name": "Putenbrust",
+  "amount": 1000,
+  "unit": "g",
+  "price": 11.99,
+  "aliases": [
+   "Putenschnitzel",
+   "Putenfilet",
+   "Pute",
+   "Putengeschnetzeltes"
+  ]
+ },
+ {
+  "name": "Schweineschnitzel",
+  "amount": 1000,
+  "unit": "g",
+  "price": 8.99,
+  "aliases": [
+   "Schnitzel",
+   "Schweinelachs",
+   "Schweinerücken"
+  ]
+ },
+ {
+  "name": "Schweinefilet",
+  "amount": 500,
+  "unit": "g",
+  "price": 6.49
+ },
+ {
+  "name": "Schweinegulasch",
+  "amount": 1000,
+  "unit": "g",
+  "price": 7.99
+ },
+ {
+  "name": "Rindergulasch",
+  "amount": 1000,
+  "unit": "g",
+  "price": 11.99,
+  "aliases": [
+   "Gulaschfleisch",
+   "Rindfleisch"
+  ]
+ },
+ {
+  "name": "Rinderrouladen",
+  "amount": 1000,
+  "unit": "g",
+  "price": 14.99,
+  "aliases": [
+   "Rouladen"
+  ]
+ },
+ {
+  "name": "Bratwurst",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Bratwürste",
+   "Rostbratwürste",
+   "Currywurst"
+  ]
+ },
+ {
+  "name": "Wiener Würstchen",
+  "amount": 400,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Würstchen",
+   "Wiener"
+  ]
+ },
+ {
+  "name": "Speck",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Bacon",
+   "Schinkenwürfel",
+   "Speckwürfel",
+   "Frühstücksspeck",
+   "Bauchspeck"
+  ]
+ },
+ {
+  "name": "Kochschinken",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Schinken",
+   "gekochter Schinken",
+   "Schinkenscheiben"
+  ]
+ },
+ {
+  "name": "Leberkäse",
+  "amount": 500,
+  "unit": "g",
+  "price": 3.49,
+  "aliases": [
+   "Fleischkäse"
+  ]
+ },
+ {
+  "name": "Gyros",
+  "amount": 500,
+  "unit": "g",
+  "price": 3.99,
+  "aliases": [
+   "Gyrosfleisch"
+  ]
+ },
+ {
+  "name": "Lachsfilet",
+  "amount": 250,
+  "unit": "g",
+  "price": 4.49,
+  "aliases": [
+   "Lachs",
+   "Räucherlachs"
+  ]
+ },
+ {
+  "name": "Seelachsfilet",
+  "amount": 400,
+  "unit": "g",
+  "price": 3.49,
+  "aliases": [
+   "Seelachs",
+   "Alaska-Seelachs",
+   "Fischfilet"
+  ]
+ },
+ {
+  "name": "Kabeljaufilet",
+  "amount": 400,
+  "unit": "g",
+  "price": 5.99,
+  "aliases": [
+   "Kabeljau",
+   "Dorschfilet"
+  ]
+ },
+ {
+  "name": "Fischstäbchen",
+  "amount": 450,
+  "unit": "g",
+  "price": 2.49
+ },
+ {
+  "name": "Garnelen",
+  "amount": 250,
+  "unit": "g",
+  "price": 4.99,
+  "aliases": [
+   "Shrimps",
+   "Riesengarnelen",
+   "Scampi"
+  ]
+ },
+ {
+  "name": "Thunfisch",
+  "amount": 150,
+  "unit": "g",
+  "price": 1.39,
+  "aliases": [
+   "Thunfisch (Dose)"
+  ]
+ },
+ {
+  "name": "Matjesfilets",
+  "amount": 200,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Matjes",
+   "Heringsfilets"
+  ]
+ },
+ {
+  "name": "Salami",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.99
+ },
+ {
+  "name": "Milch",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 0.99,
+  "aliases": [
+   "Vollmilch",
+   "fettarme Milch",
+   "H-Milch"
+  ]
+ },
+ {
+  "name": "Butter",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "Butterschmalz"
+  ]
+ },
+ {
+  "name": "Schlagsahne",
+  "amount": 200,
+  "unit": "ml",
+  "price": 0.99,
+  "aliases": [
+   "Sahne"
+  ]
+ },
+ {
+  "name": "Kochsahne",
+  "amount": 200,
+  "unit": "ml",
+  "price": 0.89,
+  "aliases": [
+   "Cremefine"
+  ]
+ },
+ {
+  "name": "Schmand",
+  "amount": 200,
+  "unit": "g",
+  "price": 0.89
+ },
+ {
+  "name": "Saure Sahne",
+  "amount": 200,
+  "unit": "g",
+  "price": 0.79
+ },
+ {
+  "name": "Crème fraîche",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.19,
+  "aliases": [
+   "Creme fraiche"
+  ]
+ },
+ {
+  "name": "Joghurt",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.89,
+  "aliases": [
+   "Naturjoghurt",
+   "Vollmilchjoghurt"
+  ]
+ },
+ {
+  "name": "Griechischer Joghurt",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Joghurt griechischer Art"
+  ]
+ },
+ {
+  "name": "Magerquark",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.19,
+  "aliases": [
+   "Quark",
+   "Speisequark"
+  ]
+ },
+ {
+  "name": "Kräuterquark",
+  "amount": 200,
+  "unit": "g",
+  "price": 0.99
+ },
+ {
+  "name": "Frischkäse",
+  "amount": 200,
+  "unit": "g",
+  "price": 0.99
+ },
+ {
+  "name": "Mascarpone",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.69
+ },
+ {
+  "name": "Ricotta",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.39
+ },
+ {
+  "name": "Eier",
+  "amount": 10,
+  "unit": "Stück",
+  "price": 2.49,
+  "aliases": [
+   "Ei",
+   "Eigelb",
+   "Eiklar",
+   "Eiweiß"
+  ]
+ },
+ {
+  "name": "Buttermilch",
+  "amount": 500,
+  "unit": "ml",
+  "price": 0.69
+ },
+ {
+  "name": "Margarine",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Hafermilch",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.19,
+  "aliases": [
+   "Pflanzenmilch",
+   "Sojamilch",
+   "Haferdrink"
+  ]
+ },
+ {
+  "name": "Tzatziki",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Gouda",
+  "amount": 400,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Käse",
+   "Käsescheiben",
+   "Goudakäse",
+   "Butterkäse"
+  ]
+ },
+ {
+  "name": "Reibekäse",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "geriebener Käse",
+   "Gratinkäse",
+   "Pizzakäse",
+   "Emmentaler gerieben"
+  ]
+ },
+ {
+  "name": "Emmentaler",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.99
+ },
+ {
+  "name": "Parmesan",
+  "amount": 100,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Grana Padano",
+   "Pecorino",
+   "Hartkäse"
+  ]
+ },
+ {
+  "name": "Mozzarella",
+  "amount": 125,
+  "unit": "g",
+  "price": 0.79
+ },
+ {
+  "name": "Feta",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Hirtenkäse",
+   "Schafskäse"
+  ]
+ },
+ {
+  "name": "Bergkäse",
+  "amount": 200,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Allgäuer Bergkäse",
+   "Gruyère"
+  ]
+ },
+ {
+  "name": "Cheddar",
+  "amount": 200,
+  "unit": "g",
+  "price": 2.29
+ },
+ {
+  "name": "Halloumi",
+  "amount": 200,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Grillkäse"
+  ]
+ },
+ {
+  "name": "Gorgonzola",
+  "amount": 150,
+  "unit": "g",
+  "price": 1.99
+ },
+ {
+  "name": "Kartoffeln",
+  "amount": 2500,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Kartoffel",
+   "Pellkartoffeln",
+   "Frühkartoffeln"
+  ]
+ },
+ {
+  "name": "Süßkartoffel",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Süßkartoffeln"
+  ]
+ },
+ {
+  "name": "Zwiebeln",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Zwiebel",
+   "Gemüsezwiebel",
+   "Schalotten"
+  ]
+ },
+ {
+  "name": "Rote Zwiebel",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.19,
+  "aliases": [
+   "rote Zwiebeln"
+  ]
+ },
+ {
+  "name": "Knoblauch",
+  "amount": 150,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Knoblauchzehen"
+  ]
+ },
+ {
+  "name": "Ingwer",
+  "amount": 100,
+  "unit": "g",
+  "price": 0.69
+ },
+ {
+  "name": "Karotten",
+  "amount": 1000,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Möhren",
+   "Karotte",
+   "Möhre"
+  ]
+ },
+ {
+  "name": "Paprika",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.69,
+  "aliases": [
+   "Paprikaschote",
+   "rote Paprika",
+   "gelbe Paprika",
+   "grüne Paprika"
+  ]
+ },
+ {
+  "name": "Zucchini",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.79
+ },
+ {
+  "name": "Aubergine",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.99
+ },
+ {
+  "name": "Tomaten",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Tomate",
+   "Rispentomaten",
+   "Strauchtomaten"
+  ]
+ },
+ {
+  "name": "Kirschtomaten",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Cherrytomaten",
+   "Cocktailtomaten"
+  ]
+ },
+ {
+  "name": "Salatgurke",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.69,
+  "aliases": [
+   "Gurke"
+  ]
+ },
+ {
+  "name": "Brokkoli",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Broccoli"
+  ]
+ },
+ {
+  "name": "Blumenkohl",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.99
+ },
+ {
+  "name": "Champignons",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Pilze",
+   "braune Champignons"
+  ]
+ },
+ {
+  "name": "Blattspinat",
+  "amount": 300,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Spinat",
+   "Babyspinat",
+   "junger Spinat"
+  ]
+ },
+ {
+  "name": "Lauch",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.69,
+  "aliases": [
+   "Porree"
+  ]
+ },
+ {
+  "name": "Staudensellerie",
+  "amount": 1,
+  "unit": "Stange",
+  "price": 0.15,
+  "aliases": [
+   "Selleriestange"
+  ]
+ },
+ {
+  "name": "Knollensellerie",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.29,
+  "aliases": [
+   "Sellerie"
+  ]
+ },
+ {
+  "name": "Petersilie",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.79,
+  "aliases": [
+   "glatte Petersilie",
+   "krause Petersilie"
+  ]
+ },
+ {
+  "name": "Schnittlauch",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.79
+ },
+ {
+  "name": "Basilikum",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 1.49
+ },
+ {
+  "name": "Koriander",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.99
+ },
+ {
+  "name": "Dill",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.79
+ },
+ {
+  "name": "Thymian",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.99,
+  "aliases": [
+   "Rosmarin",
+   "Salbei",
+   "Minze"
+  ]
+ },
+ {
+  "name": "Zitrone",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.35,
+  "aliases": [
+   "Zitronen",
+   "Bio-Zitrone"
+  ]
+ },
+ {
+  "name": "Limette",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.35,
+  "aliases": [
+   "Limetten"
+  ]
+ },
+ {
+  "name": "Äpfel",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "Apfel"
+  ]
+ },
+ {
+  "name": "Bananen",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.39,
+  "aliases": [
+   "Banane"
+  ]
+ },
+ {
+  "name": "Hokkaido-Kürbis",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Kürbis",
+   "Butternut-Kürbis"
+  ]
+ },
+ {
+  "name": "Eisbergsalat",
+  "amount": 1,
+  "unit": "Kopf",
+  "price": 0.89,
+  "aliases": [
+   "Kopfsalat",
+   "Salat",
+   "Römersalat",
+   "Salatherzen"
+  ]
+ },
+ {
+  "name": "Rucola",
+  "amount": 125,
+  "unit": "g",
+  "price": 0.99
+ },
+ {
+  "name": "Avocado",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.99
+ },
+ {
+  "name": "Frühlingszwiebeln",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.69,
+  "aliases": [
+   "Lauchzwiebeln"
+  ]
+ },
+ {
+  "name": "Spargel",
+  "amount": 500,
+  "unit": "g",
+  "price": 4.99,
+  "aliases": [
+   "weißer Spargel",
+   "grüner Spargel"
+  ]
+ },
+ {
+  "name": "Rotkohl",
+  "amount": 1,
+  "unit": "Kopf",
+  "price": 1.49,
+  "aliases": [
+   "Rotkraut",
+   "Blaukraut"
+  ]
+ },
+ {
+  "name": "Weißkohl",
+  "amount": 1,
+  "unit": "Kopf",
+  "price": 1.49,
+  "aliases": [
+   "Weißkraut",
+   "Spitzkohl",
+   "Wirsing"
+  ]
+ },
+ {
+  "name": "Heidelbeeren",
+  "amount": 250,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Blaubeeren"
+  ]
+ },
+ {
+  "name": "Erdbeeren",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.99
+ },
+ {
+  "name": "Beeren",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "TK-Beeren",
+   "Beerenmischung",
+   "Himbeeren"
+  ]
+ },
+ {
+  "name": "Mango",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.29
+ },
+ {
+  "name": "Radieschen",
+  "amount": 1,
+  "unit": "Bund",
+  "price": 0.79
+ },
+ {
+  "name": "Kohlrabi",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.69
+ },
+ {
+  "name": "Rote Bete",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Fenchel",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.99
+ },
+ {
+  "name": "Ananas",
+  "amount": 340,
+  "unit": "g",
+  "price": 1.09,
+  "aliases": [
+   "Ananas (Dose)",
+   "Ananasscheiben"
+  ]
+ },
+ {
+  "name": "Gehackte Tomaten",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.59,
+  "aliases": [
+   "stückige Tomaten",
+   "Pizzatomaten",
+   "Dosentomaten",
+   "geschälte Tomaten"
+  ]
+ },
+ {
+  "name": "Passierte Tomaten",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.59,
+  "aliases": [
+   "Passata",
+   "Tomatenpassata"
+  ]
+ },
+ {
+  "name": "Tomatenmark",
+  "amount": 200,
+  "unit": "g",
+  "price": 0.69
+ },
+ {
+  "name": "Kokosmilch",
+  "amount": 400,
+  "unit": "ml",
+  "price": 1.29
+ },
+ {
+  "name": "Kidneybohnen",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.69
+ },
+ {
+  "name": "Weiße Bohnen",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.69,
+  "aliases": [
+   "Cannellini-Bohnen"
+  ]
+ },
+ {
+  "name": "Kichererbsen",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.79
+ },
+ {
+  "name": "Mais",
+  "amount": 285,
+  "unit": "g",
+  "price": 0.89,
+  "aliases": [
+   "Gemüsemais"
+  ]
+ },
+ {
+  "name": "Erbsen",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "TK-Erbsen",
+   "Erbsen (TK)",
+   "Erbsen und Möhren"
+  ]
+ },
+ {
+  "name": "Grüne Bohnen",
+  "amount": 1000,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "TK-Bohnen",
+   "Brechbohnen"
+  ]
+ },
+ {
+  "name": "Oliven",
+  "amount": 160,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "schwarze Oliven",
+   "grüne Oliven",
+   "Kalamata-Oliven"
+  ]
+ },
+ {
+  "name": "Kapern",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.19
+ },
+ {
+  "name": "Gewürzgurken",
+  "amount": 670,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Essiggurken",
+   "Cornichons"
+  ]
+ },
+ {
+  "name": "Pesto",
+  "amount": 190,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Basilikumpesto",
+   "Pesto Genovese"
+  ]
+ },
+ {
+  "name": "Senf",
+  "amount": 250,
+  "unit": "ml",
+  "price": 0.59,
+  "aliases": [
+   "mittelscharfer Senf",
+   "Dijon-Senf"
+  ]
+ },
+ {
+  "name": "Ketchup",
+  "amount": 500,
+  "unit": "ml",
+  "price": 1.29,
+  "aliases": [
+   "Tomatenketchup",
+   "Currysauce",
+   "Curry-Ketchup"
+  ]
+ },
+ {
+  "name": "Mayonnaise",
+  "amount": 500,
+  "unit": "ml",
+  "price": 1.49,
+  "aliases": [
+   "Mayo",
+   "Salatmayonnaise"
+  ]
+ },
+ {
+  "name": "Remoulade",
+  "amount": 250,
+  "unit": "ml",
+  "price": 0.99
+ },
+ {
+  "name": "Sauce Hollandaise",
+  "amount": 250,
+  "unit": "ml",
+  "price": 0.99,
+  "aliases": [
+   "Hollandaise"
+  ]
+ },
+ {
+  "name": "Honig",
+  "amount": 500,
+  "unit": "g",
+  "price": 3.49
+ },
+ {
+  "name": "Apfelmus",
+  "amount": 720,
+  "unit": "ml",
+  "price": 0.99
+ },
+ {
+  "name": "Sauerkirschen",
+  "amount": 720,
+  "unit": "ml",
+  "price": 1.49,
+  "aliases": [
+   "Kirschen"
+  ]
+ },
+ {
+  "name": "Sauerkraut",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.89
+ },
+ {
+  "name": "Currypaste",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "rote Currypaste",
+   "Thai-Currypaste"
+  ]
+ },
+ {
+  "name": "Hummus",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Erdnussbutter",
+  "amount": 350,
+  "unit": "g",
+  "price": 2.29
+ },
+ {
+  "name": "Marmelade",
+  "amount": 450,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Konfitüre"
+  ]
+ },
+ {
+  "name": "Rotkohl (Glas)",
+  "amount": 720,
+  "unit": "ml",
+  "price": 1.29,
+  "aliases": [
+   "Apfelrotkohl"
+  ]
+ },
+ {
+  "name": "Ajvar",
+  "amount": 350,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Salsa",
+  "amount": 300,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Tomatensalsa"
+  ]
+ },
+ {
+  "name": "Tofu",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Räuchertofu"
+  ]
+ },
+ {
+  "name": "Falafel",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "Falafel-Mix"
+  ]
+ },
+ {
+  "name": "Olivenöl",
+  "amount": 750,
+  "unit": "ml",
+  "price": 6.49,
+  "aliases": [
+   "natives Olivenöl"
+  ]
+ },
+ {
+  "name": "Rapsöl",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.99,
+  "aliases": [
+   "Öl",
+   "Pflanzenöl",
+   "Bratöl"
+  ]
+ },
+ {
+  "name": "Sonnenblumenöl",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.79
+ },
+ {
+  "name": "Sesamöl",
+  "amount": 250,
+  "unit": "ml",
+  "price": 2.49
+ },
+ {
+  "name": "Essig",
+  "amount": 750,
+  "unit": "ml",
+  "price": 0.69,
+  "aliases": [
+   "Weißweinessig",
+   "Kräuteressig",
+   "Apfelessig",
+   "Branntweinessig"
+  ]
+ },
+ {
+  "name": "Balsamico",
+  "amount": 500,
+  "unit": "ml",
+  "price": 1.49,
+  "aliases": [
+   "Balsamicoessig",
+   "Aceto Balsamico"
+  ]
+ },
+ {
+  "name": "Sojasauce",
+  "amount": 250,
+  "unit": "ml",
+  "price": 1.29,
+  "aliases": [
+   "Sojasoße",
+   "Teriyakisauce",
+   "Teriyaki-Sauce"
+  ]
+ },
+ {
+  "name": "Gemüsebrühe",
+  "amount": 25000,
+  "unit": "ml",
+  "price": 2.49,
+  "aliases": [
+   "Brühe",
+   "Gemüsefond",
+   "Hühnerbrühe",
+   "Rinderbrühe",
+   "Fleischbrühe",
+   "Rinderfond",
+   "Geflügelbrühe"
+  ]
+ },
+ {
+  "name": "Paprikapulver",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Paprika edelsüß",
+   "Paprika rosenscharf",
+   "Paprikapulver edelsüß",
+   "geräuchertes Paprikapulver"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Currypulver",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Curry",
+   "Garam Masala"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Kreuzkümmel",
+  "amount": 50,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Cumin"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Oregano",
+  "amount": 15,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "getrockneter Oregano",
+   "Majoran"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Zimt",
+  "amount": 50,
+  "unit": "g",
+  "price": 0.99,
+  "spice": true
+ },
+ {
+  "name": "Muskat",
+  "amount": 40,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Muskatnuss"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Chiliflocken",
+  "amount": 50,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Chili",
+   "Chilipulver",
+   "Cayennepfeffer"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Kurkuma",
+  "amount": 50,
+  "unit": "g",
+  "price": 1.19,
+  "spice": true
+ },
+ {
+  "name": "Kräuter der Provence",
+  "amount": 20,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Italienische Kräuter",
+   "Kräuter",
+   "getrocknete Kräuter",
+   "TK-Kräuter"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Lorbeerblätter",
+  "amount": 10,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Lorbeerblatt",
+   "Lorbeer",
+   "Nelken",
+   "Wacholderbeeren"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Zucker",
+  "amount": 1000,
+  "unit": "g",
+  "price": 0.99
+ },
+ {
+  "name": "Brauner Zucker",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Rohrzucker"
+  ]
+ },
+ {
+  "name": "Puderzucker",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.99
+ },
+ {
+  "name": "Weizenmehl",
+  "amount": 1000,
+  "unit": "g",
+  "price": 0.69,
+  "aliases": [
+   "Mehl",
+   "Mehl (Type 405)",
+   "Dinkelmehl"
+  ]
+ },
+ {
+  "name": "Speisestärke",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.89,
+  "aliases": [
+   "Stärke",
+   "Maisstärke"
+  ]
+ },
+ {
+  "name": "Backpulver",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 0.1
+ },
+ {
+  "name": "Vanillezucker",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 0.1,
+  "aliases": [
+   "Vanillinzucker"
+  ]
+ },
+ {
+  "name": "Hefe",
+  "amount": 1,
+  "unit": "Würfel",
+  "price": 0.1,
+  "aliases": [
+   "frische Hefe"
+  ]
+ },
+ {
+  "name": "Kakao",
+  "amount": 250,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Backkakao",
+   "Kakaopulver"
+  ]
+ },
+ {
+  "name": "Zartbitterschokolade",
+  "amount": 100,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Schokolade",
+   "Kuvertüre",
+   "Schokotropfen",
+   "Blockschokolade"
+  ]
+ },
+ {
+  "name": "Ahornsirup",
+  "amount": 250,
+  "unit": "ml",
+  "price": 3.99,
+  "aliases": [
+   "Agavendicksaft",
+   "Sirup"
+  ]
+ },
+ {
+  "name": "Walnüsse",
+  "amount": 200,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Walnusskerne",
+   "Haselnüsse",
+   "Nüsse"
+  ]
+ },
+ {
+  "name": "Mandeln",
+  "amount": 200,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "gemahlene Mandeln",
+   "Mandelblättchen"
+  ]
+ },
+ {
+  "name": "Pinienkerne",
+  "amount": 50,
+  "unit": "g",
+  "price": 1.99
+ },
+ {
+  "name": "Sesam",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Chiasamen",
+  "amount": 300,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Leinsamen"
+  ]
+ },
+ {
+  "name": "Rosinen",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Sultaninen"
+  ]
+ },
+ {
+  "name": "Weißwein",
+  "amount": 750,
+  "unit": "ml",
+  "price": 2.99,
+  "aliases": [
+   "trockener Weißwein"
+  ]
+ },
+ {
+  "name": "Rotwein",
+  "amount": 750,
+  "unit": "ml",
+  "price": 2.99,
+  "aliases": [
+   "trockener Rotwein"
+  ]
+ },
+ {
+  "name": "Orangensaft",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.49,
+  "aliases": [
+   "Apfelsaft",
+   "Saft"
+  ]
+ },
+ {
+  "name": "Pommes",
+  "amount": 750,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Pommes frites",
+   "Ofenpommes"
+  ]
+ },
+ {
+  "name": "Rahmspinat",
+  "amount": 450,
+  "unit": "g",
+  "price": 1.19
+ },
+ {
+  "name": "TK-Blattspinat",
+  "amount": 450,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Blattspinat (TK)"
+  ]
+ },
+ {
+  "name": "Salz",
+  "amount": 500,
+  "unit": "g",
+  "price": 0.29,
+  "aliases": [
+   "Meersalz",
+   "Speisesalz"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Mineralwasser",
+  "amount": 1500,
+  "unit": "ml",
+  "price": 0.25,
+  "aliases": [
+   "Sprudelwasser"
+  ]
+ },
+ {
+  "name": "Kümmel",
+  "amount": 50,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Kümmelsaat"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Safran",
+  "amount": 0.125,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Safranfäden"
+  ],
+  "spice": true
+ },
+ {
+  "name": "Schweineschmalz",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Schmalz",
+   "Gänseschmalz"
+  ]
+ },
+ {
+  "name": "Tahini",
+  "amount": 250,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Tahin",
+   "Sesampaste"
+  ]
+ },
+ {
+  "name": "Schwarze Bohnen",
+  "amount": 400,
+  "unit": "g",
+  "price": 0.89,
+  "aliases": []
+ },
+ {
+  "name": "Worcestersauce",
+  "amount": 150,
+  "unit": "ml",
+  "price": 1.79,
+  "aliases": [
+   "Worcestershiresauce"
+  ]
+ },
+ {
+  "name": "Schweinenacken",
+  "amount": 1000,
+  "unit": "g",
+  "price": 6.99,
+  "aliases": [
+   "Schweinenackensteaks",
+   "Nackensteaks",
+   "Kotelett",
+   "Schweinekotelett"
+  ]
+ },
+ {
+  "name": "Cannelloni",
+  "amount": 250,
+  "unit": "g",
+  "price": 1.69,
+  "aliases": []
+ },
+ {
+  "name": "Sojagranulat",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "Sojahack",
+   "Sojaschnetzel"
+  ]
+ },
+ {
+  "name": "Pancetta",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "Guanciale"
+  ]
+ },
+ {
+  "name": "Chinakohl",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.29,
+  "aliases": [
+   "Pak Choi"
+  ]
+ },
+ {
+  "name": "Sojasprossen",
+  "amount": 330,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Mungobohnensprossen"
+  ]
+ },
+ {
+  "name": "Taco-Schalen",
+  "amount": 12,
+  "unit": "Stück",
+  "price": 1.99,
+  "aliases": [
+   "Tacoschalen",
+   "Taco Shells"
+  ]
+ },
+ {
+  "name": "Fischsauce",
+  "amount": 200,
+  "unit": "ml",
+  "price": 2.29,
+  "aliases": [
+   "Fischsoße"
+  ]
+ },
+ {
+  "name": "Fleischwurst",
+  "amount": 400,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Lyoner"
+  ]
+ },
+ {
+  "name": "Ketjap Manis",
+  "amount": 250,
+  "unit": "ml",
+  "price": 2.29,
+  "aliases": [
+   "süße Sojasauce"
+  ]
+ },
+ {
+  "name": "Sambal Oelek",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.69,
+  "aliases": [
+   "Sambal",
+   "Sriracha",
+   "Chilisauce"
+  ]
+ },
+ {
+  "name": "Kiwi",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 0.3,
+  "aliases": [
+   "Kiwis"
+  ]
+ },
+ {
+  "name": "Natron",
+  "amount": 50,
+  "unit": "g",
+  "price": 0.69,
+  "aliases": [
+   "Kaiser-Natron"
+  ]
+ },
+ {
+  "name": "Cocktailkirschen",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": []
+ },
+ {
+  "name": "Zitronensaft",
+  "amount": 200,
+  "unit": "ml",
+  "price": 0.79,
+  "aliases": [
+   "Limettensaft"
+  ]
+ },
+ {
+  "name": "Gurkenwasser",
+  "amount": 100,
+  "unit": "ml",
+  "price": 0.0,
+  "aliases": []
+ },
+ {
+  "name": "Trockenhefe",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 0.15,
+  "aliases": []
+ }
+]

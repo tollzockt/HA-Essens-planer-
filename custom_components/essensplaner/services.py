@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.todo import TodoListEntityFeature
@@ -49,28 +50,46 @@ from .const import (
     ATTR_TOTAL_TIME,
     ATTR_URL,
     DOMAIN,
+    OFFERS_MARKTGURU,
+    SERVICE_ADD_OFFER,
     SERVICE_ADD_RECIPE,
     SERVICE_AUTO_PLAN,
+    SERVICE_CLEAR_SHOPPING,
     SERVICE_COPY_PLAN,
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
     SERVICE_FIND_BY_INGREDIENTS,
+    SERVICE_GET_COSTS,
+    SERVICE_GET_OFFERS,
     SERVICE_GET_PLAN,
     SERVICE_GET_RECIPE,
     SERVICE_GET_RECIPES,
     SERVICE_GET_SHOPPING_LIST,
     SERVICE_IMPORT_RECIPE,
     SERVICE_IMPORT_RECIPES,
+    SERVICE_IMPORT_STARTER,
     SERVICE_MARK_COOKED,
     SERVICE_MOVE_MEAL,
     SERVICE_PLAN_MEAL,
+    SERVICE_REFRESH_OFFERS,
     SERVICE_REMOVE_MEAL,
+    SERVICE_REMOVE_OFFER,
+    SERVICE_SEARCH_OFFERS,
+    SERVICE_SET_PRICE,
     SERVICE_SHOPPING_LIST,
     SERVICE_SUGGEST,
     SERVICE_UPDATE_RECIPE,
+    STRATEGIES,
 )
 from .dates import DateParseError, parse_date, parse_meal, week_start
 from .ingredients import fold
+from .offers import (
+    MarktguruClient,
+    OfferError,
+    async_refresh_offers,
+    normalize_marktguru,
+    store_allowed,
+)
 from .recipe_import import async_fetch_recipe
 
 if TYPE_CHECKING:
@@ -144,6 +163,7 @@ SUGGEST_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MAX_TIME): _MINUTES,
         vol.Optional(ATTR_MEAL): cv.string,
         vol.Optional(ATTR_DATE): cv.string,
+        vol.Optional("strategy"): cv.string,
     }
 )
 AUTO_PLAN_SCHEMA = vol.Schema(
@@ -155,6 +175,7 @@ AUTO_PLAN_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MAX_TIME): _MINUTES,
         vol.Optional(ATTR_SERVINGS): _POSITIVE,
         vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean,
+        vol.Optional("strategy"): cv.string,
     }
 )
 SHOPPING_SCHEMA = vol.Schema(
@@ -198,12 +219,94 @@ FIND_BY_INGREDIENTS_SCHEMA = vol.Schema(
 )
 EMPTY_SCHEMA = vol.Schema({})
 EXPORT_SCHEMA = vol.Schema({vol.Optional("recipes"): vol.All(cv.ensure_list, [cv.string])})
+CLEAR_SHOPPING_SCHEMA = vol.Schema(
+    {vol.Optional("mode", default="all"): vol.In(["all", "completed", "plan"])}
+)
+GET_OFFERS_SCHEMA = vol.Schema(
+    {
+        vol.Optional("when", default="all"): vol.In(["all", "current", "upcoming"]),
+        vol.Optional(ATTR_QUERY): cv.string,
+        vol.Optional("store"): cv.string,
+        vol.Optional(ATTR_COUNT, default=50): vol.All(vol.Coerce(int), vol.Range(min=1, max=500)),
+    }
+)
+SEARCH_OFFERS_SCHEMA = vol.Schema({vol.Required(ATTR_QUERY): cv.string})
+ADD_OFFER_SCHEMA = vol.Schema(
+    {
+        vol.Required("product"): cv.string,
+        vol.Required("store"): cv.string,
+        vol.Required("price"): vol.Coerce(float),
+        vol.Optional("old_price"): vol.Coerce(float),
+        vol.Optional("pack"): cv.string,
+        vol.Optional("valid_from"): cv.string,
+        vol.Optional("valid_to"): cv.string,
+    }
+)
+REMOVE_OFFER_SCHEMA = vol.Schema({vol.Required("id"): cv.string})
+SET_PRICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("ingredient"): cv.string,
+        vol.Optional("price"): vol.Coerce(float),
+        vol.Optional("amount", default=1): vol.Coerce(float),
+        vol.Optional("unit", default="Stück"): cv.string,
+        vol.Optional("store"): cv.string,
+        vol.Optional("remove", default=False): cv.boolean,
+    }
+)
+GET_COSTS_SCHEMA = vol.Schema(
+    {vol.Optional(ATTR_START_DATE): cv.string, vol.Optional(ATTR_DAYS): _DAYS}
+)
 IMPORT_RECIPES_SCHEMA = vol.Schema(
     {
         vol.Required("recipes"): vol.Any(cv.string, [dict]),
         vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean,
     }
 )
+
+
+STRATEGY_WORDS = {
+    "ausgewogen": "balanced",
+    "normal": "balanced",
+    "guenstig": "cheap",
+    "billig": "cheap",
+    "sparsam": "cheap",
+    "preiswert": "cheap",
+    "angebot": "offers",
+    "abwechslung": "variety",
+    "vielfalt": "variety",
+}
+
+
+def resolve_strategy(value: str | None) -> str | None:
+    """Map 'günstig' / 'cheap' / 'Angebote' to a strategy id."""
+    if not value:
+        return None
+    key = fold(value).strip()
+    if key in STRATEGIES:
+        return key
+    for word, strategy in STRATEGY_WORDS.items():
+        if word in key:
+            return strategy
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="invalid_strategy",
+        translation_placeholders={"strategy": value},
+    )
+
+
+def parse_price(value: Any) -> float:
+    """'4,99 €' -> 4.99."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).replace("€", "").replace("Euro", "").replace("EUR", "").strip()
+    match = re.search(r"\d+(?:[.,]\d{1,2})?", text)
+    if not match:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="invalid_price",
+            translation_placeholders={"price": str(value)},
+        )
+    return float(match.group().replace(",", "."))
 
 
 def split_list(value: Any) -> list[str]:
@@ -216,6 +319,14 @@ def split_list(value: Any) -> list[str]:
             text = text.replace(sep, ",")
         items = text.split(",")
     return [i.strip() for i in items if i.strip()]
+
+
+def require_offer_source(manager: EssensplanerManager) -> None:
+    """Raise unless online offers are configured."""
+    if manager.offers_source != OFFERS_MARKTGURU:
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="offers_disabled")
+    if not re.fullmatch(r"\d{5}", manager.zip_code):
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_zip")
 
 
 def resolve_move(
@@ -449,8 +560,14 @@ def async_setup_services(hass: HomeAssistant) -> None:
             max_time=call.data.get(ATTR_MAX_TIME),
             meal=meal,
             around=around,
+            strategy=resolve_strategy(call.data.get("strategy")),
         )
-        return {"recipes": [manager.recipe_summary(r) for r in recipes]}
+        return {
+            "recipes": [
+                {**manager.recipe_summary(r), "cost": manager.recipe_cost(r, None, around)["total"]}
+                for r in recipes
+            ]
+        }
 
     async def auto_plan(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -463,8 +580,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
             max_time=call.data.get(ATTR_MAX_TIME),
             overwrite=call.data[ATTR_OVERWRITE],
             servings=call.data.get(ATTR_SERVINGS),
+            strategy=resolve_strategy(call.data.get("strategy")),
         )
-        return {"planned": planned}
+        return {"planned": planned, "week": manager.week_overview(start)}
 
     async def shopping_list(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -550,6 +668,97 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_json")
         return manager.import_recipes(recipes, overwrite=call.data[ATTR_OVERWRITE])
 
+    async def clear_shopping_list(call: ServiceCall) -> ServiceResponse:
+        return {"removed": get_manager(hass).shopping_clear(call.data["mode"])}
+
+    async def import_starter_recipes(call: ServiceCall) -> ServiceResponse:
+        return await get_manager(hass).async_import_starter_recipes()
+
+    async def refresh_offers(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        require_offer_source(manager)
+        return await async_refresh_offers(hass, manager)
+
+    async def search_offers(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        query = call.data[ATTR_QUERY]
+        live: list[dict[str, Any]] = []
+        error = None
+        if manager.offers_source == OFFERS_MARKTGURU and manager.zip_code:
+            try:
+                raw = await MarktguruClient(hass).async_search(query, manager.zip_code)
+            except OfferError as err:
+                error = str(err)
+            else:
+                for item in raw:
+                    offer = normalize_marktguru(item, query)
+                    if offer and store_allowed(offer["store_id"], manager.offer_stores):
+                        live.append(offer)
+        live.sort(key=lambda o: (o.get("unit_price") or 9e9, o["price"]))
+        return {
+            "query": query,
+            "live": live[:50],
+            "saved": manager.offers_view(query=query),
+            "error": error,
+        }
+
+    async def get_offers(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        offers = manager.offers_view(
+            call.data["when"],
+            call.data.get(ATTR_QUERY),
+            call.data.get("store"),
+            call.data[ATTR_COUNT],
+        )
+        return {"count": len(offers), "offers": offers, "meta": manager.offers_meta}
+
+    async def add_offer(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        valid_from = (
+            resolve_day(manager, call.data["valid_from"])[0]
+            if call.data.get("valid_from")
+            else None
+        )
+        valid_to = (
+            resolve_day(manager, call.data["valid_to"])[0] if call.data.get("valid_to") else None
+        )
+        offer = manager.add_offer(
+            call.data["product"],
+            call.data["store"],
+            call.data["price"],
+            call.data.get("pack"),
+            valid_from,
+            valid_to,
+            call.data.get("old_price"),
+        )
+        return {"offer": offer}
+
+    async def remove_offer(call: ServiceCall) -> ServiceResponse:
+        return {"removed": get_manager(hass).remove_offer(call.data["id"])}
+
+    async def set_price(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        if call.data["remove"] or call.data.get("price") is None:
+            return {"removed": manager.remove_price(call.data["ingredient"])}
+        return {
+            "price": manager.set_price(
+                call.data["ingredient"],
+                call.data["price"],
+                call.data["amount"],
+                call.data["unit"],
+                call.data.get("store"),
+            )
+        }
+
+    async def get_costs(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
+            start, _ = resolve_day(manager, call.data.get(ATTR_START_DATE))
+            result = manager.plan_costs(start, call.data.get(ATTR_DAYS) or 7)
+            result["budget"] = manager.weekly_budget
+            return result
+        return manager.week_overview()
+
     services: list[tuple[str, Any, vol.Schema]] = [
         (SERVICE_ADD_RECIPE, add_recipe, ADD_RECIPE_SCHEMA),
         (SERVICE_UPDATE_RECIPE, update_recipe, UPDATE_RECIPE_SCHEMA),
@@ -570,6 +779,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_GET_SHOPPING_LIST, get_shopping_list, EMPTY_SCHEMA),
         (SERVICE_EXPORT_RECIPES, export_recipes, EXPORT_SCHEMA),
         (SERVICE_IMPORT_RECIPES, import_recipes, IMPORT_RECIPES_SCHEMA),
+        (SERVICE_CLEAR_SHOPPING, clear_shopping_list, CLEAR_SHOPPING_SCHEMA),
+        (SERVICE_IMPORT_STARTER, import_starter_recipes, EMPTY_SCHEMA),
+        (SERVICE_REFRESH_OFFERS, refresh_offers, EMPTY_SCHEMA),
+        (SERVICE_SEARCH_OFFERS, search_offers, SEARCH_OFFERS_SCHEMA),
+        (SERVICE_GET_OFFERS, get_offers, GET_OFFERS_SCHEMA),
+        (SERVICE_ADD_OFFER, add_offer, ADD_OFFER_SCHEMA),
+        (SERVICE_REMOVE_OFFER, remove_offer, REMOVE_OFFER_SCHEMA),
+        (SERVICE_SET_PRICE, set_price, SET_PRICE_SCHEMA),
+        (SERVICE_GET_COSTS, get_costs, GET_COSTS_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

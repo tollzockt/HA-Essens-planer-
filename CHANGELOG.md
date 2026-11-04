@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.2.0
+
+### Neu
+- **107 Rezepte** statt 15: deutsche Alltagsklassiker, vegetarisch/vegan, Suppen & Eintöpfe,
+  Pasta & international, Fisch, Frühstück, Kuchen & Snacks (eigene Texte). Bestehende
+  Installationen holen sich fehlende Rezepte mit „Rezeptsammlung ergänzen“
+  (`essensplaner.import_starter_recipes`).
+- **Preise & Kosten**: Richtpreise für über 200 Zutaten (typische Discounter-Preise), eigene
+  Preise, Kosten pro Rezept, Portion, Tag und Woche; Einkaufsliste mit Preis je Artikel
+  (ganze Packungen) und Gesamtsumme.
+- **Wochenbudget** mit Restbudget-Anzeige, Sensoren `sensor.essensplaner_week_cost` und
+  `sensor.essensplaner_budget_remaining`.
+- **Supermarkt-Angebote** (Aldi Süd/Nord, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma …):
+  aktuelle **und kommende** Angebote über die (inoffizielle) marktguru.de-Suche nach
+  Postleitzahl – optional, täglich automatisch – oder selbst eingetragen. Normalpreise
+  werden aus den Prospekten gelernt. Sensor `sensor.essensplaner_offers`.
+- **Planung mit Budget, Angeboten und Abwechslung**: Strategien *ausgewogen*, *günstig*,
+  *Angebote nutzen*, *Abwechslung*; ähnliche Gerichte (z. B. zweimal Pasta) an aufeinander
+  folgenden Tagen werden vermieden.
+- Panel: neuer Tab **„Angebote & Budget“** (Budget-Übersicht, Angebote je Markt, Live-
+  Preissuche, Angebote eintragen, Preise bearbeiten), Kosten im Wochenplan und in jedem
+  Rezept, Sortierung „Günstigste zuerst“, Dialog „Woche automatisch planen“ mit Strategie.
+- Jarvis: „Was kostet der Essensplan?“, „Wie viel Budget habe ich noch?“, „Welche Angebote
+  gibt es diese Woche?“, „Bei Lidl gibt es Hähnchenbrust für 4,99 €“, „Plane die Woche
+  günstig“, „Lösche die Einkaufsliste“.
+- Neue Aktionen: `clear_shopping_list`, `import_starter_recipes`, `refresh_offers`,
+  `search_offers`, `get_offers`, `add_offer`, `remove_offer`, `set_price`, `get_costs`.
+
+### Behoben
+- **Die Einkaufsliste ließ sich nicht leeren** – jetzt per Knopf „Liste leeren“, Aktion
+  `essensplaner.clear_shopping_list` oder Sprachbefehl.
+
+### Verbessert
+- Zutaten mit Akzenten („Crème fraîche“) und weitere Produkte werden der richtigen
+  Supermarkt-Abteilung zugeordnet; mehrdeutige Rezeptnamen („Bolognese“) bevorzugen
+  Favoriten und Klassiker.
+- Dashboard-Karte zeigt Wochenkosten und Budget.
+
 ## 1.1.0
 
 ### Neu
