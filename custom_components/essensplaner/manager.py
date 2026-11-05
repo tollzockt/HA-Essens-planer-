@@ -77,6 +77,25 @@ SNACK_TAGS = {
 
 MAIN_TAGS = {"hauptgericht", "hauptspeise", "mittagessen", "abendessen", "dinner", "lunch"}
 
+# bundled recipes of version 1.0/1.1 (used to find the new ones on upgrade)
+ORIGINAL_STARTER_NAMES = [
+    "Spaghetti Bolognese",
+    "Chili con Carne",
+    "Gemüsecurry mit Kichererbsen",
+    "Pfannkuchen",
+    "Linsensuppe",
+    "Ofengemüse mit Feta",
+    "Hähnchen-Reis-Pfanne",
+    "Kartoffelsuppe",
+    "Lasagne",
+    "Overnight Oats",
+    "Shakshuka",
+    "Hähnchen-Wraps",
+    "Spaghetti Aglio e Olio",
+    "Lachs mit Ofenkartoffeln und Brokkoli",
+    "Bananenbrot",
+]
+
 # German messages for errors (used by intents / voice answers)
 ERROR_MESSAGES_DE = {
     "recipe_not_found": "Ich habe kein Rezept „{name}“ gefunden.",
@@ -160,6 +179,7 @@ class EssensplanerManager(EconomyMixin):
         self.plan: dict[str, dict[str, dict[str, Any]]] = {}
         self.shopping: list[dict[str, Any]] = []
         self._listeners: list[Callable[[], None]] = []
+        self.starter_names: list[str] = []
         self.prices_user: dict[str, dict[str, Any]] = {}
         self.prices_learned: dict[str, dict[str, Any]] = {}
         self.offers: list[dict[str, Any]] = []
@@ -239,14 +259,22 @@ class EssensplanerManager(EconomyMixin):
     async def async_load(self, import_starter: bool = False) -> None:
         """Load data from storage."""
         data = await self._store.async_load()
+        new_install = data is None
         if data is None:
-            data = {"recipes": {}, "plan": {}, "shopping": []}
-            if import_starter:
-                for recipe in await self.hass.async_add_executor_job(_load_starter_recipes):
-                    built = self._build_recipe(recipe)
-                    data["recipes"][built["id"]] = built
-            await self._store.async_save(data)
+            data = {"recipes": {}, "plan": {}, "shopping": [], "starter_names": []}
         self.recipes = data.get("recipes", {})
+        # names of bundled recipes that were offered before (1.0/1.1 shipped 15 recipes)
+        self.starter_names = list(
+            data.get("starter_names", [] if new_install else ORIGINAL_STARTER_NAMES)
+        )
+        if import_starter:
+            added = await self._async_add_new_starter_recipes()
+            if added:
+                _LOGGER.info("Added %d new bundled recipes", added)
+        if new_install or import_starter:
+            data["recipes"] = self.recipes
+            data["starter_names"] = self.starter_names
+            await self._store.async_save({**data})
         self.plan = data.get("plan", {})
         self.shopping = data.get("shopping", [])
         self.prices_user = data.get("prices", {})
@@ -260,8 +288,27 @@ class EssensplanerManager(EconomyMixin):
         """Write data to disk immediately."""
         await self._store.async_save(self._data_to_store())
 
+    async def _async_add_new_starter_recipes(self) -> int:
+        """Add bundled recipes that are new in this version (deleted ones stay deleted)."""
+        pack = await self.hass.async_add_executor_job(_load_starter_recipes)
+        seen = {fold(n) for n in self.starter_names}
+        added = 0
+        for recipe in pack:
+            name = recipe.get("name", "")
+            if fold(name) in seen:
+                continue
+            seen.add(fold(name))
+            self.starter_names.append(name)
+            if self.get_recipe_by_name(name):
+                continue
+            built = self._build_recipe(recipe)
+            self.recipes[built["id"]] = built
+            added += 1
+        return added
+
     def _data_to_store(self) -> dict[str, Any]:
         return {
+            "starter_names": self.starter_names,
             "recipes": self.recipes,
             "plan": self.plan,
             "shopping": self.shopping,

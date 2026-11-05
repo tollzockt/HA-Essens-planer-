@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+- Nach einem Update werden die **neu mitgelieferten Rezepte automatisch ergänzt**
+  (von dir gelöschte Rezepte bleiben gelöscht, eigene Rezepte bleiben unverändert).
+- Panel → Rezepte → „Sichern & Teilen“: Knopf **„Fehlende Rezepte hinzufügen“**.
+
 ## 1.2.0
 
 ### Neu

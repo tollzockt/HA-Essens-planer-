@@ -44,6 +44,9 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 ### Manuell
 Ordner `custom_components/essensplaner` nach `/config/custom_components/essensplaner` kopieren, neu starten, Integration hinzufügen.
 
+### Updates
+HACS bietet Updates über **GitHub-Releases** an. Für jede neue Version wird ein Release mit dem Tag `vX.Y.Z` (z. B. `v1.2.1`) erstellt – dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS. Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
+
 ## 🤖 Jarvis & andere Sprachassistenten
 
 Der Essensplaner registriert **Intents**. Home Assistant stellt jeden registrierten Intent über die *Assist*-LLM-API automatisch als **Tool** bereit:

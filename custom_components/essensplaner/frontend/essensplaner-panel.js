@@ -1459,6 +1459,11 @@ class EssensplanerPanel extends HTMLElement {
         <div><button class="btn export">⬇ Exportieren</button></div>
       </div>
       <div class="section">
+        <h4>📚 Rezeptsammlung ergänzen</h4>
+        <div class="hint">Fügt alle mitgelieferten Rezepte hinzu, die in deiner Sammlung fehlen (z. B. nach einem Update).</div>
+        <div><button class="btn starter">📚 Fehlende Rezepte hinzufügen</button></div>
+      </div>
+      <div class="section">
         <h4>📥 Rezepte importieren</h4>
         <div class="hint">JSON-Datei aus einem Export auswählen. Rezepte mit gleichem Namen werden übersprungen.</div>
         <div><button class="btn importfile">📂 Datei auswählen</button></div>
@@ -1474,6 +1479,11 @@ class EssensplanerPanel extends HTMLElement {
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       });
       root.querySelector(".importfile").addEventListener("click", () => this.shadowRoot.querySelector(".fileinput").click());
+      root.querySelector(".starter").addEventListener("click", async () => {
+        const res = await this._service("import_starter_recipes", {}, true);
+        this._toast(res?.added?.length ? `📚 ${res.added.length} Rezepte hinzugefügt` : "Alle mitgelieferten Rezepte sind schon da.");
+        this._closeModal();
+      });
     });
   }
 
