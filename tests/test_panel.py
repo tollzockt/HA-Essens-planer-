@@ -8,14 +8,20 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.essensplaner.branches import search_defaults
 from custom_components.essensplaner.const import (
     CONF_BRANCH_RADIUS,
     CONF_BRANCH_ROUTE,
     CONF_BRANCH_ROUTE_RADIUS,
+    CONF_OFFERS_SOURCE,
+    CONF_ZIP,
     DOMAIN,
 )
+from custom_components.essensplaner.offers import MARKTGURU_API, MARKTGURU_HOME
+
+from .test_economy import HOME_HTML, _mg_offer
 
 
 def test_search_defaults() -> None:
@@ -62,3 +68,109 @@ async def test_ws_find_branches_defaults(
     assert result["cached"] is False
     assert result["results"] == []
     assert result["zones"] == [{"zone": "zone.home", "name": "Zuhause", "default": True}]
+
+
+@pytest.fixture
+async def marktguru_aldi(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    freezer,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch,
+) -> MockConfigEntry:
+    """marktguru on, main store Aldi Süd with butter offers only found live."""
+    monkeypatch.setattr("custom_components.essensplaner.articles.LIVE_MIN_INTERVAL", 0)
+
+    def offer(oid: int, product: str, brand: str, price: float, old: float | None) -> dict:
+        result = _mg_offer(oid, product, "aldi-sued", "Aldi Süd", price, old, None, "kg", "")
+        result["brand"] = {"name": brand}
+        result["description"] = "250-g-Packung" if "utter" in product else "200-g-Packung"
+        return result
+
+    aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
+    aioclient_mock.get(
+        f"{MARKTGURU_API}/offers/search",
+        json={
+            "results": [
+                offer(13, "Butterkekse", "ja!", 0.79, None),
+                offer(11, "Feine Butter", "Meggle", 1.49, 2.19),
+                offer(14, "Deutsche Markenbutter", "Kerrygold", 1.99, 2.79),
+            ]
+        },
+    )
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    freezer.move_to(datetime.fromisoformat("2026-11-04T10:00:00+01:00"))
+    assert await async_setup_component(hass, "homeassistant", {})
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry,
+        options={**config_entry.options, CONF_OFFERS_SOURCE: "marktguru", CONF_ZIP: "80331"},
+    )
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    config_entry.runtime_data.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    return config_entry
+
+
+async def test_ws_article_search_live_order(
+    hass: HomeAssistant, marktguru_aldi: MockConfigEntry, hass_ws_client
+) -> None:
+    """Live offers are ranked together with the local hits (offers for the article first).
+
+    Offers that only start with the article ("Butterkekse") are other products and come
+    after it; the order of the local hits stays the same as in the local answer.
+    """
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/article_search", "query": "Butter"})
+    local = [r["title"] for r in (await client.receive_json())["result"]["results"]]
+    await client.send_json(
+        {"id": 2, "type": f"{DOMAIN}/article_search", "query": "Butter", "live": True}
+    )
+    msg = await client.receive_json()
+    assert msg["success"]
+    results = msg["result"]["results"]
+    titles = [r["title"] for r in results]
+    assert titles[:3] == ["Meggle Feine Butter", "Kerrygold Deutsche Markenbutter", "Butter"]
+    assert results[0]["source"] == "live"
+    assert titles.index("ja! Butterkekse") > titles.index("Buttermilch")
+    assert [t for t in titles if t in local] == local
+    assert len(results) <= 10
+
+    await client.send_json(
+        {"id": 3, "type": f"{DOMAIN}/article_search", "query": "Butter", "live": True, "limit": 3}
+    )
+    msg = await client.receive_json()
+    assert [r["title"] for r in msg["result"]["results"]] == titles[:3]
+
+
+async def test_article_pick_of_main_store_stays_automatic(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
+) -> None:
+    """A hit of the main store, sent like the panel does (without store), is no manual choice.
+
+    It keeps the store's price and pack at the main store and still moves to a cheaper offer
+    elsewhere ("Läden neu zuordnen").
+    """
+    manager = setup_integration.runtime_data
+    aldi = manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/article_search", "query": "Butter"})
+    result = (await client.receive_json())["result"]
+    hit = result["results"][0]
+    assert (hit["title"], hit["branch_id"]) == ("Butter", result["store"]["branch_id"])
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        "add_shopping_item",
+        {"item": hit["title"], "price": hit["price"], "pack": hit["pack"]},
+        blocking=True,
+        return_response=True,
+    )
+    item = next(i for i in manager.shopping if i["uid"] == response["item"]["uid"])
+    assert "store_override" not in item
+    assert (item["branch_id"], item["store_reason"], item["price"]) == (aldi["id"], "main", 1.99)
+
+    manager.add_offer("Butter", "Lidl", 0.99, "250 g")
+    manager.assign_shopping_stores()
+    assert (item["retailer"], item["store_reason"], item["price"]) == ("lidl", "offer", 0.99)

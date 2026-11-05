@@ -78,6 +78,9 @@ const ARTICLE_SOURCE = {
   default: "Richtwert",
   history: "🕘 schon mal gekauft",
 };
+// article hits whose price/pack is the store's own (sent with the article); estimates and
+// old articles are priced by the list at the store the item ends up at
+const STORE_PRICE_HITS = new Set(["offer", "live", "store", "learned"]);
 const REASON_CHIP = {
   offer: ["🏷️ Angebot", "offer", "Hier im Angebot"],
   cheaper: ["💶 günstiger", "cheap", "Hier deutlich günstiger als im Hauptladen"],
@@ -170,7 +173,7 @@ const STYLE = `
   [hidden] { display: none !important; }
   button { font-family: inherit; }
   header {
-    position: sticky; top: 0; z-index: 3;
+    position: sticky; top: 0; z-index: 7; /* above .addrow (4) and its .suggest, below .overlay (10) */
     background: var(--app-header-background-color, var(--ep-primary));
     color: var(--app-header-text-color, #fff);
     box-shadow: 0 2px 6px rgba(0,0,0,.15);
@@ -829,9 +832,13 @@ class EssensplanerPanel extends HTMLElement {
     c.addEventListener(
       "toggle",
       (ev) => {
-        const key = ev.target?.dataset?.sec;
-        if (!key || this._secOpen[key] === ev.target.open) return;
-        this._secOpen[key] = ev.target.open;
+        const sec = ev.target;
+        const key = sec?.dataset?.sec;
+        // the browser also fires "toggle" for a <details open> it just rendered: only a change
+        // of the shown state is the user's choice (a default stays a default)
+        if (!key || sec.open === (sec.dataset.open === "1")) return;
+        sec.dataset.open = sec.open ? "1" : "0";
+        this._secOpen[key] = sec.open;
         this._setPref("sections", JSON.stringify(this._secOpen));
       },
       true
@@ -1503,24 +1510,35 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   async _addSuggestion(index) {
-    const r = this._suggest.results[index];
+    const s = this._suggest;
+    const r = s.results[index];
     if (!r) return;
     const { prefix } = splitQuantity(this._addText);
     // typed amount wins over the amount of a remembered article ("3 Milch" + "2 Liter Milch")
     const data = { item: (prefix ? `${prefix}${splitQuantity(r.title).query || r.title}` : r.title).trim() };
-    const store = r.branch_id || (this._splitActive() ? null : r.retailer);
+    // A hit of the searched store (the main store) is no store choice: the item stays in the
+    // automatic assignment ("Hauptladen + Ausnahmen") and still moves to a better offer
+    // elsewhere. Only a hit of another store (or of a retailer without branches) names it.
+    let store = null;
+    if (r.branch_id) store = r.branch_id !== (s.store?.branch_id || null) ? r.branch_id : null;
+    else if (!this._splitActive()) store = r.retailer || null;
     if (store) data.store = store;
-    if (r.price != null) data.price = r.price;
-    if (r.pack) data.pack = r.pack;
-    if (r.source === "offer" && r.offer?.id) data.offer_id = r.offer.id;
+    if (STORE_PRICE_HITS.has(r.source)) {
+      if (r.price != null) data.price = r.price;
+      if (r.pack) data.pack = r.pack;
+    }
+    // saved offers (a live leaflet offer has the id it is saved under by the offer refresh)
+    const leaflet = r.source === "offer" || (r.source === "live" && r.provider !== "rewe_online");
+    if (leaflet && r.offer?.id) data.offer_id = r.offer.id;
     const typed = this._addText;
     this._addText = "";
     this._suggestSeq += 1;
     const input = this._suggestInput();
     if (input) input.value = "";
     this._closeSuggest();
+    let res;
     try {
-      await this._service("add_shopping_item", data, true);
+      res = await this._service("add_shopping_item", data, true);
     } catch (err) {
       // keep what was typed so nothing is lost
       this._addText = typed;
@@ -1528,9 +1546,12 @@ class EssensplanerPanel extends HTMLElement {
       if (field && !field.value) field.value = typed;
       throw err;
     }
-    const where = r.retailer ? ` bei ${this._retailerName(r.retailer)}` : "";
-    const price = r.price != null ? ` für ${eur(r.price)}` : "";
-    this._toast(`🛒 ${data.item}${r.pack ? ` (${r.pack})` : ""}${price}${where} hinzugefügt`);
+    // where and for how much it was put on the list (it may have gone to another store)
+    const item = res?.item || {};
+    const label = item.store_label || (r.retailer ? this._retailerName(r.retailer) : "");
+    const cost = item.price ?? data.price;
+    const price = cost != null ? ` für ${data.price != null ? "" : "≈ "}${eur(cost)}` : "";
+    this._toast(`🛒 ${data.item}${data.pack ? ` (${data.pack})` : ""}${price}${label ? ` bei ${label}` : ""} hinzugefügt`);
   }
 
   async _share(title, text) {
@@ -1571,6 +1592,11 @@ class EssensplanerPanel extends HTMLElement {
       this._renderContent();
     } else if (kind === "additem") {
       this._addText = t.value;
+      // typed on: Enter adds the typed text (not the hit highlighted before) until new hits come
+      if (this._suggest.index !== -1) {
+        this._suggest.index = -1;
+        this._renderSuggest();
+      }
       this._scheduleSuggest();
     } else if (kind === "price-filter") {
       this._priceQuery = t.value;
@@ -1784,7 +1810,22 @@ class EssensplanerPanel extends HTMLElement {
         break;
       case "rewe-pick":
       case "rewe-save": {
-        const value = action === "rewe-pick" ? d.market : (this._reweInput[d.id] ?? "").trim();
+        const b = this._branch(d.id);
+        const stored = b?.rewe_market_id || "";
+        let value = d.market;
+        if (action === "rewe-save") {
+          // what the field shows (Enter in the field or the button next to it)
+          const field = el.matches('[data-input="rewe-id"]') ? el : el.parentElement?.querySelector('[data-input="rewe-id"]');
+          value = String(field ? field.value : this._reweInput[d.id] ?? stored).trim();
+        }
+        if (value === stored) {
+          // unchanged (e.g. Enter / "Done" on the phone keyboard without editing): nothing to save
+          delete this._reweInput[d.id];
+          const save = el.parentElement?.querySelector('[data-action="rewe-save"]');
+          if (save) save.hidden = true;
+          break;
+        }
+        if (!value && !confirm(`REWE-Markt-ID von „${b?.label || "diesem Laden"}“ entfernen? Dann gibt es dort keine REWE-Onlinepreise und keine Online-Suche mehr.`)) break;
         const res = await this._service("save_branch", { id: d.id, rewe_market_id: value }, true);
         delete this._reweInput[d.id];
         delete this._reweMarkets[d.id];
@@ -2637,7 +2678,7 @@ class EssensplanerPanel extends HTMLElement {
 
   _sec(key, title, body, meta = "", defOpen = true) {
     const open = this._secOpen[key] ?? defOpen;
-    return `<details class="card sec" id="sec-${key}" data-sec="${key}" ${open ? "open" : ""}>
+    return `<details class="card sec" id="sec-${key}" data-sec="${key}" data-open="${open ? 1 : 0}" ${open ? "open" : ""}>
         <summary>${title}${meta ? `<span class="meta">${meta}</span>` : ""}</summary>
         <div class="secbody">${body}</div>
       </details>`;
@@ -3172,10 +3213,29 @@ class EssensplanerPanel extends HTMLElement {
     const alwaysFor = (store) => Boolean(remembered) && (store === "auto" || this._branch(store)?.retailer === remembered);
     let always = alwaysFor(selected);
     const initial = `${selected}|${always}`;
+    const known = [
+      ...(item.alternatives || []),
+      ...(item.branch_id ? [{ branch_id: item.branch_id, retailer: item.retailer, label: item.store_label, price: item.price, offer: item.offer }] : []),
+    ];
+    // only the first branch per chain is priced: another branch of the chain (e.g. Lidl on the
+    // way to work) has the chain's prices – offers only where they apply (they are per postcode)
+    const offerAt = (offer, b) => {
+      const saved = offer && (this._data.offers || []).find((o) => o.id === offer.id);
+      return !offer || Boolean(saved && (!Array.isArray(saved.branches) || saved.branches.includes(b.id)));
+    };
+    const chainPrice = (b) => {
+      const same = (x) => x.retailer === b.retailer && x.branch_id !== b.id && x.price != null && offerAt(x.offer, b);
+      const a = known.find(same);
+      const c = compare?.results?.find((r) => same(r) && (!a || r.branch_id === a.branch_id)) || null;
+      if (!a && !c) return null;
+      const from = a?.label || c?.label || this._branch((a || c).branch_id)?.label || "";
+      return { c, price: a?.price ?? c.price, offer: a?.offer || c?.offer || null, from };
+    };
     const rowsHtml = () => {
       const entries = branches.map((b) => {
         const c = compare?.results?.find((r) => r.branch_id === b.id);
         const p = prices[b.id];
+        if (!p && !c) return { b, c: null, price: null, offer: null, ...chainPrice(b) };
         return { b, c, price: p?.price ?? c?.price ?? null, offer: p?.offer || c?.offer || null };
       });
       const priced = entries.filter((e) => e.price != null);
@@ -3186,14 +3246,14 @@ class EssensplanerPanel extends HTMLElement {
       return (
         auto +
         entries
-          .map(({ b, c, price, offer }) => {
+          .map(({ b, c, price, offer, from }) => {
             const tags = [
               b.id === item.branch_id ? '<span class="bdg">aktuell</span>' : "",
               b.main ? '<span class="bdg star">⭐</span>' : "",
               rememberedBranch && b.id === rememberedBranch.id ? '<span class="bdg" title="Für diesen Artikel gemerkt">immer hier</span>' : "",
               unique && price === min ? '<span class="bdg ok">günstigster</span>' : "",
             ].join(" ");
-            const sub = [offer ? `🏷️ Angebot${offer.valid_to ? ` bis ${shortDate(offer.valid_to)}` : ""}` : c ? PRICE_SOURCE[c.source] || "" : "", c?.pack ? c.pack : "", c?.unit_price && c.base !== "Stück" ? unitPriceText(c.unit_price, c.base) : ""].filter(Boolean).join(" · ");
+            const sub = [offer ? `🏷️ Angebot${offer.valid_to ? ` bis ${shortDate(offer.valid_to)}` : ""}` : c ? PRICE_SOURCE[c.source] || "" : "", c?.pack ? c.pack : "", c?.unit_price && c.base !== "Stück" ? unitPriceText(c.unit_price, c.base) : "", from !== undefined ? `Preis der Kette${from ? ` (wie ${from})` : ""}` : ""].filter(Boolean).join(" · ");
             return `<button class="pick ${selected === b.id ? "sel" : ""}" data-store="${esc(b.id)}">${retailerDot(b.retailer, b.retailer_name)}
               <span class="pi"><b>${esc(b.label)}</b> ${tags}<div class="sub">${esc(sub || (compare ? "kein Preis bekannt" : ""))}</div></span>
               <span class="pp">${price != null ? `<b>${eur(price)}</b>` : '<span class="meta">–</span>'}</span></button>`;
