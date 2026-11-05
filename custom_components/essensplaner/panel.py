@@ -290,14 +290,15 @@ async def ws_find_branches(
 ) -> None:
     """Supermarkets near the zones and on the way to work (OpenStreetMap).
 
-    Same parameters and result as the find_branches service; cached_only=True returns the
-    last stored search without any request. Error codes are the translation keys
+    Same parameters and result as the find_branches service (plus "defaults": the radius
+    and commute settings from the options); cached_only=True returns the last stored search
+    without any request. Error codes are the translation keys
     (overpass_busy, overpass_timeout, overpass_failed, branch_search_wait,
     zone_not_found, no_search_area, unknown_store) with a German message.
     """
     if (manager := _loaded_manager(hass, connection, msg)) is None:
         return
-    from .branches import async_find_branches
+    from .branches import async_find_branches, search_defaults
     from .manager import error_message
 
     try:
@@ -316,7 +317,8 @@ async def ws_find_branches(
         code = getattr(err, "translation_key", None) or "search_failed"
         connection.send_error(msg["id"], code, error_message(err))
         return
-    connection.send_result(msg["id"], result)
+    # preset of the panel's search form (radius / commute from the options)
+    connection.send_result(msg["id"], {**result, "defaults": search_defaults(manager.options)})
 
 
 @websocket_api.websocket_command(

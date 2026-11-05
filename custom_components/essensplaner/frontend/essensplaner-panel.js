@@ -47,6 +47,89 @@ const STRATEGY_LABELS = {
   variety: ["🌈 Abwechslung", "möglichst verschiedene Gerichte und Zutaten"],
 };
 
+/* Stores & prices (1.3). Helpers live here (not in common.js) so a cached old common.js
+ * can never break the panel after an update. */
+const RETAILER_STYLE = {
+  "aldi-sued": ["#1c3f94", "AS"],
+  "aldi-nord": ["#00a0e2", "AN"],
+  lidl: ["#0050aa", "L"],
+  rewe: ["#cc071e", "R"],
+  edeka: ["#f2b705", "E"],
+  penny: ["#cd1414", "P"],
+  "netto-marken-discount": ["#ffd400", "N"],
+  kaufland: ["#e10915", "K"],
+  norma: ["#d6001c", "No"],
+  globus: ["#00664f", "G"],
+  marktkauf: ["#00519e", "M"],
+};
+const LIGHT_RETAILERS = new Set(["edeka", "netto-marken-discount"]);
+const PRICE_SOURCE = {
+  user: "✏️ eigener Preis",
+  leaflet: "📰 Prospekt",
+  offer_regular: "📰 Prospekt",
+  rewe_online: "🛒 REWE online",
+  offer: "🏷️ Angebot",
+  default: "Richtwert",
+};
+const ARTICLE_SOURCE = {
+  offer: "🏷️ Angebot",
+  store: "✏️ eigener Preis",
+  learned: "📰 gelernter Preis",
+  default: "Richtwert",
+  history: "🕘 schon mal gekauft",
+};
+const REASON_CHIP = {
+  offer: ["🏷️ Angebot", "offer", "Hier im Angebot"],
+  cheaper: ["💶 günstiger", "cheap", "Hier deutlich günstiger als im Hauptladen"],
+  manual: ["📌 manuell", "", "Von dir hier einsortiert"],
+  preferred: ["⭐ immer hier", "", "Kaufst du immer in diesem Laden"],
+};
+const PRICE_UNITS = ["g", "ml", "Stück", "kg", "l", "Bund", "Pck.", "Dose", "Kopf"];
+const RADIUS_CHOICES = [1, 2, 3, 5, 10, 15];
+const STALE_CHANGES = new Set(["prices", "offers", "branches", "price_sources"]);
+// leading amount of a typed article ("2 Liter Milch", "500 g Hack") – kept when a hit is added
+const QTY_RE =
+  /^\s*(\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)?\s*(?:(?:kg|g|mg|ml|cl|l|liter|stück|stk|st|pck|packungen|packung|pkg|dosen|dose|bund|flaschen|flasche|becher|gläser|glas|tüten|tüte|beutel|netz|el|tl|prise|zehen|zehe|scheiben|scheibe)(?![a-zäöüß])\.?)?\s+)(?=\S)/i;
+
+const distText = (m) => {
+  const n = Number(m);
+  if (!Number.isFinite(n)) return "";
+  return n < 1000 ? `${Math.max(10, Math.round(n / 10) * 10)} m` : `${(n / 1000).toFixed(1).replace(".", ",")} km`;
+};
+const unitPriceText = (price, base) => {
+  if (price == null || !base) return "";
+  if (base === "g") return `${eur(price * 1000)}/kg`;
+  if (base === "ml") return `${eur(price * 1000)}/l`;
+  return `${eur(price)}/${base}`;
+};
+const packText = (amount, unit) => {
+  const n = Number(amount);
+  if (!unit || !Number.isFinite(n) || n <= 0) return "";
+  const fmt = (v) => String(Math.round(v * 100) / 100).replace(".", ",");
+  if (unit === "g" && n >= 1000) return `${fmt(n / 1000)} kg`;
+  if (unit === "ml" && n >= 1000) return `${fmt(n / 1000)} l`;
+  return `${fmt(n)} ${unit}`;
+};
+const dayText = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso.length <= 10 ? `${iso}T12:00:00` : iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+};
+const timeText = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+};
+const retailerDot = (retailer, name = "") => {
+  const [color, short] = RETAILER_STYLE[retailer] || ["#757575", (name || "?").slice(0, 1).toUpperCase()];
+  return `<span class="rdot" style="background:${color};color:${LIGHT_RETAILERS.has(retailer) ? "#1a1a1a" : "#fff"}" aria-hidden="true">${esc(short)}</span>`;
+};
+const splitQuantity = (text) => {
+  const value = String(text || "");
+  const m = value.match(QTY_RE);
+  return m ? { prefix: m[1].replace(/\s+$/, "") + " ", query: value.slice(m[0].length).trim() } : { prefix: "", query: value.trim() };
+};
+
 const safeUrl = (url) => {
   const u = String(url || "").trim();
   if (!/^(https?:\/\/|\/)/i.test(u)) return "";
@@ -73,6 +156,7 @@ const STYLE = `
     --ep-warm: #e2553f;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   button { font-family: inherit; }
   header {
     position: sticky; top: 0; z-index: 3;
@@ -310,6 +394,124 @@ const STYLE = `
     .cook-ing-toggle { display: inline-flex; }
     .cook-step { padding: 12px; }
   }
+  /* stores & prices (1.3) */
+  .rdot { width: 30px; height: 30px; border-radius: 9px; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: -.02em; }
+  .rdot.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 10px; }
+  .bdg { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; line-height: 1.5; border-radius: 999px; padding: 1px 8px; background: var(--ep-accent-bg); color: var(--primary-text-color); white-space: nowrap; }
+  .bdg.star { background: var(--ep-primary); color: var(--ep-on-primary); }
+  .bdg.warn { background: color-mix(in srgb, #ef6c00 16%, transparent); color: #ef6c00; }
+  .bdg.ok { background: color-mix(in srgb, #2e7d32 15%, transparent); color: #2e7d32; }
+  .bdg.bad { background: color-mix(in srgb, #c62828 15%, transparent); color: #c62828; }
+  .badges { display: flex; flex-wrap: wrap; gap: 5px; }
+  .seg { display: inline-flex; border: 1px solid var(--ep-divider); border-radius: 999px; overflow: hidden; background: var(--ep-card); }
+  .seg button { border: none; background: none; color: inherit; font: inherit; font-size: 14px; padding: 8px 14px; min-height: 40px; cursor: pointer; white-space: nowrap; }
+  .seg button.on { background: var(--ep-primary); color: var(--ep-on-primary); }
+  .stores { max-width: 1100px; margin: 0 auto; }
+  details.sec { margin-bottom: 14px; scroll-margin-top: 112px; }
+  details.sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 14px 16px; font-size: 17px; font-weight: 500; user-select: none; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary::after { content: "▾"; margin-left: auto; opacity: .55; transition: transform .15s; }
+  details.sec:not([open]) > summary::after { transform: rotate(-90deg); }
+  details.sec > summary .meta { font-weight: 400; }
+  .secbody { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .branchgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+  .branch { border: 1px solid var(--ep-divider); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .branch.main { border-color: var(--ep-primary); box-shadow: 0 0 0 1px var(--ep-primary); }
+  .branch.off > :not(.bacts) { opacity: .55; }
+  .bhead { display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .bhead .bname { font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .baddr { font-size: 12.5px; color: var(--ep-secondary-text); overflow-wrap: anywhere; }
+  .bacts { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-top: auto; }
+  .bacts .icons { display: inline-flex; margin-left: auto; }
+  .bacts .icon { width: 40px; height: 40px; }
+  .bacts .icon[disabled] { opacity: .25; pointer-events: none; }
+  .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; min-height: 40px; }
+  .switch input { width: 18px; height: 18px; accent-color: var(--ep-primary); }
+  .rewebox { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+  .rewebox input { width: 120px; padding: 6px 9px; }
+  .markets { display: flex; flex-direction: column; gap: 4px; }
+  .market { display: flex; gap: 8px; align-items: center; font-size: 13px; border: 1px solid var(--ep-divider); border-radius: 9px; padding: 6px 8px; }
+  .market span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .zonechips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .zonechips .chip { font-size: 13px; padding: 7px 12px; min-height: 36px; }
+  .osmlist { display: flex; flex-direction: column; gap: 6px; }
+  .osm { display: flex; gap: 10px; align-items: center; border: 1px solid var(--ep-divider); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .osm .info { flex: 1; min-width: 0; }
+  .osm .info b { font-weight: 600; }
+  .osm .btn { flex: none; }
+  .notice { font-size: 13px; padding: 9px 12px; border-radius: 10px; background: var(--ep-accent-bg); }
+  .notice.warn { background: color-mix(in srgb, #ef6c00 13%, transparent); }
+  .notice.err { background: color-mix(in srgb, #c62828 13%, transparent); color: var(--error-color, #c62828); }
+  .formgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; align-items: end; }
+  .formgrid input, .formgrid select { width: 100%; }
+  .pmtools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .pmtools input[type=search] { flex: 1 1 200px; min-width: 0; }
+  .pmwrap { overflow-x: auto; border: 1px solid var(--ep-divider); border-radius: 12px; max-width: 100%; }
+  table.pm { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .pm th { text-align: left; padding: 8px 6px; font-size: 12.5px; font-weight: 600; border-bottom: 1px solid var(--ep-divider); white-space: nowrap; background: var(--ep-card); }
+  .pm th .rdot { vertical-align: middle; margin-right: 4px; }
+  .pm td { padding: 3px; border-bottom: 1px solid var(--ep-divider); vertical-align: top; }
+  .pm tr:last-child td { border-bottom: none; }
+  .pm td.pname { padding: 8px 6px 8px 10px; font-weight: 500; min-width: 120px; overflow-wrap: anywhere; }
+  .pm td.pname .meta { font-weight: 400; display: block; }
+  .cell { width: 100%; min-width: 86px; min-height: 42px; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 4px 7px; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; justify-content: center; }
+  .cell:hover { border-color: var(--ep-primary); }
+  .cell .p { font-weight: 600; white-space: nowrap; }
+  .cell .s { font-size: 11px; color: var(--ep-secondary-text); white-space: nowrap; }
+  .cell.none .p { font-weight: 400; color: var(--ep-secondary-text); }
+  .cell.best { background: color-mix(in srgb, #2e7d32 15%, transparent); }
+  .cell.best .p { color: #2e7d32; }
+  .cell.stale { opacity: .6; }
+  .cell.static { cursor: default; }
+  .cell.static:hover { border-color: transparent; }
+  .srcgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .srcgrid .section h4 { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  /* shopping per store */
+  .storehead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px 16px 10px; }
+  .storehead .sname { font-weight: 600; font-size: 15px; color: var(--primary-text-color); overflow-wrap: anywhere; }
+  .storehead .sstat { margin-left: auto; font-size: 13px; color: var(--ep-secondary-text); text-align: right; }
+  .storehead .save { color: #2e7d32; font-weight: 600; white-space: nowrap; }
+  .aisle { padding: 7px 16px 3px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ep-secondary-text); border-top: 1px solid var(--ep-divider); }
+  .aisle + .item { border-top: none; }
+  .reason { font-size: 11px; border-radius: 6px; padding: 0 6px; margin-left: 4px; background: var(--ep-accent-bg); white-space: nowrap; vertical-align: 1px; }
+  .reason.offer { background: color-mix(in srgb, #ef6c00 16%, transparent); color: #e65100; }
+  .reason.cheap { background: color-mix(in srgb, #2e7d32 15%, transparent); color: #2e7d32; }
+  .item .swap { font-size: 17px; }
+  .price .sv { display: block; font-size: 11px; color: #2e7d32; }
+  .addrow { position: relative; z-index: 4; }
+  .addwrap { flex: 1 1 220px; min-width: 0; }
+  .addwrap input { width: 100%; min-height: 42px; }
+  .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 6; background: var(--ep-card); color: var(--primary-text-color); border: 1px solid var(--ep-divider); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); max-height: min(58vh, 440px); overflow-y: auto; overscroll-behavior: contain; }
+  .suggest[hidden] { display: none; }
+  .sugg { display: flex; gap: 10px; align-items: center; width: 100%; min-height: 50px; text-align: left; background: none; border: none; border-top: 1px solid var(--ep-divider); padding: 7px 12px; font: inherit; color: inherit; cursor: pointer; }
+  .sugg:first-of-type { border-top: none; }
+  .sugg.sel, .sugg:hover { background: var(--ep-accent-bg); }
+  .sugg.sel { box-shadow: inset 3px 0 0 var(--ep-primary); }
+  .sugg .st { flex: 1; min-width: 0; }
+  .sugg .t { font-weight: 500; overflow-wrap: anywhere; }
+  .sugg .t .meta { font-weight: 400; }
+  .sugg .sub { font-size: 12px; color: var(--ep-secondary-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sugg .sp { text-align: right; white-space: nowrap; flex: none; }
+  .sugg .sp b { font-size: 15px; }
+  .sugg .sp .meta { display: block; font-size: 11px; }
+  .shint { padding: 8px 12px; font-size: 12.5px; color: var(--ep-secondary-text); }
+  .shint.top { border-bottom: 1px solid var(--ep-divider); display: flex; gap: 6px; align-items: center; }
+  .branchtags { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+  .branchtags .bdg { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .hintcard { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .hintcard > span { flex: 1; min-width: 0; line-height: 1.9; }
+  .pick .pi { flex: 1; min-width: 0; }
+  .pick .pi .sub { font-size: 12px; color: var(--ep-secondary-text); }
+  .pick .pp { text-align: right; white-space: nowrap; }
+  .pick .pp b { font-size: 15px; }
+  @media (max-width: 600px) {
+    .item { gap: 8px; padding: 9px 6px 9px 12px; }
+    .storehead .sstat { margin-left: 0; text-align: left; width: 100%; }
+    details.sec > summary { padding: 13px 12px; font-size: 16px; }
+    .secbody { padding: 0 12px 14px; }
+    .branchgrid { grid-template-columns: 1fr; }
+    .seg button { padding: 8px 11px; font-size: 13.5px; }
+  }
   @media (max-width: 600px) { main { padding: 10px; } .grid2 { grid-template-columns: 1fr; } .weeklabel { font-size: 16px; } .btn { padding: 7px 12px; } }
 `;
 
@@ -328,6 +530,36 @@ class EssensplanerPanel extends HTMLElement {
     this._cook = null;
     this._unsub = null;
     this._reloadTimer = null;
+    this._dataJson = null;
+    this._pendingChanges = new Set();
+    // stores tab (1.3)
+    this._storePrices = null;
+    this._priceQuery = "";
+    this._priceLimit = 50;
+    this._priceStore = null;
+    this._branchSearch = undefined;
+    this._searchZones = null;
+    this._searchRoute = null;
+    this._searchRadius = null;
+    this._searching = false;
+    this._searchError = null;
+    this._manual = { store: "", label: "", street: "", postcode: "", city: "" };
+    this._reweInput = {};
+    this._reweMarkets = {};
+    try {
+      this._secOpen = JSON.parse(this._pref("sections", "{}")) || {};
+    } catch (e) {
+      this._secOpen = {};
+    }
+    // article search in "Artikel hinzufügen"
+    this._addText = "";
+    this._suggest = { open: false, query: "", results: [], loading: false, index: -1, store: null, error: null, live: false };
+    this._suggestSeq = 0;
+    this._suggestTimer = null;
+    this._narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 700px)") : null;
+    this._onNarrow = () => {
+      if (this._tab === "stores") this._renderPriceMatrix();
+    };
     this._onKey = (ev) => this._handleKey(ev);
     this._onVisibility = () => {
       if (this._cook && document.visibilityState === "visible") this._acquireWakeLock();
@@ -358,12 +590,14 @@ class EssensplanerPanel extends HTMLElement {
   connectedCallback() {
     window.addEventListener("keydown", this._onKey);
     document.addEventListener("visibilitychange", this._onVisibility);
+    this._narrowQuery?.addEventListener?.("change", this._onNarrow);
     if (this._hass && !this._unsub && this._data) this._subscribe();
   }
 
   disconnectedCallback() {
     window.removeEventListener("keydown", this._onKey);
     document.removeEventListener("visibilitychange", this._onVisibility);
+    this._narrowQuery?.removeEventListener?.("change", this._onNarrow);
     if (this._unsub) {
       Promise.resolve(this._unsub).then((unsub) => typeof unsub === "function" && unsub());
       this._unsub = null;
@@ -395,10 +629,21 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   async _load() {
+    const changes = this._pendingChanges;
+    this._pendingChanges = new Set();
     try {
-      this._data = await this._hass.callWS({ type: `${DOMAIN}/data` });
+      const data = await this._hass.callWS({ type: `${DOMAIN}/data` });
+      const json = JSON.stringify(data);
+      if (json === this._dataJson && this._data) return; // nothing changed: no re-render (keeps typing smooth)
+      this._dataJson = json;
+      this._data = data;
       this._costs = {};
       if (!this._weekStart) this._weekStart = mondayOf(fromIso(this._data.today));
+      const pricesStale = !changes.size || [...changes].some((c) => STALE_CHANGES.has(c) || !c);
+      if (pricesStale) {
+        this._storePricesStale = true;
+        this._priceList = null;
+      }
       this._renderContent();
     } catch (err) {
       this._content.innerHTML = `<div class="error">Essensplaner konnte nicht geladen werden: ${esc(
@@ -410,7 +655,7 @@ class EssensplanerPanel extends HTMLElement {
   async _subscribe() {
     if (this._unsub) return;
     try {
-      this._unsub = await this._hass.connection.subscribeMessage(() => this._scheduleReload(), {
+      this._unsub = await this._hass.connection.subscribeMessage((ev) => this._scheduleReload(ev?.change), {
         type: `${DOMAIN}/subscribe`,
       });
     } catch (err) {
@@ -418,9 +663,22 @@ class EssensplanerPanel extends HTMLElement {
     }
   }
 
-  _scheduleReload() {
+  _scheduleReload(change) {
+    this._pendingChanges.add(change || "");
     clearTimeout(this._reloadTimer);
     this._reloadTimer = setTimeout(() => this._load(), 250);
+  }
+
+  /** call_service with response, without the error toast (caller handles errors). */
+  async _callService(service, data) {
+    const result = await this._hass.callWS({
+      type: "call_service",
+      domain: DOMAIN,
+      service,
+      service_data: data,
+      return_response: true,
+    });
+    return result.response;
   }
 
   async _service(service, data, withResponse = false) {
@@ -489,6 +747,7 @@ class EssensplanerPanel extends HTMLElement {
           <button class="tab" data-tab="recipes">📖 Rezepte <span class="count" data-count="recipes"></span></button>
           <button class="tab" data-tab="shopping">🛒 Einkaufsliste <span class="count" data-count="shopping"></span></button>
           <button class="tab" data-tab="offers">💶 Angebote<span class="long"> & Budget</span> <span class="count" data-count="offers"></span></button>
+          <button class="tab" data-tab="stores">🏪 Läden<span class="long"> & Preise</span></button>
         </div>
       </header>
       <main><div class="loading">Lade …</div></main>
@@ -504,22 +763,41 @@ class EssensplanerPanel extends HTMLElement {
     this.shadowRoot.querySelector(".menu").appendChild(menu);
     this._menuButton = menu;
     this.shadowRoot.querySelectorAll(".tab").forEach((tab) =>
-      tab.addEventListener("click", () => {
-        this._tab = tab.dataset.tab;
-        this._setPref("tab", this._tab);
-        this._renderContent();
-      })
+      tab.addEventListener("click", () => this._goTab(tab.dataset.tab))
     );
     const c = this._content;
     c.addEventListener("click", (ev) => this._onClick(ev));
     c.addEventListener("input", (ev) => this._onInput(ev));
     c.addEventListener("change", (ev) => this._onChange(ev));
     c.addEventListener("keydown", (ev) => {
+      if (ev.target.dataset?.focuskey === "additem" && this._suggestKey(ev)) return;
       if (ev.key === "Enter" && ev.target.dataset.enter) {
         ev.preventDefault();
-        this._action(ev.target.dataset.enter, ev.target);
+        this._run(ev.target.dataset.enter, ev.target);
       }
     });
+    // suggestions: keep the focus in the input while tapping a hit (mousedown comes before blur)
+    c.addEventListener("mousedown", (ev) => {
+      if (ev.target.closest?.(".suggest")) ev.preventDefault();
+    });
+    c.addEventListener("focusout", (ev) => {
+      if (ev.target.dataset?.focuskey !== "additem") return;
+      clearTimeout(this._blurTimer);
+      this._blurTimer = setTimeout(() => {
+        if (this.shadowRoot.activeElement?.dataset?.focuskey !== "additem") this._closeSuggest();
+      }, 180);
+    });
+    // remember which sections of the stores tab are open
+    c.addEventListener(
+      "toggle",
+      (ev) => {
+        const key = ev.target?.dataset?.sec;
+        if (!key || this._secOpen[key] === ev.target.open) return;
+        this._secOpen[key] = ev.target.open;
+        this._setPref("sections", JSON.stringify(this._secOpen));
+      },
+      true
+    );
     // drag & drop in the week plan
     c.addEventListener("dragstart", (ev) => {
       const meal = ev.target.closest?.("[data-drag-date]");
@@ -563,6 +841,16 @@ class EssensplanerPanel extends HTMLElement {
   _renderContent() {
     if (!this._data) return;
     this.shadowRoot.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === this._tab));
+    if (this._shownTab !== this._tab) {
+      // keep the active tab visible in the scrollable tab bar (phones)
+      this._shownTab = this._tab;
+      const bar = this.shadowRoot.querySelector(".tabs");
+      const active = bar?.querySelector(".tab.active");
+      if (bar && active && bar.scrollWidth > bar.clientWidth) {
+        const left = active.offsetLeft - bar.offsetLeft;
+        if (left < bar.scrollLeft || left + active.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = Math.max(0, left - 24);
+      }
+    }
     const open = (this._data.shopping || []).filter((i) => i.status !== "completed").length;
     this.shadowRoot.querySelector('[data-count="recipes"]').textContent = this._data.recipes.length;
     const shopCount = this.shadowRoot.querySelector('[data-count="shopping"]');
@@ -575,17 +863,36 @@ class EssensplanerPanel extends HTMLElement {
     const focused = this.shadowRoot.activeElement;
     const focusKey = focused?.dataset?.focuskey;
     const caret = focused?.selectionStart;
+    if (this._tab !== "shopping") this._suggest.open = false;
     if (this._tab === "recipes") this._content.innerHTML = this._renderRecipes();
     else if (this._tab === "shopping") this._content.innerHTML = this._renderShopping();
     else if (this._tab === "offers") this._content.innerHTML = this._renderOffers();
+    else if (this._tab === "stores") this._content.innerHTML = this._renderStores();
     else this._content.innerHTML = this._renderPlan();
     if (focusKey) {
-      const el = this._content.querySelector(`[data-focuskey="${focusKey}"]`);
+      const el = this._content.querySelector(`[data-focuskey="${CSS.escape(focusKey)}"]`);
       if (el) {
         el.focus();
-        if (caret != null && el.setSelectionRange) el.setSelectionRange(caret, caret);
+        if (caret != null && el.setSelectionRange) {
+          try {
+            el.setSelectionRange(caret, caret);
+          } catch (e) {
+            /* input type without a caret */
+          }
+        }
       }
     }
+  }
+
+  _goTab(tab, section) {
+    this._tab = tab;
+    this._setPref("tab", tab);
+    if (section) {
+      this._secOpen[section] = true;
+      this._setPref("sections", JSON.stringify(this._secOpen));
+    }
+    this._renderContent();
+    if (section) this._content.querySelector(`#sec-${section}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   /* ------------------------------------------------------------ plan */
@@ -811,64 +1118,337 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   /* ------------------------------------------------------------ shopping */
+  _splitActive() {
+    return Boolean(this._data?.store_split?.active);
+  }
+
+  _byStore() {
+    return this._splitActive() && this._pref("shopmode", "store") === "store";
+  }
+
+  _branch(id) {
+    return id ? (this._data?.branches || []).find((b) => b.id === id) : undefined;
+  }
+
+  /** Branches for display: main branch first, then by priority (= order in data). */
+  _orderedBranches() {
+    const list = [...(this._data?.branches || [])];
+    return [...list.filter((b) => b.main), ...list.filter((b) => !b.main)];
+  }
+
+  _retailerName(id) {
+    return (this._data?.economy?.retailers || []).find((r) => r.id === id)?.name || id || "";
+  }
+
+  _catRank(cat) {
+    const i = CATEGORY_ORDER.indexOf(cat || "Sonstiges");
+    return i === -1 ? 99 : i;
+  }
+
+  _openItemsByStore() {
+    const open = (this._data.shopping || []).filter((i) => i.status !== "completed");
+    const known = new Set((this._data.branches || []).map((b) => b.id));
+    const groupOf = (i) => (known.has(i.branch_id) ? i.branch_id : null);
+    const groups = [...(this._data.shopping_stores || [])];
+    const missing = open.filter((i) => !groups.some((g) => g.branch_id === groupOf(i)));
+    if (missing.length) {
+      // e.g. items added a moment ago: shown in their store (or "Ohne Laden") until the next update
+      for (const id of [...new Set(missing.map(groupOf))]) {
+        const b = this._branch(id);
+        const list = missing.filter((i) => groupOf(i) === id);
+        const priced = list.filter((i) => i.price != null);
+        groups.push({ branch_id: id, retailer: b?.retailer || null, label: b?.label || "Ohne Laden", main: Boolean(b?.main), open: list.length, priced: priced.length, subtotal: priced.reduce((a, i) => a + i.price, 0), saving: 0 });
+      }
+    }
+    return groups.map((group) => ({
+      group,
+      items: open
+        .filter((i) => groupOf(i) === group.branch_id)
+        .sort((a, b) => this._catRank(a.category) - this._catRank(b.category)),
+    }));
+  }
+
   _renderShopping() {
     const items = this._data.shopping || [];
     const open = items.filter((i) => i.status !== "completed");
     const done = items.filter((i) => i.status === "completed");
+    const split = this._splitActive();
+    const byStore = this._byStore();
     const groups = {};
     for (const item of open) (groups[item.category || "Sonstiges"] ||= []).push(item);
-    const order = (c) => {
-      const i = CATEGORY_ORDER.indexOf(c);
-      return i === -1 ? 99 : i;
-    };
     const describe = (item) => {
-      const desc = (item.description || "").split(" · ").filter((p) => !p.startsWith("≈ ") && !p.startsWith("🏷️ ")).join(" · ");
-      const prefix = `${item.category} · `;
-      if (item.status !== "completed" && item.category && desc.startsWith(prefix)) return desc.slice(prefix.length);
-      if (item.status !== "completed" && desc === item.category) return "";
-      return desc;
+      const parts = (item.description || "")
+        .split(" · ")
+        .map((p) => p.trim())
+        .filter((p) => p && !p.startsWith("≈ ") && !p.startsWith("🏷️ ") && !(byStore && p.startsWith("🏪 ")));
+      return parts.filter((p) => !(item.status !== "completed" && p === item.category)).join(" · ");
     };
-    const renderItem = (item) => `
-      <div class="item ${item.status === "completed" ? "done" : ""}">
-        <input type="checkbox" data-change="toggle-item" data-uid="${esc(item.uid)}" ${item.status === "completed" ? "checked" : ""}>
-        <div class="txt"><div class="sum">${esc(item.summary)}</div>${describe(item) ? `<div class="desc">${esc(describe(item))}</div>` : ""}</div>
-        ${item.price != null ? `<div class="price">≈ ${eur(item.price)}${item.offer ? `<span class="o">🏷️ ${esc(item.offer.store)}</span>` : ""}</div>` : ""}
-        <button class="icon" data-action="delete-item" data-uid="${esc(item.uid)}" title="Entfernen">✕</button>
+    const renderItem = (item) => {
+      const isOpen = item.status !== "completed";
+      const reason = byStore && isOpen ? REASON_CHIP[item.store_reason] : null;
+      const saving = byStore && isOpen && item.saving > 0 ? `<span class="sv">spart ${eur(item.saving)}</span>` : "";
+      const offer = item.offer ? `<span class="o">🏷️ ${byStore ? "Angebot" : esc(item.offer.store || "Angebot")}</span>` : "";
+      return `
+      <div class="item ${isOpen ? "" : "done"}">
+        <input type="checkbox" data-change="toggle-item" data-uid="${esc(item.uid)}" ${isOpen ? "" : "checked"} aria-label="${esc(item.summary)} erledigt">
+        <div class="txt"><div class="sum">${esc(item.summary)}${reason && item.store_reason !== "offer" ? `<span class="reason ${reason[1]}" title="${esc(reason[2])}">${reason[0]}</span>` : ""}</div>${describe(item) ? `<div class="desc">${esc(describe(item))}</div>` : ""}</div>
+        ${item.price != null ? `<div class="price">≈ ${eur(item.price)}${offer}${saving}</div>` : ""}
+        ${split && isOpen ? `<button class="icon swap" data-action="pick-store" data-uid="${esc(item.uid)}" title="Laden wählen" aria-label="Laden wählen">⇄</button>` : ""}
+        <button class="icon" data-action="delete-item" data-uid="${esc(item.uid)}" title="Entfernen" aria-label="Entfernen">✕</button>
       </div>`;
-    const groupHtml = Object.keys(groups)
-      .sort((a, b) => order(a) - order(b))
-      .map((cat) => `<div class="card group"><h3>${CATEGORY_ICONS[cat] || "🛒"} ${esc(cat)} <span class="meta">${groups[cat].length}</span></h3>${groups[cat].map(renderItem).join("")}</div>`)
-      .join("");
+    };
+    let listHtml;
+    if (byStore) {
+      listHtml = this._openItemsByStore()
+        .filter(({ items: list }) => list.length)
+        .map(({ group, items: list }) => {
+          let lastCat = null;
+          const rows = list
+            .map((item) => {
+              const cat = item.category || "Sonstiges";
+              const head = cat !== lastCat ? `<div class="aisle">${CATEGORY_ICONS[cat] || "🛒"} ${esc(cat)}</div>` : "";
+              lastCat = cat;
+              return head + renderItem(item);
+            })
+            .join("");
+          const stats = [`${list.length} offen`, group.priced ? `≈ ${eur(group.subtotal)}` : ""].filter(Boolean).join(" · ");
+          return `<div class="card group storecard">
+            <div class="storehead">${group.branch_id ? retailerDot(group.retailer, group.label) : '<span class="rdot" style="background:var(--ep-divider)">?</span>'}<span class="sname">${esc(group.label)}</span>${group.main ? '<span class="bdg star">⭐ Hauptladen</span>' : ""}
+              <span class="sstat">${stats}${group.saving > 0 ? ` · <span class="save">🏷️ spart ${eur(group.saving)}</span>` : ""}</span></div>
+            ${rows}</div>`;
+        })
+        .join("");
+    } else {
+      listHtml = Object.keys(groups)
+        .sort((a, b) => this._catRank(a) - this._catRank(b))
+        .map((cat) => `<div class="card group"><h3>${CATEGORY_ICONS[cat] || "🛒"} ${esc(cat)} <span class="meta">${groups[cat].length}</span></h3>${groups[cat].map(renderItem).join("")}</div>`)
+        .join("");
+    }
     const total = items.length;
     const pct = total ? Math.round((done.length / total) * 100) : 0;
     const priced = open.filter((i) => i.price != null);
     const sum = priced.reduce((acc, i) => acc + i.price, 0);
     const offersUsed = open.filter((i) => i.offer).length;
+    const branches = this._data.branches || [];
+    const mode = this._data.store_split?.mode;
+    let hint = "";
+    if (!split && !branches.length && this._pref("storehint", "on") !== "off") {
+      hint = `<div class="notice hintcard"><span>🏪 <b>Tipp:</b> Wähle im Tab <button class="btn small" data-action="go-tab" data-tab="stores" data-sec="mine">🏪 Läden & Preise</button> deinen Hauptladen, dann wird die Liste nach Läden sortiert.</span><button class="icon" data-action="hide-storehint" title="Tipp ausblenden" aria-label="Tipp ausblenden">✕</button></div>`;
+    } else if (!split && mode === "off") {
+      hint = `<div class="hint" style="margin-bottom:10px">ℹ️ Die Aufteilung nach Läden ist in den Optionen ausgeschaltet.</div>`;
+    }
     return `<div class="shopping">
       ${total ? `<div class="card shopstat"><span class="num">${open.length}</span><span class="meta">offen<br>${done.length} erledigt</span><div class="progress"><div style="width:${pct}%"></div></div><span class="meta">${pct}%</span>${priced.length ? `<span class="meta" style="text-align:right"><b style="font-size:16px;color:var(--primary-text-color)">≈ ${eur(sum)}</b><br>${offersUsed ? `🏷️ ${offersUsed} im Angebot · ` : ""}ganze Packungen</span>` : ""}</div>` : ""}
-      <div class="row">
-        <input placeholder="Artikel hinzufügen, z. B. „2 Liter Milch“" data-enter="add-item" data-focuskey="additem" style="flex:1;min-width:200px">
+      ${hint}
+      <div class="row addrow">
+        <div class="addwrap">
+          <input placeholder="Artikel hinzufügen, z. B. „2 Liter Milch“" data-enter="add-item" data-focuskey="additem" data-input="additem" value="${esc(this._addText)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" role="combobox" aria-autocomplete="list" aria-expanded="${this._suggest.open ? "true" : "false"}">
+          <div class="suggest" role="listbox" ${this._suggest.open ? "" : "hidden"}>${this._suggest.open ? this._suggestHtml() : ""}</div>
+        </div>
         <button class="btn primary" data-action="add-item">Hinzufügen</button>
       </div>
       <div class="row">
+        ${split ? `<div class="seg" role="group" aria-label="Sortierung"><button class="${byStore ? "on" : ""}" data-action="shop-mode" data-mode="store">🏪 Nach Laden</button><button class="${byStore ? "" : "on"}" data-action="shop-mode" data-mode="aisle">🧺 Nach Abteilung</button></div>` : ""}
         <button class="btn" data-action="shopping-next-week">🗓️ Aus Plan (7 Tage) erstellen</button>
         ${open.length ? `<button class="btn" data-action="share-list">📤 Teilen / Kopieren</button>` : ""}
+        ${split && open.length ? `<button class="btn" data-action="assign-stores" title="Alle offenen Artikel neu auf die Läden verteilen">🔄 Läden neu zuordnen</button>` : ""}
         <span class="spacer"></span>
         ${done.length ? `<button class="btn ghost" data-action="clear-done">🧹 Erledigte entfernen (${done.length})</button>` : ""}
         ${total ? `<button class="btn danger" data-action="clear-all">🗑 Liste leeren</button>` : ""}
       </div>
-      ${open.length ? groupHtml : `<div class="empty"><div class="big">${done.length ? "🎉" : "🛒"}</div>${done.length ? "Alles erledigt!" : "Die Einkaufsliste ist leer."}<br><span class="hint">Plane Mahlzeiten und erstelle die Liste per Knopfdruck – oder sag „Jarvis, erstelle die Einkaufsliste“.</span></div>`}
+      ${open.length ? listHtml : `<div class="empty"><div class="big">${done.length ? "🎉" : "🛒"}</div>${done.length ? "Alles erledigt!" : "Die Einkaufsliste ist leer."}<br><span class="hint">Plane Mahlzeiten und erstelle die Liste per Knopfdruck – oder sag „Jarvis, erstelle die Einkaufsliste“.</span></div>`}
       ${done.length ? `<div class="card group"><h3>✅ Erledigt</h3>${done.map(renderItem).join("")}</div>` : ""}
     </div>`;
   }
 
   _shoppingText() {
+    if (this._byStore()) {
+      return this._openItemsByStore()
+        .filter(({ items }) => items.length)
+        .map(({ group, items }) => {
+          const extra = [group.priced ? `≈ ${eur(group.subtotal)}` : "", group.saving > 0 ? `spart ${eur(group.saving)}` : ""].filter(Boolean).join(", ");
+          return `🏪 ${group.label}${extra ? ` (${extra})` : ""}\n${items.map((i) => `• ${i.summary}${i.offer ? " 🏷️" : ""}`).join("\n")}`;
+        })
+        .join("\n\n");
+    }
     const groups = {};
     for (const item of this._data.shopping.filter((i) => i.status !== "completed")) (groups[item.category || "Sonstiges"] ||= []).push(item.summary);
     return Object.entries(groups)
-      .sort((a, b) => CATEGORY_ORDER.indexOf(a[0]) - CATEGORY_ORDER.indexOf(b[0]))
+      .sort((a, b) => this._catRank(a[0]) - this._catRank(b[0]))
       .map(([cat, list]) => `${CATEGORY_ICONS[cat] || "🛒"} ${cat}\n${list.map((s) => `• ${s}`).join("\n")}`)
       .join("\n\n");
+  }
+
+  /* ------------------------------------------------------------ article search ("Artikel hinzufügen") */
+  _suggestInput() {
+    return this._content.querySelector('[data-focuskey="additem"]');
+  }
+
+  _expectLive() {
+    const eco = this._data?.economy || {};
+    return eco.offers_source === "marktguru" || (eco.price_sources?.rewe?.enabled && eco.main_retailer === "rewe");
+  }
+
+  _scheduleSuggest() {
+    clearTimeout(this._suggestTimer);
+    const { query } = splitQuantity(this._addText);
+    if (query.length < 2) {
+      this._suggestSeq += 1; // drop answers still on their way
+      this._closeSuggest();
+      return;
+    }
+    this._suggestTimer = setTimeout(() => this._runSuggest(query), 300);
+  }
+
+  async _runSuggest(query) {
+    const seq = ++this._suggestSeq;
+    const live = this._expectLive() && query.length >= 3;
+    const s = this._suggest;
+    Object.assign(s, { open: true, query, loading: true, live, error: null });
+    if (s.lastQuery !== query) s.index = -1;
+    this._renderSuggest();
+    try {
+      const local = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: false });
+      if (seq !== this._suggestSeq) return;
+      this._setSuggestResults(local, query, live);
+      if (!live) return;
+      const online = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: true });
+      if (seq !== this._suggestSeq) return;
+      if (online.superseded) {
+        s.loading = false;
+      } else {
+        this._setSuggestResults(online, query, false);
+        s.error = online.error || null;
+      }
+    } catch (err) {
+      if (seq !== this._suggestSeq) return;
+      Object.assign(s, { loading: false, error: err.message || String(err) });
+    }
+    this._renderSuggest();
+  }
+
+  _setSuggestResults(res, query, stillLoading) {
+    const s = this._suggest;
+    const ident = (r) => r && `${r.title}|${r.pack}|${r.source}|${r.offer?.id || ""}`;
+    const current = ident(s.results[s.index]);
+    s.results = res?.results || [];
+    s.store = res?.store || null;
+    s.loading = stillLoading;
+    s.lastQuery = query;
+    s.index = current ? s.results.findIndex((r) => ident(r) === current) : -1;
+    if (s.open) this._renderSuggest();
+  }
+
+  _closeSuggest() {
+    clearTimeout(this._suggestTimer);
+    if (!this._suggest.open) return;
+    this._suggest.open = false;
+    this._suggest.index = -1;
+    this._renderSuggest();
+  }
+
+  _renderSuggest(scroll = false) {
+    const box = this._content.querySelector(".suggest");
+    const input = this._suggestInput();
+    if (!box) return;
+    const open = this._suggest.open;
+    box.hidden = !open;
+    box.innerHTML = open ? this._suggestHtml() : "";
+    input?.setAttribute("aria-expanded", open ? "true" : "false");
+    const sel = scroll && box.querySelector(".sugg.sel");
+    if (sel) {
+      const top = sel.offsetTop;
+      if (top < box.scrollTop) box.scrollTop = top;
+      else if (top + sel.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + sel.offsetHeight - box.clientHeight;
+    }
+  }
+
+  _suggestHtml() {
+    const s = this._suggest;
+    const store = s.store;
+    const head = store
+      ? `<div class="shint top">${retailerDot(store.retailer, store.retailer_name).replace('class="rdot"', 'class="rdot sm"')}<span>Artikel bei <b>${esc(store.label)}</b>${store.main ? " (Hauptladen)" : ""}</span></div>`
+      : "";
+    const rows = s.results
+      .map((r, i) => {
+        const offer = r.offer && r.provider !== "rewe_online";
+        const sourceHint =
+          r.source === "live"
+            ? r.provider === "rewe_online"
+              ? "🛒 REWE online"
+              : "🏷️ Prospekt (online)"
+            : ARTICLE_SOURCE[r.source] || "";
+        const until = offer && r.offer?.valid_to ? ` bis ${shortDate(r.offer.valid_to)}` : "";
+        const where = r.retailer ? this._retailerName(r.retailer) : "Allgemein";
+        const sub = [where, sourceHint + until, r.count > 1 ? `${r.count}× gekauft` : ""].filter(Boolean).join(" · ");
+        return `<button class="sugg ${i === s.index ? "sel" : ""}" data-sugg="${i}" role="option" aria-selected="${i === s.index}" tabindex="-1">
+          <span class="st"><div class="t">${esc(r.title)}${r.pack ? ` <span class="meta">${esc(r.pack)}</span>` : ""}${offer ? ' <span class="tagoffer">🏷️ Angebot</span>' : ""}</div><div class="sub">${esc(sub)}</div></span>
+          <span class="sp">${r.price != null ? `<b>${eur(r.price)}</b>` : '<span class="meta">kein Preis</span>'}${r.unit_price != null && r.base && r.base !== "Stück" ? `<span class="meta">${esc(unitPriceText(r.unit_price, r.base))}</span>` : ""}</span>
+        </button>`;
+      })
+      .join("");
+    let foot = "";
+    if (s.loading) foot = `<div class="shint">⏳ Suche …</div>`;
+    else if (!s.results.length) foot = `<div class="shint">Keine Treffer – Enter fügt den Text hinzu</div>`;
+    if (s.error) foot += `<div class="shint">⚠️ Online-Suche: ${esc(s.error)}</div>`;
+    return head + rows + foot;
+  }
+
+  /** Arrow keys / Enter / Escape in the add field. Returns true if handled. */
+  _suggestKey(ev) {
+    const s = this._suggest;
+    if (ev.key === "Escape") {
+      if (!s.open) return false;
+      ev.preventDefault();
+      ev.stopPropagation();
+      this._closeSuggest();
+      return true;
+    }
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      if (!s.open || !s.results.length) return false;
+      ev.preventDefault();
+      const n = s.results.length;
+      s.index = ev.key === "ArrowDown" ? (s.index + 1) % n : s.index <= 0 ? n - 1 : s.index - 1;
+      this._renderSuggest(true);
+      return true;
+    }
+    if (ev.key === "Enter" && s.open && s.index >= 0 && s.results[s.index]) {
+      ev.preventDefault();
+      this._addSuggestion(s.index).catch(() => {});
+      return true;
+    }
+    return false;
+  }
+
+  async _addSuggestion(index) {
+    const r = this._suggest.results[index];
+    if (!r) return;
+    const { prefix } = splitQuantity(this._addText);
+    // typed amount wins over the amount of a remembered article ("3 Milch" + "2 Liter Milch")
+    const data = { item: (prefix ? `${prefix}${splitQuantity(r.title).query || r.title}` : r.title).trim() };
+    const store = r.branch_id || (this._splitActive() ? null : r.retailer);
+    if (store) data.store = store;
+    if (r.price != null) data.price = r.price;
+    if (r.pack) data.pack = r.pack;
+    if (r.source === "offer" && r.offer?.id) data.offer_id = r.offer.id;
+    const typed = this._addText;
+    this._addText = "";
+    this._suggestSeq += 1;
+    const input = this._suggestInput();
+    if (input) input.value = "";
+    this._closeSuggest();
+    try {
+      await this._service("add_shopping_item", data, true);
+    } catch (err) {
+      // keep what was typed so nothing is lost
+      this._addText = typed;
+      const field = this._suggestInput();
+      if (field && !field.value) field.value = typed;
+      throw err;
+    }
+    const where = r.retailer ? ` bei ${this._retailerName(r.retailer)}` : "";
+    const price = r.price != null ? ` für ${eur(r.price)}` : "";
+    this._toast(`🛒 ${data.item}${r.pack ? ` (${r.pack})` : ""}${price}${where} hinzugefügt`);
   }
 
   async _share(title, text) {
@@ -902,28 +1482,75 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   _onInput(ev) {
-    if (ev.target.dataset.input === "search") {
-      this._search = ev.target.value;
+    const t = ev.target;
+    const kind = t.dataset.input;
+    if (kind === "search") {
+      this._search = t.value;
       this._renderContent();
+    } else if (kind === "additem") {
+      this._addText = t.value;
+      this._scheduleSuggest();
+    } else if (kind === "price-filter") {
+      this._priceQuery = t.value;
+      this._priceLimit = 50;
+      clearTimeout(this._priceTimer);
+      this._priceTimer = setTimeout(() => this._fetchStorePrices(), 300);
+    } else if (kind === "manual") {
+      this._manual[t.dataset.field] = t.value;
+    } else if (kind === "rewe-id") {
+      this._reweInput[t.dataset.id] = t.value;
+      const save = t.parentElement?.querySelector('[data-action="rewe-save"]');
+      if (save) save.hidden = t.value.trim() === (this._branch(t.dataset.id)?.rewe_market_id || "");
     }
   }
 
   async _onChange(ev) {
     const t = ev.target;
-    if (t.dataset.change === "toggle-item") {
-      await this._todo("update_item", { item: t.dataset.uid, status: t.checked ? "completed" : "needs_action" });
-    } else if (t.dataset.change === "sort") {
-      this._sort = t.value;
-      this._setPref("sort", t.value);
-      this._renderContent();
+    const kind = t.dataset.change;
+    try {
+      if (kind === "toggle-item") {
+        await this._todo("update_item", { item: t.dataset.uid, status: t.checked ? "completed" : "needs_action" });
+      } else if (kind === "sort") {
+        this._sort = t.value;
+        this._setPref("sort", t.value);
+        this._renderContent();
+      } else if (kind === "branch-selected") {
+        const b = this._branch(t.dataset.id);
+        await this._service("save_branch", { id: t.dataset.id, selected: t.checked }, true);
+        if (b) this._toast(t.checked ? `▶️ ${b.label} ist wieder aktiv` : `⏸ ${b.label} pausiert – wird bei Einkauf und Angeboten nicht genutzt`);
+      } else if (kind === "search-route") {
+        this._searchRoute = t.checked;
+      } else if (kind === "search-radius") {
+        this._searchRadius = Number(t.value);
+      } else if (kind === "price-store") {
+        this._priceStore = t.value;
+        this._renderPriceMatrix();
+      } else if (kind === "manual") {
+        this._manual[t.dataset.field] = t.value;
+      }
+    } catch (e) {
+      if (kind === "branch-selected") this._renderContent(); // undo the checkbox
     }
   }
 
   _onClick(ev) {
+    const sugg = ev.target.closest("[data-sugg]");
+    if (sugg && this._content.contains(sugg)) {
+      ev.stopPropagation();
+      this._addSuggestion(Number(sugg.dataset.sugg)).catch(() => {});
+      return;
+    }
     const el = ev.target.closest("[data-action]");
     if (!el || !this._content.contains(el)) return;
     ev.stopPropagation();
-    this._action(el.dataset.action, el);
+    this._run(el.dataset.action, el);
+  }
+
+  /** Run an action; errors were already shown as a toast by _service. */
+  _run(action, el) {
+    Promise.resolve()
+      .then(() => this._action(action, el))
+      .catch(() => {});
   }
 
   async _action(action, el) {
@@ -1009,9 +1636,99 @@ class EssensplanerPanel extends HTMLElement {
         const value = input?.value.trim();
         if (!value) return;
         input.value = "";
+        this._addText = "";
+        this._suggestSeq += 1;
+        this._closeSuggest();
         await this._todo("add_item", { item: value });
         break;
       }
+      case "hide-storehint":
+        this._setPref("storehint", "off");
+        this._renderContent();
+        break;
+      case "shop-mode":
+        this._setPref("shopmode", d.mode);
+        this._renderContent();
+        break;
+      case "go-tab":
+        this._goTab(d.tab, d.sec);
+        break;
+      case "open-sec":
+        this._secOpen[d.sec] = true;
+        this._renderContent();
+        this._content.querySelector(`#sec-${d.sec}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+        break;
+      case "assign-stores": {
+        el.disabled = true;
+        try {
+          const res = await this._service("assign_shopping_stores", {}, true);
+          this._toast(res?.active ? `🔄 ${res.assigned} Artikel neu auf die Läden verteilt` : "Die Aufteilung nach Läden ist aus.");
+        } finally {
+          el.disabled = false;
+        }
+        break;
+      }
+      case "pick-store":
+        await this._openStorePicker(d.uid);
+        break;
+      case "branch-main": {
+        const res = await this._service("save_branch", { id: d.id, main: true }, true);
+        this._toast(`⭐ ${res?.branch?.label || "Laden"} ist jetzt dein Hauptladen`);
+        break;
+      }
+      case "branch-move":
+        await this._moveBranch(d.id, Number(d.delta));
+        break;
+      case "branch-edit":
+        this._openBranchEditor(d.id);
+        break;
+      case "branch-remove": {
+        const b = this._branch(d.id);
+        if (!b || !confirm(`„${b.label}“ aus deinen Läden entfernen?`)) return;
+        await this._service("remove_branch", { branch: d.id }, true);
+        this._toast(`🗑 ${b.label} entfernt`);
+        if (this._branchSearch?.results?.length) this._refreshSearchFlags();
+        break;
+      }
+      case "rewe-search":
+        await this._searchReweMarkets(d.id);
+        break;
+      case "rewe-pick":
+      case "rewe-save": {
+        const value = action === "rewe-pick" ? d.market : (this._reweInput[d.id] ?? "").trim();
+        await this._service("save_branch", { id: d.id, rewe_market_id: value }, true);
+        delete this._reweInput[d.id];
+        delete this._reweMarkets[d.id];
+        this._toast(value ? `🛒 REWE-Markt ${value} gespeichert` : "REWE-Markt-ID entfernt");
+        this._renderContent();
+        break;
+      }
+      case "zone-toggle": {
+        const zones = this._zoneSelection();
+        if (zones.has(d.zone)) zones.delete(d.zone);
+        else zones.add(d.zone);
+        this._renderContent();
+        break;
+      }
+      case "osm-search":
+        await this._findBranches(d.refresh === "1");
+        break;
+      case "osm-add":
+        await this._addOsmBranch(d.id);
+        break;
+      case "manual-save":
+        await this._saveManualBranch();
+        break;
+      case "price-cell":
+        this._openPriceCell(d.key, d.store || null);
+        break;
+      case "price-more":
+        this._priceLimit += 50;
+        this._renderPriceMatrix();
+        break;
+      case "refresh-source":
+        await this._refreshSource(el, d.source);
+        break;
       case "delete-item":
         await this._todo("remove_item", { item: d.uid });
         break;
@@ -1528,17 +2245,28 @@ class EssensplanerPanel extends HTMLElement {
         </div>
         <div class="bars" style="margin:6px 0 18px">${bars}</div>
       </div>`;
+    const targets = this._data.offer_targets || [];
+    const zips = targets.length
+      ? targets.map((t) => `PLZ ${esc(t.zip_code)}${targets.length > 1 || (t.stores || []).length ? ` (${esc((t.stores || []).join(", "))})` : ""}`).join(" · ")
+      : `PLZ ${esc(eco.zip_code || "–")}`;
+    const rewe = eco.price_sources?.rewe;
+    const reweLine = rewe?.enabled
+      ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
+      : "";
     const info = online
-      ? `<div class="meta">Quelle: marktguru.de (inoffiziell) · PLZ ${esc(eco.zip_code || "–")} · ${meta.last_update ? `aktualisiert ${new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "noch nicht geladen"}${meta.status === "error" ? ` · ⚠️ ${esc((meta.errors || [])[0] || "Fehler")}` : ""}</div>`
-      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> Unter <i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren → Budget &amp; Angebote</i> kannst du Postleitzahl und Supermärkte (Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …) eintragen. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>`;
+      ? `<div class="meta">Quelle: marktguru.de (inoffiziell) · ${zips} · ${meta.last_update ? `aktualisiert ${new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "noch nicht geladen"}${meta.status === "error" ? ` · ⚠️ ${esc((meta.errors || [])[0] || "Fehler")}` : ""}</div>${reweLine}`
+      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> Unter <i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren → Budget &amp; Angebote</i> kannst du sie einschalten – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“ (oder für eine Postleitzahl). Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${reweLine}`;
+    const branchLabels = Object.fromEntries((this._data.branches || []).map((b) => [b.id, b]));
     const cards = offers
       .map((o) => {
         const img = safeUrl(o.image);
+        const tagged = (o.branches || []).map((id) => branchLabels[id]).filter(Boolean);
         return `<div class="card offer">
           <div class="oimg" ${img ? `style="background-image:url('${img}')"` : ""}>${img ? "" : "🏷️"}</div>
           <div style="flex:1;min-width:0">
             <div class="ot">${esc(o.title)}</div>
             <span class="store">${esc(o.store || "?")}</span>${o.loyalty ? ' <span class="meta">(mit App/Karte)</span>' : ""}
+            ${tagged.length ? `<div class="branchtags">${tagged.map((b) => `<span class="bdg" title="Gilt für diesen Laden">${b.main ? "⭐" : "📍"} ${esc(b.label)}</span>`).join("")}</div>` : ""}
             <div><span class="pr">${eur(o.price)}</span>${o.old_price ? `<span class="old">${eur(o.old_price)}</span>` : ""}${o.discount ? `<span class="disc">−${o.discount}%</span>` : ""}</div>
             <div class="meta">${esc(o.description || "")}${o.valid_from || o.valid_to ? ` · ${o.valid_from ? shortDate(o.valid_from) : ""}–${o.valid_to ? shortDate(o.valid_to) : ""}` : ""}</div>
             ${o.recipes?.length ? `<div class="chips" style="margin-top:4px">${o.recipes.slice(0, 3).map((n) => `<button class="chip" data-action="open-recipe-name" data-name="${esc(n)}">${dishEmoji(n)} ${esc(n)}</button>`).join("")}${o.recipe_count > 3 ? `<span class="meta">+${o.recipe_count - 3}</span>` : ""}</div>` : ""}
@@ -1560,7 +2288,7 @@ class EssensplanerPanel extends HTMLElement {
         <span class="spacer"></span>
         ${online ? `<button class="btn" data-action="refresh-offers">🔄 Aktualisieren</button>` : ""}
         <button class="btn" data-action="add-offer">＋ Angebot eintragen</button>
-        <button class="btn ghost" data-action="open-prices">💶 Preise</button>
+        <button class="btn ghost" data-action="go-tab" data-tab="stores" data-sec="prices">💶 Preise</button>
       </div>
       ${stores.length > 1 ? `<div class="row chips tagrow"><button class="chip ${this._offersStore ? "" : "active"}" data-action="offers-store" data-store="">Alle Märkte</button>${stores.map((st) => `<button class="chip ${st === this._offersStore ? "active" : ""}" data-action="offers-store" data-store="${esc(st)}">${esc(st)}</button>`).join("")}</div>` : ""}
       <div class="row">
@@ -1680,7 +2408,7 @@ class EssensplanerPanel extends HTMLElement {
         </div>
         <div><button class="btn primary esave">💾 Speichern</button> <button class="btn ereset">↩ Richtwert verwenden</button></div>
       </div>`;
-    this._showModal("Preise", body, "", (root) => {
+    this._showModal("Allgemeine Richtwerte", body, "", (root) => {
       const listEl = root.querySelector(".list");
       const editor = root.querySelector(".editor");
       let editing = null;
@@ -1724,6 +2452,658 @@ class EssensplanerPanel extends HTMLElement {
         listEl.innerHTML = rows();
         editor.style.display = "none";
       });
+    });
+  }
+
+  /* ------------------------------------------------------------ stores & prices (1.3) */
+  _zoneName(zone) {
+    const known = [...(this._branchSearch?.zones || []), ...(this._branchSearch?.areas || [])].find((z) => z.zone === zone);
+    if (known?.name) return known.name;
+    const state = this._hass?.states?.[zone];
+    if (state?.attributes?.friendly_name) return state.attributes.friendly_name;
+    if (zone === "zone.home") return "Zuhause";
+    return String(zone || "").replace(/^zone\./, "").replace(/_/g, " ");
+  }
+
+  _searchZoneList() {
+    const zones = this._branchSearch?.zones;
+    if (zones?.length) return zones;
+    return Object.keys(this._hass?.states || {})
+      .filter((id) => id.startsWith("zone.") && this._hass.states[id].attributes?.latitude != null)
+      .map((id) => ({ zone: id, name: this._zoneName(id), default: id === "zone.home" || /arbeit|work/i.test(id + this._zoneName(id)) }));
+  }
+
+  _zoneSelection() {
+    if (!this._searchZones) {
+      const s = this._branchSearch;
+      const list = this._searchZoneList();
+      const last = s?.time ? (s.areas || []).map((a) => a.zone).filter((z) => list.some((x) => x.zone === z)) : [];
+      this._searchZones = new Set(last.length ? last : list.filter((z) => z.default).map((z) => z.zone));
+    }
+    return this._searchZones;
+  }
+
+  _distanceBadges(near, route, max = 3) {
+    const out = [];
+    const isHome = (z) => z === "zone.home";
+    const isWork = (z) => /arbeit|work/i.test(`${z} ${this._zoneName(z)}`);
+    for (const [zone, m] of Object.entries(near || {}).sort((a, b) => a[1] - b[1]).slice(0, 2)) {
+      const icon = isHome(zone) ? "🏠" : isWork(zone) ? "💼" : "📍";
+      const where = isHome(zone) ? "von Zuhause" : `von ${this._zoneName(zone)}`;
+      out.push(`<span class="bdg" title="Luftlinie">${icon} ${distText(m)} ${esc(where)}</span>`);
+    }
+    const routes = Object.entries(route || {}).sort((a, b) => a[1] - b[1]);
+    if (routes.length) {
+      const names = routes.map(([z]) => this._zoneName(z)).join(", ");
+      const detail = routes.map(([z, m]) => `${this._zoneName(z)}: ${distText(m)} neben der Strecke`).join(" · ");
+      out.push(`<span class="bdg" title="${esc(`Auf dem Weg von Zuhause (Luftlinie) – ${detail}`)}">💼 am Arbeitsweg (${esc(names)})</span>`);
+    }
+    return out.slice(0, max + 1);
+  }
+
+  _ensureStoresData() {
+    if (this._branchSearch === undefined && !this._branchSearchLoading) {
+      this._branchSearchLoading = true;
+      this._hass
+        .callWS({ type: `${DOMAIN}/find_branches`, cached_only: true })
+        .then((res) => {
+          this._branchSearch = res;
+        })
+        .catch((err) => {
+          this._branchSearch = null;
+          this._searchError = err.message || String(err);
+        })
+        .finally(() => {
+          this._branchSearchLoading = false;
+          if (this._tab === "stores") this._renderContent();
+        });
+    }
+    if ((!this._storePrices || this._storePricesStale) && !this._storePricesLoading) this._fetchStorePrices();
+  }
+
+  async _fetchStorePrices() {
+    const seq = (this._priceSeq = (this._priceSeq || 0) + 1);
+    this._storePricesLoading = true;
+    this._storePricesStale = false;
+    try {
+      const query = this._priceQuery.trim();
+      const res = await this._hass.callWS({ type: `${DOMAIN}/store_prices`, ...(query ? { query } : {}), limit: 400 });
+      if (seq !== this._priceSeq) return;
+      this._storePrices = res;
+      this._priceError = null;
+    } catch (err) {
+      if (seq !== this._priceSeq) return;
+      this._priceError = err.message || String(err);
+      this._storePrices = this._storePrices || { retailers: [], rows: [], total: 0 };
+    } finally {
+      if (seq === this._priceSeq) this._storePricesLoading = false;
+    }
+    if (this._tab === "stores") this._renderPriceMatrix();
+  }
+
+  _sec(key, title, body, meta = "", defOpen = true) {
+    const open = this._secOpen[key] ?? defOpen;
+    return `<details class="card sec" id="sec-${key}" data-sec="${key}" ${open ? "open" : ""}>
+        <summary>${title}${meta ? `<span class="meta">${meta}</span>` : ""}</summary>
+        <div class="secbody">${body}</div>
+      </details>`;
+  }
+
+  _renderStores() {
+    this._ensureStoresData();
+    const branches = this._data.branches || [];
+    const selected = branches.filter((b) => b.selected).length;
+    return `<div class="stores">
+      ${this._sec("mine", "⭐ Meine Läden", this._renderMyStores(), branches.length ? `${selected} aktiv${branches.length > selected ? ` · ${branches.length - selected} pausiert` : ""}` : "")}
+      ${this._sec("near", "🔍 In der Nähe suchen", this._renderNearSearch(), "OpenStreetMap", !branches.length)}
+      ${this._sec("manual", "＋ Laden manuell hinzufügen", this._renderManualForm(), "", false)}
+      ${this._sec("prices", "💶 Preisliste je Laden", this._renderPriceSection())}
+      ${this._sec("sources", "🔄 Preisquellen", this._renderSources(), "", true)}
+    </div>`;
+  }
+
+  _renderMyStores() {
+    const branches = this._orderedBranches();
+    const explain = "Alles kommt in den Hauptladen – nur Angebote und deutlich günstigere Artikel in andere Läden.";
+    if (!branches.length) {
+      return `<div class="empty" style="padding:20px 8px">
+          <div class="big">🏪</div><b>Noch keine Läden gespeichert.</b><br>
+          <span class="hint">Wähle deinen <b>Hauptladen</b>: ${esc(explain)} Der erste Laden, den du speicherst, wird automatisch dein Hauptladen.</span>
+          <div class="row" style="justify-content:center;margin:14px 0 0">
+            <button class="btn primary" data-action="open-sec" data-sec="near">🔍 In der Nähe suchen</button>
+            <button class="btn" data-action="open-sec" data-sec="manual">＋ Manuell hinzufügen</button>
+          </div>
+        </div>`;
+    }
+    const split = this._data.store_split || {};
+    const main = branches.find((b) => b.main);
+    let intro = main
+      ? `<div class="hint">⭐ <b>Hauptladen ${esc(main.label)}:</b> ${esc(explain)} Ein anderer Laden lohnt sich ab ${eur(split.min_saving ?? 1)} oder ${esc(split.min_percent ?? 20)} % Ersparnis, Angebote ab ${eur(split.offer_min ?? 0.3)}.</div>`
+      : `<div class="notice warn">Noch kein Hauptladen – tippe bei einem Laden auf „⭐ Als Hauptladen“.</div>`;
+    if (split.mode === "off") intro += `<div class="notice">ℹ️ Die Aufteilung der Einkaufsliste nach Läden ist ausgeschaltet. Einschalten: <i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren → Läden &amp; Einkauf</i>.</div>`;
+    else if (split.mode === "main_only") intro += `<div class="notice">ℹ️ Modus „nur Hauptladen“: alles kommt in den Hauptladen, die anderen Läden dienen zum Preisvergleich.</div>`;
+    const others = branches.filter((b) => !b.main);
+    const cards = branches.map((b) => this._branchCard(b, others)).join("");
+    return `${intro}<div class="branchgrid">${cards}</div>`;
+  }
+
+  _branchCard(b, others) {
+    const pos = others.indexOf(b);
+    const badges = [];
+    if (b.main) badges.push('<span class="bdg star">⭐ Hauptladen</span>');
+    if (!b.selected) badges.push('<span class="bdg">⏸ pausiert</span>');
+    badges.push(...this._distanceBadges(b.near, b.route));
+    if (!b.postcode) badges.push('<span class="bdg warn" title="Ohne Postleitzahl werden für diesen Laden keine eigenen Angebote gesucht">PLZ fehlt</span>');
+    else if (b.postcode_guessed) badges.push('<span class="bdg warn" title="Die PLZ stammt von einem Laden in der Nähe – bitte prüfen">PLZ geschätzt</span>');
+    if (b.retailer_guessed) badges.push('<span class="bdg warn" title="Die Kette wurde aus Name oder PLZ erraten (z. B. Aldi Süd/Nord)">Kette bitte prüfen</span>');
+    const address = [b.street, [b.postcode, b.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    const markets = this._reweMarkets[b.id];
+    let rewe = "";
+    if (b.retailer === "rewe") {
+      const value = this._reweInput[b.id] ?? b.rewe_market_id ?? "";
+      const list = markets?.markets?.length
+        ? `<div class="markets">${markets.markets
+            .map((m) => `<div class="market"><span><b>${esc(m.name || "REWE")}</b><br><span class="meta">${esc([m.street, [m.postcode, m.city].filter(Boolean).join(" ")].filter(Boolean).join(", "))} · ID ${esc(m.id)}${m.branch_id && m.branch_id !== b.id ? " · schon bei einem anderen Laden" : ""}</span></span>${m.id === b.rewe_market_id ? '<span class="bdg ok">✓ gewählt</span>' : `<button class="btn small" data-action="rewe-pick" data-id="${esc(b.id)}" data-market="${esc(m.id)}">Übernehmen</button>`}</div>`)
+            .join("")}</div>`
+        : "";
+      rewe = `<div class="rewebox">
+          <span>🛒 REWE-Markt-ID</span>
+          <input data-input="rewe-id" data-enter="rewe-save" data-id="${esc(b.id)}" data-focuskey="rewe-${esc(b.id)}" value="${esc(value)}" placeholder="z. B. 1940178" inputmode="numeric" aria-label="REWE-Markt-ID">
+          <button class="btn small primary" data-action="rewe-save" data-id="${esc(b.id)}" title="Markt-ID speichern" ${value.trim() !== (b.rewe_market_id || "") ? "" : "hidden"}>💾 Speichern</button>
+          <button class="btn small" data-action="rewe-search" data-id="${esc(b.id)}" ${markets?.loading ? "disabled" : ""}>${markets?.loading ? "⏳ Suche …" : "🔎 Markt suchen"}</button>
+        </div>
+        ${markets?.error ? `<div class="notice err">${esc(markets.error)}</div>` : ""}
+        ${markets?.markets && !markets.markets.length ? `<div class="hint">Keine REWE-Märkte für PLZ ${esc(markets.zip || "")} gefunden.</div>` : ""}
+        ${list}`;
+    }
+    return `<div class="branch ${b.main ? "main" : ""} ${b.selected ? "" : "off"}">
+        <div class="bhead">${retailerDot(b.retailer, b.retailer_name)}<div style="min-width:0"><div class="bname">${esc(b.label)}</div><div class="baddr">${esc(b.retailer_name || this._retailerName(b.retailer))}${address ? ` · ${esc(address)}` : " · ohne Adresse"}</div></div></div>
+        <div class="badges">${badges.join("")}</div>
+        ${rewe}
+        <div class="bacts">
+          ${b.main ? "" : `<button class="btn small" data-action="branch-main" data-id="${esc(b.id)}">⭐ Als Hauptladen</button>`}
+          <label class="switch" title="Pausierte Läden werden beim Einkauf und bei Angeboten nicht genutzt"><input type="checkbox" data-change="branch-selected" data-id="${esc(b.id)}" ${b.selected ? "checked" : ""}> aktiv</label>
+          <span class="icons">
+            ${b.main ? "" : `<button class="icon" data-action="branch-move" data-id="${esc(b.id)}" data-delta="-1" title="Nach oben" aria-label="Nach oben" ${pos <= 0 ? "disabled" : ""}>▲</button><button class="icon" data-action="branch-move" data-id="${esc(b.id)}" data-delta="1" title="Nach unten" aria-label="Nach unten" ${pos === others.length - 1 ? "disabled" : ""}>▼</button>`}
+            <button class="icon" data-action="branch-edit" data-id="${esc(b.id)}" title="Bearbeiten" aria-label="Bearbeiten">✏️</button>
+            <button class="icon" data-action="branch-remove" data-id="${esc(b.id)}" title="Entfernen" aria-label="Entfernen">🗑</button>
+          </span>
+        </div>
+      </div>`;
+  }
+
+  async _moveBranch(id, delta) {
+    const ordered = this._orderedBranches();
+    const main = ordered.filter((b) => b.main);
+    const others = ordered.filter((b) => !b.main);
+    const i = others.findIndex((b) => b.id === id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= others.length) return;
+    [others[i], others[j]] = [others[j], others[i]];
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/reorder_branches`, ids: [...main, ...others].map((b) => b.id) });
+      if (res?.branches) {
+        this._data.branches = res.branches;
+        this._renderContent();
+      }
+    } catch (err) {
+      this._toast(err.message || String(err));
+    }
+  }
+
+  async _searchReweMarkets(id) {
+    const b = this._branch(id);
+    if (!b) return;
+    const zip = b.postcode || null;
+    this._reweMarkets[id] = { loading: true, zip };
+    this._renderContent();
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/rewe_markets`, zip });
+      this._reweMarkets[id] = { markets: res.markets || [], zip: res.zip_code || zip };
+    } catch (err) {
+      this._reweMarkets[id] = { error: err.message || String(err), zip };
+    }
+    if (this._tab === "stores") this._renderContent();
+  }
+
+  _renderNearSearch() {
+    const s = this._branchSearch;
+    if (s === undefined) return `<div class="hint">⏳ Lade letzte Suche …</div>`;
+    const zones = this._searchZoneList();
+    const chosen = this._zoneSelection();
+    const radius = this._searchRadius ?? (s?.time && s.radius_km ? s.radius_km : s?.defaults?.radius_km || 3);
+    const route = this._searchRoute ?? (s?.time ? Boolean(s.route) : s?.defaults?.route ?? true);
+    const radiusOptions = [...new Set([...RADIUS_CHOICES, radius])].sort((a, b) => a - b);
+    const zoneChips = zones.length
+      ? zones.map((z) => `<button class="chip ${chosen.has(z.zone) ? "active" : ""}" data-action="zone-toggle" data-zone="${esc(z.zone)}" aria-pressed="${chosen.has(z.zone)}">${z.zone === "zone.home" ? "🏠" : /arbeit|work/i.test(z.zone + z.name) ? "💼" : "📍"} ${esc(z.name)}</button>`).join("")
+      : `<span class="hint">Keine Zonen mit Koordinaten gefunden – lege in Home Assistant Zonen an (Einstellungen → Bereiche &amp; Zonen).</span>`;
+    const results = s?.results || [];
+    const warnings = [...(s?.warnings || [])];
+    const error = this._searchError || s?.error;
+    const list = results.length
+      ? `<div class="osmlist">${results
+          .map((r) => {
+            const addr = [r.street, [r.postcode, r.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+            const flags = [
+              ...this._distanceBadges(r.near, r.route, 2),
+              r.postcode_guessed ? '<span class="bdg warn">PLZ geschätzt</span>' : "",
+              !r.postcode ? '<span class="bdg warn">PLZ fehlt</span>' : "",
+              r.retailer_guessed ? '<span class="bdg warn">Kette bitte prüfen</span>' : "",
+            ].join("");
+            return `<div class="osm">${retailerDot(r.retailer, r.retailer_name)}
+              <div class="info"><b>${esc(r.retailer_name || r.retailer)}</b> <span class="meta">${esc(r.name && r.name !== r.retailer_name ? r.name : "")}</span>
+                <div class="baddr">${esc(addr || "ohne Adresse")}</div><div class="badges" style="margin-top:4px">${flags}</div></div>
+              ${r.saved ? '<span class="bdg ok">✓ gespeichert</span>' : `<button class="btn small primary" data-action="osm-add" data-id="${esc(r.id)}">＋ Hinzufügen</button>`}
+            </div>`;
+          })
+          .join("")}</div>`
+      : s?.time
+        ? `<div class="hint">In diesem Umkreis wurde kein bekannter Supermarkt gefunden. Probier einen größeren Radius.</div>`
+        : "";
+    const busy = this._searching;
+    return `
+      <div class="hint">Wo kaufst du ein? Wähle die Orte, um die herum gesucht wird.</div>
+      <div class="zonechips">${zoneChips}</div>
+      <div class="row" style="margin:0">
+        <label class="switch"><input type="checkbox" data-change="search-route" ${route ? "checked" : ""}> 💼 Arbeitsweg einbeziehen</label>
+        <label class="switch">Umkreis <select data-change="search-radius" aria-label="Umkreis">${radiusOptions.map((km) => `<option value="${km}" ${Number(km) === Number(radius) ? "selected" : ""}>${String(km).replace(".", ",")} km</option>`).join("")}</select></label>
+        <span class="spacer"></span>
+        <button class="btn primary" data-action="osm-search" ${busy || !chosen.size ? "disabled" : ""}>${busy ? "⏳ Suche läuft …" : "🔍 Suchen"}</button>
+        ${s?.time && !busy ? `<button class="btn" data-action="osm-search" data-refresh="1" title="Neu bei OpenStreetMap abfragen">🔄 Neu suchen</button>` : ""}
+      </div>
+      <div class="hint">🔒 Die Koordinaten deiner Zonen werden – auf ca. 100 m gerundet – an overpass-api.de gesendet. Das passiert nur, wenn du auf „Suchen“ tippst.</div>
+      ${error ? `<div class="notice err">⚠️ ${esc(error)}</div>` : ""}
+      ${warnings.map((w) => `<div class="notice warn">${esc(w)}</div>`).join("")}
+      ${s?.time ? `<div class="meta">Letzte Suche: ${esc(timeText(s.time))} · ${results.length} Läden${s.areas?.length ? ` um ${esc(s.areas.map((a) => a.name).join(", "))}` : ""}${s.cached ? " · gespeichert" : ""}</div>` : ""}
+      ${list}
+      <div class="meta">${esc(s?.attribution || "© OpenStreetMap-Mitwirkende (ODbL)")}</div>`;
+  }
+
+  async _findBranches(refresh) {
+    const zones = [...this._zoneSelection()];
+    if (!zones.length) return this._toast("Bitte mindestens eine Zone auswählen.");
+    const s = this._branchSearch;
+    const radius = this._searchRadius ?? (s?.time && s.radius_km ? s.radius_km : s?.defaults?.radius_km || 3);
+    const route = this._searchRoute ?? (s?.time ? Boolean(s.route) : s?.defaults?.route ?? true);
+    this._searching = true;
+    this._searchError = null;
+    this._renderContent();
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/find_branches`, zones, radius_km: Number(radius), route, refresh: Boolean(refresh) });
+      this._branchSearch = res;
+      this._toast(res.count ? `🔍 ${res.count} Läden gefunden` : "Keine Läden gefunden");
+    } catch (err) {
+      this._searchError = err.message || String(err);
+    } finally {
+      this._searching = false;
+      if (this._tab === "stores") this._renderContent();
+    }
+  }
+
+  async _refreshSearchFlags() {
+    try {
+      this._branchSearch = await this._hass.callWS({ type: `${DOMAIN}/find_branches`, cached_only: true });
+    } catch (e) {
+      /* keep the old list */
+    }
+    if (this._tab === "stores") this._renderContent();
+  }
+
+  async _addOsmBranch(id) {
+    const r = (this._branchSearch?.results || []).find((x) => x.id === id);
+    if (!r) return;
+    let res;
+    try {
+      res = await this._callService("save_branch", { id });
+    } catch (err) {
+      // not in the last stored search any more: send chain and address along
+      const data = { id, store: r.retailer };
+      for (const key of ["name", "street", "postcode", "city", "lat", "lon"]) if (r[key] != null && r[key] !== "") data[key] = r[key];
+      res = await this._service("save_branch", data, true);
+    }
+    const b = res?.branch;
+    this._toast(b?.main ? `⭐ ${b.label} ist dein Hauptladen` : `🏪 ${b?.label || r.label} hinzugefügt`);
+    this._refreshSearchFlags();
+  }
+
+  _renderManualForm() {
+    const m = this._manual;
+    const retailers = this._data.economy?.retailers || [];
+    const field = (key, label, attrs = "") =>
+      `<label class="field">${label}<input data-input="manual" data-field="${key}" data-focuskey="manual-${key}" value="${esc(m[key] || "")}" ${attrs}></label>`;
+    return `
+      <div class="hint">Für Läden, die die Suche nicht findet (oder ohne Zonen). Mit Postleitzahl werden auch Angebote für diesen Laden gesucht.</div>
+      <div class="formgrid">
+        <label class="field">Kette<select data-change="manual" data-field="store"><option value="">– bitte wählen –</option>${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === m.store ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label>
+        ${field("label", "Name (optional)", 'placeholder="z. B. Lidl am Bahnhof"')}
+        ${field("street", "Straße (optional)", 'placeholder="Hauptstraße 5"')}
+        ${field("postcode", "PLZ", 'inputmode="numeric" maxlength="5" placeholder="80331"')}
+        ${field("city", "Ort (optional)", 'placeholder="München"')}
+      </div>
+      <div><button class="btn primary" data-action="manual-save">＋ Laden speichern</button></div>`;
+  }
+
+  async _saveManualBranch() {
+    const m = this._manual;
+    if (!m.store) return this._toast("Bitte die Kette auswählen.");
+    const postcode = (m.postcode || "").trim();
+    if (postcode && !/^\d{5}$/.test(postcode)) return this._toast("Die Postleitzahl hat 5 Ziffern.");
+    const data = { store: m.store };
+    for (const key of ["label", "street", "city"]) if ((m[key] || "").trim()) data[key] = m[key].trim();
+    if (postcode) data.postcode = postcode;
+    const res = await this._service("save_branch", data, true);
+    this._manual = { store: "", label: "", street: "", postcode: "", city: "" };
+    const b = res?.branch;
+    this._toast(b?.main ? `⭐ ${b.label} ist dein Hauptladen` : `🏪 ${b?.label || "Laden"} gespeichert`);
+    this._renderContent();
+    if (this._branchSearch?.results?.length) this._refreshSearchFlags();
+  }
+
+  _openBranchEditor(id) {
+    const b = this._branch(id);
+    if (!b) return;
+    const retailers = this._data.economy?.retailers || [];
+    const body = `
+      <div class="hint">${b.source === "osm" ? "Aus OpenStreetMap übernommen – du kannst alles anpassen." : "Manuell angelegter Laden."}</div>
+      <label class="field">Name<input class="blabel" value="${esc(b.label)}" placeholder="${esc(`${b.retailer_name || ""} ${b.street || b.city || ""}`.trim())}"></label>
+      <label class="field">Kette${b.retailer_guessed ? ' <span class="bdg warn">bitte prüfen</span>' : ""}<select class="bstore">${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === b.retailer ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label>
+      <div class="grid2">
+        <label class="field">Straße<input class="bstreet" value="${esc(b.street || "")}"></label>
+        <label class="field">PLZ${b.postcode_guessed ? ' <span class="bdg warn">geschätzt</span>' : ""}<input class="bpostcode" value="${esc(b.postcode || "")}" inputmode="numeric" maxlength="5"></label>
+        <label class="field">Ort<input class="bcity" value="${esc(b.city || "")}"></label>
+      </div>`;
+    const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">💾 Speichern</button>`;
+    this._showModal("Laden bearbeiten", body, footer, (root) => {
+      root.querySelector(".blabel").focus();
+      root.querySelector(".save").addEventListener("click", async () => {
+        const v = (sel) => root.querySelector(sel).value.trim();
+        const postcode = v(".bpostcode");
+        if (postcode && !/^\d{5}$/.test(postcode)) return this._toast("Die Postleitzahl hat 5 Ziffern.");
+        const data = { id, store: v(".bstore"), street: v(".bstreet"), postcode, city: v(".bcity") };
+        if (v(".blabel") !== b.label) data.label = v(".blabel");
+        try {
+          await this._service("save_branch", data, true);
+          this._closeModal();
+          this._toast("💾 Laden gespeichert");
+        } catch (e) {
+          /* toast shown */
+        }
+      });
+    });
+  }
+
+  _renderPriceSection() {
+    return `
+      <div class="pmtools">
+        <input type="search" placeholder="🔍 Artikel suchen, z. B. „Butter“" value="${esc(this._priceQuery)}" data-input="price-filter" data-focuskey="price-filter" aria-label="Preisliste filtern">
+        <button class="btn ghost" data-action="open-prices" title="Richtwerte und eigene allgemeine Preise">📋 Allgemeine Richtwerte</button>
+      </div>
+      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. Ohne eigenen Preis gilt der Richtwert.</div>
+      <div class="pmbox">${this._priceMatrixHtml()}</div>`;
+  }
+
+  _renderPriceMatrix() {
+    const box = this._content.querySelector(".pmbox");
+    if (box) box.innerHTML = this._priceMatrixHtml();
+  }
+
+  _priceCellHtml(row, retailer, cell, best) {
+    if (!cell) {
+      return `<button class="cell none" data-action="price-cell" data-key="${esc(row.key)}" data-store="${esc(retailer)}" title="Preis eintragen"><span class="p">＋</span></button>`;
+    }
+    const pack = packText(cell.amount, cell.unit);
+    const hint = [PRICE_SOURCE[cell.source] || cell.source, cell.source === "user" ? "" : dayText(cell.updated)].filter(Boolean).join(" ");
+    const title = [cell.name && cell.name !== row.name ? cell.name : "", unitPriceText(cell.unit_price, cell.base), cell.stale ? "älter als ein halbes Jahr" : ""].filter(Boolean).join(" · ");
+    return `<button class="cell ${best ? "best" : ""} ${cell.stale ? "stale" : ""}" data-action="price-cell" data-key="${esc(row.key)}" data-store="${esc(retailer)}" title="${esc(title)}">
+        <span class="p">${eur(cell.price)}${best ? " ✓" : ""}${cell.stale ? " ⏳" : ""}</span><span class="s">${esc(pack)}</span><span class="s">${esc(hint)}</span></button>`;
+  }
+
+  _baseCellHtml(row) {
+    const general = row.general;
+    const cell = general || row.default;
+    if (!cell) return `<button class="cell none" data-action="price-cell" data-key="${esc(row.key)}"><span class="p">＋</span></button>`;
+    return `<button class="cell" data-action="price-cell" data-key="${esc(row.key)}" title="Gilt in allen Läden ohne eigenen Preis">
+        <span class="p">${eur(cell.price)}</span><span class="s">${esc(packText(cell.amount, cell.unit))}</span><span class="s">${general ? "✏️ eigener Preis" : "Richtwert"}</span></button>`;
+  }
+
+  _priceMatrixHtml() {
+    const m = this._storePrices;
+    if (!m) return `<div class="hint">⏳ Lade Preisliste …</div>`;
+    if (this._priceError) return `<div class="notice err">${esc(this._priceError)}</div>`;
+    const retailers = m.retailers || [];
+    const rows = (m.rows || []).slice(0, this._priceLimit);
+    if (!rows.length) return `<div class="hint">${this._priceQuery ? `Nichts gefunden für „${esc(this._priceQuery)}“.` : "Noch keine Preise."}</div>`;
+    const name = (row) => `<td class="pname">${esc(row.name)}${row.category ? `<span class="meta">${CATEGORY_ICONS[row.category] || ""} ${esc(row.category)}</span>` : ""}</td>`;
+    const head = (r) => `${retailerDot(r.id, r.name).replace('class="rdot"', 'class="rdot sm"')}${esc(r.name)}${r.id === m.main_retailer ? " ⭐" : ""}`;
+    let table;
+    if (this._narrowQuery?.matches && retailers.length) {
+      const store = retailers.some((r) => r.id === this._priceStore) ? this._priceStore : m.main_retailer || retailers[0].id;
+      const select = `<label class="switch">Laden <select data-change="price-store" aria-label="Laden">${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === store ? "selected" : ""}>${esc(r.name)}${r.id === m.main_retailer ? " ⭐" : ""}</option>`).join("")}</select></label>`;
+      const body = rows
+        .map((row) => {
+          const best = row.cheapest ? row.stores[row.cheapest] : null;
+          const bestCell = best
+            ? `<div class="cell static best"><span class="p">${eur(best.price)}</span><span class="s">${esc(this._retailerName(row.cheapest))}</span><span class="s">${esc(packText(best.amount, best.unit))}</span></div>`
+            : `<div class="cell static none"><span class="p">–</span></div>`;
+          return `<tr>${name(row)}<td>${this._priceCellHtml(row, store, row.stores[store], row.cheapest === store)}</td><td>${bestCell}</td></tr>`;
+        })
+        .join("");
+      table = `${select}<div class="pmwrap"><table class="pm"><thead><tr><th>Artikel</th><th>${head(retailers.find((r) => r.id === store))}</th><th>Günstigster</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    } else {
+      const body = rows
+        .map((row) => `<tr>${name(row)}<td>${this._baseCellHtml(row)}</td>${retailers.map((r) => `<td>${this._priceCellHtml(row, r.id, row.stores[r.id], row.cheapest === r.id)}</td>`).join("")}</tr>`)
+        .join("");
+      table = `<div class="pmwrap"><table class="pm"><thead><tr><th>Artikel</th><th>Richtwert</th>${retailers.map((r) => `<th>${head(r)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+    const total = m.total ?? (m.rows || []).length;
+    const shown = Math.min(rows.length, total);
+    const more = (m.rows || []).length > this._priceLimit ? `<button class="btn small" data-action="price-more">Mehr anzeigen</button>` : "";
+    const empty = !retailers.length ? `<div class="notice">Noch keine Läden – speichere oben deine Läden, dann siehst du hier ihre Preise nebeneinander.</div>` : "";
+    return `${empty}${table}<div class="row" style="margin:6px 0 0"><span class="meta">${shown} von ${total} Artikeln${this._storePricesLoading ? " · ⏳" : ""}</span><span class="spacer"></span>${more}</div>`;
+  }
+
+  _openPriceCell(key, retailer) {
+    const row = (this._storePrices?.rows || []).find((r) => r.key === key);
+    if (!row) return;
+    const cell = retailer ? row.stores?.[retailer] : row.general;
+    const base = cell || row.default || { price: "", amount: 1, unit: "Stück" };
+    const storeName = retailer ? this._retailerName(retailer) : "";
+    const units = PRICE_UNITS.includes(base.unit) ? PRICE_UNITS : [base.unit, ...PRICE_UNITS];
+    const history = (cell?.history || []).slice(-6).reverse();
+    const num = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+    const parse = (v) => Number(String(v).trim().replace(/\s*€$/, "").replace(",", "."));
+    const own = retailer ? cell?.source === "user" : Boolean(row.general);
+    const info = cell
+      ? `${PRICE_SOURCE[cell.source] || (retailer ? cell.source : "✏️ eigener Preis")}${cell.updated ? ` · ${dayText(cell.updated)}` : ""}${cell.stale ? " · ⏳ älter als ein halbes Jahr" : ""}${cell.name && cell.name !== row.name ? ` · „${cell.name}“` : ""}`
+      : row.default
+        ? `Noch kein eigener Preis – Richtwert ${eur(row.default.price)} für ${packText(row.default.amount, row.default.unit)}`
+        : "Noch kein Preis";
+    const body = `
+      <div class="hint">${retailer ? `Preis bei <b>${esc(storeName)}</b>` : "Allgemeiner Preis – gilt in allen Läden ohne eigenen Preis"} · ${esc(info)}</div>
+      <div class="grid2">
+        <label class="field">Preis (€)<input class="eprice" inputmode="decimal" autocomplete="off" placeholder="1,99" value="${esc(num(base.price))}"></label>
+        <label class="field">Packung<span style="display:flex;gap:6px"><input class="eamount" inputmode="decimal" autocomplete="off" style="width:100px" value="${esc(num(base.amount ?? 1))}"><select class="eunit">${units.map((u) => `<option ${u === base.unit ? "selected" : ""}>${esc(u)}</option>`).join("")}</select></span></label>
+      </div>
+      ${history.length > 1 ? `<div class="meta">Verlauf: ${history.map((h) => `${dayText(h.date)} ${eur(h.price)}`).join(" · ")}</div>` : ""}
+      ${retailer && cell && !own ? `<div class="hint">Dieser Preis wurde automatisch gelernt. Ein eigener Preis hat Vorrang.</div>` : ""}`;
+    const footer = `${own ? `<button class="btn reset">↩ Zurücksetzen</button>` : ""}<span class="spacer"></span><button class="btn" data-close>Abbrechen</button><button class="btn primary save">💾 Speichern</button>`;
+    this._showModal(`${row.name}${storeName ? ` · ${storeName}` : ""}`, body, footer, (root) => {
+      const price = root.querySelector(".eprice");
+      price.focus();
+      price.select?.();
+      const done = async (data, message) => {
+        try {
+          await this._service("set_price", data, true);
+          this._closeModal();
+          this._toast(message);
+          await this._fetchStorePrices();
+        } catch (e) {
+          /* toast shown */
+        }
+      };
+      const save = () => {
+        const value = parse(price.value);
+        if (price.value.trim() === "" || !Number.isFinite(value) || value < 0) return this._toast("Bitte einen Preis eingeben, z. B. 1,99.");
+        const amount = parse(root.querySelector(".eamount").value);
+        const data = { ingredient: row.name, price: value, amount: Number.isFinite(amount) && amount > 0 ? amount : 1, unit: root.querySelector(".eunit").value };
+        if (retailer) data.store = retailer;
+        done(data, `💶 ${row.name}: ${eur(value)}${storeName ? ` bei ${storeName}` : ""} gespeichert`);
+      };
+      root.querySelector(".save").addEventListener("click", save);
+      price.addEventListener("keydown", (ev) => ev.key === "Enter" && save());
+      root.querySelector(".reset")?.addEventListener("click", () => {
+        const data = { ingredient: row.name, remove: true };
+        if (retailer) data.store = retailer;
+        done(data, `↩ ${row.name}${storeName ? ` bei ${storeName}` : ""}: eigener Preis entfernt`);
+      });
+    });
+  }
+
+  _renderSources() {
+    const eco = this._data.economy || {};
+    const meta = eco.offers_meta || {};
+    const online = eco.offers_source === "marktguru";
+    const rewe = eco.price_sources?.rewe || {};
+    const where = `<i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren</i>`;
+    const targets = (this._data.offer_targets || []).map((t) => `<span class="bdg">PLZ ${esc(t.zip_code)} · ${esc((t.stores || []).join(", "))}</span>`).join("");
+    const mgStatus = !online
+      ? '<span class="bdg">⏸ aus</span>'
+      : meta.status === "error"
+        ? '<span class="bdg bad">⚠️ Fehler</span>'
+        : meta.last_update
+          ? '<span class="bdg ok">✅ aktiv</span>'
+          : '<span class="bdg">⏳ noch nicht geladen</span>';
+    const mg = `<div class="section">
+        <h4>🏷️ Prospekt-Angebote ${mgStatus}</h4>
+        <div class="meta">marktguru.de (inoffiziell) · aus den Prospekten werden auch Normalpreise je Laden gelernt.</div>
+        ${online && meta.last_update ? `<div>Zuletzt ${esc(timeText(meta.last_update))}: <b>${esc(meta.count ?? 0)}</b> Angebote${meta.learned ? ` · ${esc(meta.learned)} Normalpreise gelernt` : ""}</div>` : ""}
+        ${online && meta.status === "error" && meta.errors?.length ? `<div class="notice err">${esc(meta.errors[0])}</div>` : ""}
+        ${online ? `<div class="badges">${targets || '<span class="hint">Keine Postleitzahl – trage bei deinen Läden eine PLZ ein.</span>'}</div>` : ""}
+        ${online ? `<div><button class="btn" data-action="refresh-source" data-source="offers">🔄 Preise aktualisieren</button></div>` : `<div class="hint">Einschalten unter ${where} → Budget &amp; Angebote.</div>`}
+      </div>`;
+    const reweChip = {
+      ok: '<span class="bdg ok">✅ ok</span>',
+      pending: '<span class="bdg">⏳ wartet</span>',
+      error: '<span class="bdg bad">⚠️ Fehler</span>',
+      blocked: '<span class="bdg bad">⛔ gesperrt</span>',
+      off: '<span class="bdg">⏸ aus</span>',
+    }[rewe.status || "off"] || "";
+    const canRefresh = rewe.enabled && rewe.market_id && !rewe.blocked_until;
+    const rw = `<div class="section">
+        <h4>🛒 REWE-Onlinepreise <span class="bdg warn">experimentell</span> ${reweChip}</h4>
+        <div class="meta">Normalpreise aus dem REWE-Onlineshop für deinen REWE-Markt (wöchentlich).</div>
+        ${rewe.message ? `<div>${esc(rewe.message)}</div>` : ""}
+        ${rewe.enabled ? `<div class="meta">${[rewe.prices ? `${rewe.prices} REWE-Preise gespeichert` : "", rewe.last_success ? `zuletzt erfolgreich ${timeText(rewe.last_success)}` : "", rewe.blocked_until ? `Pause bis ${timeText(rewe.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
+        ${canRefresh ? `<div><button class="btn" data-action="refresh-source" data-source="rewe">🔄 Preise aktualisieren</button> <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an shop.rewe.de gesendet.</div>`}
+      </div>`;
+    return `<div class="srcgrid">${mg}${rw}</div>`;
+  }
+
+  async _refreshSource(el, source) {
+    const label = el.textContent;
+    el.disabled = true;
+    el.textContent = "⏳ Lädt …";
+    try {
+      const res = await this._service("refresh_prices", { source }, true);
+      if (source === "rewe") this._toast(`🛒 REWE: ${res?.message || "fertig"}`);
+      else this._toast(res?.status === "ok" ? `🏷️ ${res.count} Angebote geladen${res.learned ? `, ${res.learned} Normalpreise gelernt` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
+    } finally {
+      el.disabled = false;
+      el.textContent = label;
+    }
+  }
+
+  /* ------------------------------------------------------------ store picker (shopping list) */
+  async _openStorePicker(uid) {
+    const item = (this._data.shopping || []).find((i) => i.uid === uid);
+    if (!item) return;
+    const branches = this._orderedBranches().filter((b) => b.selected);
+    const prices = {};
+    for (const a of item.alternatives || []) prices[a.branch_id] = { price: a.price, offer: a.offer, real: a.real };
+    if (item.branch_id) prices[item.branch_id] = { price: item.price, offer: item.offer, real: true };
+    let compare = null;
+    const preferred = item.store_reason === "preferred";
+    let selected = "auto";
+    if (item.store_override && branches.some((b) => b.id === item.store_override)) selected = item.store_override;
+    else if (preferred && item.branch_id) selected = item.branch_id;
+    let always = preferred;
+    const initial = `${selected}|${always}`;
+    const rowsHtml = () => {
+      const entries = branches.map((b) => {
+        const c = compare?.results?.find((r) => r.branch_id === b.id);
+        const p = prices[b.id];
+        return { b, c, price: p?.price ?? c?.price ?? null, offer: p?.offer || c?.offer || null };
+      });
+      const priced = entries.filter((e) => e.price != null);
+      const min = priced.length ? Math.min(...priced.map((e) => e.price)) : null;
+      const unique = priced.filter((e) => e.price === min).length < priced.length;
+      const auto = `<button class="pick ${selected === "auto" ? "sel" : ""}" data-store="auto"><span style="font-size:22px">🤖</span>
+          <span class="pi"><b>Automatisch</b><div class="sub">Hauptladen – außer ein anderer Laden hat ein Angebot oder ist deutlich günstiger</div></span></button>`;
+      return (
+        auto +
+        entries
+          .map(({ b, c, price, offer }) => {
+            const tags = [
+              b.id === item.branch_id ? '<span class="bdg">aktuell</span>' : "",
+              b.main ? '<span class="bdg star">⭐</span>' : "",
+              unique && price === min ? '<span class="bdg ok">günstigster</span>' : "",
+            ].join(" ");
+            const sub = [offer ? `🏷️ Angebot${offer.valid_to ? ` bis ${shortDate(offer.valid_to)}` : ""}` : c ? PRICE_SOURCE[c.source] || "" : "", c?.pack ? c.pack : "", c?.unit_price && c.base !== "Stück" ? unitPriceText(c.unit_price, c.base) : ""].filter(Boolean).join(" · ");
+            return `<button class="pick ${selected === b.id ? "sel" : ""}" data-store="${esc(b.id)}">${retailerDot(b.retailer, b.retailer_name)}
+              <span class="pi"><b>${esc(b.label)}</b> ${tags}<div class="sub">${esc(sub || (compare ? "kein Preis bekannt" : ""))}</div></span>
+              <span class="pp">${price != null ? `<b>${eur(price)}</b>` : '<span class="meta">–</span>'}</span></button>`;
+          })
+          .join("")
+      );
+    };
+    const alwaysHtml = () =>
+      selected === "auto"
+        ? item.store_reason === "preferred"
+          ? `<label class="switch"><input type="checkbox" class="always" ${always ? "checked" : ""}> Gemerkten Laden für diesen Artikel vergessen</label>`
+          : ""
+        : `<label class="switch"><input type="checkbox" class="always" ${always ? "checked" : ""}> Immer in diesem Laden kaufen</label>`;
+    const body = `
+      <div class="hint">Preise für die benötigte Menge (ganze Packungen).</div>
+      <div class="picklist" style="max-height:none">${rowsHtml()}</div>
+      <div class="alwaysbox">${alwaysHtml()}</div>`;
+    const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">✓ Übernehmen</button>`;
+    this._showModal(`Wo kaufen? – ${item.summary}`, body, footer, (root) => {
+      const list = root.querySelector(".picklist");
+      const box = root.querySelector(".alwaysbox");
+      const refresh = () => {
+        list.innerHTML = rowsHtml();
+        box.innerHTML = alwaysHtml();
+      };
+      list.addEventListener("click", (ev) => {
+        const pick = ev.target.closest("[data-store]");
+        if (!pick) return;
+        if (selected !== pick.dataset.store) always = pick.dataset.store === "auto" ? preferred : preferred && pick.dataset.store === item.branch_id;
+        selected = pick.dataset.store;
+        refresh();
+      });
+      box.addEventListener("change", (ev) => {
+        if (ev.target.classList.contains("always")) always = ev.target.checked;
+      });
+      root.querySelector(".save").addEventListener("click", async () => {
+        if (`${selected}|${always}` === initial) return this._closeModal();
+        try {
+          const data = { item: uid, store: selected };
+          if (always) data.always = true;
+          await this._service("set_shopping_store", data, true);
+          this._closeModal();
+          const b = this._branch(selected);
+          this._toast(selected === "auto" ? `🤖 ${item.summary}: Laden wird automatisch gewählt` : `⇄ ${item.summary} → ${b?.label || "Laden"}${always ? " (immer)" : ""}`);
+        } catch (e) {
+          /* toast shown */
+        }
+      });
+      this._hass
+        .callWS({ type: `${DOMAIN}/compare_prices`, item: item.summary })
+        .then((res) => {
+          compare = res;
+          if (this._modal?.root === root) refresh();
+        })
+        .catch(() => {});
     });
   }
 

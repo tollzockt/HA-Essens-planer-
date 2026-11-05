@@ -525,6 +525,25 @@ def _number(value: Any, default: float, low: float, high: float) -> float:
     return max(low, min(high, number))
 
 
+def search_defaults(options: dict[str, Any]) -> dict[str, Any]:
+    """Default search parameters from the options (preset of the panel's search form)."""
+    return {
+        "radius_km": _number(
+            options.get(CONF_BRANCH_RADIUS, DEFAULT_BRANCH_RADIUS),
+            DEFAULT_BRANCH_RADIUS,
+            *RADIUS_KM_RANGE,
+        ),
+        "route": bool(options.get(CONF_BRANCH_ROUTE, DEFAULT_BRANCH_ROUTE)),
+        "route_radius_m": round(
+            _number(
+                options.get(CONF_BRANCH_ROUTE_RADIUS, DEFAULT_BRANCH_ROUTE_RADIUS),
+                DEFAULT_BRANCH_ROUTE_RADIUS,
+                *ROUTE_RADIUS_RANGE,
+            )
+        ),
+    }
+
+
 def _resolve_retailers(manager: EssensplanerManager, texts: list[str] | None) -> set[str] | None:
     """Retailer ids for a filter; a plain 'Aldi' means both variants."""
     if not texts:
