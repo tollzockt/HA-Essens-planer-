@@ -38,6 +38,7 @@ from homeassistant.util import dt as dt_util
 from .articles import cached_live_fetch, parse_pack_text
 from .const import CONF_REWE_ONLINE, DEFAULT_REWE_ONLINE, DOMAIN, HTTP_USER_AGENT
 from .ingredients import fold, ingredient_key, parse_ingredient, to_base
+from .netio import BodyTooLarge, async_read_body
 from .offers import OfferError, offer_matches
 from .pricing import offer_pack, plausible_pack, unit_price
 from .stores import valid_postcode
@@ -71,6 +72,8 @@ MAX_SHOPPING_TERMS = 20
 REFRESH_DAYS = 7
 # no requests for this long after the shop refused them / answered unexpectedly
 BLOCK_DAYS = 7
+# a manual refresh (button, service) runs at most once in this many hours after a success
+MANUAL_MIN_HOURS = 6
 MAX_ERRORS = 5
 # a refresh stops after this many failed searches in a row
 MAX_FAILURES = 3
@@ -524,7 +527,9 @@ class ReweClient:
                     raise _failed(f"Schnittstelle nicht gefunden, HTTP {status}", unexpected=True)
                 if status >= 400:
                     raise _failed(f"HTTP {status}")
-                body = await resp.content.read(_MAX_BYTES)
+                body = await async_read_body(resp, _MAX_BYTES)
+        except BodyTooLarge as err:
+            raise _failed("Antwort zu groß") from err
         except TimeoutError as err:
             raise _failed("keine Antwort") from err
         except aiohttp.ClientError as err:
@@ -668,6 +673,24 @@ def _stale(manager: EssensplanerManager, now: datetime) -> bool:
     return last is None or now - last >= timedelta(days=REFRESH_DAYS)
 
 
+def _manual_wait(manager: EssensplanerManager, market_id: str, now: datetime) -> datetime | None:
+    """End of the pause after a successful run for the same market (None = may run)."""
+    meta = _meta(manager)
+    last = _parse_time(meta.get("last_success"))
+    if last is None or str(meta.get("market_id") or "") != market_id:
+        return None
+    until = last + timedelta(hours=MANUAL_MIN_HOURS)
+    return until if until > now else None
+
+
+def _time_text(value: datetime, now: datetime) -> str:
+    """'16:30 Uhr' (today) or '06.11. 02:00 Uhr'."""
+    local = dt_util.as_local(value)
+    if local.date() == dt_util.as_local(now).date():
+        return local.strftime("%H:%M Uhr")
+    return local.strftime("%d.%m. %H:%M Uhr")
+
+
 def _record_block(manager: EssensplanerManager, err: ReweError, now: datetime) -> None:
     """Remember a refusal / unexpected answer: no requests for BLOCK_DAYS days."""
     meta = dict(_meta(manager))
@@ -722,8 +745,10 @@ async def async_refresh_rewe_prices(
     """Learn REWE online prices for the planned / frequent ingredients. Returns rewe_status().
 
     Needs the option rewe_online_prices and a selected REWE branch with a market id.
-    force=False only runs when the last success is older than REFRESH_DAYS. Never runs
-    while blocked (also not with force). For each term the cheapest matching product is
+    force=False only runs when the last success is older than REFRESH_DAYS; force=True
+    (button, service) runs at most once per MANUAL_MIN_HOURS after a success for the same
+    market (else the status with cooldown_until and a message). Never runs while blocked
+    (also not with force). For each term the cheapest matching product is
     stored with learn_store_price("rewe", key, ..., "rewe_online", ref=product id).
     """
     if not rewe_enabled(manager):
@@ -738,12 +763,20 @@ async def async_refresh_rewe_prices(
         or entry_id in _RUNNING
     ):
         return rewe_status(manager)
+    if force and (until := _manual_wait(manager, market_id, now)) is not None:
+        # be polite to the shop: tapping "Preise aktualisieren" again sends nothing
+        status = rewe_status(manager)
+        status["cooldown_until"] = until.isoformat()
+        status["message"] = (
+            f"Gerade erst aktualisiert – wieder möglich ab {_time_text(until, now)}."
+        )
+        return status
     _RUNNING.add(entry_id)
     try:
         await _async_run(hass, manager, branch, market_id, now)
     finally:
         _RUNNING.discard(entry_id)
-    manager._changed("prices")
+    manager._after_price_change("prices")  # learned prices can move open items
     return rewe_status(manager)
 
 

@@ -55,7 +55,7 @@
       },
       "economy": {
         "title": "Budget & offers",
-        "description": "Weekly budget, planning style and supermarket offers. Online offers use the unofficial marktguru.de interface (leaflets of Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); it can change at any time – for private use only.",
+        "description": "Weekly budget, planning style and supermarket offers. Online offers use the unofficial marktguru.de interface (leaflets of Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); it can change at any time – for private use only. With online offers the shopping list field 'Artikel hinzufügen' also searches marktguru live (what you type, from 3 characters, with the postcode of your branch).",
         "data": {
           "weekly_budget": "Weekly budget",
           "plan_strategy": "Planning style",
@@ -67,7 +67,7 @@
         "data_description": {
           "weekly_budget": "EUR per week for food, 0 = no budget.",
           "plan_strategy": "Used for automatic planning and suggestions.",
-          "offers_source": "Where current and upcoming offers come from.",
+          "offers_source": "Where current and upcoming offers come from. marktguru: daily search for the postcodes of your branches, plus a live search while you type in 'Artikel hinzufügen'.",
           "zip_code": "For the offers of the shops near you. Can stay empty if your branches (in the panel) have a postcode – then their postcodes are searched.",
           "offer_stores": "Only offers of these shops (without branches). With branches their stores count.",
           "offers_watchlist": "Additional products to look for, comma separated (e.g. 'Kaffee, Butter')."
@@ -293,7 +293,7 @@
       "message": "There are several branches for \"{branch}\" – please be more specific, e.g. with the street."
     },
     "store_split_off": {
-      "message": "The shopping list is not split by store – please choose a main store first (Essensplaner panel → Läden & Preise) or turn on the split in the options."
+      "message": "The shopping list is not split by store right now. That needs a main store (Essensplaner panel, section „Läden und Preise“) and the split by store turned on in the options."
     },
     "overpass_busy": {
       "message": "OpenStreetMap is busy right now – please try again in a few minutes."

@@ -3,8 +3,12 @@
 # und starte Home Assistant neu (bzw. Entwicklerwerkzeuge → YAML → Konversation neu laden).
 # LLM-Agenten (z. B. Jarvis/Hermes, OpenAI, Ollama, MCP) brauchen diese Datei NICHT –
 # sie bekommen die Essensplaner-Intents automatisch als Tools.
-# Hinweis: „Setz … auf die Einkaufsliste“ landet mit dieser Datei auf der Essensplaner-Liste
-# (mit Laden und Preis) statt auf der eingebauten Einkaufsliste.
+# Hinweis: Mit dieser Datei landet ALLES, was du per Sprache auf die Einkaufsliste setzt
+# („Setz Milch auf die Einkaufsliste“, „Füge Milch zu meiner Einkaufsliste hinzu“, „Milch auf
+# die Liste“ …), auf der Essensplaner-Liste (mit Laden und Preis) – nicht mehr auf der
+# eingebauten Home-Assistant-Einkaufsliste und nicht in einer Liste, die du mit ihr
+# synchronisierst (z. B. Bring!). Willst du das nicht, lösche unten den Block
+# „essensplaner_add_shopping_item“.
 language: de
 intents:
   essensplaner_get_meals:
@@ -111,8 +115,12 @@ intents:
           - "was (kaufe|hole) ich (bei|beim|im) {store}"
           - "was (kaufen|holen) wir (bei|beim|im) {store}"
           - "was steht (für|bei) {store} auf der einkaufsliste"
+          # own branch labels ("Lidl Arbeit"); words like "Supermarkt" read the whole list
           - "was (muss|soll) ich (bei|beim|im) {store_name:store} (einkaufen|kaufen|besorgen|holen)"
+          - "was (müssen|sollen) wir (bei|beim|im) {store_name:store} (einkaufen|kaufen|besorgen|holen)"
           - "was (kaufe|hole) ich (bei|beim|im) {store_name:store}"
+          - "was (kaufen|holen) wir (bei|beim|im) {store_name:store}"
+          - "was steht (für|bei) {store_name:store} auf der einkaufsliste"
   essensplaner_compare_prices:
     data:
       - sentences:
@@ -123,23 +131,37 @@ intents:
   essensplaner_set_shopping_store:
     data:
       # "immer" first: otherwise the item wildcard would swallow it
+      # own branch labels ("Lidl Arbeit") only with "kaufen … bei", so that
+      # "Hol die Wäsche im Keller" is not taken for a store
       - sentences:
           - "(kauf|kaufe|hol|hole) {item} immer (bei|beim|im) {store}"
-          - "(kauf|kaufe|hol|hole) {item} immer (bei|beim|im) {store_name:store}"
+          - "(kauf|kaufe) {item} immer (bei|beim) {store_name:store}"
           - "{item} (kaufe ich|kaufen wir|hole ich|holen wir) immer (bei|beim|im) {store}"
+          - "{item} (kaufe ich|kaufen wir) immer (bei|beim) {store_name:store}"
         slots:
           always: true
       - sentences:
           - "(kauf|kaufe|hol|hole) {item} (bei|beim|im) {store}"
-          - "(kauf|kaufe|hol|hole) {item} (bei|beim|im) {store_name:store}"
+          - "(kauf|kaufe) {item} (bei|beim) {store_name:store}"
           - "{item} (kaufe ich|kaufen wir|hole ich|holen wir) (bei|beim|im) {store}"
+          - "{item} (kaufe ich|kaufen wir) (bei|beim) {store_name:store}"
   essensplaner_add_shopping_item:
     data:
+      # the same wordings as Home Assistant's own shopping list (HassShoppingListAddItem)
       - sentences:
-          - "(setz|setze|schreib|schreibe|pack|packe) {item} auf die einkaufsliste"
-          - "{item} auf die einkaufsliste"
-          - "(füge|füg) {item} (zur|der) einkaufsliste hinzu"
-          - "(setz|setze|schreib|schreibe|pack|packe) {item} (für|bei) {store} auf die einkaufsliste"
+          # "Setz Butter bei Lidl Arbeit auf die Einkaufsliste": the integration splits off
+          # an own branch label ("… bei <Filiale>") from the item itself
+          - "<ep_setzen> {item} (für|bei) {store} (auf|in) <ep_liste_akk>"
+          - "<ep_setzen> {item} (auf|in) <ep_liste_akk>"
+          - "{item} (auf|in) <ep_liste_akk> [(setzen|schreiben|nehmen|packen)]"
+          - "(füge|füg) {item} [(zu|zur)] <ep_liste_dat> hinzu"
+          - "(füge|füg) {item} [(zu|zum)] <ep_einkauf_dat> hinzu"
+          - "(füge|füg) [(zu|zur)] <ep_liste_dat> {item} hinzu"
+          - "ergänze {item} (auf|in) <ep_liste_dat>"
+          - "{item} (auf|in) <ep_liste_dat> ergänzen"
+          - "{item} [(zu|zur)] <ep_liste_dat> hinzufügen"
+          - "{item} [(zu|zum)] <ep_einkauf_dat> hinzufügen"
+          - "{item} [(auf|in)] <ep_liste_akk> hinzufügen"
   essensplaner_move_meal:
     data:
       - sentences:
@@ -176,6 +198,12 @@ intents:
           - "was kostet der (essensplan|speiseplan|wochenplan) nächste woche"
         slots:
           week: "nächste"
+expansion_rules:
+  # verbs incl. the forms speech recognition often writes ("setzt", "schreibt")
+  ep_setzen: "(setz|setze|setzt|schreib|schreibe|schreibt|nimm|nehme|pack|packe)"
+  ep_liste_akk: "[(meine|unsere|die) ][einkaufs[ ]]liste"
+  ep_liste_dat: "[(meiner|unserer|der) ][einkaufs[ ]]liste"
+  ep_einkauf_dat: "[(meinem|unserem|dem) ]einkauf"
 lists:
   date:
     values:

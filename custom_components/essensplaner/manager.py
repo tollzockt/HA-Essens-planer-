@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 import difflib
@@ -59,7 +60,7 @@ from .ingredients import (
     strip_article,
     to_base,
 )
-from .pricing import offer_pack, unit_price
+from .pricing import COUNT_UNITS, offer_pack, unit_price
 from .stores import StoresMixin
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,6 +99,25 @@ ORIGINAL_STARTER_NAMES = [
     "Lachs mit Ofenkartoffeln und Brokkoli",
     "Bananenbrot",
 ]
+
+# fields of a live offer kept with a shopping item that was added from it
+_OFFER_COPY_FIELDS = (
+    "id",
+    "title",
+    "product",
+    "store",
+    "store_id",
+    "retailer",
+    "price",
+    "old_price",
+    "unit_price",
+    "base_unit",
+    "pack_amount",
+    "pack_unit",
+    "valid_from",
+    "valid_to",
+    "source",
+)
 
 # German messages for errors (used by intents / voice answers)
 ERROR_MESSAGES_DE = {
@@ -146,9 +166,9 @@ ERROR_MESSAGES_DE = {
         "fest oder wähle Zonen aus."
     ),
     "store_split_off": (
-        "Die Einkaufsliste wird nicht nach Läden aufgeteilt – bitte zuerst einen Hauptladen "
-        "festlegen (Essensplaner-Panel → Läden & Preise) bzw. die Aufteilung in den Optionen "
-        "einschalten."
+        "Die Einkaufsliste wird gerade nicht nach Läden aufgeteilt. Dafür brauchst du einen "
+        "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“), und die Aufteilung nach "
+        "Läden muss in den Optionen eingeschaltet sein."
     ),
     "rewe_disabled": (
         "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
@@ -236,6 +256,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._offer_name_cache: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
         self._offer_day_cache: dict[date, Any] = {}
         self._recipes_using_cache: dict[tuple[str, ...], list[str]] = {}
+        # set when the config entry is unloaded: late results of long refreshes are dropped
+        # instead of overwriting the data of the new manager (options change = reload)
+        self.unloaded = False
+        self._offers_task: asyncio.Task[dict[str, Any]] | None = None  # running offer refresh
         self._init_store_data()
         self._init_article_data()
 
@@ -332,8 +356,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._load_store_data(data)
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
         migrated = self._migrate_v2()
-        self.cleanup_offers()
+        expired = self.cleanup_offers()
         self.tag_offer_branches()
+        if expired:
+            self._reassign_open_items()  # e.g. items on an offer that ended overnight
         if migrated:
             await self.async_save_now()
 
@@ -391,6 +417,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
     @callback
     def _changed(self, change: str) -> None:
+        if self.unloaded:
+            return  # a refresh finished after a reload: never overwrite the new data
         if change.startswith("recipe"):
             self._recipes_using_cache = {}  # which recipes use an offer
         self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
@@ -401,11 +429,15 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
     @callback
     def _save_later(self) -> None:
         """Save soon without notifying entities or the panel (e.g. caches)."""
+        if self.unloaded:
+            return
         self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
 
     @callback
     def async_refresh_listeners(self) -> None:
         """Ask entities to refresh (e.g. at midnight)."""
+        if self.unloaded:
+            return
         for update_callback in list(self._listeners):
             update_callback()
 
@@ -1079,6 +1111,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         meals = meals or [self.default_meal]
         planned: list[dict[str, Any]] = []
         used: set[str] = set()
+        # dishes already planned around these days are not planned a second time
+        nearby: set[str] = set()
+        for offset in range(-6, max(1, days) + 6):
+            day = start + timedelta(days=offset)
+            for meal, entry in self.plan.get(day.isoformat(), {}).items():
+                replaced = overwrite and 0 <= offset < max(1, days) and meal in meals
+                if entry.get("recipe_id") and not replaced:
+                    nearby.add(entry["recipe_id"])
         for offset in range(max(1, days)):
             day = start + timedelta(days=offset)
             existing = self.plan.get(day.isoformat(), {})
@@ -1086,17 +1126,18 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 if meal in existing and not overwrite:
                     continue
                 target = self.budget_target(day, len(meals)) if self.weekly_budget else None
-                suggestion = self.suggest(
-                    1,
-                    tag=tag,
-                    max_time=max_time,
-                    meal=meal,
-                    around=day,
-                    exclude=used,
-                    strategy=strategy,
-                    target_cost=target,
-                    servings=servings or self.default_servings,
-                )
+                options = {
+                    "tag": tag,
+                    "max_time": max_time,
+                    "meal": meal,
+                    "around": day,
+                    "strategy": strategy,
+                    "target_cost": target,
+                    "servings": servings or self.default_servings,
+                }
+                suggestion = self.suggest(1, exclude=used | nearby, **options)
+                if not suggestion and nearby:
+                    suggestion = self.suggest(1, exclude=used, **options)  # few recipes
                 if not suggestion:
                     continue
                 recipe = suggestion[0]
@@ -1258,11 +1299,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "name": name,
             "amounts": amounts,
         }
-        offer = None
-        if offer_id:
-            offer = next((o for o in self.offers if o.get("id") == offer_id), None)
-            if offer is None:
-                _LOGGER.debug("Offer %s not found (not saved?)", offer_id)
+        offer = self._picked_offer(offer_id) if offer_id else None
         branch = self.resolve_branch(store) if store else None
         retailer = branch.get("retailer") if branch else None
         if store and branch is None:
@@ -1280,7 +1317,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 ),
                 None,
             )
-        chosen = self._chosen_pick(name, price, pack, offer, retailer)
+        chosen = self._chosen_pick(name, price, pack, offer, retailer, amounts)
         if chosen is not None:
             chosen["retailer"] = retailer or self.main_retailer
             item["chosen"] = chosen
@@ -1303,6 +1340,18 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             item["offer"] = cost["offer"] if cost else None
         self.update_shopping_description(item)
 
+    def _picked_offer(self, offer_id: str) -> dict[str, Any] | None:
+        """A saved offer, or a leaflet offer of the live article search (still in its cache)."""
+        offer = next((o for o in self.offers if o.get("id") == offer_id), None)
+        if offer is not None:
+            return offer
+        for _, results in self._live_cache.values():
+            for found in results:
+                if found.get("id") == offer_id and found.get("source") == "marktguru":
+                    return found
+        _LOGGER.debug("Offer %s not found (not saved?)", offer_id)
+        return None
+
     def _chosen_pick(
         self,
         name: str,
@@ -1310,10 +1359,13 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         pack: str | None,
         offer: dict[str, Any] | None,
         retailer: str | None = None,
+        amounts: dict[str, float] | None = None,
     ) -> dict[str, Any] | None:
-        """The price/pack the user picked ({name, price, amount, unit, offer_id}).
+        """The price/pack the user picked ({name, price, amount, unit, offer_id[, offer]}).
 
-        A pack without price is priced by the unit price of the store (or the estimate).
+        A pack without price is priced by the unit price of the store (or the estimate). A
+        price without pack is the price of the store's usual pack of the product (else of
+        the amount on the list). A picked offer only counts while it is valid.
         """
         if price is None and not pack and offer is None:
             return None
@@ -1335,6 +1387,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 price = per[0] * size[0]  # e.g. a 500-g pack at the price of 250 g
             if price is None:
                 price, size = entry.price, (entry.amount, entry.unit)
+        if size is None:
+            # e.g. an offer said by voice: the usual pack, never "1 Stück" of 500 g mince
+            if (regular := self.regular_book(retailer).lookup(name)) is not None:
+                size = (regular.amount, regular.unit)
+            elif amounts and len(amounts) == 1:
+                unit, amount = next(iter(amounts.items()))
+                if unit in ("g", "ml") or unit in COUNT_UNITS:
+                    size = (amount, "Stück" if unit in COUNT_UNITS else unit)
         try:
             value = round(float(price), 2)
         except (TypeError, ValueError) as err:
@@ -1349,6 +1409,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         }
         if offer is not None:
             chosen["offer_id"] = offer.get("id")
+            if not any(o is offer for o in self.offers):
+                # a live leaflet offer (not saved): keep what is needed while it is valid
+                chosen["offer"] = {k: offer.get(k) for k in _OFFER_COPY_FIELDS}
         return chosen
 
     def shopping_update(

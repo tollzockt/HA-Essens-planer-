@@ -50,7 +50,7 @@ Ordner `custom_components/essensplaner` nach `/config/custom_components/essenspl
 ### Updates
 HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repositorys. Für jede neue Version wird deshalb ein Release mit dem Tag `vX.Y.Z` erstellt – für diese Version **`v1.3.0`**. Dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS (falls es nicht von selbst auftaucht: in HACS beim Essensplaner über ⋮ die Informationen aktualisieren). Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
 
-**Update auf 1.3:** Deine Daten werden beim ersten Start automatisch übernommen (eigene Preise mit Laden landen zusätzlich in der Preisliste dieses Ladens). Bis du Filialen anlegst, verhält sich alles wie in 1.2. Neu in den Optionen ist der Schritt **„Läden & Einkauf“**. Nutzt du den eingebauten Sprachagenten ohne LLM, kopiere [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) erneut (neue Sätze). Zurück auf 1.2 geht, aber Filialen, Ladenpreise und Preisverlauf gehen dabei verloren – vorher ein Backup machen.
+**Update auf 1.3:** Deine Daten werden beim ersten Start automatisch übernommen (eigene Preise mit Laden landen zusätzlich in der Preisliste dieses Ladens). Bis du Filialen anlegst, verhält sich alles wie in 1.2. Neu in den Optionen ist der Schritt **„Läden & Einkauf“**. Nutzt du den eingebauten Sprachagenten ohne LLM, kopiere [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) erneut (neue Sätze) – **Achtung:** Mit der neuen Datei landet „Setz Milch auf die Einkaufsliste“ (und jede andere Formulierung von Home Assistants eingebauter Einkaufsliste) auf der Essensplaner-Liste statt auf der eingebauten Einkaufsliste bzw. einer damit synchronisierten Liste (z. B. Bring!), siehe [Eingebauter Sprachagent](#eingebauter-sprachagent-ohne-llm). Zurück auf 1.2 geht, aber Filialen, Ladenpreise und Preisverlauf gehen dabei verloren – vorher ein Backup machen.
 
 ## 🤖 Jarvis & andere Sprachassistenten
 
@@ -102,6 +102,8 @@ Datumsangaben werden in natürlicher Sprache verstanden: *heute, morgen, übermo
 ### Eingebauter Sprachagent (ohne LLM)
 Datei [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) nach `/config/custom_sentences/de/` kopieren und Home Assistant neu starten.
 
+Die Datei übernimmt auch die Sätze der **eingebauten Einkaufsliste** von Home Assistant: „Setz Milch auf die Einkaufsliste“, „Füge Milch zu meiner Einkaufsliste hinzu“, „Milch auf die Liste“ usw. landen dann – mit Laden und Preis – auf der **Essensplaner-Liste**, nicht mehr auf der eingebauten Einkaufsliste und nicht in einer Liste, die du mit ihr synchronisierst. Willst du das nicht, lösche in der kopierten Datei den Block `essensplaner_add_shopping_item`. Mit „Bevorzugt lokale Befehle“ gilt das auch für einen LLM-Agenten wie Jarvis.
+
 ## 🖼️ Dashboard-Karte
 
 Die Karte wird von der Integration automatisch geladen. Im Dashboard: **Karte hinzufügen → „Essensplaner“** (mit visuellem Editor).
@@ -148,7 +150,7 @@ Die Einkaufsliste kommt **komplett in deinen Hauptladen**. Nur wenn sich ein and
 
 Dann gewinnt der günstigste Laden. Optional: **„Extra-Laden lohnt sich ab“** – spart ein zusätzlicher Laden insgesamt weniger, kommt alles zurück in den Hauptladen (Standard 0 = aus). Alle Schwellen stellst du in den Optionen ein (Schritt **„Läden & Einkauf“**), ebenso den Modus: *Aus – eine Liste wie bisher* · *Alles im Hauptladen* · *Hauptladen + Ausnahmen (empfohlen)*. Die Aufteilung startet, sobald du einen Hauptladen hast; die **erste Filiale wird automatisch Hauptladen**.
 
-In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Artikel, Zwischensumme und Ersparnis) und **„Nach Abteilung“**. Mit **⇄** an einem Artikel siehst du die Preise aller Läden und wählst den Laden selbst, „Automatisch“ oder **„Immer in diesem Laden kaufen“** (im Laden markiert mit „immer hier“). Deine Wahl bleibt beim Neuerstellen der Liste erhalten; **„🔄 Läden neu zuordnen“** verteilt alle offenen Artikel neu (z. B. nach neuen Angeboten). In der To-do-Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
+In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Artikel, Zwischensumme und Ersparnis) und **„Nach Abteilung“**. Mit **⇄** an einem Artikel siehst du die Preise aller Läden und wählst den Laden selbst, „Automatisch“ oder **„Immer in diesem Laden kaufen“** (im Laden markiert mit „immer hier“). Deine Wahl bleibt beim Neuerstellen der Liste erhalten. Offene Artikel werden **automatisch neu verteilt**, sobald sich Filialen, Hauptladen, Preise oder Angebote ändern (auch wenn ein Angebot über Nacht endet); **„🔄 Läden neu zuordnen“** macht das von Hand. In der To-do-Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
 
 | Einkauf nach Laden | Ladenwahl ⇄ | Handy |
 |---|---|---|
@@ -171,7 +173,9 @@ Die Preisliste zeigt je Zutat den Richtwert und die Preise deiner Läden nebenei
 4. **gelernter allgemeiner Preis**
 5. **Richtwert**
 
-Gültige Angebote des Ladens werden zusätzlich verglichen (in ganzen Packungen). Ohne ladenspezifische Preise kostet ein Artikel überall gleich viel und wird deshalb nie verschoben.
+Gültige Angebote des Ladens werden zusätzlich verglichen (in ganzen Packungen; ein Angebot ohne Packungsgröße gilt für die übliche Packung des Ladens). Ohne ladenspezifische Preise kostet ein Artikel überall gleich viel und wird deshalb nie verschoben. Hast du zwei Filialen derselben Kette (z. B. REWE zu Hause und bei der Arbeit), zählt ein Angebot, das nur für die zweite gefunden wurde, für diese Filiale.
+
+Ein Preis in einer Ladenzelle gilt nur für diesen Laden – dein allgemeiner Preis (Spalte Richtwert) bleibt dabei unverändert.
 
 ![Preisliste je Laden](docs/images/preisliste-je-laden.png)
 
@@ -179,7 +183,7 @@ Gültige Angebote des Ladens werden zusätzlich verglichen (in ganzen Packungen)
 Viele Angebote nennen den Normalpreis („statt 2,49 €“). Daraus lernt der Essensplaner den Preis **je Laden**, mit **Verlauf** (bis zu 12 Einträge) und einer Plausibilitätsprüfung gegen den Richtwert. Quelle ist die inoffizielle marktguru.de-Suche (siehe oben) – nur wenn Online-Angebote eingeschaltet sind.
 
 ### REWE-Onlinepreise (experimentell)
-Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) holt der Essensplaner einmal pro Woche Normalpreise aus dem REWE-Onlineshop für deine REWE-Filiale. Dafür braucht die Filiale eine **Markt-ID** (Knopf „Markt suchen“ an der REWE-Filiale bzw. Aktion `essensplaner.find_rewe_markets`).
+Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) holt der Essensplaner einmal pro Woche Normalpreise aus dem REWE-Onlineshop für deine REWE-Filiale. Der Knopf „Preise aktualisieren“ fragt nach einem erfolgreichen Abruf frühestens 6 Stunden später erneut. Dafür braucht die Filiale eine **Markt-ID** (Knopf „Markt suchen“ an der REWE-Filiale bzw. Aktion `essensplaner.find_rewe_markets`).
 
 > ⚠️ Das ist eine **inoffizielle Schnittstelle** des REWE-Onlineshops: Markt-ID und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) gehen an `shop.rewe.de`. Lehnt REWE automatische Abfragen ab, wird **7 Tage pausiert**; gelernte Preise bleiben. Es kann jederzeit aufhören zu funktionieren – Schutzmechanismen werden bewusst nicht umgangen.
 
@@ -194,11 +198,11 @@ Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Ge
 | Dienst | Wann | Was |
 |---|---|---|
 | OpenStreetMap (`overpass-api.de`) | nur wenn du die Filialsuche startest | Koordinaten deiner Zonen, auf ca. 100 m gerundet |
-| marktguru.de | nur mit Online-Angeboten (täglich, Live-Suche, Artikelsuche) | Postleitzahlen (Filialen bzw. Optionen) und Suchbegriffe |
+| marktguru.de | nur mit Online-Angeboten (täglich, Live-Suche, Artikelsuche) | Postleitzahlen (Filialen bzw. Optionen) und Suchbegriffe – auch, was du in „Artikel hinzufügen“ tippst (ab 3 Zeichen) |
 | REWE (`shop.rewe.de`) | nur mit REWE-Onlinepreisen (wöchentlich, Knopf „Preise aktualisieren“, Artikelsuche) | Markt-ID und Suchbegriffe |
 | REWE (`www.rewe.de`) | nur bei „Markt suchen“ | Postleitzahl |
 
-Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Bezeichnungen, Entfernungen, Filial- und Markt-IDs geschwärzt.
+Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Postleitzahlen, Orte, Namen, Bezeichnungen, Entfernungen, Zonen-Namen, Filial- und Markt-IDs geschwärzt; übrig bleiben Kette, Hauptladen-Markierung und Anzahlen.
 
 ## 🧩 Blueprints
 
@@ -294,7 +298,7 @@ Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 - Intents an/aus, Panel an/aus
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen und IDs deiner Filialen.
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Optionen ist geschwärzt.
 
 ## Entwicklung
 

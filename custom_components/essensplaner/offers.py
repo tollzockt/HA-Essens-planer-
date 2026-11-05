@@ -67,6 +67,21 @@ def parse_pack(text: str | None) -> tuple[float, str] | None:
     return None
 
 
+_STUECK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:stück|stueck|stk\.?|st\.)", re.IGNORECASE)
+
+
+def parse_pack_text(text: str | None) -> tuple[float, str] | None:
+    """'250 g', '1,5 l', '2 x 125 g', '10 Stück' -> (amount, base unit)."""
+    if not text:
+        return None
+    if size := parse_pack(str(text)):
+        return size
+    if match := _STUECK_RE.search(str(text)):
+        amount = float(match.group(1).replace(",", "."))
+        return (amount, "Stück") if amount > 0 else None
+    return None
+
+
 def _date(value: Any) -> str | None:
     if not value:
         return None
@@ -84,7 +99,8 @@ def offer_matches(offer_text: str, key: str) -> bool:
     tokens = [_singular(w) for w in fold(offer_text).split()]
     words = [w for w in key.split() if len(w) >= 3]
     if not words:
-        return False
+        # very short keys ("ei" for Eier): only whole words ("Frische Eier", not "Eierlikör")
+        return all(w in tokens for w in key.split())
     return all(any(_token_match(t, w) for t in tokens) for w in words)
 
 
@@ -371,7 +387,7 @@ def manual_offer(
     old_price: float | None = None,
 ) -> dict[str, Any]:
     """Create an offer entered by the user."""
-    pack = parse_pack(pack_text) or parse_pack(product)
+    pack = parse_pack_text(pack_text) or parse_pack(product)
     key = ingredient_key(product)
     stamp = int(datetime.now().timestamp() * 1000)
     return {
@@ -402,7 +418,20 @@ async def async_refresh_offers(hass: HomeAssistant, manager: Any) -> dict[str, A
     """Fetch offers from marktguru for the manager's ingredients and store them.
 
     Searched at every postcode of manager.offer_targets() (branches, else the zip option).
+    Only one refresh runs at a time (start-up / daily run, button, services): a second
+    call waits for the running one and returns its result. The run is tied to the config
+    entry (cancelled on unload).
     """
+    task = getattr(manager, "_offers_task", None)
+    if task is None or task.done():
+        task = manager.entry.async_create_background_task(
+            hass, _async_refresh_offers(hass, manager), "essensplaner_refresh_offers"
+        )
+        manager._offers_task = task
+    return await asyncio.shield(task)
+
+
+async def _async_refresh_offers(hass: HomeAssistant, manager: Any) -> dict[str, Any]:
     targets = manager.offer_targets()
     terms = manager.offer_search_terms(limit=MAX_QUERIES)
     if targets:

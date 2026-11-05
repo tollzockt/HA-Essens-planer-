@@ -18,7 +18,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, intent
 import voluptuous as vol
 
-from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK
+from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK, SPLIT_OFF
 from .dates import describe_date
 from .ingredients import fold, strip_article
 from .manager import EssensplanerManager, error_message
@@ -73,8 +73,36 @@ _STORE_DESC = (
     "Filial-Bezeichnung wie 'Lidl Arbeit' oder 'Hauptladen'."
 )
 
+# "Butter bei Lidl Arbeit" -> ("Butter", "Lidl Arbeit")
+_AT_BRANCH_RE = re.compile(r"^(.+?)\s+(?:bei|beim)\s+(.+)$", re.IGNORECASE)
+
 _PREPOSITION = {meal: f"zum {label}" for meal, label in MEAL_LABELS.items()}
 _PREPOSITION[MEAL_SNACK] = "als Snack"
+
+
+# symbols that text-to-speech reads badly (error texts are shared with the panel)
+_SPEAKABLE = (("≈ ", "ungefähr "), ("≈", "ungefähr "), (" → ", ", dort "), (" & ", " und "))
+
+
+def _speakable(text: str) -> str:
+    """'Essensplaner-Panel → Läden & Preise' -> 'Essensplaner-Panel, dort Läden und Preise'."""
+    for symbol, words in _SPEAKABLE:
+        text = text.replace(symbol, words)
+    return text
+
+
+class _SpokenError(HomeAssistantError):
+    """An answer that is an error for the assistant (its text is spoken as is)."""
+
+
+def _split_off_reason(manager: EssensplanerManager) -> str:
+    """Why the shopping list is not split by store right now."""
+    if manager.split_mode == SPLIT_OFF:
+        return "Die Aufteilung nach Läden ist in den Optionen ausgeschaltet."
+    return (
+        "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich einen "
+        "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“)."
+    )
 
 
 def _cap(text: str) -> str:
@@ -120,15 +148,15 @@ class _EssensplanerIntent(intent.IntentHandler):
         }
         try:
             speech, data = await self._async_handle(hass, manager, values)
-        except ServiceValidationError as err:
+        except (ServiceValidationError, _SpokenError) as err:
             response.async_set_error(
-                intent.IntentResponseErrorCode.FAILED_TO_HANDLE, error_message(err)
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE, _speakable(error_message(err))
             )
             return response
         except HomeAssistantError as err:
             _LOGGER.warning("Essensplaner intent %s failed: %s", self.intent_type, err)
             response.async_set_error(
-                intent.IntentResponseErrorCode.FAILED_TO_HANDLE, error_message(err)
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE, _speakable(error_message(err))
             )
             return response
         response.response_type = self.response_type
@@ -633,17 +661,21 @@ class GetShoppingListIntent(_EssensplanerIntent):
 
     async def _async_handle(self, hass, manager, values):
         store = values.get("store")
-        overview = manager.shopping_overview(store)
-        if store:
-            selection = overview.get("selection")
-            if selection is None:
-                prefix = (
-                    "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich "
-                    "einen Hauptladen."
-                )
-                return f"{prefix} {_shopping_speech(overview)}", overview
-            return _selection_speech(selection), overview
-        return _shopping_speech(overview), overview
+        if store and manager.is_generic_store(store):
+            store = None  # "Was muss ich im Supermarkt kaufen?" = the whole list
+        overview = manager.shopping_overview()
+        if not store:
+            return _shopping_speech(overview), overview
+        if not manager.store_split_active:
+            return f"{_split_off_reason(manager)} {_shopping_speech(overview)}", overview
+        try:
+            overview["selection"] = manager.store_selection(store)
+        except ServiceValidationError as err:
+            if err.translation_key != "branch_not_found":
+                raise
+            # an unknown store: the whole list instead of only an error
+            return f"{error_message(err)} {_shopping_speech(overview)}", overview
+        return _selection_speech(overview["selection"]), overview
 
 
 def _shopping_speech(overview: dict[str, Any]) -> str:
@@ -933,14 +965,16 @@ class ComparePricesIntent(_EssensplanerIntent):
                 f"{_pack_hint(first, estimate)}.",
                 result,
             )
+        # without an amount stores are compared per kilo / litre: say it when packs differ
+        per_unit = result["compared_by"] == "unit_price" and len({r["pack"] for r in results}) > 1
         speech = (
             f"Am günstigsten gibt es {name} bei {cheapest['label']}: "
-            f"{format_eur(cheapest['price'])}{_pack_hint(cheapest)}"
+            f"{format_eur(cheapest['price'])}{_pack_hint(cheapest, per_unit=per_unit)}"
         )
         if cheapest.get("offer"):
             speech += " im Angebot"
         others = [
-            f"bei {r['label']} {format_eur(r['price'])}{_pack_hint(r)}"
+            f"bei {r['label']} {format_eur(r['price'])}{_pack_hint(r, per_unit=per_unit)}"
             for r in results
             if r is not cheapest
         ][:3]
@@ -950,15 +984,26 @@ class ComparePricesIntent(_EssensplanerIntent):
         return speech, result
 
 
-def _pack_hint(result: dict[str, Any], estimate: bool = False) -> str:
-    """' (250 g)', ' (2 × 250 g)', ' (250 g, Richtwert)'."""
+def _pack_hint(result: dict[str, Any], estimate: bool = False, per_unit: bool = False) -> str:
+    """' (250 g)', ' (2 mal 250 g)', ' (250 g, Richtwert)', ' (500 g, 6,98 € pro Kilo)'."""
     parts = []
     if result.get("pack"):
         packs = result.get("packs") or 1
-        parts.append(f"{packs} × {result['pack']}" if packs > 1 else result["pack"])
+        parts.append(f"{packs} mal {result['pack']}" if packs > 1 else result["pack"])
+    if per_unit and (base_price := _base_price(result)):
+        parts.append(base_price)
     if estimate:
         parts.append("Richtwert")
     return f" ({', '.join(parts)})" if parts else ""
+
+
+def _base_price(result: dict[str, Any]) -> str:
+    """'6,98 € pro Kilo' / 'pro Liter' / 'pro Stück' (empty without a unit price)."""
+    per = result.get("unit_price")
+    unit = {"g": "Kilo", "ml": "Liter", "Stück": "Stück"}.get(result.get("base") or "")
+    if per is None or unit is None:
+        return ""
+    return f"{format_eur(per * (1 if unit == 'Stück' else 1000))} pro {unit}"
 
 
 class SetShoppingStoreIntent(_EssensplanerIntent):
@@ -977,17 +1022,28 @@ class SetShoppingStoreIntent(_EssensplanerIntent):
             "store", description=_STORE_DESC + " 'automatisch' = wieder automatisch wählen."
         ): cv.string,
         vol.Optional(
-            "always", description="true = für dieses Produkt immer diesen Laden nehmen"
+            "always",
+            description=(
+                "true = für dieses Produkt immer diesen Laden nehmen (auch wenn es gerade "
+                "nicht auf der Einkaufsliste steht)"
+            ),
         ): cv.boolean,
     }
 
     async def _async_handle(self, hass, manager, values):
         always = bool(values.get("always", False))
+        if not manager.store_split_active:
+            raise _SpokenError(_split_off_reason(manager))
         item = manager.set_shopping_store(
             strip_article(str(values["item"])), str(values["store"]), always
         )
         name = _cap(manager._item_name(item))
         label = item.get("store_label") or ""
+        if item.get("preference_only"):
+            # "Kaffee kaufe ich immer bei Lidl" – not on the list right now
+            if label:
+                return f"Okay, {name} kaufst du ab jetzt immer bei {label}.", {"item": item}
+            return f"Okay, für {name} merke ich mir keinen Laden mehr.", {"item": item}
         if item.get("store_override"):
             speech = f"Okay, {name} kaufst du bei {label}"
         else:
@@ -1018,9 +1074,16 @@ class AddShoppingItemIntent(_EssensplanerIntent):
     }
 
     async def _async_handle(self, hass, manager, values):
-        item = manager.shopping_add(
-            strip_article(str(values["item"])), store=values.get("store") or None
-        )
+        text, store = strip_article(str(values["item"])), values.get("store") or None
+        # "Butter bei Lidl Arbeit": an own branch label at the end is the store
+        if (
+            store is None
+            and (match := _AT_BRANCH_RE.match(text))
+            and not manager.is_generic_store(match[2])
+            and manager.resolve_branch(match[2])
+        ):
+            text, store = match[1].strip(), match[2].strip()
+        item = manager.shopping_add(text, store=store)
         speech = f"Ich habe {item['summary']} auf die Einkaufsliste gesetzt"
         price = item.get("price")
         if item.get("store_label") and price is not None:

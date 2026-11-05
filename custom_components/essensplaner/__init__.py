@@ -103,6 +103,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     _auto_cooked()
     entry.async_on_unload(async_track_time_change(hass, _auto_cooked, hour=0, minute=5, second=0))
 
+    @callback
+    def _new_day(now: datetime) -> None:
+        """Expired offers go; items bought on an offer that ended are assigned again."""
+        manager.new_day()
+
+    entry.async_on_unload(async_track_time_change(hass, _new_day, hour=0, minute=1, second=0))
+
     if manager.offers_source == OFFERS_MARKTGURU:
         # postcodes come from the options or the branches (can change without a reload)
         _setup_offer_refresh(hass, entry, manager)
@@ -123,7 +130,7 @@ def _setup_offer_refresh(
 ) -> None:
     """Refresh offers once a day and shortly after start if they are stale."""
 
-    async def _refresh(_now: datetime | None = None) -> None:
+    async def _async_refresh() -> None:
         if not manager.offer_targets():
             return  # no zip code and no branch with a postcode yet
         try:
@@ -133,6 +140,11 @@ def _setup_offer_refresh(
             return
         if meta.get("status") == "error":
             _LOGGER.warning("Essensplaner offers: %s", "; ".join(meta.get("errors") or []))
+
+    @callback
+    def _refresh(_now: datetime | None = None) -> None:
+        # tied to the entry: cancelled on unload / reload, does not delay a restart
+        entry.async_create_background_task(hass, _async_refresh(), "essensplaner_offers")
 
     last = manager.offers_meta.get("last_update")
     stale = True
@@ -151,7 +163,7 @@ def _setup_rewe_refresh(
 ) -> None:
     """Check daily at 04:xx; prices are only fetched when the last success is a week old."""
 
-    async def _check(_now: datetime | None = None) -> None:
+    async def _async_check() -> None:
         if not rewe_enabled(manager):
             return
         before = (manager.price_sources_meta.get("rewe") or {}).get("last_run")
@@ -165,6 +177,10 @@ def _setup_rewe_refresh(
                 "Essensplaner REWE online prices (experimental): %s",
                 "; ".join(status.get("errors") or []) or status["message"],
             )
+
+    @callback
+    def _check(_now: datetime | None = None) -> None:
+        entry.async_create_background_task(hass, _async_check(), "essensplaner_rewe_prices")
 
     entry.async_on_unload(
         async_track_time_change(hass, _check, hour=4, minute=_daily_minute(entry), second=0)
@@ -180,7 +196,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        await entry.runtime_data.async_save_now()
+        manager = entry.runtime_data
+        await manager.async_save_now()
+        # refreshes still running (services, panel) must not write over the new manager's data
+        manager.unloaded = True
     return unload_ok
 
 

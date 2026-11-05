@@ -55,7 +55,7 @@
       },
       "economy": {
         "title": "Budget & Angebote",
-        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Online-Angebote nutzen die inoffizielle Schnittstelle von marktguru.de (Prospekte von Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); sie kann sich jederzeit ändern – nur für private Nutzung.",
+        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Online-Angebote nutzen die inoffizielle Schnittstelle von marktguru.de (Prospekte von Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); sie kann sich jederzeit ändern – nur für private Nutzung. Mit Online-Angeboten sucht auch das Feld „Artikel hinzufügen“ der Einkaufsliste live bei marktguru (was du tippst, ab 3 Zeichen, mit der Postleitzahl deiner Filiale).",
         "data": {
           "weekly_budget": "Wochenbudget",
           "plan_strategy": "Planungsart",
@@ -67,7 +67,7 @@
         "data_description": {
           "weekly_budget": "Euro pro Woche fürs Essen, 0 = kein Budget.",
           "plan_strategy": "Für automatische Planung und Vorschläge.",
-          "offers_source": "Woher aktuelle und kommende Angebote kommen.",
+          "offers_source": "Woher aktuelle und kommende Angebote kommen. marktguru: täglicher Abruf für die Postleitzahlen deiner Filialen, außerdem Live-Suche beim Tippen in „Artikel hinzufügen“.",
           "zip_code": "Für die Angebote der Märkte in deiner Nähe. Kann leer bleiben, wenn deine Filialen (im Panel) eine Postleitzahl haben – dann wird für deren Postleitzahlen gesucht.",
           "offer_stores": "Nur Angebote dieser Märkte (ohne Filialen). Mit Filialen zählen deren Läden.",
           "offers_watchlist": "Zusätzliche Produkte, nach denen gesucht wird, kommagetrennt (z. B. „Kaffee, Butter“)."
@@ -293,7 +293,7 @@
       "message": "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
     },
     "store_split_off": {
-      "message": "Die Einkaufsliste wird nicht nach Läden aufgeteilt – bitte zuerst einen Hauptladen festlegen (Essensplaner-Panel → Läden & Preise) bzw. die Aufteilung in den Optionen einschalten."
+      "message": "Die Einkaufsliste wird gerade nicht nach Läden aufgeteilt. Dafür brauchst du einen Hauptladen (im Essensplaner-Panel unter „Läden und Preise“), und die Aufteilung nach Läden muss in den Optionen eingeschaltet sein."
     },
     "overpass_busy": {
       "message": "OpenStreetMap ist gerade ausgelastet – bitte in ein paar Minuten erneut versuchen."

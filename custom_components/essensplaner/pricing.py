@@ -304,7 +304,8 @@ class PriceIndex:
         The short key of a name with an adjective ("gehackte Tomaten" -> "tomate") never
         replaces a product that is really called that ("Tomaten"), so canned tomatoes do
         not take over the price of fresh ones.
-        keys: extra keys that also win; weak_keys: extra keys only used if still free.
+        keys: extra keys that also win; weak_keys: extra name keys (e.g. the aliases of the
+        matching estimate) only used if still free.
         """
         entry = item if isinstance(item, PriceEntry) else make_entry(item, source, store_id)
         if entry is None:
@@ -321,14 +322,19 @@ class PriceIndex:
                 self._index[key] = entry
                 self._full.add(key)
         for key in weak_keys:
-            if key:
-                self._index.setdefault(key, entry)
+            if key and key not in self._index:
+                self._index[key] = entry
+                self._full.add(key)
         self._sorted = None
         return entry
 
     def get(self, key: str) -> PriceEntry | None:
         """Entry stored under an exact key."""
         return self._index.get(key)
+
+    def is_full_key(self, key: str) -> bool:
+        """True if the key is an entry's own name/alias key (or a forced key), not a short key."""
+        return key in self._full
 
     def keys_by_length(self) -> list[str]:
         """All keys, longest first (insertion order for equal lengths)."""
@@ -367,7 +373,10 @@ class LayeredPriceBook:
     """Look up prices in several indexes, the first layer has the highest priority.
 
     Exact keys are tried across all layers first (full key, then short key, each in
-    layer order). Then compound-word matching: the most specific (longest) key across
+    layer order); a key that is only the short key of a name with an adjective
+    ("gewürfelte Tomaten" -> "tomate") counts after all layers' own name keys, so it never
+    replaces a product that is really called that ("Tomaten" in a lower layer), like in the
+    1.2 price book. Then compound-word matching: the most specific (longest) key across
     all layers wins, equal lengths go to the higher priority layer – the same rule as
     the single 1.2 index, so a short own price ("Milch") never captures "Kokosmilch".
     """
@@ -400,6 +409,10 @@ class LayeredPriceBook:
 
     def _lookup(self, name: str) -> PriceEntry | None:
         keys = lookup_keys(name)
+        for key in keys:
+            for layer in self.layers:
+                if layer.is_full_key(key) and (entry := layer.get(key)) is not None:
+                    return entry
         for key in keys:
             for layer in self.layers:
                 if (entry := layer.get(key)) is not None:

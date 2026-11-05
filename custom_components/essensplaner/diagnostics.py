@@ -8,6 +8,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .const import CONF_ZIP
 from .manager import EssensplanerManager
 
 # where the user lives / shops: coordinates, streets (also in labels), distances to zones
@@ -28,6 +29,9 @@ TO_REDACT = {
     "id",
     "main_branch",
 }
+# branches and the branch search: also where they are (postcode, town, OSM name like
+# "Lidl Sendlinger Tor", zone names) – retailer, main flag and counts are enough
+BRANCH_REDACT = TO_REDACT | {"postcode", "city", "name", "zip_code"}
 
 
 async def async_get_config_entry_diagnostics(
@@ -37,7 +41,7 @@ async def async_get_config_entry_diagnostics(
     manager: EssensplanerManager = entry.runtime_data
     today = manager.today()
     return {
-        "options": dict(entry.options),
+        "options": async_redact_data(dict(entry.options), {CONF_ZIP}),
         "counts": {
             "recipes": len(manager.recipes),
             "plan_days": len(manager.plan),
@@ -59,18 +63,18 @@ async def async_get_config_entry_diagnostics(
         "store_split": manager.split_settings(),
         "main_retailer": manager.main_retailer,
         "active_retailers": manager.active_retailers(),
-        "offer_targets": manager.offer_targets_view(),
+        "offer_targets": [{"retailers": t["retailers"]} for t in manager.offer_targets_view()],
         "branches": async_redact_data(
             [{**b, "main": b.get("id") == manager.main_branch} for b in manager.branches],
-            TO_REDACT,
+            BRANCH_REDACT,
         ),
         "shopping_stores": [
             {k: g[k] for k in ("retailer", "main", "open", "priced", "subtotal", "saving")}
             for g in manager.stores_summary()
         ],
-        "price_sources_meta": async_redact_data(manager.price_sources_meta, TO_REDACT),
+        "price_sources_meta": async_redact_data(manager.price_sources_meta, BRANCH_REDACT),
         "branch_search": async_redact_data(
             {k: v for k, v in manager.branch_search.items() if k not in ("results", "key")},
-            TO_REDACT,
+            BRANCH_REDACT,
         ),
     }

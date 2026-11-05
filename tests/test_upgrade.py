@@ -137,17 +137,20 @@ async def test_upgrade_1_2_to_1_3(
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
 
-    assert manager.data_version == 2
+    assert manager.data_version == 3
     assert manager.branches == []  # no legacy branches
     assert manager.main_branch is None
     assert manager.store_prices_user["lidl"]["butter"]["price"] == 1.79
     assert manager.store_prices_user["lidl"]["butter"]["updated"] == prices["butter"]["updated"]
     assert manager.store_prices_user["aldi-sued"]["kaese"]["price"] == 2.49  # zip 80331
+    # a plain "Aldi" decided by the postcode is a guess: it follows the user's Aldi branch
+    assert manager.store_prices_user["aldi-sued"]["kaese"]["guessed"] is True
+    assert "retailer" not in manager.prices_user["kaese"]
     assert set(manager.store_prices_user) == {"lidl", "aldi-sued"}
     assert manager.prices_user["butter"]["store"] == "Lidl"  # general price kept
     assert manager.prices_user["butter"]["retailer"] == "lidl"
     assert "retailer" not in manager.prices_user["quark"]
-    assert {o["id"]: o["retailer"] for o in manager.offers} == {
+    assert {o["id"]: o.get("retailer") for o in manager.offers} == {
         "mg_1": "edeka",
         "man_1": "lidl",
         "man_2": None,
@@ -156,7 +159,7 @@ async def test_upgrade_1_2_to_1_3(
     assert manager.best_price("Butter")[1].price == 1.79
     # migrated data was written right away
     stored = hass_storage[key]["data"]
-    assert stored["data_version"] == 2
+    assert stored["data_version"] == 3
     assert stored["store_prices_user"]["lidl"]["butter"]["price"] == 1.79
 
     # idempotent: a second run changes nothing, a reload neither

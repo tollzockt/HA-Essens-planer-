@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hassil import Intents, recognize
+from hassil import Intents, recognize_best
 import pytest
 import yaml
 
@@ -162,6 +162,40 @@ def test_all_intents_exist(intents: Intents) -> None:
             "essensplaner_add_shopping_item",
             {"item": "kaffee", "store": "edeka"},
         ),
+        # the same wordings as HA's own shopping list (and speech recognition's "setzt")
+        ("setzt milch auf die einkaufsliste", "essensplaner_add_shopping_item", {"item": "milch"}),
+        ("nimm milch auf die einkaufsliste", "essensplaner_add_shopping_item", {"item": "milch"}),
+        ("setz milch auf meine einkaufsliste", "essensplaner_add_shopping_item", {"item": "milch"}),
+        ("schreib milch in die einkaufsliste", "essensplaner_add_shopping_item", {"item": "milch"}),
+        (
+            "füge milch zu meiner einkaufsliste hinzu",
+            "essensplaner_add_shopping_item",
+            {"item": "milch"},
+        ),
+        ("milch auf die einkaufsliste setzen", "essensplaner_add_shopping_item", {"item": "milch"}),
+        ("milch zur einkaufsliste hinzufügen", "essensplaner_add_shopping_item", {"item": "milch"}),
+        ("setz milch auf die liste", "essensplaner_add_shopping_item", {"item": "milch"}),
+        (
+            "ergänze milch auf der einkaufsliste",
+            "essensplaner_add_shopping_item",
+            {"item": "milch"},
+        ),
+        # own branch labels
+        (
+            "was müssen wir bei lidl arbeit kaufen",
+            "essensplaner_get_shopping_list",
+            {"store": "lidl arbeit"},
+        ),
+        (
+            "was steht für lidl arbeit auf der einkaufsliste",
+            "essensplaner_get_shopping_list",
+            {"store": "lidl arbeit"},
+        ),
+        (
+            "butter kaufe ich immer bei rewe arbeit",
+            "essensplaner_set_shopping_store",
+            {"item": "butter", "store": "rewe arbeit", "always": True},
+        ),
         # no conflicts with the older sentences
         ("setze die zutaten auf die einkaufsliste", "essensplaner_create_shopping_list", {}),
         ("schreib die zutaten auf die einkaufsliste", "essensplaner_create_shopping_list", {}),
@@ -171,11 +205,17 @@ def test_all_intents_exist(intents: Intents) -> None:
     ],
 )
 def test_sentences(intents: Intents, sentence: str, intent_name: str, slots: dict) -> None:
-    """Sentences are recognized."""
-    result = recognize(sentence, intents)
+    """Sentences are recognized (best match, like Home Assistant's default agent)."""
+    result = recognize_best(sentence, intents)
     assert result is not None, sentence
     assert result.intent.name == intent_name
     assert {k: v.value for k, v in result.entities.items()} == slots
+
+
+@pytest.mark.parametrize("sentence", ["hol die wäsche im keller", "hol die post beim nachbarn"])
+def test_no_store_sentence(intents: Intents, sentence: str) -> None:
+    """Everyday sentences with "holen … im/beim …" are left to other agents."""
+    assert recognize_best(sentence, intents) is None
 
 
 def test_store_list(intents: Intents) -> None:

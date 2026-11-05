@@ -14,6 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
+from .netio import async_read_body
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -226,7 +227,7 @@ async def async_fetch_recipe(hass: HomeAssistant, url: str) -> dict[str, Any]:
                     translation_key="download_failed",
                     translation_placeholders={"url": url, "error": f"HTTP {resp.status}"},
                 )
-            body = await resp.content.read(_MAX_BYTES)
+            body = await async_read_body(resp, _MAX_BYTES, truncate=True)
             page = body.decode(resp.charset or "utf-8", errors="replace")
     except (aiohttp.ClientError, TimeoutError) as err:
         raise RecipeImportError(

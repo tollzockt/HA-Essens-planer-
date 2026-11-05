@@ -27,7 +27,14 @@ from homeassistant.util import dt as dt_util
 from .const import OFFERS_MARKTGURU
 from .economy import _offer_short
 from .ingredients import fold, ingredient_key, parse_ingredient
-from .offers import MarktguruClient, OfferError, normalize_marktguru, parse_pack, store_allowed
+from .offers import (
+    MarktguruClient,
+    OfferError,
+    normalize_marktguru,
+    offer_matches,
+    parse_pack_text as parse_pack_text,  # moved to offers.py (re-exported)
+    store_allowed,
+)
 from .pricing import PriceEntry, offer_as_entry, offer_pack, offer_valid_on, pack_text, unit_price
 from .retailers import retailer_for_store_id, retailer_name
 from .stores import valid_postcode
@@ -51,7 +58,6 @@ MATCH_SUBSTRING = 3
 # result order within the same match quality
 SOURCE_RANK = {"offer": 0, "store": 1, "learned": 2, "history": 3, "default": 4, "live": 5}
 _LEARNED = {"leaflet", "rewe_online", "offer_regular"}
-_STUECK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:stück|stueck|stk\.?|st\.)", re.IGNORECASE)
 
 # async provider(manager, query, branch or None, retailer or None) -> [offer dicts]
 # (normalized like normalize_marktguru(); may raise OfferError)
@@ -89,18 +95,6 @@ def live_provider_for(manager: EssensplanerManager, retailer: str | None) -> Liv
         return None
     check = LIVE_PROVIDER_CHECKS.get(retailer or "")
     return provider if check is None or check(manager) else None
-
-
-def parse_pack_text(text: str | None) -> tuple[float, str] | None:
-    """'250 g', '1,5 l', '2 x 125 g', '10 Stück' -> (amount, base unit)."""
-    if not text:
-        return None
-    if size := parse_pack(str(text)):
-        return size
-    if match := _STUECK_RE.search(str(text)):
-        amount = float(match.group(1).replace(",", "."))
-        return (amount, "Stück") if amount > 0 else None
-    return None
 
 
 def _match(query: str, key: str, names: list[str]) -> int | None:
@@ -344,6 +338,8 @@ class ArticlesMixin:
             if not offer_valid_on(offer, today, 0):
                 continue
             match = _match(folded, key, [offer.get("title") or "", offer.get("product") or ""])
+            if key and key in (offer.get("keys") or []):
+                match = MATCH_EXACT  # an offer for exactly this article ("Deutsche Markenbutter")
             if match is None:
                 continue
             found.append(
@@ -413,6 +409,12 @@ class ArticlesMixin:
                 )
             )
 
+        if key and any(r["match"] == MATCH_EXACT for r in found):
+            # the query names an article: its variants ("Süßrahmbutter") rank like prefix
+            # matches, i.e. with the other products that start with it ("Butterkäse")
+            for item in found:
+                if item["match"] > MATCH_PREFIX and self._is_article(item["title"], key):
+                    item["match"] = MATCH_PREFIX
         found.sort(key=_sort_key)
         result: list[dict[str, Any]] = []
         seen: set[tuple[str, str | None]] = set()
@@ -425,6 +427,11 @@ class ArticlesMixin:
             if len(result) >= max(1, int(limit)):
                 break
         return result
+
+    def _is_article(self: EssensplanerManager, title: str, key: str) -> bool:
+        """True if a hit is the article of the key or a variant of it (compound head:
+        "Süßrahmbutter", "ja! Deutsche Markenbutter") – not "Butterkekse" or "Erdnussbutter"."""
+        return offer_matches(title, key) and not self.names_other_product(title, key)
 
     # ------------------------------------------------------------------
     # Live search
@@ -478,6 +485,11 @@ class ArticlesMixin:
         response["error"] = "; ".join(errors) or None
         folded = fold(str(query)).strip()
         key = ingredient_key(str(query))
+        defaults = self.defaults_index()
+        # the query names an article: hits that are no such article are ranked last
+        article = bool(key) and (
+            defaults.get(key) is not None or defaults.exact(str(query)) is not None
+        )
         today = self.today()
         results: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -486,6 +498,13 @@ class ArticlesMixin:
                 continue
             seen.add(offer.get("id") or "")
             match = _match(folded, key, [offer.get("title") or "", offer.get("product") or ""])
+            if article:
+                # like the shopping list: offers of the article first, other products last
+                title = str(offer.get("product") or offer.get("title") or "")
+                if self._is_article(title, key):
+                    match = MATCH_WORD if match is None else min(match, MATCH_WORD)
+                else:
+                    match = MATCH_SUBSTRING
             result = self._offer_result(
                 offer,
                 "live",

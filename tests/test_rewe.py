@@ -717,12 +717,27 @@ async def test_refresh_prices_service(
 
     manager.save_branch({"store": "REWE", "postcode": "80331", "rewe_market_id": MARKET})
     aioclient_mock.get(SEARCH_URL, json=BUTTER)
-    for _ in range(2):
-        result = await hass.services.async_call(
+
+    async def refresh() -> dict:
+        return await hass.services.async_call(
             DOMAIN, "refresh_prices", {"source": "rewe"}, blocking=True, return_response=True
         )
-        assert (result["status"], result["learned"]) == ("ok", 1)
-    assert len(_calls(aioclient_mock)) == 6  # force: also when fresh (3 terms each)
+
+    result = await refresh()
+    assert (result["status"], result["learned"]) == ("ok", 1)
+    assert len(_calls(aioclient_mock)) == 3  # 3 terms
+    # tapping again right away sends nothing (at most once per MANUAL_MIN_HOURS)
+    again = await refresh()
+    assert len(_calls(aioclient_mock)) == 3
+    assert again["status"] == "ok"
+    assert again["message"] == "Gerade erst aktualisiert – wieder möglich ab 16:00 Uhr."
+    assert again["cooldown_until"] == "2026-11-04T15:00:00+00:00"
+    # force: runs again later although the prices are still fresh (< REFRESH_DAYS)
+    freezer.tick(timedelta(hours=rewe.MANUAL_MIN_HOURS))
+    result = await refresh()
+    assert (result["status"], result["learned"]) == ("ok", 1)
+    assert "cooldown_until" not in result
+    assert len(_calls(aioclient_mock)) == 6
 
 
 async def test_article_search_live_rewe(

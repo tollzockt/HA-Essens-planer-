@@ -41,6 +41,7 @@ from .const import (
     HTTP_USER_AGENT,
 )
 from .ingredients import fold
+from .netio import BodyTooLarge, async_read_body
 from .retailers import ALDI_NORD, ALDI_SUED, resolve_retailer, retailer_for_osm, retailer_name
 
 if TYPE_CHECKING:
@@ -483,7 +484,9 @@ async def async_overpass_query(hass: HomeAssistant, query: str) -> dict[str, Any
                 raise BranchSearchError("overpass_timeout", MSG_TIMEOUT)
             if resp.status != 200:
                 raise _failed(f"HTTP {resp.status}")
-            body = await resp.content.read(_MAX_BYTES)
+            body = await async_read_body(resp, _MAX_BYTES)
+    except BodyTooLarge as err:
+        raise _failed("Antwort zu groß") from err
     except TimeoutError as err:
         raise BranchSearchError("overpass_timeout", MSG_TIMEOUT) from err
     except aiohttp.ClientError as err:

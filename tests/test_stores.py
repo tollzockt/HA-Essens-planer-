@@ -279,9 +279,30 @@ async def test_remove_branch_clears_store_choices(hass: HomeAssistant, setup_int
     ]
     manager.remove_branch(work["id"])
     first, second = manager.shopping
-    assert first == {"uid": "1", "summary": "Butter", "status": "needs_action"}
-    assert (second["branch_id"], second["retailer"]) == (aldi["id"], "aldi-sued")
+    # the manual choice is gone, the open item is assigned again (main branch)
+    assert "store_override" not in first
+    assert (first["branch_id"], first["retailer"], first["store_reason"]) == (
+        lidl["id"],
+        "lidl",
+        "main",
+    )
+    assert first["description"].startswith("🏪 Lidl")
+    assert (second["branch_id"], second["retailer"]) == (lidl["id"], "lidl")
     assert offer["branches"] == [lidl["id"]]  # retagged
+
+    # completed items keep no store of a removed branch
+    manager.shopping.append(
+        {
+            "uid": "3",
+            "summary": "Kaffee",
+            "status": "completed",
+            "branch_id": aldi["id"],
+            "retailer": "aldi-sued",
+            "store_label": "Aldi Süd",
+        }
+    )
+    manager.remove_branch(aldi["id"])
+    assert manager.shopping[2] == {"uid": "3", "summary": "Kaffee", "status": "completed"}
 
 
 async def test_offer_targets(hass: HomeAssistant, config_entry: MockConfigEntry, freezer) -> None:
@@ -816,7 +837,8 @@ async def test_store_split_intents(hass: HomeAssistant, setup_integration) -> No
     )
     assert await _speech(hass, "essensplaner_get_shopping_list", store="Aldi") == (
         "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich einen "
-        "Hauptladen. Auf der Einkaufsliste steht 1 Eintrag. Milchprodukte und Eier: Butter."
+        "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“). Auf der Einkaufsliste "
+        "steht 1 Eintrag. Milchprodukte und Eier: Butter."
     )
     manager.shopping_clear()
 
@@ -845,8 +867,13 @@ async def test_store_split_intents(hass: HomeAssistant, setup_integration) -> No
     assert speech.startswith(
         "Auf der Einkaufsliste stehen 3 Einträge. Davon 2 bei Lidl und 1 bei REWE Arbeit. "
     )
-    response = await _intent(hass, "essensplaner_get_shopping_list", store="Netto")
-    assert response.response_type == intent.IntentResponseType.ERROR
+    # an unknown store or a word like "Supermarkt": the whole list
+    speech = await _speech(hass, "essensplaner_get_shopping_list", store="Netto")
+    assert speech.startswith(
+        "Die Filiale „Netto“ habe ich nicht gefunden. Auf der Einkaufsliste stehen 3 Einträge."
+    )
+    speech = await _speech(hass, "essensplaner_get_shopping_list", store="im Supermarkt")
+    assert speech.startswith("Auf der Einkaufsliste stehen 3 Einträge.")
 
     assert await _speech(hass, "essensplaner_compare_prices", item="Butter") == (
         "Am günstigsten gibt es Butter bei Lidl: 1,59 € (250 g). "
@@ -934,9 +961,12 @@ async def test_store_sensors_todo_and_diagnostics(hass: HomeAssistant, setup_int
 
     diagnostics = await async_get_config_entry_diagnostics(hass, setup_integration)
     branch = diagnostics["branches"][0]
-    for field in ("lat", "lon", "street", "label", "id"):
+    for field in ("lat", "lon", "street", "label", "id", "postcode", "name"):
         assert branch[field] == "**REDACTED**", field
-    assert (branch["retailer"], branch["postcode"], branch["main"]) == ("aldi-sued", "80331", True)
+    assert branch["city"] in ("", "**REDACTED**")  # empty values stay empty
+    assert (branch["retailer"], branch["main"]) == ("aldi-sued", True)
+    assert diagnostics["offer_targets"] == [{"retailers": ["aldi-sued", "lidl"]}]
+    assert "80331" not in str(diagnostics)
     assert diagnostics["counts"]["store_prices_user"] == {"lidl": 1}
     assert diagnostics["store_split"]["active"] is True
     assert "Hauptstraße" not in str(diagnostics)
