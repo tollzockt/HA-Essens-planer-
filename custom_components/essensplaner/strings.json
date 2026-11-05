@@ -46,7 +46,11 @@
           "register_intents": "Registers intents so Assist, Jarvis and other LLM agents (also via MCP) can use the planner.",
           "show_panel": "Shows the Essensplaner app in the sidebar.",
           "excluded": "Comma separated tags or ingredients that suggestions and auto planning avoid, e.g. 'Fisch, Pilze'.",
-          "auto_mark_cooked": "After the day is over, planned recipes count as cooked (better suggestions)."
+          "auto_mark_cooked": "After the day is over, planned recipes count as cooked (better suggestions).",
+          "time_fruehstueck": "Used for the calendar and 'Next meal'.",
+          "time_mittagessen": "Used for the calendar and 'Next meal'.",
+          "time_snack": "Used for the calendar and 'Next meal'.",
+          "time_abendessen": "Used for the calendar and 'Next meal'."
         }
       },
       "economy": {
@@ -67,6 +71,34 @@
           "zip_code": "For the offers of the shops near you. Can stay empty if your branches (in the panel) have a postcode – then their postcodes are searched.",
           "offer_stores": "Only offers of these shops (without branches). With branches their stores count.",
           "offers_watchlist": "Additional products to look for, comma separated (e.g. 'Kaffee, Butter')."
+        }
+      },
+      "stores": {
+        "title": "Stores & shopping",
+        "description": "How the shopping list is split across your stores, where branches are searched and whether REWE online prices are loaded. You choose your branches in the Essensplaner panel under '🏪 Läden & Preise' – the first one automatically becomes your main store. Saved branches: {branches} · main store: {main_branch}.\n\nPrivacy: the branch search sends the coordinates of your zones, rounded to about 100 m, to OpenStreetMap (overpass-api.de) only when you start it.",
+        "data": {
+          "store_split_mode": "Shopping list by store",
+          "store_split_min_saving": "Cheaper elsewhere from",
+          "store_split_min_percent": "… or cheaper from",
+          "store_split_offer_min": "Offer is worth it from",
+          "store_split_trip_min": "Extra store is worth it from",
+          "branch_zones": "Zones for the branch search",
+          "branch_radius_km": "Radius around the zones",
+          "branch_route": "Include the way to work",
+          "branch_route_radius_m": "Distance to the way to work",
+          "rewe_online_prices": "REWE online prices (experimental)"
+        },
+        "data_description": {
+          "store_split_mode": "'Main store + exceptions': everything goes to the main store, only offers and clearly cheaper items go to your other stores. 'Everything at the main store' only shows other stores as alternatives. Works as soon as you have a main store.",
+          "store_split_min_saving": "An item moves to another store if it is at least this much cheaper there (default 1.00 EUR). Only real store prices count, not estimates.",
+          "store_split_min_percent": "… or if it is at least this many percent cheaper there (default 20 %). One of the two conditions is enough; items are never moved for less than 0.20 EUR.",
+          "store_split_offer_min": "An offer in another store counts from this saving (default 0.30 EUR).",
+          "store_split_trip_min": "Is the trip worth it? If an extra store saves less in total, everything goes back to the main store. 0 = off.",
+          "branch_zones": "'Search nearby' (OpenStreetMap) searches around these zones. Empty = automatic: home and zones with 'Arbeit' or 'Work' in their name.",
+          "branch_radius_km": "Search radius around each zone (default 3 km).",
+          "branch_route": "Also find stores along the straight line from home to the other zones, e.g. on the way to work.",
+          "branch_route_radius_m": "How far a store may be from the way to work at most (default 800 m).",
+          "rewe_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the REWE online shop. The market ID of your REWE branch and search terms (ingredients, shopping list items, your article search) are sent to shop.rewe.de – automatically at most once a week. If REWE refuses the requests, they are paused for 7 days; learned prices stay. May stop working at any time. Needs a REWE branch with a market ID (in the panel)."
         }
       }
     },
@@ -131,6 +163,13 @@
       "options": {
         "offers": "Supermarket offers (marktguru.de)",
         "rewe": "REWE online shop (experimental)"
+      }
+    },
+    "split_mode": {
+      "options": {
+        "off": "Off – one list as before",
+        "main_only": "Everything at the main store",
+        "main_exceptions": "Main store + exceptions (recommended)"
       }
     }
   },
@@ -254,7 +293,7 @@
       "message": "There are several branches for \"{branch}\" – please be more specific, e.g. with the street."
     },
     "store_split_off": {
-      "message": "The shopping list is not split by store – please choose a main store first (Essensplaner → Stores) or enable the split in the options."
+      "message": "The shopping list is not split by store – please choose a main store first (Essensplaner panel → Läden & Preise) or turn on the split in the options."
     },
     "overpass_busy": {
       "message": "OpenStreetMap is busy right now – please try again in a few minutes."
@@ -269,7 +308,7 @@
       "message": "Please wait {seconds} more seconds before the next branch search so OpenStreetMap is not overloaded."
     },
     "zone_not_found": {
-      "message": "The zone '{zone}' was not found."
+      "message": "Zone {zone} was not found."
     },
     "no_search_area": {
       "message": "No zone with coordinates found – set the home zone in Home Assistant or choose zones."
@@ -603,7 +642,7 @@
     },
     "generate_shopping_list": {
       "name": "Generate shopping list",
-      "description": "Creates the shopping list from the planned recipes.",
+      "description": "Creates the shopping list from the planned recipes. With a main store the items are assigned to your stores (main store + exceptions); the response then contains the stores with subtotals.",
       "fields": {
         "start_date": {
           "name": "Start date",
@@ -709,7 +748,7 @@
     },
     "get_shopping_list": {
       "name": "Get shopping list",
-      "description": "Returns the open items grouped by aisle.",
+      "description": "Returns the open items grouped by aisle and the stores with subtotals; with a store also the items of that store.",
       "fields": {
         "store": {
           "name": "Store",
@@ -758,12 +797,12 @@
     },
     "refresh_offers": {
       "name": "Refresh offers",
-      "description": "Loads current and upcoming supermarket offers (marktguru).",
+      "description": "Loads current and upcoming supermarket offers (marktguru) for the postcodes of your branches or the zip code from the options.",
       "fields": {}
     },
     "search_offers": {
       "name": "Search offers",
-      "description": "Searches offers for a product (live and saved).",
+      "description": "Searches offers for a product (live for the postcodes of your branches, and saved ones).",
       "fields": {
         "query": {
           "name": "Search",

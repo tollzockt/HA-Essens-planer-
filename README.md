@@ -1,8 +1,10 @@
 # 🍽️ Essensplaner für Home Assistant
 
-Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Preisen, Wochenbudget und Supermarkt-Angeboten**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
+Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Preisen, Wochenbudget, Supermarkt-Angeboten und deinen Läden (Hauptladen + Ausnahmen)**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
 
-> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane mir die Woche günstig.“ · „Welche Angebote gibt es diese Woche?“ · „Wie viel Budget habe ich noch?“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Erstelle die Einkaufsliste.“
+> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane mir die Woche günstig.“ · „Welche Angebote gibt es diese Woche?“ · „Wie viel Budget habe ich noch?“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Erstelle die Einkaufsliste.“ · „Was muss ich bei Aldi kaufen?“ · „Wo ist Butter am günstigsten?“
+
+**Inhalt:** [Funktionen](#funktionen) · [Installation](#installation) · [Jarvis](#-jarvis--andere-sprachassistenten) · [Dashboard-Karte](#️-dashboard-karte) · [Preise, Budget & Angebote](#-preise-budget--angebote) · [Läden, Filialen & Preise](#-läden-filialen--preise) · [Datenschutz](#-datenschutz) · [Blueprints](#-blueprints) · [Entitäten](#entitäten) · [Aktionen](#aktionen-services) · [Optionen](#optionen)
 
 ![Wochenplan](docs/images/wochenplan.png)
 
@@ -12,13 +14,14 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 |---|---|
 | 📖 **Rezepte** | Eigene Rezepte mit Zutaten, Schritten, Zeiten, Kategorien, Bild, Favoriten und ⭐ Bewertung. **Import per Link** von Chefkoch, Lecker, Eat Smarter, BBC Good Food & allen Seiten mit schema.org-Rezepten. Portionen werden automatisch umgerechnet. Sortieren nach „günstigste“, „zuletzt gekocht“, „schnellste“, „beste Bewertung“ … **107 Rezepte** zum Start (Klassiker, vegetarisch/vegan, Suppen, Pasta, international, Fisch, Frühstück, Kuchen). **Export/Import** als JSON. |
 | 🗓️ **Wochenplan** | Frühstück, Mittag, Snack und Abendessen, mit Rezept oder Freitext („Pizza bestellen“), Kosten je Mahlzeit. **Drag & Drop** (belegte Plätze werden getauscht), **„Letzte Woche übernehmen“**, Woche **automatisch planen** – *ausgewogen*, *günstig* (Budget), *Angebote nutzen* oder *Abwechslung*: Favoriten und lange nicht Gekochtes werden bevorzugt, ähnliche Gerichte an aufeinanderfolgenden Tagen und „Nie vorschlagen“-Zutaten vermieden. |
-| 💶 **Preise & Budget** | Richtpreise für über 200 Zutaten, eigene Preise, Kosten pro Rezept/Portion/Woche, **Wochenbudget** mit Restbudget. |
+| 💶 **Preise & Budget** | Richtpreise für über 200 Zutaten, eigene Preise – auch **je Laden** (Preisliste Aldi, Lidl, REWE … nebeneinander), **gelernte Normalpreise** aus Prospekten mit Verlauf, optional REWE-Onlinepreise (experimentell). Kosten pro Rezept/Portion/Woche, **Wochenbudget** mit Restbudget. |
+| 🏪 **Läden & Filialen** | Deine Filialen per **OpenStreetMap-Suche** rund um Zuhause und Arbeit, **auf dem Arbeitsweg** oder von Hand. **Hauptladen + Ausnahmen**: alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden. Angebote für die Postleitzahlen deiner Filialen. |
 | 🏷️ **Angebote** | **Aktuelle und kommende Angebote** von Aldi Süd/Nord, Lidl, REWE, EDEKA, Penny, Netto, Kaufland … (optional über marktguru.de nach Postleitzahl, täglich automatisch) oder selbst eingetragen. Angebote fließen in Rezeptkosten, Planung und Einkaufsliste ein; Normalpreise werden aus den Prospekten gelernt. Live-Preissuche im Panel. |
 | 👩‍🍳 **Kochmodus** | Vollbild Schritt für Schritt mit großer Schrift, Zutaten zum Abhaken, **Timer aus dem Rezepttext** („15 Minuten köcheln“ → ⏱ mit Signalton). Der Bildschirm bleibt an. Blättern per Wischen oder Pfeiltasten. |
 | 🧊 **Was kann ich kochen?** | Rezepte zu den Zutaten, die du da hast, mit Angabe, was noch fehlt. |
-| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
-| 🗣️ **Jarvis / Assist / LLM** | 19 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
-| 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte, Wochenplan, Rezepten und Einkaufsliste, passend zu Hell/Dunkel-Theme und Handy. |
+| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **nach Laden** mit Zwischensumme oder nach Abteilung, **Ladenwahl je Artikel**, **Artikelsuche beim Tippen** (Preis, Packung, Angebot), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
+| 🗣️ **Jarvis / Assist / LLM** | 22 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
+| 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte, Wochenplan, Rezepten, Einkaufsliste, Angeboten und „🏪 Läden & Preise“, passend zu Hell/Dunkel-Theme und Handy. |
 | 🖼️ **Dashboard-Karte** | `custom:essensplaner-card` (Heute · Nächste Mahlzeit · Woche), ideal fürs Küchen- oder Esszimmer-Tablet. |
 | 🏠 **Entitäten & Blueprints** | Sensoren, Kalender, To-do-Liste und Buttons, dazu fertige Blueprints für Essens-Erinnerung und Wochen-Routine. |
 
@@ -45,7 +48,9 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 Ordner `custom_components/essensplaner` nach `/config/custom_components/essensplaner` kopieren, neu starten, Integration hinzufügen.
 
 ### Updates
-HACS bietet Updates über **GitHub-Releases** an. Für jede neue Version wird ein Release mit dem Tag `vX.Y.Z` (z. B. `v1.2.1`) erstellt – dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS. Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
+HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repositorys. Für jede neue Version wird deshalb ein Release mit dem Tag `vX.Y.Z` erstellt – für diese Version **`v1.3.0`**. Dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS (falls es nicht von selbst auftaucht: in HACS beim Essensplaner über ⋮ die Informationen aktualisieren). Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
+
+**Update auf 1.3:** Deine Daten werden beim ersten Start automatisch übernommen (eigene Preise mit Laden landen zusätzlich in der Preisliste dieses Ladens). Bis du Filialen anlegst, verhält sich alles wie in 1.2. Neu in den Optionen ist der Schritt **„Läden & Einkauf“**. Nutzt du den eingebauten Sprachagenten ohne LLM, kopiere [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) erneut (neue Sätze). Zurück auf 1.2 geht, aber Filialen, Ladenpreise und Preisverlauf gehen dabei verloren – vorher ein Backup machen.
 
 ## 🤖 Jarvis & andere Sprachassistenten
 
@@ -58,7 +63,7 @@ Der Essensplaner registriert **Intents**. Home Assistant stellt jeden registrier
 ### Empfohlene Einrichtung für Jarvis
 1. Integration installieren (Intents sind standardmäßig aktiv, Option „Sprachassistent / LLM-Tools“).
 2. Unter **Einstellungen → Sprachassistenten → Entitäten freigeben** diese Entitäten für Assist freigeben, damit Jarvis den Plan auch „sieht“:
-   `sensor.essensplaner_today`, `sensor.essensplaner_tomorrow`, `sensor.essensplaner_next_meal`, `sensor.essensplaner_week_plan`, `todo.essensplaner_shopping_list`, `calendar.essensplaner_meal_plan`.
+   `sensor.essensplaner_today`, `sensor.essensplaner_tomorrow`, `sensor.essensplaner_next_meal`, `sensor.essensplaner_week_plan`, `todo.essensplaner_shopping_list`, `calendar.essensplaner_meal_plan` – und für den Einkauf nach Laden `sensor.essensplaner_shopping_stores` und `sensor.essensplaner_shopping_total`.
 3. Fertig. Wenn Jarvis über den MCP-Server auf Home Assistant zugreift, tauchen die Tools `essensplaner_*` nach einem Neuladen der Tool-Liste auf.
 
 Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Wochenplan und Einkaufsliste nutze die Tools `essensplaner_*`.“*
@@ -77,7 +82,10 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_get_recipe` | „Was brauche ich für Chili con Carne für 6 Personen?“ · „Lies mir das Rezept vor.“ |
 | `essensplaner_search_recipes` | „Welche Rezepte habe ich mit Hähnchen?“ |
 | `essensplaner_create_shopping_list` | „Erstelle die Einkaufsliste für die Woche.“ |
-| `essensplaner_get_shopping_list` | „Was steht auf der Einkaufsliste?“ · „Was muss ich einkaufen?“ |
+| `essensplaner_get_shopping_list` | „Was steht auf der Einkaufsliste?“ · „Was muss ich einkaufen?“ · „Was muss ich bei Aldi kaufen?“ · „Was kaufe ich im Hauptladen?“ |
+| `essensplaner_add_shopping_item` | „Setz Butter auf die Einkaufsliste.“ · „Füge Kaffee zur Einkaufsliste hinzu.“ (mit Preis und Laden) |
+| `essensplaner_set_shopping_store` | „Kauf die Butter bei REWE.“ · „Milch kaufe ich immer bei Lidl.“ |
+| `essensplaner_compare_prices` | „Wo ist Butter am günstigsten?“ · „Vergleiche die Preise für Hackfleisch.“ |
 | `essensplaner_clear_shopping_list` | „Lösche die Einkaufsliste.“ · „Entferne die erledigten Einträge.“ |
 | `essensplaner_auto_plan` | „Plane mir die nächste Woche (vegetarisch).“ · „Plane die Woche günstig / mit den Angeboten.“ |
 | `essensplaner_get_offers` | „Welche Angebote gibt es diese Woche?“ · „Wo ist Butter im Angebot?“ |
@@ -86,6 +94,8 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_add_recipe` | „Speichere ein Rezept Rührei mit 3 Eiern, Butter und Salz.“ |
 | `essensplaner_import_recipe` | „Importiere das Rezept von https://www.chefkoch.de/…“ |
 | `essensplaner_mark_cooked` | „Wir haben heute Linsensuppe gekocht.“ |
+
+Antworten klingen z. B. so: *„Bei Aldi Süd kaufst du 3 Artikel für ungefähr 7,47 €: …“* · *„Am günstigsten gibt es Butter bei Lidl: 1,59 € (250 g).“* · *„Ich habe Butter auf die Einkaufsliste gesetzt – bei Aldi Süd etwa 1,79 €.“* Läden versteht Jarvis als Kette (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus, Marktkauf), als eigene Bezeichnung („Lidl Arbeit“) oder als „Hauptladen“.
 
 Datumsangaben werden in natürlicher Sprache verstanden: *heute, morgen, übermorgen, heute Abend, morgen früh, Freitag, nächsten Montag, nächste Woche, in 3 Tagen, 24.12., 2026-11-20*.
 
@@ -113,14 +123,81 @@ Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dash
 
 *Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren → (zweiter Schritt) Budget & Angebote*:
 
+<!-- screenshot: optionen-budget-angebote.png -->
+
 - **Wochenbudget** in Euro (0 = aus) – Panel, Sensoren und Jarvis zeigen Kosten und Restbudget; „günstig“ planen hält die Woche im Rahmen.
 - **Planungsart**: ausgewogen · günstig · Angebote nutzen · Abwechslung.
-- **Online-Angebote**: *marktguru.de* + **Postleitzahl** + Auswahl der **Supermärkte**. Die Integration fragt einmal täglich (morgens) die Angebote zu den Zutaten deiner Rezepte ab – aktuelle **und kommende** (ab nächster Woche) – und optional zu einer **Merkliste** (z. B. „Kaffee, Butter“).
+- **Online-Angebote**: *marktguru.de* + **Postleitzahl** + Auswahl der **Supermärkte**. Die Integration fragt einmal täglich (morgens) die Angebote zu den Zutaten deiner Rezepte ab – aktuelle **und kommende** (ab nächster Woche) – und optional zu einer **Merkliste** (z. B. „Kaffee, Butter“). Hast du [Filialen](#-läden-filialen--preise) gespeichert, wird für deren Postleitzahlen und Ketten gesucht (bis zu 4 Postleitzahlen); die Postleitzahl in den Optionen darf dann leer bleiben.
 - Ohne Online-Quelle: Angebote im Panel oder per Sprache eintragen („Bei Lidl gibt es …“).
 
-**Wie genau sind die Preise?** Die Richtpreise sind typische Discounter-Preise (Schätzwerte). Sie werden ersetzt durch deine eigenen Preise (Panel → Angebote → 💶 Preise) und durch Normalpreise, die aus Prospekt-Angeboten gelernt werden. Rezeptkosten rechnen anteilig (was verbraucht wird), die Einkaufsliste mit ganzen Packungen.
+**Wie genau sind die Preise?** Die Richtpreise sind typische Discounter-Preise (Schätzwerte). Sie werden ersetzt durch deine eigenen Preise (Panel → 🏪 Läden & Preise → Preisliste) und durch Normalpreise, die aus Prospekt-Angeboten gelernt werden – mit Hauptladen gelten die Preise dieses Ladens (siehe unten). Rezeptkosten rechnen anteilig (was verbraucht wird), die Einkaufsliste mit ganzen Packungen.
 
 > ⚠️ **Hinweis zu marktguru.de:** Es gibt keine offizielle Schnittstelle der Supermärkte. Die Integration nutzt die inoffizielle Web-Schnittstelle von marktguru.de, die sich jederzeit ändern kann – bitte nur für private Zwecke. Home Assistant braucht dafür Internetzugriff auf `www.marktguru.de` und `api.marktguru.de`. Ist die Quelle nicht erreichbar, bleiben die zuletzt geladenen Angebote erhalten und der Fehler wird angezeigt.
+
+## 🏪 Läden, Filialen & Preise
+
+Im Panel gibt es den Tab **„🏪 Läden & Preise“**. Dort legst du deine Filialen an, wählst den **Hauptladen** und pflegst die **Preisliste je Laden**. Ohne Filialen verhält sich alles wie in 1.2.
+
+<!-- screenshot: laeden-preise.png -->
+
+### Hauptladen + Ausnahmen
+Die Einkaufsliste kommt **komplett in deinen Hauptladen**. Nur wenn sich ein anderer deiner Läden wirklich lohnt, wandert ein Artikel dorthin:
+
+- ein **Angebot**, das mindestens **0,30 €** spart, oder
+- ein **echter Ladenpreis** (eigener oder gelernter Preis, kein Richtwert), der mindestens **1,00 €** *oder* **20 %** günstiger ist – und immer mindestens 0,20 €.
+
+Dann gewinnt der günstigste Laden. Optional: **„Extra-Laden lohnt sich ab“** – spart ein zusätzlicher Laden insgesamt weniger, kommt alles zurück in den Hauptladen (Standard 0 = aus). Alle Schwellen stellst du in den Optionen ein (Schritt **„Läden & Einkauf“**), ebenso den Modus: *Aus – eine Liste wie bisher* · *Alles im Hauptladen* · *Hauptladen + Ausnahmen (empfohlen)*. Die Aufteilung startet, sobald du einen Hauptladen hast; die **erste Filiale wird automatisch Hauptladen**.
+
+In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Artikel, Zwischensumme und Ersparnis) und **„Nach Abteilung“**. Mit **⇄** an einem Artikel siehst du die Preise aller Läden und wählst den Laden selbst, „Automatisch“ oder **„immer hier kaufen“**. Deine Wahl bleibt beim Neuerstellen der Liste erhalten; **„🔄 Läden neu zuordnen“** verteilt alle offenen Artikel neu (z. B. nach neuen Angeboten). In der To-do-Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
+
+<!-- screenshot: einkauf-nach-laden.png -->
+<!-- screenshot: ladenwahl.png -->
+
+### Filialen finden
+- **In der Nähe suchen (OpenStreetMap):** sucht Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus und Marktkauf im **Umkreis deiner Zonen** (Standard 3 km). Ohne Auswahl sind das *Zuhause* und alle Zonen mit „Arbeit“ bzw. „Work“ im Namen (z. B. `zone.home`, `zone.arbeit`, `zone.arbeit_2`). Mit **Arbeitsweg** werden auch Läden entlang der Strecke von Zuhause zu diesen Zonen gefunden (Luftlinie, Standard bis 800 m daneben). Treffer zeigen die Entfernung zu Zuhause bzw. zum Arbeitsweg; „hinzufügen“ übernimmt sie in deine Läden. Ergebnisse werden 30 Tage gemerkt, neu gesucht wird höchstens alle 2 Minuten.
+- **Manuell hinzufügen:** Kette, Straße, Postleitzahl und Ort – z. B. wenn ein Laden bei OpenStreetMap fehlt oder bei „Aldi“ unklar ist, ob Süd oder Nord.
+- Die **Postleitzahl** einer Filiale ist wichtig: Für sie werden die Angebote gesucht.
+- Zonen, Umkreis und Arbeitsweg stellst du in den Optionen ein (Schritt „Läden & Einkauf“).
+
+<!-- screenshot: filialsuche.png -->
+
+### Preisliste je Laden
+Die Preisliste zeigt je Zutat den Richtwert und die Preise deiner Läden nebeneinander, der günstigste ist markiert; jede Zelle lässt sich bearbeiten (auf dem Handy ein Laden + „günstigster“). Welcher Preis gilt, wird je Laden in dieser Reihenfolge entschieden:
+
+1. dein **eigener Ladenpreis** (z. B. „Butter bei Aldi Süd 1,79 €“)
+2. **gelernter Ladenpreis** (höchstens 180 Tage alt; REWE-Onlinepreis vor Prospekt-Normalpreis)
+3. dein **eigener allgemeiner Preis**
+4. **gelernter allgemeiner Preis**
+5. **Richtwert**
+
+Gültige Angebote des Ladens werden zusätzlich verglichen (in ganzen Packungen). Ohne ladenspezifische Preise kostet ein Artikel überall gleich viel und wird deshalb nie verschoben.
+
+<!-- screenshot: preisliste.png -->
+
+### Gelernte Normalpreise aus Prospekten
+Viele Angebote nennen den Normalpreis („statt 2,49 €“). Daraus lernt der Essensplaner den Preis **je Laden**, mit **Verlauf** (bis zu 12 Einträge) und einer Plausibilitätsprüfung gegen den Richtwert. Quelle ist die inoffizielle marktguru.de-Suche (siehe oben) – nur wenn Online-Angebote eingeschaltet sind.
+
+### REWE-Onlinepreise (experimentell)
+Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) holt der Essensplaner einmal pro Woche Normalpreise aus dem REWE-Onlineshop für deine REWE-Filiale. Dafür braucht die Filiale eine **Markt-ID** (Knopf „Markt suchen“ an der REWE-Filiale bzw. Aktion `essensplaner.find_rewe_markets`).
+
+> ⚠️ Das ist eine **inoffizielle Schnittstelle** des REWE-Onlineshops: Markt-ID und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) gehen an `shop.rewe.de`. Lehnt REWE automatische Abfragen ab, wird **7 Tage pausiert**; gelernte Preise bleiben. Es kann jederzeit aufhören zu funktionieren – Schutzmechanismen werden bewusst nicht umgangen.
+
+### Artikelsuche beim Hinzufügen
+Tippst du im Feld **„Artikel hinzufügen“**, erscheinen passende Artikel deines Hauptladens mit Preis, Packung und 🏷️ Angebot – aus der Preisliste, den Richtwerten, gültigen Angeboten und deinen zuletzt gekauften Artikeln. Mit Online-Angeboten (bzw. REWE-Onlinepreisen bei einem REWE-Hauptladen) wird zusätzlich live gesucht. Antippen fügt den Artikel **mit Preis und Laden** hinzu; Enter ohne Auswahl übernimmt den Text wie bisher.
+
+<!-- screenshot: artikelsuche.png -->
+
+## 🔒 Datenschutz
+Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Gesendet wird nur:
+
+| Dienst | Wann | Was |
+|---|---|---|
+| OpenStreetMap (`overpass-api.de`) | nur wenn du die Filialsuche startest | Koordinaten deiner Zonen, auf ca. 100 m gerundet |
+| marktguru.de | nur mit Online-Angeboten (täglich, Live-Suche, Artikelsuche) | Postleitzahlen (Filialen bzw. Optionen) und Suchbegriffe |
+| REWE (`shop.rewe.de`) | nur mit REWE-Onlinepreisen (wöchentlich, Knopf „Preise aktualisieren“, Artikelsuche) | Markt-ID und Suchbegriffe |
+| REWE (`www.rewe.de`) | nur bei „Markt suchen“ | Postleitzahl |
+
+Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Bezeichnungen, Entfernungen, Filial- und Markt-IDs geschwärzt.
 
 ## 🧩 Blueprints
 
@@ -144,6 +221,8 @@ Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dash
 | `sensor.essensplaner_week_cost` | Geschätzte Kosten des Plans dieser Woche (€), Budget, Kosten je Tag |
 | `sensor.essensplaner_budget_remaining` | Restbudget der Woche (€) |
 | `sensor.essensplaner_offers` | Anzahl aktueller Angebote, die zu deinen Rezepten passen; Top-Angebote als Attribut |
+| `sensor.essensplaner_shopping_stores` | Anzahl Läden mit offenen Artikeln; Attribut `stores` je Laden mit offenen Artikeln, Zwischensumme, Ersparnis und Artikeln, dazu `main_store` |
+| `sensor.essensplaner_shopping_total` | Geschätzte Summe der offenen Einkaufsliste (€); Artikel mit/ohne Preis, Angebote, Ersparnis durch die Ladenwahl |
 
 ## Aktionen (Services)
 
@@ -158,13 +237,20 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.plan_meal` / `remove_meal` / `get_plan` | Wochenplan |
 | `essensplaner.move_meal` / `copy_plan` | Verschieben/Tauschen, Wochen kopieren |
 | `essensplaner.suggest_recipes` / `auto_plan` | Vorschläge / automatisch planen |
-| `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen / abrufen |
+| `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen (mit Läden) / abrufen (optional nur ein Laden) |
+| `essensplaner.add_shopping_item` | Artikel mit Laden und Preis auf die Einkaufsliste setzen |
+| `essensplaner.set_shopping_store` / `assign_shopping_stores` | Laden für einen Artikel festlegen („immer hier“) / alle offenen Artikel neu zuordnen |
 | `essensplaner.mark_cooked` | Als gekocht merken (bessere Vorschläge) |
 | `essensplaner.export_recipes` / `import_recipes` | Backup & Teilen |
 | `essensplaner.import_starter_recipes` | Fehlende mitgelieferte Rezepte (107) ergänzen |
 | `essensplaner.clear_shopping_list` | Einkaufsliste leeren (alle / erledigte / aus dem Plan) |
 | `essensplaner.get_costs` | Kosten & Restbudget |
-| `essensplaner.set_price` | Eigenen Preis für eine Zutat festlegen |
+| `essensplaner.set_price` | Eigenen Preis für eine Zutat festlegen (optional für einen Laden) |
+| `essensplaner.get_store_prices` / `compare_prices` | Preisliste je Laden / Preis eines Produkts in deinen Läden vergleichen |
+| `essensplaner.find_branches` | Filialen bei OpenStreetMap suchen (Zonen, Umkreis, Arbeitsweg) |
+| `essensplaner.save_branch` / `remove_branch` / `get_branches` | Filialen anlegen/ändern, entfernen, abrufen |
+| `essensplaner.refresh_prices` | Preise jetzt aus einer Online-Quelle holen (`offers` = Angebote, `rewe` = REWE-Onlinepreise) |
+| `essensplaner.find_rewe_markets` | REWE-Märkte und ihre Markt-IDs zu einer Postleitzahl finden |
 | `essensplaner.refresh_offers` / `get_offers` / `search_offers` | Angebote laden, abrufen, live suchen |
 | `essensplaner.add_offer` / `remove_offer` | Angebot eintragen / löschen |
 
@@ -184,6 +270,13 @@ data:
 response_variable: ideen
 ```
 
+```yaml
+action: essensplaner.get_shopping_list
+data:
+  store: Aldi Süd   # oder "Hauptladen", "Lidl Arbeit"
+response_variable: einkauf   # einkauf.selection: Artikel, Zwischensumme, Ersparnis
+```
+
 Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 
 ## Optionen
@@ -193,11 +286,14 @@ Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 - **Nie vorschlagen**: z. B. „Fisch, Pilze“
 - **Geplantes automatisch als gekocht zählen** (Standard: an)
 - Schritt 2 **Budget & Angebote**: Wochenbudget, Planungsart, Online-Angebote, Postleitzahl, Supermärkte, Merkliste
+- Schritt 3 **Läden & Einkauf**: Einkaufsliste nach Läden (Aus · Alles im Hauptladen · Hauptladen + Ausnahmen), Schwellen (Standard: 1,00 € oder 20 %, Angebot ab 0,30 €, Extra-Laden ab 0 € = aus), Zonen, Umkreis (3 km) und Arbeitsweg (800 m) für die Filialsuche, REWE-Onlinepreise (experimentell, aus). Die Filialen selbst wählst du im Panel.
+
+<!-- screenshot: optionen-laeden.png -->
 - Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren
 - Intents an/aus, Panel an/aus
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen).
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen und IDs deiner Filialen.
 
 ## Entwicklung
 

@@ -1,5 +1,93 @@
 # Changelog
 
+## 1.3.0
+
+### Neu
+- **Filialen – deine Läden**: Filialen von Aldi Süd/Nord, Lidl, REWE, EDEKA, Penny, Netto, Kaufland,
+  Norma, Globus und Marktkauf im neuen Panel-Tab **„🏪 Läden & Preise“** speichern – per
+  **OpenStreetMap-Suche** rund um deine Zonen (Standard: Zuhause und Zonen mit „Arbeit“/„Work“ im
+  Namen, z. B. `zone.home`, `zone.arbeit`, `zone.arbeit_2`), **auf dem Arbeitsweg** (Luftlinie
+  Zuhause → Zone) oder **von Hand**. Die erste Filiale wird automatisch dein **Hauptladen**;
+  Reihenfolge, Bezeichnung („Lidl Arbeit“) und Hauptladen lassen sich ändern.
+- **Angebote je Filiale**: marktguru sucht für die Postleitzahlen deiner Filialen (bis zu 4),
+  Angebote zeigen, für welche Filiale sie gelten.
+- **Hauptladen + Ausnahmen**: Die Einkaufsliste kommt komplett in den Hauptladen – nur Angebote
+  (ab 0,30 € Ersparnis) und Artikel, die woanders mit echtem Ladenpreis **mindestens 1,00 € oder
+  20 % günstiger** sind, wandern in deine anderen Läden. Schwellen, „Extra-Laden lohnt sich ab“ und
+  der Modus (Aus · Alles im Hauptladen · Hauptladen + Ausnahmen) sind einstellbar.
+- **Einkaufsliste nach Laden**: Umschalter „Nach Laden | Nach Abteilung“, je Laden offene
+  Artikel, Zwischensumme und Ersparnis; der Teilen-Text ist nach Laden gruppiert. In der To-do-
+  Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
+- **Ladenwahl je Artikel** (⇄): Preise aller Läden ansehen, Laden von Hand wählen, „Automatisch“
+  oder **„immer hier kaufen“**; die Wahl bleibt beim Neuerstellen der Liste erhalten.
+  „🔄 Läden neu zuordnen“ verteilt alle offenen Artikel neu.
+- **Preisliste je Laden**: Richtwert und die Preise von Aldi, Lidl, REWE … nebeneinander, der
+  günstigste ist markiert, jede Zelle lässt sich bearbeiten. Reihenfolge je Laden: eigener
+  Ladenpreis → gelernter Ladenpreis → eigener allgemeiner Preis → gelernter allgemeiner Preis →
+  Richtwert.
+- **Gelernte Normalpreise aus Prospekten**: Aus den Angeboten („statt 2,49 €“) lernt der
+  Essensplaner den Normalpreis **je Laden**, mit **Verlauf** (bis zu 12 Einträge) und
+  Plausibilitätsprüfung; gelernte Preise gelten 180 Tage.
+- **REWE-Onlinepreise (experimentell, standardmäßig aus)**: Normalpreise aus dem REWE-Onlineshop
+  für deine REWE-Filiale (Markt-ID über „Markt suchen“), wöchentlich. Lehnt REWE automatische
+  Abfragen ab, wird 7 Tage pausiert – gelernte Preise bleiben.
+- **Artikelsuche im Feld „Artikel hinzufügen“**: Beim Tippen erscheinen passende Artikel deines
+  Hauptladens mit Preis, Packung und 🏷️ Angebot (aus Preisliste, Richtwerten, Angeboten und
+  zuletzt gekauften Artikeln, optional live) – antippen fügt den Artikel mit Preis und Laden
+  hinzu, Enter wie bisher.
+- **Neue Jarvis-Befehle** (auch als LLM-Tools):
+  - „Was muss ich bei Aldi kaufen?“ · „Was kaufe ich bei Lidl?“ · „Was steht für REWE auf der
+    Einkaufsliste?“ → „Bei Aldi Süd kaufst du 3 Artikel für ungefähr 7,47 €: …“
+  - „Wo ist Butter am günstigsten?“ · „Vergleiche die Preise für Hackfleisch.“ → „Am günstigsten
+    gibt es Butter bei Lidl: 1,59 € (250 g).“ (`essensplaner_compare_prices`)
+  - „Kauf die Butter bei REWE.“ · „Milch kaufe ich immer bei Lidl.“
+    (`essensplaner_set_shopping_store`)
+  - „Setz Butter auf die Einkaufsliste.“ · „Füge Kaffee zur Einkaufsliste hinzu.“ → mit Preis und
+    Laden (`essensplaner_add_shopping_item`)
+- **Neue Sensoren**: `sensor.essensplaner_shopping_stores` (Läden mit offenen Artikeln, je Laden
+  Artikel, Zwischensumme und Ersparnis) und `sensor.essensplaner_shopping_total` (geschätzte
+  Summe der Einkaufsliste in €).
+- **Neue Aktionen**: `find_branches`, `save_branch`, `remove_branch`, `get_branches`,
+  `set_shopping_store`, `assign_shopping_stores`, `compare_prices`, `get_store_prices`,
+  `refresh_prices`, `find_rewe_markets`, `add_shopping_item`. Erweitert: `set_price` (Preis je
+  Laden), `get_shopping_list` (Laden), `generate_shopping_list` (Antwort mit Läden),
+  `refresh_offers`/`search_offers` (Postleitzahlen der Filialen).
+- **Optionen, neuer Schritt „Läden & Einkauf“**: Modus und Schwellen der Aufteilung, Zonen,
+  Umkreis und Arbeitsweg für die Filialsuche, REWE-Onlinepreise an/aus.
+
+### Verbessert
+- Von Hand hinzugefügte Artikel bekommen einen Preis (Hauptladen bzw. gewählter Laden); wird der
+  Text eines Eintrags geändert, werden Menge und Preis neu berechnet.
+- Packungsgrößen von Angeboten werden aus dem Grundpreis abgeleitet (statt pauschal 1 kg).
+- Diagnose-Daten schwärzen Koordinaten, Straßen, Bezeichnungen, Entfernungen, Filial- und
+  Markt-IDs.
+- Schneller bei vielen Angeboten und Rezepten.
+
+### Behoben
+- Selbst eingetragene Angebote konnten dieselbe ID bekommen (Löschen entfernte dann zwei).
+- Die Option „Einkaufsliste kopieren nach“ lässt sich wieder leeren.
+
+### Datenschutz
+- Alles bleibt lokal, solange du keine Online-Funktion nutzt.
+- **OpenStreetMap** (`overpass-api.de`): nur wenn du die Filialsuche startest; gesendet werden die
+  auf ca. 100 m gerundeten Koordinaten deiner Zonen. Ergebnisse werden 30 Tage gespeichert,
+  höchstens eine Suche alle 2 Minuten. Daten © OpenStreetMap-Mitwirkende (ODbL).
+- **marktguru.de** (wie bisher, nur wenn eingeschaltet): Postleitzahlen deiner Filialen bzw. aus
+  den Optionen und Suchbegriffe.
+- **REWE** (nur wenn eingeschaltet): Markt-ID und Suchbegriffe an `shop.rewe.de`; „Markt suchen“
+  sendet die Postleitzahl an `www.rewe.de`.
+
+### Upgrade-Hinweise
+- Die Daten werden beim ersten Start **automatisch übernommen**: eigene Preise mit Laden landen
+  zusätzlich in der Preisliste dieses Ladens, Angebote bekommen ihren Laden. Filialen werden
+  nicht automatisch angelegt – bis du welche speicherst, gelten wie bisher Postleitzahl und
+  Supermärkte aus den Optionen, und die Einkaufsliste bleibt eine Liste wie in 1.2.
+- Nach dem Update Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw.
+  App-Cache leeren). Für den eingebauten Sprachagenten ohne LLM die Datei
+  `custom_sentences/de/essensplaner.yaml` erneut nach `/config/custom_sentences/de/` kopieren.
+- **Zurück auf 1.2** geht, aber Filialen, Ladenpreise und Preisverlauf gehen dabei verloren –
+  vorher ein Backup machen.
+
 ## 1.2.1
 - Nach einem Update werden die **neu mitgelieferten Rezepte automatisch ergänzt**
   (von dir gelöschte Rezepte bleiben gelöscht, eigene Rezepte bleiben unverändert).

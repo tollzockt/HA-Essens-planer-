@@ -23,9 +23,14 @@ from homeassistant.helpers.selector import (
 )
 import voluptuous as vol
 
+from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE
 from .const import (
     ALL_MEALS,
     CONF_AUTO_COOKED,
+    CONF_BRANCH_RADIUS,
+    CONF_BRANCH_ROUTE,
+    CONF_BRANCH_ROUTE_RADIUS,
+    CONF_BRANCH_ZONES,
     CONF_BUDGET,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
@@ -36,21 +41,37 @@ from .const import (
     CONF_OFFERS_SOURCE,
     CONF_PANTRY,
     CONF_REGISTER_INTENTS,
+    CONF_REWE_ONLINE,
     CONF_SHOW_PANEL,
+    CONF_SPLIT_MIN_PERCENT,
+    CONF_SPLIT_MIN_SAVING,
+    CONF_SPLIT_MODE,
+    CONF_SPLIT_OFFER_MIN,
+    CONF_SPLIT_TRIP_MIN,
     CONF_STORES,
     CONF_STRATEGY,
     CONF_SYNC_TODO,
     CONF_WATCHLIST,
     CONF_ZIP,
+    DEFAULT_BRANCH_RADIUS,
+    DEFAULT_BRANCH_ROUTE,
+    DEFAULT_BRANCH_ROUTE_RADIUS,
     DEFAULT_ENABLED_MEALS,
     DEFAULT_MEAL,
     DEFAULT_MEAL_TIMES,
     DEFAULT_PANTRY,
+    DEFAULT_REWE_ONLINE,
     DEFAULT_SERVINGS,
+    DEFAULT_SPLIT_MIN_PERCENT,
+    DEFAULT_SPLIT_MIN_SAVING,
+    DEFAULT_SPLIT_MODE,
+    DEFAULT_SPLIT_OFFER_MIN,
+    DEFAULT_SPLIT_TRIP_MIN,
     DOMAIN,
     NAME,
     OFFERS_MARKTGURU,
     OFFERS_OFF,
+    SPLIT_MODES,
     STRATEGIES,
     STRATEGY_BALANCED,
 )
@@ -74,9 +95,38 @@ _MEALS_SELECTOR = SelectSelector(
 )
 
 
+# ranges of the "Läden & Einkauf" step (the search ranges are the ones branches.py clamps to)
+_EUR_MAX = 20
+_TRIP_MAX = 50
+_PERCENT_MAX = 90
+_RADIUS_KM = RADIUS_KM_RANGE
+_ROUTE_RADIUS_M = ROUTE_RADIUS_RANGE
+
+
 def _normalize_time(value: Any) -> str:
     text = str(value or "")
     return text[:5] if len(text) >= 5 else text
+
+
+def _eur_selector(maximum: float, step: float) -> NumberSelector:
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=0, max=maximum, step=step, mode=NumberSelectorMode.BOX, unit_of_measurement="€"
+        )
+    )
+
+
+def _number(value: Any, default: float) -> float:
+    """An option as a number (the default for missing or broken values)."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _whole(value: float) -> float | int:
+    """3.0 -> 3 (nicer in the stored options), 2.5 stays 2.5."""
+    return int(value) if float(value).is_integer() else round(float(value), 2)
 
 
 class EssensplanerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -187,12 +237,26 @@ class EssensplanerOptionsFlow(OptionsFlow):
         )
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema), errors=errors)
 
+    def _manager(self) -> Any:
+        """The loaded manager (None while the entry is not loaded)."""
+        manager = getattr(self.config_entry, "runtime_data", None)
+        return manager if hasattr(manager, "branch_postcodes") else None
+
     def _branch_postcodes(self) -> list[str]:
         """Postcodes of the selected branches (empty if the entry is not loaded)."""
-        manager = getattr(self.config_entry, "runtime_data", None)
-        if manager is None or not hasattr(manager, "branch_postcodes"):
-            return []
-        return manager.branch_postcodes()
+        manager = self._manager()
+        return manager.branch_postcodes() if manager is not None else []
+
+    def _branch_placeholders(self) -> dict[str, str]:
+        """Number of saved branches and the main branch for the step description."""
+        manager = self._manager()
+        if manager is None:
+            return {"branches": "0", "main_branch": "–"}
+        main = manager.get_main_branch()
+        return {
+            "branches": str(len(manager.branches)),
+            "main_branch": manager.branch_label(main) if main else "–",
+        }
 
     async def async_step_economy(
         self, user_input: dict[str, Any] | None = None
@@ -209,10 +273,11 @@ class EssensplanerOptionsFlow(OptionsFlow):
             ):
                 errors[CONF_ZIP] = "invalid_zip"
             else:
-                data = {**self.config_entry.options, **getattr(self, "_general", {}), **user_input}
+                data = dict(user_input)
                 data[CONF_ZIP] = zip_code
                 data[CONF_BUDGET] = float(user_input.get(CONF_BUDGET) or 0)
-                return self.async_create_entry(data=data)
+                self._economy = data
+                return await self.async_step_stores()
         schema = {
             vol.Required(CONF_BUDGET, default=float(options.get(CONF_BUDGET) or 0)): NumberSelector(
                 NumberSelectorConfig(
@@ -249,4 +314,115 @@ class EssensplanerOptionsFlow(OptionsFlow):
         }
         return self.async_show_form(
             step_id="economy", data_schema=vol.Schema(schema), errors=errors
+        )
+
+    async def async_step_stores(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Stores & shopping: store split, branch search, REWE online prices."""
+        if user_input is not None:
+            data = {
+                **self.config_entry.options,
+                **getattr(self, "_general", {}),
+                **getattr(self, "_economy", {}),
+                **user_input,
+            }
+            # an optional selector the user cleared is missing in the step's input
+            general = getattr(self, "_general", None)
+            if general is not None and CONF_SYNC_TODO not in general:
+                data.pop(CONF_SYNC_TODO, None)
+            data[CONF_SPLIT_MIN_SAVING] = _whole(user_input[CONF_SPLIT_MIN_SAVING])
+            data[CONF_SPLIT_MIN_PERCENT] = round(user_input[CONF_SPLIT_MIN_PERCENT])
+            data[CONF_SPLIT_OFFER_MIN] = _whole(user_input[CONF_SPLIT_OFFER_MIN])
+            data[CONF_SPLIT_TRIP_MIN] = _whole(user_input[CONF_SPLIT_TRIP_MIN])
+            # empty = automatic (zone.home + "Arbeit"/"Work" zones)
+            data[CONF_BRANCH_ZONES] = list(user_input.get(CONF_BRANCH_ZONES) or [])
+            data[CONF_BRANCH_RADIUS] = _whole(user_input[CONF_BRANCH_RADIUS])
+            data[CONF_BRANCH_ROUTE_RADIUS] = round(user_input[CONF_BRANCH_ROUTE_RADIUS])
+            return self.async_create_entry(data=data)
+
+        options = self.config_entry.options
+        mode = options.get(CONF_SPLIT_MODE, DEFAULT_SPLIT_MODE)
+        zones = options.get(CONF_BRANCH_ZONES) or []
+        if isinstance(zones, str):
+            zones = [z.strip() for z in zones.split(",") if z.strip()]
+        radius = min(
+            max(_number(options.get(CONF_BRANCH_RADIUS), DEFAULT_BRANCH_RADIUS), _RADIUS_KM[0]),
+            _RADIUS_KM[1],
+        )
+        route_radius = min(
+            max(
+                _number(options.get(CONF_BRANCH_ROUTE_RADIUS), DEFAULT_BRANCH_ROUTE_RADIUS),
+                _ROUTE_RADIUS_M[0],
+            ),
+            _ROUTE_RADIUS_M[1],
+        )
+
+        def clamp(key: str, default: float, maximum: float) -> float:
+            return min(max(_number(options.get(key), default), 0), maximum)
+
+        schema = {
+            vol.Required(
+                CONF_SPLIT_MODE, default=mode if mode in SPLIT_MODES else DEFAULT_SPLIT_MODE
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=SPLIT_MODES, translation_key="split_mode", mode=SelectSelectorMode.LIST
+                )
+            ),
+            vol.Required(
+                CONF_SPLIT_MIN_SAVING,
+                default=clamp(CONF_SPLIT_MIN_SAVING, DEFAULT_SPLIT_MIN_SAVING, _EUR_MAX),
+            ): _eur_selector(_EUR_MAX, 0.1),
+            vol.Required(
+                CONF_SPLIT_MIN_PERCENT,
+                default=clamp(CONF_SPLIT_MIN_PERCENT, DEFAULT_SPLIT_MIN_PERCENT, _PERCENT_MAX),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    max=_PERCENT_MAX,
+                    step=1,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="%",
+                )
+            ),
+            vol.Required(
+                CONF_SPLIT_OFFER_MIN,
+                default=clamp(CONF_SPLIT_OFFER_MIN, DEFAULT_SPLIT_OFFER_MIN, _EUR_MAX),
+            ): _eur_selector(_EUR_MAX, 0.05),
+            vol.Required(
+                CONF_SPLIT_TRIP_MIN,
+                default=clamp(CONF_SPLIT_TRIP_MIN, DEFAULT_SPLIT_TRIP_MIN, _TRIP_MAX),
+            ): _eur_selector(_TRIP_MAX, 0.5),
+            vol.Optional(
+                CONF_BRANCH_ZONES, description={"suggested_value": list(zones)}
+            ): EntitySelector(EntitySelectorConfig(domain="zone", multiple=True)),
+            vol.Required(CONF_BRANCH_RADIUS, default=radius): NumberSelector(
+                NumberSelectorConfig(
+                    min=_RADIUS_KM[0],
+                    max=_RADIUS_KM[1],
+                    step=0.5,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="km",
+                )
+            ),
+            vol.Required(
+                CONF_BRANCH_ROUTE,
+                default=bool(options.get(CONF_BRANCH_ROUTE, DEFAULT_BRANCH_ROUTE)),
+            ): BooleanSelector(),
+            vol.Required(CONF_BRANCH_ROUTE_RADIUS, default=route_radius): NumberSelector(
+                NumberSelectorConfig(
+                    min=_ROUTE_RADIUS_M[0],
+                    max=_ROUTE_RADIUS_M[1],
+                    step=50,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="m",
+                )
+            ),
+            vol.Required(
+                CONF_REWE_ONLINE,
+                default=bool(options.get(CONF_REWE_ONLINE, DEFAULT_REWE_ONLINE)),
+            ): BooleanSelector(),
+        }
+        return self.async_show_form(
+            step_id="stores",
+            data_schema=vol.Schema(schema),
+            description_placeholders=self._branch_placeholders(),
         )

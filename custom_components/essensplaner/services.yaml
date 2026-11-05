@@ -431,6 +431,7 @@ remove_offer:
   fields:
     id:
       required: true
+      example: "man_1793782800000"
       selector:
         text:
 
@@ -464,7 +465,7 @@ set_price:
       selector:
         text:
     store:
-      example: "Aldi"
+      example: "Aldi Süd"
       selector:
         text:
     remove:
@@ -524,6 +525,7 @@ save_branch:
       selector:
         text:
     lat:
+      example: 48.137
       selector:
         number:
           min: -90
@@ -531,6 +533,7 @@ save_branch:
           step: any
           mode: box
     lon:
+      example: 11.575
       selector:
         number:
           min: -180
@@ -544,6 +547,7 @@ save_branch:
       selector:
         boolean:
     priority:
+      example: 1
       selector:
         number:
           min: 0
@@ -655,6 +659,7 @@ find_branches:
           unit_of_measurement: m
           mode: box
     retailers:
+      example: "lidl, aldi-sued"
       selector:
         select:
           multiple: true

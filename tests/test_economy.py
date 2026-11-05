@@ -698,6 +698,8 @@ async def test_options_flow_marktguru_with_branches(hass: HomeAssistant, setup_i
     )
     assert result["errors"] == {"zip_code": "invalid_zip"}  # a wrong zip code stays wrong
     result = await hass.config_entries.options.async_configure(result["flow_id"], economy)
+    assert result["step_id"] == "stores"  # 1.3: third step "Läden & Einkauf"
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     manager = entry.runtime_data
