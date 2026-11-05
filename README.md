@@ -138,7 +138,7 @@ Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dash
 
 Im Panel gibt es den Tab **„🏪 Läden & Preise“**. Dort legst du deine Filialen an, wählst den **Hauptladen** und pflegst die **Preisliste je Laden**. Ohne Filialen verhält sich alles wie in 1.2.
 
-<!-- screenshot: laeden-preise.png -->
+![Läden & Preise](docs/images/laeden-preise.png)
 
 ### Hauptladen + Ausnahmen
 Die Einkaufsliste kommt **komplett in deinen Hauptladen**. Nur wenn sich ein anderer deiner Läden wirklich lohnt, wandert ein Artikel dorthin:
@@ -148,21 +148,22 @@ Die Einkaufsliste kommt **komplett in deinen Hauptladen**. Nur wenn sich ein and
 
 Dann gewinnt der günstigste Laden. Optional: **„Extra-Laden lohnt sich ab“** – spart ein zusätzlicher Laden insgesamt weniger, kommt alles zurück in den Hauptladen (Standard 0 = aus). Alle Schwellen stellst du in den Optionen ein (Schritt **„Läden & Einkauf“**), ebenso den Modus: *Aus – eine Liste wie bisher* · *Alles im Hauptladen* · *Hauptladen + Ausnahmen (empfohlen)*. Die Aufteilung startet, sobald du einen Hauptladen hast; die **erste Filiale wird automatisch Hauptladen**.
 
-In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Artikel, Zwischensumme und Ersparnis) und **„Nach Abteilung“**. Mit **⇄** an einem Artikel siehst du die Preise aller Läden und wählst den Laden selbst, „Automatisch“ oder **„immer hier kaufen“**. Deine Wahl bleibt beim Neuerstellen der Liste erhalten; **„🔄 Läden neu zuordnen“** verteilt alle offenen Artikel neu (z. B. nach neuen Angeboten). In der To-do-Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
+In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Artikel, Zwischensumme und Ersparnis) und **„Nach Abteilung“**. Mit **⇄** an einem Artikel siehst du die Preise aller Läden und wählst den Laden selbst, „Automatisch“ oder **„Immer in diesem Laden kaufen“** (im Laden markiert mit „immer hier“). Deine Wahl bleibt beim Neuerstellen der Liste erhalten; **„🔄 Läden neu zuordnen“** verteilt alle offenen Artikel neu (z. B. nach neuen Angeboten). In der To-do-Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
 
-<!-- screenshot: einkauf-nach-laden.png -->
-<!-- screenshot: ladenwahl.png -->
+| Einkauf nach Laden | Ladenwahl ⇄ | Handy |
+|---|---|---|
+| ![Einkauf nach Laden](docs/images/einkauf-nach-laden.png) | ![Ladenwahl](docs/images/ladenwahl.png) | ![Einkauf nach Laden auf dem Handy](docs/images/handy-einkauf-nach-laden.png) |
 
 ### Filialen finden
-- **In der Nähe suchen (OpenStreetMap):** sucht Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus und Marktkauf im **Umkreis deiner Zonen** (Standard 3 km). Ohne Auswahl sind das *Zuhause* und alle Zonen mit „Arbeit“ bzw. „Work“ im Namen (z. B. `zone.home`, `zone.arbeit`, `zone.arbeit_2`). Mit **Arbeitsweg** werden auch Läden entlang der Strecke von Zuhause zu diesen Zonen gefunden (Luftlinie, Standard bis 800 m daneben). Treffer zeigen die Entfernung zu Zuhause bzw. zum Arbeitsweg; „hinzufügen“ übernimmt sie in deine Läden. Ergebnisse werden 30 Tage gemerkt, neu gesucht wird höchstens alle 2 Minuten.
+- **In der Nähe suchen (OpenStreetMap):** sucht Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus und Marktkauf im **Umkreis deiner Zonen** (Standard 3 km). Ohne Auswahl sind das *Zuhause* und alle Zonen mit „Arbeit“ bzw. „Work“ im Namen (z. B. `zone.home`, `zone.arbeit`, `zone.arbeit_2`). Mit **Arbeitsweg** werden auch Läden entlang der Strecke von Zuhause zu diesen Zonen gefunden (Luftlinie, Standard bis 800 m daneben). Treffer zeigen die Entfernung zu Zuhause bzw. zum Arbeitsweg; „＋ Hinzufügen“ übernimmt sie in deine Läden. Ergebnisse werden 30 Tage gemerkt, neu gesucht wird höchstens alle 2 Minuten.
 - **Manuell hinzufügen:** Kette, Straße, Postleitzahl und Ort – z. B. wenn ein Laden bei OpenStreetMap fehlt oder bei „Aldi“ unklar ist, ob Süd oder Nord.
 - Die **Postleitzahl** einer Filiale ist wichtig: Für sie werden die Angebote gesucht.
 - Zonen, Umkreis und Arbeitsweg stellst du in den Optionen ein (Schritt „Läden & Einkauf“).
 
-<!-- screenshot: filialsuche.png -->
+![Filialsuche mit OpenStreetMap](docs/images/filialsuche.png)
 
 ### Preisliste je Laden
-Die Preisliste zeigt je Zutat den Richtwert und die Preise deiner Läden nebeneinander, der günstigste ist markiert; jede Zelle lässt sich bearbeiten (auf dem Handy ein Laden + „günstigster“). Welcher Preis gilt, wird je Laden in dieser Reihenfolge entschieden:
+Die Preisliste zeigt je Zutat den Richtwert und die Preise deiner Läden nebeneinander, der günstigste ist markiert; jede Zelle lässt sich bearbeiten (auf dem Handy ein Laden + „Günstigster“, der Richtwert steht unter dem Artikel). Welcher Preis gilt, wird je Laden in dieser Reihenfolge entschieden:
 
 1. dein **eigener Ladenpreis** (z. B. „Butter bei Aldi Süd 1,79 €“)
 2. **gelernter Ladenpreis** (höchstens 180 Tage alt; REWE-Onlinepreis vor Prospekt-Normalpreis)
@@ -172,7 +173,7 @@ Die Preisliste zeigt je Zutat den Richtwert und die Preise deiner Läden nebenei
 
 Gültige Angebote des Ladens werden zusätzlich verglichen (in ganzen Packungen). Ohne ladenspezifische Preise kostet ein Artikel überall gleich viel und wird deshalb nie verschoben.
 
-<!-- screenshot: preisliste.png -->
+![Preisliste je Laden](docs/images/preisliste-je-laden.png)
 
 ### Gelernte Normalpreise aus Prospekten
 Viele Angebote nennen den Normalpreis („statt 2,49 €“). Daraus lernt der Essensplaner den Preis **je Laden**, mit **Verlauf** (bis zu 12 Einträge) und einer Plausibilitätsprüfung gegen den Richtwert. Quelle ist die inoffizielle marktguru.de-Suche (siehe oben) – nur wenn Online-Angebote eingeschaltet sind.
@@ -185,7 +186,7 @@ Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) hol
 ### Artikelsuche beim Hinzufügen
 Tippst du im Feld **„Artikel hinzufügen“**, erscheinen passende Artikel deines Hauptladens mit Preis, Packung und 🏷️ Angebot – aus der Preisliste, den Richtwerten, gültigen Angeboten und deinen zuletzt gekauften Artikeln. Mit Online-Angeboten (bzw. REWE-Onlinepreisen bei einem REWE-Hauptladen) wird zusätzlich live gesucht. Antippen fügt den Artikel **mit Preis und Laden** hinzu; Enter ohne Auswahl übernimmt den Text wie bisher.
 
-<!-- screenshot: artikelsuche.png -->
+![Artikelsuche beim Hinzufügen](docs/images/artikelsuche.png)
 
 ## 🔒 Datenschutz
 Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Gesendet wird nur:

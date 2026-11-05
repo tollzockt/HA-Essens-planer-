@@ -62,10 +62,17 @@
 - Diagnose-Daten schwärzen Koordinaten, Straßen, Bezeichnungen, Entfernungen, Filial- und
   Markt-IDs.
 - Schneller bei vielen Angeboten und Rezepten.
+- Panel auf Handy und Tablet: alle Knöpfe und Felder sind mindestens 40 px hoch; farbige Hinweise
+  (Angebot, gespart, Fehler) sind im hellen und dunklen Design besser lesbar.
+- Nach einem Update ohne Neustart zeigt das Panel „bitte Home Assistant neu starten“ statt eines
+  unverständlichen Fehlers.
 
 ### Behoben
 - Selbst eingetragene Angebote konnten dieselbe ID bekommen (Löschen entfernte dann zwei).
 - Die Option „Einkaufsliste kopieren nach“ lässt sich wieder leeren.
+- **Frische und gehackte Tomaten** werden nicht mehr verwechselt: Frische Tomaten wurden mit dem
+  Preis gehackter Tomaten (Dose) gerechnet, beide landeten als ein Eintrag auf der Einkaufsliste
+  und ein Prospektpreis für frische Tomaten galt auch für Dosentomaten.
 
 ### Datenschutz
 - Alles bleibt lokal, solange du keine Online-Funktion nutzt.

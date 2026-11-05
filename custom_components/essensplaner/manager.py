@@ -146,8 +146,9 @@ ERROR_MESSAGES_DE = {
         "fest oder wähle Zonen aus."
     ),
     "store_split_off": (
-        "Die Einkaufsliste wird nicht nach Läden aufgeteilt – lege zuerst einen Hauptladen "
-        "fest (Essensplaner → Läden)."
+        "Die Einkaufsliste wird nicht nach Läden aufgeteilt – bitte zuerst einen Hauptladen "
+        "festlegen (Essensplaner-Panel → Läden & Preise) bzw. die Aufteilung in den Optionen "
+        "einschalten."
     ),
     "rewe_disabled": (
         "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
@@ -1539,6 +1540,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             **self.branches_export(),
             "store_split": self.split_settings(),
             "shopping_stores": self.stores_summary(),
+            # "immer hier kaufen": product key -> retailer (store picker of the panel)
+            "store_preferences": dict(self.store_preferences),
             "offers": self.offers_view("all", limit=300),
             "recipe_costs": {
                 rid: self.recipe_cost(recipe)["per_serving"] for rid, recipe in self.recipes.items()

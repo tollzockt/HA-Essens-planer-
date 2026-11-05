@@ -219,6 +219,56 @@ def test_compat_price_book() -> None:
     assert entry.as_dict()["store_id"] == "lidl"
 
 
+TOMATOES = [
+    {"name": "Tomaten", "amount": 500, "unit": "g", "price": 1.49, "aliases": ["Rispentomaten"]},
+    {
+        "name": "Gehackte Tomaten",
+        "amount": 400,
+        "unit": "g",
+        "price": 0.59,
+        "aliases": ["stückige Tomaten", "geschälte Tomaten"],
+    },
+]
+
+
+def test_short_key_never_replaces_a_real_product() -> None:
+    """'Gehackte Tomaten' (short key 'tomate') must not take over plain 'Tomaten'."""
+    for items in (TOMATOES, list(reversed(TOMATOES))):
+        book = PriceBook(items)
+        assert book.lookup("Tomaten").name == "Tomaten"
+        assert book.lookup("Tomate").name == "Tomaten"
+        assert book.lookup("gehackte Tomaten").name == "Gehackte Tomaten"
+        assert book.lookup("2 Dosen gehackte Tomaten").name == "Gehackte Tomaten"
+        # an adjective without its own entry still finds the plain product
+        assert book.lookup("frische Tomaten").name == "Tomaten"
+    # an own price for canned tomatoes does not change the price of fresh ones
+    user = {
+        "gehackte tomate": {"name": "Gehackte Tomaten", "price": 0.49, "amount": 400, "unit": "g"}
+    }
+    book = PriceBook(TOMATOES, user)
+    assert book.lookup("Tomaten").price == 1.49
+    assert book.lookup("gehackte Tomaten").price == 0.49
+
+
+async def test_learned_fresh_price_stays_off_canned_tomatoes(
+    hass: HomeAssistant, setup_integration
+) -> None:
+    """A leaflet price for 'Rispentomaten' (key tomate) is not the price of canned tomatoes."""
+    manager = setup_integration.runtime_data
+    assert manager.defaults_index().get("tomate").name == "Tomaten"
+    _main_branch(manager, "lidl")
+    assert manager.learn_store_price("lidl", "tomate", "Rispentomaten", 1.99, 500, "g", "leaflet")
+    book = manager.store_book("lidl")
+    assert book.lookup("Tomaten").price == 1.99
+    assert book.lookup("Rispentomaten").price == 1.99
+    for canned in ("Gehackte Tomaten", "2 Dosen gehackte Tomaten", "geschälte Tomaten"):
+        entry = book.lookup(canned)
+        assert (entry.name, entry.source) == ("Gehackte Tomaten", "default"), canned
+    rows = {r["name"]: r for r in manager.store_price_matrix(query="tomate")["rows"]}
+    assert rows["Tomaten"]["stores"]["lidl"]["price"] == 1.99
+    assert "lidl" not in rows["Gehackte Tomaten"]["stores"]
+
+
 def test_offer_as_entry_derives_pack() -> None:
     """Pack size from price / unit price when no pack is known."""
     entry = offer_as_entry(

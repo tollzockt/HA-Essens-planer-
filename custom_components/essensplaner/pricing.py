@@ -279,6 +279,8 @@ class PriceIndex:
     def __init__(self) -> None:
         """Create an empty index."""
         self._index: dict[str, PriceEntry] = {}
+        # keys that are the own (full) name/alias key of an entry ("tomate" of "Tomaten")
+        self._full: set[str] = set()
         self._sorted: list[str] | None = None
 
     def __len__(self) -> int:
@@ -299,18 +301,25 @@ class PriceIndex:
     ) -> PriceEntry | None:
         """Add an entry under its name/alias keys (later entries win).
 
+        The short key of a name with an adjective ("gehackte Tomaten" -> "tomate") never
+        replaces a product that is really called that ("Tomaten"), so canned tomatoes do
+        not take over the price of fresh ones.
         keys: extra keys that also win; weak_keys: extra keys only used if still free.
         """
         entry = item if isinstance(item, PriceEntry) else make_entry(item, source, store_id)
         if entry is None:
             return None
         for name in [entry.name, *entry.aliases]:
-            for key in {_full_key(name), ingredient_key(name)}:
-                if key:
-                    self._index[key] = entry
+            full, short = _full_key(name), ingredient_key(name)
+            if full:
+                self._index[full] = entry
+                self._full.add(full)
+            if short and short != full and short not in self._full:
+                self._index[short] = entry
         for key in keys:
             if key:
                 self._index[key] = entry
+                self._full.add(key)
         for key in weak_keys:
             if key:
                 self._index.setdefault(key, entry)

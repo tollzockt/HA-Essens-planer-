@@ -560,6 +560,8 @@ async def test_assign_override_and_preference(hass: HomeAssistant, setup_integra
     assert (item["retailer"], item["store_reason"]) == ("aldi-sued", "preferred")
     manager.set_shopping_store("Butter", "REWE", always=True)
     assert manager.store_preferences["butter"] == "rewe"
+    # the panel's store picker sees the remembered stores
+    assert manager.export()["store_preferences"] == {"brot": "aldi-sued", "butter": "rewe"}
     manager.set_shopping_store("Butter", "auto")
     manager.generate_shopping_list(manager.today(), 1)
     assert _store_of(manager, "250 g Butter") == ("rewe", "preferred")

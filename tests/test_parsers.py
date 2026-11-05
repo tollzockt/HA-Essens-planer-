@@ -96,6 +96,20 @@ def test_aggregate() -> None:
     assert "pfeffer" not in items
 
 
+def test_aggregate_keeps_canned_and_fresh_tomatoes_apart() -> None:
+    """'gehackte Tomaten' are a product of their own; 'gehackte Zwiebel' is just a Zwiebel."""
+    entries = [
+        (parse_ingredient("2 Dosen gehackte Tomaten"), "A"),
+        (parse_ingredient("3 Tomaten"), "B"),
+        (parse_ingredient("1 gehackte Zwiebel"), "A"),
+        (parse_ingredient("1 Zwiebel"), "B"),
+    ]
+    items = {i["key"]: i for i in aggregate(entries, [])}
+    assert items["gehackte tomate"]["summary"] == "2 Dosen gehackte Tomaten"
+    assert items["tomate"]["summary"] == "3 Tomaten"
+    assert items["zwiebel"]["summary"] == "2 Zwiebeln"
+
+
 @pytest.mark.parametrize(
     ("text", "expected", "meal"),
     [

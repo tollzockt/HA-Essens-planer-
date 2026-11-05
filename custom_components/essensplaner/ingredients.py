@@ -466,9 +466,24 @@ def strip_article(text: str) -> str:
     return cleaned
 
 
+# adjectives that name a different product before these words ("gehackte Tomaten" are
+# canned tomatoes, not fresh ones) and are therefore kept in the key
+_PRODUCT_ADJECTIVES = {"gehackt": "tomate", "gehackte": "tomate", "gehackter": "tomate"}
+
+
 def ingredient_key(name: str) -> str:
     """Return a key used to merge equal ingredients."""
-    words = [w for w in name.lower().split() if w.strip(".,") not in _ADJECTIVES]
+    raw = name.lower().split()
+    words = [
+        w
+        for n, w in enumerate(raw)
+        if w.strip(".,") not in _ADJECTIVES
+        or (
+            (product := _PRODUCT_ADJECTIVES.get(w.strip(".,")))
+            and n + 1 < len(raw)
+            and fold(raw[n + 1]).startswith(product)
+        )
+    ]
     folded = fold(" ".join(words)) or fold(name)
     return " ".join(_singular(w) for w in folded.split())
 

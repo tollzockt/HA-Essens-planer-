@@ -187,14 +187,18 @@ def _last_seen(item: dict[str, Any]) -> date | None:
 
 
 def _alias_keys(entry: PriceEntry | None) -> list[str]:
-    """All lookup keys of an entry's name and aliases."""
+    """The full lookup keys of an entry's name and aliases.
+
+    Only full keys: the short key of an alias with an adjective ("stückige Tomaten" ->
+    "tomate") would make a canned-tomato price the price of fresh tomatoes.
+    """
     if entry is None:
         return []
     keys: list[str] = []
     for name in [entry.name, *entry.aliases]:
-        for key in lookup_keys(name):
-            if key and key not in keys:
-                keys.append(key)
+        key = lookup_keys(name)[0]
+        if key and key not in keys:
+            keys.append(key)
     return keys
 
 

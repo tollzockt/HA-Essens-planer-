@@ -130,6 +130,13 @@ const splitQuantity = (text) => {
   return m ? { prefix: m[1].replace(/\s+$/, "") + " ", query: value.slice(m[0].length).trim() } : { prefix: "", query: value.trim() };
 };
 
+/** Error text for the user; a new command the running backend does not know yet means
+ * the files were updated (HACS) but Home Assistant was not restarted. */
+const errText = (err) =>
+  err?.code === "unknown_command"
+    ? "Diese Funktion ist neu – bitte Home Assistant einmal neu starten, damit das Update vollständig geladen ist."
+    : err?.message || err?.code || String(err);
+
 const safeUrl = (url) => {
   const u = String(url || "").trim();
   if (!/^(https?:\/\/|\/)/i.test(u)) return "";
@@ -154,6 +161,10 @@ const STYLE = `
     --ep-accent-bg: color-mix(in srgb, var(--ep-primary) 12%, transparent);
     --ep-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06));
     --ep-warm: #e2553f;
+    /* status colours mixed with the text colour: darker on light, lighter on dark themes (contrast) */
+    --ep-green: color-mix(in srgb, #2e7d32 65%, var(--primary-text-color, #212121));
+    --ep-orange: color-mix(in srgb, #e65100 58%, var(--primary-text-color, #212121));
+    --ep-red: color-mix(in srgb, #c62828 58%, var(--primary-text-color, #212121));
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -191,7 +202,7 @@ const STYLE = `
   .btn[disabled] { opacity: .45; pointer-events: none; }
   .btn.primary { background: var(--ep-primary); border-color: var(--ep-primary); color: var(--ep-on-primary); }
   .btn.ghost { background: transparent; }
-  .btn.danger { color: var(--error-color, #db4437); }
+  .btn.danger { color: color-mix(in srgb, var(--error-color, #db4437) 75%, var(--primary-text-color, #212121)); }
   .btn.small { padding: 4px 11px; font-size: 13px; }
   .btn.big { padding: 12px 20px; font-size: 16px; }
   .icon { background: none; border: none; cursor: pointer; color: inherit; font-size: 18px; width: 36px; height: 36px; border-radius: 50%; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
@@ -333,19 +344,19 @@ const STYLE = `
   .loading { padding: 40px; text-align: center; color: var(--ep-secondary-text); }
 
   /* costs & offers */
-  .cost { font-size: 11px; font-weight: 600; color: #2e7d32; white-space: nowrap; }
-  .tagoffer { font-size: 11px; background: #fff3e0; color: #e65100; border-radius: 6px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
-  .budget { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 500; background: color-mix(in srgb, #2e7d32 14%, transparent); color: #2e7d32; }
-  .budget.warn { background: color-mix(in srgb, #ef6c00 16%, transparent); color: #ef6c00; }
-  .budget.over { background: color-mix(in srgb, #c62828 16%, transparent); color: #c62828; }
+  .cost { font-size: 11px; font-weight: 600; color: var(--ep-green); white-space: nowrap; }
+  .tagoffer { font-size: 11px; background: color-mix(in srgb, #ef6c00 15%, transparent); color: var(--ep-orange); border-radius: 6px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+  .budget { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 500; background: color-mix(in srgb, #2e7d32 14%, transparent); color: var(--ep-green); }
+  .budget.warn { background: color-mix(in srgb, #ef6c00 16%, transparent); color: var(--ep-orange); }
+  .budget.over { background: color-mix(in srgb, #c62828 16%, transparent); color: var(--ep-red); }
   .price { font-size: 13px; color: var(--ep-secondary-text); white-space: nowrap; text-align: right; }
-  .price .o { display: block; font-size: 11px; color: #e65100; }
+  .price .o { display: block; font-size: 11px; color: var(--ep-orange); }
   .offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
   .offer { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
   .offer .oimg { width: 64px; height: 64px; border-radius: 10px; flex: none; background: #fff center/contain no-repeat; display: flex; align-items: center; justify-content: center; font-size: 30px; border: 1px solid var(--ep-divider); }
   .offer .ot { font-weight: 600; line-height: 1.25; }
   .offer .store { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 1px 7px; background: var(--ep-accent-bg); margin: 3px 0; }
-  .offer .pr { font-size: 18px; font-weight: 700; color: #c62828; }
+  .offer .pr { font-size: 18px; font-weight: 700; color: var(--ep-red); }
   .offer .old { text-decoration: line-through; color: var(--ep-secondary-text); font-size: 13px; margin-left: 6px; }
   .offer .disc { background: #c62828; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
   .offer .acts { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
@@ -356,7 +367,7 @@ const STYLE = `
   .bars div span { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--ep-secondary-text); }
   .infobox { padding: 14px 16px; margin-bottom: 14px; border-left: 4px solid var(--ep-primary); }
   .costbox { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
-  .costbox .big { font-size: 20px; font-weight: 700; color: #2e7d32; }
+  .costbox .big { font-size: 20px; font-weight: 700; color: var(--ep-green); }
   .strategy { display: flex; flex-direction: column; gap: 6px; }
   .strategy label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; border: 1px solid var(--ep-divider); border-radius: 10px; cursor: pointer; }
   .strategy label:has(input:checked) { border-color: var(--ep-primary); background: var(--ep-accent-bg); }
@@ -399,9 +410,9 @@ const STYLE = `
   .rdot.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 10px; }
   .bdg { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; line-height: 1.5; border-radius: 999px; padding: 1px 8px; background: var(--ep-accent-bg); color: var(--primary-text-color); white-space: nowrap; }
   .bdg.star { background: var(--ep-primary); color: var(--ep-on-primary); }
-  .bdg.warn { background: color-mix(in srgb, #ef6c00 16%, transparent); color: #ef6c00; }
-  .bdg.ok { background: color-mix(in srgb, #2e7d32 15%, transparent); color: #2e7d32; }
-  .bdg.bad { background: color-mix(in srgb, #c62828 15%, transparent); color: #c62828; }
+  .bdg.warn { background: color-mix(in srgb, #ef6c00 16%, transparent); color: var(--ep-orange); }
+  .bdg.ok { background: color-mix(in srgb, #2e7d32 15%, transparent); color: var(--ep-green); }
+  .bdg.bad { background: color-mix(in srgb, #c62828 15%, transparent); color: var(--ep-red); }
   .badges { display: flex; flex-wrap: wrap; gap: 5px; }
   .seg { display: inline-flex; border: 1px solid var(--ep-divider); border-radius: 999px; overflow: hidden; background: var(--ep-card); }
   .seg button { border: none; background: none; color: inherit; font: inherit; font-size: 14px; padding: 8px 14px; min-height: 40px; cursor: pointer; white-space: nowrap; }
@@ -417,7 +428,7 @@ const STYLE = `
   .branchgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
   .branch { border: 1px solid var(--ep-divider); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .branch.main { border-color: var(--ep-primary); box-shadow: 0 0 0 1px var(--ep-primary); }
-  .branch.off > :not(.bacts) { opacity: .55; }
+  .branch.off > :not(.bacts):not(.badges) { opacity: .55; }
   .bhead { display: flex; gap: 10px; align-items: center; min-width: 0; }
   .bhead .bname { font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
   .baddr { font-size: 12.5px; color: var(--ep-secondary-text); overflow-wrap: anywhere; }
@@ -441,7 +452,7 @@ const STYLE = `
   .osm .btn { flex: none; }
   .notice { font-size: 13px; padding: 9px 12px; border-radius: 10px; background: var(--ep-accent-bg); }
   .notice.warn { background: color-mix(in srgb, #ef6c00 13%, transparent); }
-  .notice.err { background: color-mix(in srgb, #c62828 13%, transparent); color: var(--error-color, #c62828); }
+  .notice.err { background: color-mix(in srgb, #c62828 13%, transparent); color: var(--ep-red); }
   .formgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; align-items: end; }
   .formgrid input, .formgrid select { width: 100%; }
   .pmtools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -460,7 +471,7 @@ const STYLE = `
   .cell .s { font-size: 11px; color: var(--ep-secondary-text); white-space: nowrap; }
   .cell.none .p { font-weight: 400; color: var(--ep-secondary-text); }
   .cell.best { background: color-mix(in srgb, #2e7d32 15%, transparent); }
-  .cell.best .p { color: #2e7d32; }
+  .cell.best .p { color: var(--ep-green); }
   .cell.stale { opacity: .6; }
   .cell.static { cursor: default; }
   .cell.static:hover { border-color: transparent; }
@@ -470,14 +481,14 @@ const STYLE = `
   .storehead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px 16px 10px; }
   .storehead .sname { font-weight: 600; font-size: 15px; color: var(--primary-text-color); overflow-wrap: anywhere; }
   .storehead .sstat { margin-left: auto; font-size: 13px; color: var(--ep-secondary-text); text-align: right; }
-  .storehead .save { color: #2e7d32; font-weight: 600; white-space: nowrap; }
+  .storehead .save { color: var(--ep-green); font-weight: 600; white-space: nowrap; }
   .aisle { padding: 7px 16px 3px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ep-secondary-text); border-top: 1px solid var(--ep-divider); }
   .aisle + .item { border-top: none; }
   .reason { font-size: 11px; border-radius: 6px; padding: 0 6px; margin-left: 4px; background: var(--ep-accent-bg); white-space: nowrap; vertical-align: 1px; }
-  .reason.offer { background: color-mix(in srgb, #ef6c00 16%, transparent); color: #e65100; }
-  .reason.cheap { background: color-mix(in srgb, #2e7d32 15%, transparent); color: #2e7d32; }
+  .reason.offer { background: color-mix(in srgb, #ef6c00 16%, transparent); color: var(--ep-orange); }
+  .reason.cheap { background: color-mix(in srgb, #2e7d32 15%, transparent); color: var(--ep-green); }
   .item .swap { font-size: 17px; }
-  .price .sv { display: block; font-size: 11px; color: #2e7d32; }
+  .price .sv { display: block; font-size: 11px; color: var(--ep-green); }
   .addrow { position: relative; z-index: 4; }
   .addwrap { flex: 1 1 220px; min-width: 0; }
   .addwrap input { width: 100%; min-height: 42px; }
@@ -513,6 +524,18 @@ const STYLE = `
     .seg button { padding: 8px 11px; font-size: 13.5px; }
   }
   @media (max-width: 600px) { main { padding: 10px; } .grid2 { grid-template-columns: 1fr; } .weeklabel { font-size: 16px; } .btn { padding: 7px 12px; } }
+  /* the checkbox of a shopping item: 40 px tap area without changing the row layout */
+  .item .chk { flex: none; width: 40px; height: 40px; margin: -9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .addwrap input { scroll-margin-top: 120px; }
+  /* touch screens: every control at least 40 px high */
+  @media (pointer: coarse) {
+    .btn, .btn.small, .add { min-height: 40px; }
+    .btn.small { padding: 6px 12px; }
+    .icon, .bacts .icon, .recipe .fav { width: 40px; height: 40px; }
+    button.chip, label.chip, .zonechips .chip { min-height: 40px; display: inline-flex; align-items: center; gap: 4px; }
+    input:not([type=checkbox]):not([type=radio]), select { min-height: 40px; }
+    .rewebox input { padding: 8px 10px; }
+  }
 `;
 
 class EssensplanerPanel extends HTMLElement {
@@ -546,6 +569,7 @@ class EssensplanerPanel extends HTMLElement {
     this._manual = { store: "", label: "", street: "", postcode: "", city: "" };
     this._reweInput = {};
     this._reweMarkets = {};
+    this._refreshing = new Set();
     try {
       this._secOpen = JSON.parse(this._pref("sections", "{}")) || {};
     } catch (e) {
@@ -561,6 +585,9 @@ class EssensplanerPanel extends HTMLElement {
       if (this._tab === "stores") this._renderPriceMatrix();
     };
     this._onKey = (ev) => this._handleKey(ev);
+    this._onViewport = () => {
+      if (this._suggest.open) this._fitSuggest(undefined, undefined, true);
+    };
     this._onVisibility = () => {
       if (this._cook && document.visibilityState === "visible") this._acquireWakeLock();
     };
@@ -591,6 +618,7 @@ class EssensplanerPanel extends HTMLElement {
     window.addEventListener("keydown", this._onKey);
     document.addEventListener("visibilitychange", this._onVisibility);
     this._narrowQuery?.addEventListener?.("change", this._onNarrow);
+    window.visualViewport?.addEventListener("resize", this._onViewport);
     if (this._hass && !this._unsub && this._data) this._subscribe();
   }
 
@@ -598,6 +626,7 @@ class EssensplanerPanel extends HTMLElement {
     window.removeEventListener("keydown", this._onKey);
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._narrowQuery?.removeEventListener?.("change", this._onNarrow);
+    window.visualViewport?.removeEventListener("resize", this._onViewport);
     if (this._unsub) {
       Promise.resolve(this._unsub).then((unsub) => typeof unsub === "function" && unsub());
       this._unsub = null;
@@ -634,12 +663,21 @@ class EssensplanerPanel extends HTMLElement {
     try {
       const data = await this._hass.callWS({ type: `${DOMAIN}/data` });
       const json = JSON.stringify(data);
-      if (json === this._dataJson && this._data) return; // nothing changed: no re-render (keeps typing smooth)
+      const pricesStale = !changes.size || [...changes].some((c) => STALE_CHANGES.has(c) || !c);
+      if (json === this._dataJson && this._data) {
+        // nothing changed: no re-render (keeps typing smooth) – but store prices are not part
+        // of the data, so a changed price (e.g. set by voice) still refreshes the price list
+        if (changes.size && pricesStale) {
+          this._priceList = null;
+          if (this._tab === "stores") this._fetchStorePrices();
+          else this._storePricesStale = true;
+        }
+        return;
+      }
       this._dataJson = json;
       this._data = data;
       this._costs = {};
       if (!this._weekStart) this._weekStart = mondayOf(fromIso(this._data.today));
-      const pricesStale = !changes.size || [...changes].some((c) => STALE_CHANGES.has(c) || !c);
       if (pricesStale) {
         this._storePricesStale = true;
         this._priceList = null;
@@ -696,7 +734,7 @@ class EssensplanerPanel extends HTMLElement {
       await this._hass.callService(DOMAIN, service, data);
       return null;
     } catch (err) {
-      this._toast(err.message || String(err));
+      this._toast(errText(err));
       throw err;
     }
   }
@@ -707,7 +745,7 @@ class EssensplanerPanel extends HTMLElement {
     try {
       await this._hass.callService("todo", service, { entity_id: entity, ...data });
     } catch (err) {
-      this._toast(err.message || String(err));
+      this._toast(errText(err));
     }
   }
 
@@ -891,8 +929,24 @@ class EssensplanerPanel extends HTMLElement {
       this._secOpen[section] = true;
       this._setPref("sections", JSON.stringify(this._secOpen));
     }
+    // the stores tab loads its last search afterwards, which changes the height above the
+    // section: scroll again once it is there (see _ensureStoresData)
     this._renderContent();
-    if (section) this._content.querySelector(`#sec-${section}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    const loading = this._branchSearchLoading || this._storePricesLoading;
+    this._pendingScroll = section && tab === "stores" && loading ? section : null;
+    if (section) this._content.querySelector(`#sec-${section}`)?.scrollIntoView({ block: "start", behavior: this._pendingScroll ? "auto" : "smooth" });
+  }
+
+  /** Scroll to the section requested by _goTab again after the stores tab data arrived. */
+  _flushScroll() {
+    const section = this._pendingScroll;
+    if (!section) return;
+    if (this._tab !== "stores") {
+      this._pendingScroll = null;
+      return;
+    }
+    this._content.querySelector(`#sec-${section}`)?.scrollIntoView({ block: "start" });
+    if (!this._branchSearchLoading && !this._storePricesLoading) this._pendingScroll = null;
   }
 
   /* ------------------------------------------------------------ plan */
@@ -1190,7 +1244,7 @@ class EssensplanerPanel extends HTMLElement {
       const offer = item.offer ? `<span class="o">🏷️ ${byStore ? "Angebot" : esc(item.offer.store || "Angebot")}</span>` : "";
       return `
       <div class="item ${isOpen ? "" : "done"}">
-        <input type="checkbox" data-change="toggle-item" data-uid="${esc(item.uid)}" ${isOpen ? "" : "checked"} aria-label="${esc(item.summary)} erledigt">
+        <label class="chk"><input type="checkbox" data-change="toggle-item" data-uid="${esc(item.uid)}" ${isOpen ? "" : "checked"} aria-label="${esc(item.summary)} erledigt"></label>
         <div class="txt"><div class="sum">${esc(item.summary)}${reason && item.store_reason !== "offer" ? `<span class="reason ${reason[1]}" title="${esc(reason[2])}">${reason[0]}</span>` : ""}</div>${describe(item) ? `<div class="desc">${esc(describe(item))}</div>` : ""}</div>
         ${item.price != null ? `<div class="price">≈ ${eur(item.price)}${offer}${saving}</div>` : ""}
         ${split && isOpen ? `<button class="icon swap" data-action="pick-store" data-uid="${esc(item.uid)}" title="Laden wählen" aria-label="Laden wählen">⇄</button>` : ""}
@@ -1242,7 +1296,7 @@ class EssensplanerPanel extends HTMLElement {
       ${hint}
       <div class="row addrow">
         <div class="addwrap">
-          <input placeholder="Artikel hinzufügen, z. B. „2 Liter Milch“" data-enter="add-item" data-focuskey="additem" data-input="additem" value="${esc(this._addText)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" role="combobox" aria-autocomplete="list" aria-expanded="${this._suggest.open ? "true" : "false"}">
+          <input placeholder="${window.innerWidth < 600 ? "Artikel, z. B. „2 Liter Milch“" : "Artikel hinzufügen, z. B. „2 Liter Milch“"}" aria-label="Artikel hinzufügen" data-enter="add-item" data-focuskey="additem" data-input="additem" value="${esc(this._addText)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" role="combobox" aria-autocomplete="list" aria-expanded="${this._suggest.open ? "true" : "false"}">
           <div class="suggest" role="listbox" ${this._suggest.open ? "" : "hidden"}>${this._suggest.open ? this._suggestHtml() : ""}</div>
         </div>
         <button class="btn primary" data-action="add-item">Hinzufügen</button>
@@ -1304,12 +1358,16 @@ class EssensplanerPanel extends HTMLElement {
     const seq = ++this._suggestSeq;
     const live = this._expectLive() && query.length >= 3;
     const s = this._suggest;
+    const opening = !s.open;
     Object.assign(s, { open: true, query, loading: true, live, error: null });
     if (s.lastQuery !== query) s.index = -1;
     this._renderSuggest();
+    if (opening) this._fitSuggest(undefined, undefined, true);
+    let localDone = false;
     try {
       const local = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: false });
       if (seq !== this._suggestSeq) return;
+      localDone = true;
       this._setSuggestResults(local, query, live);
       if (!live) return;
       const online = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: true });
@@ -1318,11 +1376,11 @@ class EssensplanerPanel extends HTMLElement {
         s.loading = false;
       } else {
         this._setSuggestResults(online, query, false);
-        s.error = online.error || null;
+        s.error = online.error ? `Online-Suche: ${online.error}` : null;
       }
     } catch (err) {
       if (seq !== this._suggestSeq) return;
-      Object.assign(s, { loading: false, error: err.message || String(err) });
+      Object.assign(s, { loading: false, error: `${localDone ? "Online-Suche: " : ""}${errText(err)}` });
     }
     this._renderSuggest();
   }
@@ -1355,12 +1413,27 @@ class EssensplanerPanel extends HTMLElement {
     box.hidden = !open;
     box.innerHTML = open ? this._suggestHtml() : "";
     input?.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) this._fitSuggest(box, input);
     const sel = scroll && box.querySelector(".sugg.sel");
     if (sel) {
       const top = sel.offsetTop;
       if (top < box.scrollTop) box.scrollTop = top;
       else if (top + sel.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + sel.offsetHeight - box.clientHeight;
     }
+  }
+
+  /** Keep the suggestions above the bottom of the visible area (phone keyboard). */
+  _fitSuggest(box = this._content.querySelector(".suggest"), input = this._suggestInput(), makeRoom = false) {
+    if (!box || box.hidden || !input) return;
+    const vv = window.visualViewport;
+    const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    let space = bottom - input.getBoundingClientRect().bottom - 12;
+    if (makeRoom && space < 240) {
+      // too close to the keyboard / bottom: move the field up (below the sticky header)
+      input.scrollIntoView({ block: "start" });
+      space = bottom - input.getBoundingClientRect().bottom - 12;
+    }
+    box.style.maxHeight = `${Math.round(Math.max(140, Math.min(440, space)))}px`;
   }
 
   _suggestHtml() {
@@ -1390,7 +1463,7 @@ class EssensplanerPanel extends HTMLElement {
     let foot = "";
     if (s.loading) foot = `<div class="shint">⏳ Suche …</div>`;
     else if (!s.results.length) foot = `<div class="shint">Keine Treffer – Enter fügt den Text hinzu</div>`;
-    if (s.error) foot += `<div class="shint">⚠️ Online-Suche: ${esc(s.error)}</div>`;
+    if (s.error) foot += `<div class="shint">⚠️ ${esc(s.error)}</div>`;
     return head + rows + foot;
   }
 
@@ -1402,6 +1475,15 @@ class EssensplanerPanel extends HTMLElement {
       ev.preventDefault();
       ev.stopPropagation();
       this._closeSuggest();
+      return true;
+    }
+    if (ev.key === "ArrowDown" && !s.open) {
+      // closed with Escape: arrow down opens the suggestions again
+      const { query } = splitQuantity(this._addText);
+      if (query.length < 2) return false;
+      ev.preventDefault();
+      clearTimeout(this._suggestTimer);
+      this._runSuggest(query);
       return true;
     }
     if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
@@ -1516,8 +1598,15 @@ class EssensplanerPanel extends HTMLElement {
         this._renderContent();
       } else if (kind === "branch-selected") {
         const b = this._branch(t.dataset.id);
-        await this._service("save_branch", { id: t.dataset.id, selected: t.checked }, true);
-        if (b) this._toast(t.checked ? `▶️ ${b.label} ist wieder aktiv` : `⏸ ${b.label} pausiert – wird bei Einkauf und Angeboten nicht genutzt`);
+        const checked = t.checked;
+        // pausing the main store also removes it as main store: ask first
+        if (b?.main && !checked && !confirm(`„${b.label}“ ist dein Hauptladen. Pausierst du ihn, ist er nicht mehr Hauptladen – wähle dann einen anderen, sonst wird die Einkaufsliste nicht nach Läden aufgeteilt. Trotzdem pausieren?`)) {
+          t.checked = true;
+          return;
+        }
+        const res = await this._service("save_branch", { id: t.dataset.id, selected: checked }, true);
+        this._applyBranch(res?.branch);
+        if (b) this._toast(checked ? `▶️ ${b.label} ist wieder aktiv` : b.main ? `⏸ ${b.label} pausiert – bitte einen neuen Hauptladen wählen` : `⏸ ${b.label} pausiert – wird bei Einkauf und Angeboten nicht genutzt`);
       } else if (kind === "search-route") {
         this._searchRoute = t.checked;
       } else if (kind === "search-radius") {
@@ -1696,11 +1785,12 @@ class EssensplanerPanel extends HTMLElement {
       case "rewe-pick":
       case "rewe-save": {
         const value = action === "rewe-pick" ? d.market : (this._reweInput[d.id] ?? "").trim();
-        await this._service("save_branch", { id: d.id, rewe_market_id: value }, true);
+        const res = await this._service("save_branch", { id: d.id, rewe_market_id: value }, true);
         delete this._reweInput[d.id];
         delete this._reweMarkets[d.id];
         this._toast(value ? `🛒 REWE-Markt ${value} gespeichert` : "REWE-Markt-ID entfernt");
-        this._renderContent();
+        // show the new id at once (not the old one until the next update)
+        if (!this._applyBranch(res?.branch || { id: d.id, rewe_market_id: value })) this._renderContent();
         break;
       }
       case "zone-toggle": {
@@ -1751,14 +1841,16 @@ class EssensplanerPanel extends HTMLElement {
         this._renderContent();
         break;
       case "refresh-offers": {
+        if (this._refreshing.has("offers-tab")) return;
+        this._refreshing.add("offers-tab");
         el.disabled = true;
         el.textContent = "⏳ Lade Angebote …";
         try {
           const res = await this._service("refresh_offers", {}, true);
           this._toast(res?.status === "ok" ? `🏷️ ${res.count} passende Angebote geladen` : `Fehler: ${(res?.errors || []).join("; ")}`);
-        } catch (e) {
-          el.disabled = false;
-          el.textContent = "🔄 Aktualisieren";
+        } finally {
+          this._refreshing.delete("offers-tab");
+          if (this._tab === "offers") this._renderContent();
         }
         break;
       }
@@ -2239,7 +2331,7 @@ class EssensplanerPanel extends HTMLElement {
     const budgetHtml = `<div class="card budgetcard">
         <div><div class="meta">Diese Woche (geschätzt)</div><div class="big">${eur(week.total || 0)}</div></div>
         <div>
-          ${budget ? `<div class="meta">Budget ${eur(budget)} · ${week.remaining >= 0 ? `noch <b>${eur(week.remaining)}</b> frei` : `<b style="color:#c62828">${eur(-week.remaining)} drüber</b>`}</div>
+          ${budget ? `<div class="meta">Budget ${eur(budget)} · ${week.remaining >= 0 ? `noch <b>${eur(week.remaining)}</b> frei` : `<b style="color:var(--ep-red)">${eur(-week.remaining)} drüber</b>`}</div>
           <div class="progress" style="height:10px;max-width:none;margin-top:6px"><div style="width:${Math.min(100, Math.round(ratio * 100))}%;background:${ratio > 1 ? "#c62828" : ratio > 0.85 ? "#ef6c00" : "#2e7d32"}"></div></div>` : `<div class="hint">Kein Wochenbudget festgelegt – in den Optionen unter „Budget & Angebote“ einstellen.</div>`}
           <div class="meta" style="margin-top:6px">${week.savings ? `🏷️ ${eur(week.savings)} durch Angebote gespart · ` : ""}Nächste Woche bisher ≈ ${eur(next.total || 0)}</div>
         </div>
@@ -2286,7 +2378,7 @@ class EssensplanerPanel extends HTMLElement {
         <button class="chip ${when === "all" ? "active" : ""}" data-action="offers-when" data-when="all">Alle</button>
         <button class="chip ${this._offersMine !== false ? "active" : ""}" data-action="offers-mine">Nur passend zu meinen Rezepten</button>
         <span class="spacer"></span>
-        ${online ? `<button class="btn" data-action="refresh-offers">🔄 Aktualisieren</button>` : ""}
+        ${online ? `<button class="btn" data-action="refresh-offers" ${this._refreshing.has("offers-tab") ? "disabled" : ""}>${this._refreshing.has("offers-tab") ? "⏳ Lade Angebote …" : "🔄 Aktualisieren"}</button>` : ""}
         <button class="btn" data-action="add-offer">＋ Angebot eintragen</button>
         <button class="btn ghost" data-action="go-tab" data-tab="stores" data-sec="prices">💶 Preise</button>
       </div>
@@ -2511,11 +2603,12 @@ class EssensplanerPanel extends HTMLElement {
         })
         .catch((err) => {
           this._branchSearch = null;
-          this._searchError = err.message || String(err);
+          this._searchError = errText(err);
         })
         .finally(() => {
           this._branchSearchLoading = false;
           if (this._tab === "stores") this._renderContent();
+          this._flushScroll();
         });
     }
     if ((!this._storePrices || this._storePricesStale) && !this._storePricesLoading) this._fetchStorePrices();
@@ -2533,12 +2626,13 @@ class EssensplanerPanel extends HTMLElement {
       this._priceError = null;
     } catch (err) {
       if (seq !== this._priceSeq) return;
-      this._priceError = err.message || String(err);
+      this._priceError = errText(err);
       this._storePrices = this._storePrices || { retailers: [], rows: [], total: 0 };
     } finally {
       if (seq === this._priceSeq) this._storePricesLoading = false;
     }
     if (this._tab === "stores") this._renderPriceMatrix();
+    this._flushScroll();
   }
 
   _sec(key, title, body, meta = "", defOpen = true) {
@@ -2632,6 +2726,17 @@ class EssensplanerPanel extends HTMLElement {
       </div>`;
   }
 
+  /** Show a saved branch (service response) at once; the next data update confirms it. */
+  _applyBranch(branch) {
+    const list = this._data?.branches;
+    const i = branch?.id && list ? list.findIndex((b) => b.id === branch.id) : -1;
+    if (i < 0) return false;
+    list[i] = { ...list[i], ...branch };
+    if (branch.main) for (const b of list) if (b.id !== branch.id) b.main = false;
+    this._renderContent();
+    return true;
+  }
+
   async _moveBranch(id, delta) {
     const ordered = this._orderedBranches();
     const main = ordered.filter((b) => b.main);
@@ -2647,7 +2752,7 @@ class EssensplanerPanel extends HTMLElement {
         this._renderContent();
       }
     } catch (err) {
-      this._toast(err.message || String(err));
+      this._toast(errText(err));
     }
   }
 
@@ -2661,7 +2766,7 @@ class EssensplanerPanel extends HTMLElement {
       const res = await this._hass.callWS({ type: `${DOMAIN}/rewe_markets`, zip });
       this._reweMarkets[id] = { markets: res.markets || [], zip: res.zip_code || zip };
     } catch (err) {
-      this._reweMarkets[id] = { error: err.message || String(err), zip };
+      this._reweMarkets[id] = { error: errText(err), zip };
     }
     if (this._tab === "stores") this._renderContent();
   }
@@ -2733,7 +2838,7 @@ class EssensplanerPanel extends HTMLElement {
       this._branchSearch = res;
       this._toast(res.count ? `🔍 ${res.count} Läden gefunden` : "Keine Läden gefunden");
     } catch (err) {
-      this._searchError = err.message || String(err);
+      this._searchError = errText(err);
     } finally {
       this._searching = false;
       if (this._tab === "stores") this._renderContent();
@@ -2770,7 +2875,7 @@ class EssensplanerPanel extends HTMLElement {
     const m = this._manual;
     const retailers = this._data.economy?.retailers || [];
     const field = (key, label, attrs = "") =>
-      `<label class="field">${label}<input data-input="manual" data-field="${key}" data-focuskey="manual-${key}" value="${esc(m[key] || "")}" ${attrs}></label>`;
+      `<label class="field">${label}<input data-input="manual" data-field="${key}" data-focuskey="manual-${key}" data-enter="manual-save" value="${esc(m[key] || "")}" ${attrs}></label>`;
     return `
       <div class="hint">Für Läden, die die Suche nicht findet (oder ohne Zonen). Mit Postleitzahl werden auch Angebote für diesen Laden gesucht.</div>
       <div class="formgrid">
@@ -2791,7 +2896,14 @@ class EssensplanerPanel extends HTMLElement {
     const data = { store: m.store };
     for (const key of ["label", "street", "city"]) if ((m[key] || "").trim()) data[key] = m[key].trim();
     if (postcode) data.postcode = postcode;
-    const res = await this._service("save_branch", data, true);
+    if (this._savingManual) return; // double tap
+    this._savingManual = true;
+    let res;
+    try {
+      res = await this._service("save_branch", data, true);
+    } finally {
+      this._savingManual = false;
+    }
     this._manual = { store: "", label: "", street: "", postcode: "", city: "" };
     const b = res?.branch;
     this._toast(b?.main ? `⭐ ${b.label} ist dein Hauptladen` : `🏪 ${b?.label || "Laden"} gespeichert`);
@@ -2815,18 +2927,32 @@ class EssensplanerPanel extends HTMLElement {
     const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">💾 Speichern</button>`;
     this._showModal("Laden bearbeiten", body, footer, (root) => {
       root.querySelector(".blabel").focus();
-      root.querySelector(".save").addEventListener("click", async () => {
+      let saving = false;
+      const save = async () => {
+        if (saving) return;
         const v = (sel) => root.querySelector(sel).value.trim();
         const postcode = v(".bpostcode");
         if (postcode && !/^\d{5}$/.test(postcode)) return this._toast("Die Postleitzahl hat 5 Ziffern.");
         const data = { id, store: v(".bstore"), street: v(".bstreet"), postcode, city: v(".bcity") };
         if (v(".blabel") !== b.label) data.label = v(".blabel");
+        saving = true;
         try {
-          await this._service("save_branch", data, true);
+          const res = await this._service("save_branch", data, true);
           this._closeModal();
           this._toast("💾 Laden gespeichert");
+          this._applyBranch(res?.branch);
         } catch (e) {
           /* toast shown */
+        } finally {
+          saving = false;
+        }
+      };
+      root.querySelector(".save").addEventListener("click", save);
+      // Enter in a text field saves (like the price dialog; "Fertig"/"Los" on phone keyboards)
+      root.querySelector(".mbody").addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && ev.target.tagName === "INPUT") {
+          ev.preventDefault();
+          save();
         }
       });
     });
@@ -2862,8 +2988,10 @@ class EssensplanerPanel extends HTMLElement {
     const general = row.general;
     const cell = general || row.default;
     if (!cell) return `<button class="cell none" data-action="price-cell" data-key="${esc(row.key)}"><span class="p">＋</span></button>`;
+    // an own general price from 1.2 may carry a store label ("Preis bei Aldi")
+    const label = general ? `✏️ eigener Preis${general.store ? ` (${general.store})` : ""}` : "Richtwert";
     return `<button class="cell" data-action="price-cell" data-key="${esc(row.key)}" title="Gilt in allen Läden ohne eigenen Preis">
-        <span class="p">${eur(cell.price)}</span><span class="s">${esc(packText(cell.amount, cell.unit))}</span><span class="s">${general ? "✏️ eigener Preis" : "Richtwert"}</span></button>`;
+        <span class="p">${eur(cell.price)}</span><span class="s">${esc(packText(cell.amount, cell.unit))}</span><span class="s">${esc(label)}</span></button>`;
   }
 
   _priceMatrixHtml() {
@@ -2873,7 +3001,12 @@ class EssensplanerPanel extends HTMLElement {
     const retailers = m.retailers || [];
     const rows = (m.rows || []).slice(0, this._priceLimit);
     if (!rows.length) return `<div class="hint">${this._priceQuery ? `Nichts gefunden für „${esc(this._priceQuery)}“.` : "Noch keine Preise."}</div>`;
-    const name = (row) => `<td class="pname">${esc(row.name)}${row.category ? `<span class="meta">${CATEGORY_ICONS[row.category] || ""} ${esc(row.category)}</span>` : ""}</td>`;
+    // phone: no Richtwert column, so the general price / estimate goes under the name
+    const baseLine = (row) => {
+      const cell = row.general || row.default;
+      return cell ? `<span class="meta">${row.general ? "✏️ allgemein" : "Richtwert"} ${eur(cell.price)}${packText(cell.amount, cell.unit) ? ` / ${esc(packText(cell.amount, cell.unit))}` : ""}</span>` : "";
+    };
+    const name = (row, withBase = false) => `<td class="pname">${esc(row.name)}${row.category ? `<span class="meta">${CATEGORY_ICONS[row.category] || ""} ${esc(row.category)}</span>` : ""}${withBase ? baseLine(row) : ""}</td>`;
     const head = (r) => `${retailerDot(r.id, r.name).replace('class="rdot"', 'class="rdot sm"')}${esc(r.name)}${r.id === m.main_retailer ? " ⭐" : ""}`;
     let table;
     if (this._narrowQuery?.matches && retailers.length) {
@@ -2885,7 +3018,7 @@ class EssensplanerPanel extends HTMLElement {
           const bestCell = best
             ? `<div class="cell static best"><span class="p">${eur(best.price)}</span><span class="s">${esc(this._retailerName(row.cheapest))}</span><span class="s">${esc(packText(best.amount, best.unit))}</span></div>`
             : `<div class="cell static none"><span class="p">–</span></div>`;
-          return `<tr>${name(row)}<td>${this._priceCellHtml(row, store, row.stores[store], row.cheapest === store)}</td><td>${bestCell}</td></tr>`;
+          return `<tr>${name(row, true)}<td>${this._priceCellHtml(row, store, row.stores[store], row.cheapest === store)}</td><td>${bestCell}</td></tr>`;
         })
         .join("");
       table = `${select}<div class="pmwrap"><table class="pm"><thead><tr><th>Artikel</th><th>${head(retailers.find((r) => r.id === store))}</th><th>Günstigster</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -2979,7 +3112,7 @@ class EssensplanerPanel extends HTMLElement {
         ${online && meta.last_update ? `<div>Zuletzt ${esc(timeText(meta.last_update))}: <b>${esc(meta.count ?? 0)}</b> Angebote${meta.learned ? ` · ${esc(meta.learned)} Normalpreise gelernt` : ""}</div>` : ""}
         ${online && meta.status === "error" && meta.errors?.length ? `<div class="notice err">${esc(meta.errors[0])}</div>` : ""}
         ${online ? `<div class="badges">${targets || '<span class="hint">Keine Postleitzahl – trage bei deinen Läden eine PLZ ein.</span>'}</div>` : ""}
-        ${online ? `<div><button class="btn" data-action="refresh-source" data-source="offers">🔄 Preise aktualisieren</button></div>` : `<div class="hint">Einschalten unter ${where} → Budget &amp; Angebote.</div>`}
+        ${online ? `<div>${this._refreshButton("offers")}</div>` : `<div class="hint">Einschalten unter ${where} → Budget &amp; Angebote.</div>`}
       </div>`;
     const reweChip = {
       ok: '<span class="bdg ok">✅ ok</span>',
@@ -2994,13 +3127,20 @@ class EssensplanerPanel extends HTMLElement {
         <div class="meta">Normalpreise aus dem REWE-Onlineshop für deinen REWE-Markt (wöchentlich).</div>
         ${rewe.message ? `<div>${esc(rewe.message)}</div>` : ""}
         ${rewe.enabled ? `<div class="meta">${[rewe.prices ? `${rewe.prices} REWE-Preise gespeichert` : "", rewe.last_success ? `zuletzt erfolgreich ${timeText(rewe.last_success)}` : "", rewe.blocked_until ? `Pause bis ${timeText(rewe.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
-        ${canRefresh ? `<div><button class="btn" data-action="refresh-source" data-source="rewe">🔄 Preise aktualisieren</button> <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an shop.rewe.de gesendet.</div>`}
+        ${canRefresh || this._refreshing.has("rewe") ? `<div>${this._refreshButton("rewe")} <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an shop.rewe.de gesendet.</div>`}
       </div>`;
     return `<div class="srcgrid">${mg}${rw}</div>`;
   }
 
+  _refreshButton(source) {
+    const busy = this._refreshing.has(source);
+    return `<button class="btn" data-action="refresh-source" data-source="${source}" ${busy ? "disabled" : ""}>${busy ? "⏳ Lädt …" : "🔄 Preise aktualisieren"}</button>`;
+  }
+
   async _refreshSource(el, source) {
-    const label = el.textContent;
+    if (this._refreshing.has(source)) return;
+    // kept in a set so a data update while it runs (minutes for REWE) keeps the busy button
+    this._refreshing.add(source);
     el.disabled = true;
     el.textContent = "⏳ Lädt …";
     try {
@@ -3008,8 +3148,8 @@ class EssensplanerPanel extends HTMLElement {
       if (source === "rewe") this._toast(`🛒 REWE: ${res?.message || "fertig"}`);
       else this._toast(res?.status === "ok" ? `🏷️ ${res.count} Angebote geladen${res.learned ? `, ${res.learned} Normalpreise gelernt` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
     } finally {
-      el.disabled = false;
-      el.textContent = label;
+      this._refreshing.delete(source);
+      if (this._tab === "stores") this._renderContent();
     }
   }
 
@@ -3022,11 +3162,15 @@ class EssensplanerPanel extends HTMLElement {
     for (const a of item.alternatives || []) prices[a.branch_id] = { price: a.price, offer: a.offer, real: a.real };
     if (item.branch_id) prices[item.branch_id] = { price: item.price, offer: item.offer, real: true };
     let compare = null;
-    const preferred = item.store_reason === "preferred";
+    // "immer hier kaufen" is stored per product and retailer (also while a manual choice wins)
+    const prefs = this._data.store_preferences || {};
+    const remembered = (item.key && prefs[item.key]) || (item.store_reason === "preferred" ? item.retailer : null) || null;
+    const rememberedBranch = remembered ? branches.find((b) => b.retailer === remembered) : null;
     let selected = "auto";
     if (item.store_override && branches.some((b) => b.id === item.store_override)) selected = item.store_override;
-    else if (preferred && item.branch_id) selected = item.branch_id;
-    let always = preferred;
+    else if (item.store_reason === "preferred" && item.branch_id) selected = item.branch_id;
+    const alwaysFor = (store) => Boolean(remembered) && (store === "auto" || this._branch(store)?.retailer === remembered);
+    let always = alwaysFor(selected);
     const initial = `${selected}|${always}`;
     const rowsHtml = () => {
       const entries = branches.map((b) => {
@@ -3046,6 +3190,7 @@ class EssensplanerPanel extends HTMLElement {
             const tags = [
               b.id === item.branch_id ? '<span class="bdg">aktuell</span>' : "",
               b.main ? '<span class="bdg star">⭐</span>' : "",
+              rememberedBranch && b.id === rememberedBranch.id ? '<span class="bdg" title="Für diesen Artikel gemerkt">immer hier</span>' : "",
               unique && price === min ? '<span class="bdg ok">günstigster</span>' : "",
             ].join(" ");
             const sub = [offer ? `🏷️ Angebot${offer.valid_to ? ` bis ${shortDate(offer.valid_to)}` : ""}` : c ? PRICE_SOURCE[c.source] || "" : "", c?.pack ? c.pack : "", c?.unit_price && c.base !== "Stück" ? unitPriceText(c.unit_price, c.base) : ""].filter(Boolean).join(" · ");
@@ -3058,8 +3203,8 @@ class EssensplanerPanel extends HTMLElement {
     };
     const alwaysHtml = () =>
       selected === "auto"
-        ? item.store_reason === "preferred"
-          ? `<label class="switch"><input type="checkbox" class="always" ${always ? "checked" : ""}> Gemerkten Laden für diesen Artikel vergessen</label>`
+        ? remembered
+          ? `<label class="switch"><input type="checkbox" class="always" ${always ? "checked" : ""}> Gemerkten Laden (${esc(this._retailerName(remembered))}) für diesen Artikel vergessen</label>`
           : ""
         : `<label class="switch"><input type="checkbox" class="always" ${always ? "checked" : ""}> Immer in diesem Laden kaufen</label>`;
     const body = `
@@ -3077,24 +3222,33 @@ class EssensplanerPanel extends HTMLElement {
       list.addEventListener("click", (ev) => {
         const pick = ev.target.closest("[data-store]");
         if (!pick) return;
-        if (selected !== pick.dataset.store) always = pick.dataset.store === "auto" ? preferred : preferred && pick.dataset.store === item.branch_id;
+        if (selected !== pick.dataset.store) always = alwaysFor(pick.dataset.store);
         selected = pick.dataset.store;
         refresh();
       });
       box.addEventListener("change", (ev) => {
         if (ev.target.classList.contains("always")) always = ev.target.checked;
       });
+      let saving = false;
       root.querySelector(".save").addEventListener("click", async () => {
         if (`${selected}|${always}` === initial) return this._closeModal();
+        if (saving) return;
+        saving = true;
         try {
+          const b = this._branch(selected);
+          // unticked "immer hier" for the remembered store: forget it first, then pick the store
+          if (selected !== "auto" && !always && remembered && b?.retailer === remembered) {
+            await this._service("set_shopping_store", { item: uid, store: "auto", always: true }, true);
+          }
           const data = { item: uid, store: selected };
           if (always) data.always = true;
           await this._service("set_shopping_store", data, true);
           this._closeModal();
-          const b = this._branch(selected);
           this._toast(selected === "auto" ? `🤖 ${item.summary}: Laden wird automatisch gewählt` : `⇄ ${item.summary} → ${b?.label || "Laden"}${always ? " (immer)" : ""}`);
         } catch (e) {
           /* toast shown */
+        } finally {
+          saving = false;
         }
       });
       this._hass
