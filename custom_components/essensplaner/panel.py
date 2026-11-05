@@ -319,6 +319,34 @@ async def ws_find_branches(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/rewe_markets", vol.Optional("zip"): vol.Any(str, None)}
+)
+@websocket_api.async_response
+async def ws_rewe_markets(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """REWE markets near a postcode ("Markt suchen" of a REWE branch, experimental).
+
+    Same result as the find_rewe_markets service: {zip_code, markets: [{id, name, street,
+    postcode, city, label, lat, lon, branch_id}]}. Error codes are the translation keys
+    (invalid_postcode, rewe_postcode_required, rewe_blocked, rewe_failed) with a German
+    message.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .manager import error_message
+    from .rewe import async_find_rewe_markets
+
+    try:
+        result = await async_find_rewe_markets(hass, manager, msg.get("zip"))
+    except HomeAssistantError as err:
+        code = getattr(err, "translation_key", None) or "search_failed"
+        connection.send_error(msg["id"], code, error_message(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -331,3 +359,4 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_article_search)
     websocket_api.async_register_command(hass, ws_compare_prices)
     websocket_api.async_register_command(hass, ws_find_branches)
+    websocket_api.async_register_command(hass, ws_rewe_markets)

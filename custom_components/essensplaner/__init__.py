@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
+from .articles import register_live_provider
 from .const import (
     CONF_IMPORT_STARTER,
     CONF_REGISTER_INTENTS,
@@ -32,6 +33,14 @@ from .panel import (
     async_remove_panel,
     async_setup_websocket,
 )
+from .rewe import (
+    RETAILER as REWE,
+    STATUS_BLOCKED,
+    STATUS_ERROR,
+    async_refresh_rewe_prices,
+    async_rewe_live,
+    rewe_enabled,
+)
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +56,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up services and websocket commands."""
     async_setup_services(hass)
     async_setup_websocket(hass)
+    # article search: REWE online shop (experimental, only while its option is on)
+    register_live_provider(REWE, async_rewe_live, rewe_enabled)
     return True
 
 
@@ -95,8 +106,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     if manager.offers_source == OFFERS_MARKTGURU:
         # postcodes come from the options or the branches (can change without a reload)
         _setup_offer_refresh(hass, entry, manager)
+    if rewe_enabled(manager):
+        # experimental REWE online prices (opt-in; options changes reload the entry)
+        _setup_rewe_refresh(hass, entry, manager)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+def _daily_minute(entry: EssensplanerConfigEntry) -> int:
+    """Minute of the daily requests (stable per installation, spread over the hour)."""
+    return sum(ord(c) for c in entry.entry_id) % 50 + 5
 
 
 def _setup_offer_refresh(
@@ -122,8 +141,34 @@ def _setup_offer_refresh(
     if stale:
         entry.async_on_unload(async_call_later(hass, 90, _refresh))
     # spread the daily request over the morning (stable per installation)
-    minute = sum(ord(c) for c in entry.entry_id) % 50 + 5
-    entry.async_on_unload(async_track_time_change(hass, _refresh, hour=6, minute=minute, second=0))
+    entry.async_on_unload(
+        async_track_time_change(hass, _refresh, hour=6, minute=_daily_minute(entry), second=0)
+    )
+
+
+def _setup_rewe_refresh(
+    hass: HomeAssistant, entry: EssensplanerConfigEntry, manager: EssensplanerManager
+) -> None:
+    """Check daily at 04:xx; prices are only fetched when the last success is a week old."""
+
+    async def _check(_now: datetime | None = None) -> None:
+        if not rewe_enabled(manager):
+            return
+        before = (manager.price_sources_meta.get("rewe") or {}).get("last_run")
+        try:
+            status = await async_refresh_rewe_prices(hass, manager)
+        except Exception:
+            _LOGGER.exception("Refreshing REWE online prices failed")
+            return
+        if status.get("last_run") != before and status["status"] in (STATUS_ERROR, STATUS_BLOCKED):
+            _LOGGER.warning(
+                "Essensplaner REWE online prices (experimental): %s",
+                "; ".join(status.get("errors") or []) or status["message"],
+            )
+
+    entry.async_on_unload(
+        async_track_time_change(hass, _check, hour=4, minute=_daily_minute(entry), second=0)
+    )
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: EssensplanerConfigEntry) -> None:

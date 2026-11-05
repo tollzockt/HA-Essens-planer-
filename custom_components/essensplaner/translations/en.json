@@ -126,6 +126,12 @@
         "globus": "Globus",
         "marktkauf": "Marktkauf"
       }
+    },
+    "price_source": {
+      "options": {
+        "offers": "Supermarket offers (marktguru.de)",
+        "rewe": "REWE online shop (experimental)"
+      }
     }
   },
   "entity": {
@@ -267,6 +273,21 @@
     },
     "no_search_area": {
       "message": "No zone with coordinates found – set the home zone in Home Assistant or choose zones."
+    },
+    "rewe_disabled": {
+      "message": "REWE online prices are not enabled (experimental, Essensplaner → Configure)."
+    },
+    "rewe_no_market": {
+      "message": "No REWE branch with a market ID – add a REWE branch and enter its market ID (find it with 'Find REWE markets')."
+    },
+    "rewe_blocked": {
+      "message": "The REWE online shop does not allow automated requests right now ({error})."
+    },
+    "rewe_failed": {
+      "message": "The request to the REWE online shop failed ({error})."
+    },
+    "rewe_postcode_required": {
+      "message": "Please enter a postcode (5 digits)."
     }
   },
   "services": {
@@ -1037,6 +1058,26 @@
         "refresh": {
           "name": "Search again",
           "description": "Ignore the saved result and query OpenStreetMap again (at most every 2 minutes)."
+        }
+      }
+    },
+    "refresh_prices": {
+      "name": "Refresh prices",
+      "description": "Fetches prices from an online source now: 'offers' loads the supermarket offers (marktguru), 'rewe' the regular prices of the REWE online shop (experimental: must be enabled in the options and needs a REWE branch with market ID; paused for 7 days if REWE refuses automated requests).",
+      "fields": {
+        "source": {
+          "name": "Source",
+          "description": "offers = supermarket offers (marktguru.de), rewe = REWE online shop prices (experimental)."
+        }
+      }
+    },
+    "find_rewe_markets": {
+      "name": "Find REWE markets",
+      "description": "Searches the REWE markets near a postcode and returns their market IDs (for the experimental REWE online prices: enter the ID at your REWE branch with 'Save branch'). The postcode is sent to rewe.de.",
+      "fields": {
+        "zip": {
+          "name": "Postcode",
+          "description": "Default: the postcode of your REWE branch, else the postcode from the options."
         }
       }
     }

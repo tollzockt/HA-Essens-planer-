@@ -52,6 +52,8 @@ from .const import (
     ATTR_URL,
     DOMAIN,
     OFFERS_MARKTGURU,
+    PRICE_SOURCE_REWE,
+    PRICE_SOURCES,
     SERVICE_ADD_OFFER,
     SERVICE_ADD_RECIPE,
     SERVICE_ADD_SHOPPING_ITEM,
@@ -64,6 +66,7 @@ from .const import (
     SERVICE_EXPORT_RECIPES,
     SERVICE_FIND_BRANCHES,
     SERVICE_FIND_BY_INGREDIENTS,
+    SERVICE_FIND_REWE_MARKETS,
     SERVICE_GET_BRANCHES,
     SERVICE_GET_COSTS,
     SERVICE_GET_OFFERS,
@@ -79,6 +82,7 @@ from .const import (
     SERVICE_MOVE_MEAL,
     SERVICE_PLAN_MEAL,
     SERVICE_REFRESH_OFFERS,
+    SERVICE_REFRESH_PRICES,
     SERVICE_REMOVE_BRANCH,
     SERVICE_REMOVE_MEAL,
     SERVICE_REMOVE_OFFER,
@@ -95,6 +99,7 @@ from .dates import DateParseError, parse_date, parse_meal, week_start
 from .ingredients import fold
 from .offers import async_refresh_offers, async_search_target_offers
 from .recipe_import import async_fetch_recipe
+from .rewe import async_find_rewe_markets, async_refresh_rewe_prices, rewe_enabled, rewe_market
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
@@ -292,6 +297,8 @@ FIND_BRANCHES_SCHEMA = vol.Schema(
         vol.Optional("refresh", default=False): cv.boolean,
     }
 )
+REFRESH_PRICES_SCHEMA = vol.Schema({vol.Required("source"): vol.In(PRICE_SOURCES)})
+FIND_REWE_MARKETS_SCHEMA = vol.Schema({vol.Optional("zip"): cv.string})
 GET_SHOPPING_LIST_SCHEMA = vol.Schema({vol.Optional("store"): cv.string})
 SET_SHOPPING_STORE_SCHEMA = vol.Schema(
     {
@@ -788,7 +795,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
             call.data.get("store"),
             call.data[ATTR_COUNT],
         )
-        return {"count": len(offers), "offers": offers, "meta": manager.offers_meta}
+        return {
+            "count": len(offers),
+            "offers": offers,
+            "meta": manager.offers_meta,
+            "price_sources": manager.price_sources_view(),
+        }
 
     async def add_offer(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -858,6 +870,22 @@ def async_setup_services(hass: HomeAssistant) -> None:
             refresh=call.data["refresh"],
         )
 
+    async def refresh_prices(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        if call.data["source"] != PRICE_SOURCE_REWE:
+            require_offer_source(manager)
+            return await async_refresh_offers(hass, manager)
+        if not rewe_enabled(manager):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="rewe_disabled")
+        if rewe_market(manager)[1] is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="rewe_no_market"
+            )
+        return await async_refresh_rewe_prices(hass, manager, force=True)
+
+    async def find_rewe_markets(call: ServiceCall) -> ServiceResponse:
+        return await async_find_rewe_markets(hass, get_manager(hass), call.data.get("zip"))
+
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
@@ -905,6 +933,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_ASSIGN_SHOPPING_STORES, assign_shopping_stores, ASSIGN_SHOPPING_STORES_SCHEMA),
         (SERVICE_COMPARE_PRICES, compare_prices, COMPARE_PRICES_SCHEMA),
         (SERVICE_ADD_SHOPPING_ITEM, add_shopping_item, ADD_SHOPPING_ITEM_SCHEMA),
+        (SERVICE_REFRESH_PRICES, refresh_prices, REFRESH_PRICES_SCHEMA),
+        (SERVICE_FIND_REWE_MARKETS, find_rewe_markets, FIND_REWE_MARKETS_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

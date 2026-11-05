@@ -675,3 +675,22 @@ find_branches:
       default: false
       selector:
         boolean:
+
+refresh_prices:
+  fields:
+    source:
+      required: true
+      example: rewe
+      selector:
+        select:
+          translation_key: price_source
+          options:
+            - offers
+            - rewe
+
+find_rewe_markets:
+  fields:
+    zip:
+      example: "80331"
+      selector:
+        text:

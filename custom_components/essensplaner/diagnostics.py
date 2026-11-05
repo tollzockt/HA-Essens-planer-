@@ -11,8 +11,11 @@ from homeassistant.core import HomeAssistant
 from .manager import EssensplanerManager
 
 # where the user lives / shops: coordinates, streets (also in labels), distances to zones
-# and OpenStreetMap ids (which point to one exact shop)
+# and OpenStreetMap / REWE market ids (which point to one exact shop)
 TO_REDACT = {
+    "market_id",
+    "rewe_market_id",
+    "branch_id",
     "lat",
     "lon",
     "latitude",

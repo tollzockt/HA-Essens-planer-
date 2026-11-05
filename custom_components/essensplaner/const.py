@@ -140,6 +140,12 @@ SERVICE_ASSIGN_SHOPPING_STORES: Final = "assign_shopping_stores"
 SERVICE_COMPARE_PRICES: Final = "compare_prices"
 SERVICE_ADD_SHOPPING_ITEM: Final = "add_shopping_item"
 SERVICE_FIND_BRANCHES: Final = "find_branches"
+SERVICE_REFRESH_PRICES: Final = "refresh_prices"
+SERVICE_FIND_REWE_MARKETS: Final = "find_rewe_markets"
+# sources of refresh_prices
+PRICE_SOURCE_OFFERS: Final = "offers"
+PRICE_SOURCE_REWE: Final = "rewe"
+PRICE_SOURCES: Final = [PRICE_SOURCE_OFFERS, PRICE_SOURCE_REWE]
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"

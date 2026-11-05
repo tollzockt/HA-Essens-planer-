@@ -813,7 +813,14 @@ class EconomyMixin:
             "active_retailers": self.active_retailers(),
             "main_branch": self.main_branch,
             "main_retailer": self.main_retailer,
+            "price_sources": self.price_sources_view(),
         }
+
+    def price_sources_view(self: EssensplanerManager) -> dict[str, Any]:
+        """Status of the online price sources besides the offers (REWE online shop)."""
+        from .rewe import rewe_status  # rewe.py imports the mixins
+
+        return {"rewe": rewe_status(self)}
 
     def shopping_from_items(
         self: EssensplanerManager, entries: list[tuple[dict[str, Any], str]]

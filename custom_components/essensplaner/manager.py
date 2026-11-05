@@ -149,6 +149,16 @@ ERROR_MESSAGES_DE = {
         "Die Einkaufsliste wird nicht nach Läden aufgeteilt – lege zuerst einen Hauptladen "
         "fest (Essensplaner → Läden)."
     ),
+    "rewe_disabled": (
+        "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+    ),
+    "rewe_no_market": (
+        "Keine REWE-Filiale mit Markt-ID – füge eine REWE-Filiale hinzu und trage ihre "
+        "Markt-ID ein (zu finden mit „REWE-Märkte suchen“)."
+    ),
+    "rewe_blocked": "Der REWE-Onlineshop lässt gerade keine automatischen Abfragen zu ({error}).",
+    "rewe_failed": "Die Abfrage beim REWE-Onlineshop ist fehlgeschlagen ({error}).",
+    "rewe_postcode_required": "Bitte gib eine Postleitzahl an (5 Ziffern).",
 }
 
 

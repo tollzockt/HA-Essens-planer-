@@ -126,6 +126,12 @@
         "globus": "Globus",
         "marktkauf": "Marktkauf"
       }
+    },
+    "price_source": {
+      "options": {
+        "offers": "Supermarkt-Angebote (marktguru.de)",
+        "rewe": "REWE-Onlineshop (experimentell)"
+      }
     }
   },
   "entity": {
@@ -267,6 +273,21 @@
     },
     "no_search_area": {
       "message": "Keine Zone mit Koordinaten gefunden – lege in Home Assistant die Zone „Zuhause“ fest oder wähle Zonen aus."
+    },
+    "rewe_disabled": {
+      "message": "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+    },
+    "rewe_no_market": {
+      "message": "Keine REWE-Filiale mit Markt-ID – füge eine REWE-Filiale hinzu und trage ihre Markt-ID ein (zu finden mit „REWE-Märkte suchen“)."
+    },
+    "rewe_blocked": {
+      "message": "Der REWE-Onlineshop lässt gerade keine automatischen Abfragen zu ({error})."
+    },
+    "rewe_failed": {
+      "message": "Die Abfrage beim REWE-Onlineshop ist fehlgeschlagen ({error})."
+    },
+    "rewe_postcode_required": {
+      "message": "Bitte gib eine Postleitzahl an (5 Ziffern)."
     }
   },
   "services": {
@@ -1037,6 +1058,26 @@
         "refresh": {
           "name": "Neu suchen",
           "description": "Gespeichertes Ergebnis ignorieren und OpenStreetMap neu abfragen (höchstens alle 2 Minuten)."
+        }
+      }
+    },
+    "refresh_prices": {
+      "name": "Preise aktualisieren",
+      "description": "Holt jetzt Preise aus einer Online-Quelle: „offers“ lädt die Supermarkt-Angebote (marktguru), „rewe“ die Normalpreise aus dem REWE-Onlineshop (experimentell: muss in den Optionen eingeschaltet sein und braucht eine REWE-Filiale mit Markt-ID; lehnt REWE automatische Abfragen ab, wird 7 Tage pausiert).",
+      "fields": {
+        "source": {
+          "name": "Quelle",
+          "description": "offers = Supermarkt-Angebote (marktguru.de), rewe = Preise aus dem REWE-Onlineshop (experimentell)."
+        }
+      }
+    },
+    "find_rewe_markets": {
+      "name": "REWE-Märkte suchen",
+      "description": "Sucht die REWE-Märkte zu einer Postleitzahl und liefert ihre Markt-IDs (für die experimentellen REWE-Onlinepreise: die ID mit „Filiale speichern“ bei deiner REWE-Filiale eintragen). Die Postleitzahl wird an rewe.de gesendet.",
+      "fields": {
+        "zip": {
+          "name": "Postleitzahl",
+          "description": "Standard: die Postleitzahl deiner REWE-Filiale, sonst die aus den Optionen."
         }
       }
     }

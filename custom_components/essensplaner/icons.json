@@ -162,6 +162,12 @@
     },
     "find_branches": {
       "service": "mdi:map-search"
+    },
+    "refresh_prices": {
+      "service": "mdi:cash-refresh"
+    },
+    "find_rewe_markets": {
+      "service": "mdi:store-search"
     }
   }
 }

@@ -6,16 +6,19 @@ retailer and recently added articles (article_history). The default store is the
 branch; without one the general prices are searched.
 
 Optional live results (async_search_articles_live): providers per retailer can be
-registered in LIVE_PROVIDERS (phase 5 adds the REWE online shop for "rewe"); the marktguru
-offer search for the branch postcode is used for every retailer when the user enabled
-marktguru (offers_source). Live requests are throttled (LIVE_MIN_INTERVAL, newest query
-wins) and cached in memory for an hour per (query, postcode).
+registered in LIVE_PROVIDERS with an optional "enabled" check (rewe.py adds the
+experimental REWE online shop for "rewe", only asked while its option is on); the
+marktguru offer search for the branch postcode is used for every retailer when the user
+enabled marktguru (offers_source). Live requests are throttled (LIVE_MIN_INTERVAL, newest
+query wins) and cached in memory for an hour per (query, postcode / market), see
+cached_live_fetch().
 """
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -57,11 +60,35 @@ LiveProvider = Callable[
     Awaitable[list[dict[str, Any]]],
 ]
 LIVE_PROVIDERS: dict[str, LiveProvider] = {}
+# sequence number of the live search running in this task (all its providers share it)
+_SEARCH_SEQUENCE: ContextVar[int | None] = ContextVar("essensplaner_live_search", default=None)
+# optional check per retailer: the provider is only asked while it returns True
+LiveProviderCheck = Callable[["EssensplanerManager"], bool]
+LIVE_PROVIDER_CHECKS: dict[str, LiveProviderCheck] = {}
 
 
-def register_live_provider(retailer: str, provider: LiveProvider) -> None:
-    """Add a live article source for one retailer (e.g. the REWE online shop)."""
+def register_live_provider(
+    retailer: str, provider: LiveProvider, enabled: LiveProviderCheck | None = None
+) -> None:
+    """Add a live article source for one retailer (e.g. the REWE online shop).
+
+    enabled(manager) -> bool: the provider is only asked (and the search only counts as
+    live) while it returns True, e.g. while an opt-in option is on.
+    """
     LIVE_PROVIDERS[retailer] = provider
+    if enabled is None:
+        LIVE_PROVIDER_CHECKS.pop(retailer, None)
+    else:
+        LIVE_PROVIDER_CHECKS[retailer] = enabled
+
+
+def live_provider_for(manager: EssensplanerManager, retailer: str | None) -> LiveProvider | None:
+    """The enabled live provider of a retailer (None if there is none or it is off)."""
+    provider = LIVE_PROVIDERS.get(retailer or "")
+    if provider is None:
+        return None
+    check = LIVE_PROVIDER_CHECKS.get(retailer or "")
+    return provider if check is None or check(manager) else None
 
 
 def parse_pack_text(text: str | None) -> tuple[float, str] | None:
@@ -426,8 +453,8 @@ class ArticlesMixin:
         if len(fold(str(query or "")).strip()) < LIVE_MIN_QUERY:
             return response
         providers: list[LiveProvider] = []
-        if retailer in LIVE_PROVIDERS:
-            providers.append(LIVE_PROVIDERS[retailer])
+        if (provider := live_provider_for(self, retailer)) is not None:
+            providers.append(provider)
         if self.offers_source == OFFERS_MARKTGURU:
             providers.append(_marktguru_live)
         if not providers:
@@ -435,14 +462,19 @@ class ArticlesMixin:
         response["live"] = True
         offers: list[dict[str, Any]] = []
         errors: list[str] = []
-        for provider in providers:
-            try:
-                offers.extend(await provider(self, str(query).strip(), branch, retailer))
-            except OfferError as err:
-                errors.append(str(err))
-            except _Superseded:
-                response["superseded"] = True
-                return response
+        self._live_seq += 1  # a newer search replaces this one while it waits
+        token = _SEARCH_SEQUENCE.set(self._live_seq)
+        try:
+            for provider in providers:
+                try:
+                    offers.extend(await provider(self, str(query).strip(), branch, retailer))
+                except OfferError as err:
+                    errors.append(str(err))
+                except _Superseded:
+                    response["superseded"] = True
+                    return response
+        finally:
+            _SEARCH_SEQUENCE.reset(token)
         response["error"] = "; ".join(errors) or None
         folded = fold(str(query)).strip()
         key = ingredient_key(str(query))
@@ -462,6 +494,8 @@ class ArticlesMixin:
                 branch.get("id") if branch else None,
             )
             result["offer"]["image"] = offer.get("image")
+            # where the hit comes from: "marktguru" (leaflet offer), "rewe_online" (shop price)
+            result["provider"] = offer.get("source")
             results.append(result)
         results.sort(key=lambda r: (_sort_key(r), r["unit_price"] or 9e9, r["price"] or 0))
         response["results"] = results[: max(1, int(limit))]
@@ -470,6 +504,46 @@ class ArticlesMixin:
 
 class _Superseded(Exception):
     """A newer live search replaced this one while it was waiting."""
+
+
+async def cached_live_fetch(
+    manager: EssensplanerManager,
+    cache_key: tuple[str, str],
+    fetch: Callable[[], Awaitable[list[dict[str, Any]]]],
+) -> list[dict[str, Any]]:
+    """Live results cached for LIVE_CACHE_SECONDS per key, one request per LIVE_MIN_INTERVAL.
+
+    Shared by all live sources (marktguru, REWE). A query that is replaced by a newer one
+    while waiting for its turn raises _Superseded (the newest query wins). Errors of fetch()
+    are passed on (nothing is cached then).
+    """
+    now = dt_util.utcnow().timestamp()
+    cached = manager._live_cache.get(cache_key)
+    if cached is not None and now - cached[0] < LIVE_CACHE_SECONDS:
+        return cached[1]
+    sequence = _SEARCH_SEQUENCE.get()
+    if sequence is None:  # called outside async_search_articles_live
+        manager._live_seq += 1
+        sequence = manager._live_seq
+    if manager._live_lock is None:
+        manager._live_lock = asyncio.Lock()
+    async with manager._live_lock:
+        cached = manager._live_cache.get(cache_key)
+        now = dt_util.utcnow().timestamp()
+        if cached is not None and now - cached[0] < LIVE_CACHE_SECONDS:
+            return cached[1]
+        wait = LIVE_MIN_INTERVAL - (now - manager._live_last)
+        if wait > 0:
+            await asyncio.sleep(wait)  # be polite: one request per interval
+        if sequence != manager._live_seq:
+            raise _Superseded
+        manager._live_last = dt_util.utcnow().timestamp()
+        results = await fetch()
+        manager._live_cache[cache_key] = (dt_util.utcnow().timestamp(), results)
+        if len(manager._live_cache) > LIVE_CACHE_MAX:
+            oldest = min(manager._live_cache, key=lambda k: manager._live_cache[k][0])
+            del manager._live_cache[oldest]
+        return results
 
 
 async def _marktguru_live(
@@ -482,36 +556,17 @@ async def _marktguru_live(
     postcode = manager._live_postcode(branch)
     if postcode is None:
         return []
-    cache_key = (fold(query).strip(), postcode)
-    now = dt_util.utcnow().timestamp()
-    cached = manager._live_cache.get(cache_key)
-    if cached is None or now - cached[0] >= LIVE_CACHE_SECONDS:
-        manager._live_seq += 1
-        sequence = manager._live_seq
-        if manager._live_lock is None:
-            manager._live_lock = asyncio.Lock()
-        async with manager._live_lock:
-            cached = manager._live_cache.get(cache_key)
-            now = dt_util.utcnow().timestamp()
-            if cached is None or now - cached[0] >= LIVE_CACHE_SECONDS:
-                wait = LIVE_MIN_INTERVAL - (now - manager._live_last)
-                if wait > 0:
-                    await asyncio.sleep(wait)  # be polite: one request per interval
-                if sequence != manager._live_seq:
-                    raise _Superseded
-                if manager._live_client is None:
-                    manager._live_client = MarktguruClient(manager.hass)
-                manager._live_last = dt_util.utcnow().timestamp()
-                raw = await manager._live_client.async_search(query, postcode, LIVE_RESULTS)
-                offers = [o for o in (normalize_marktguru(r, query) for r in raw) if o]
-                for offer in offers:
-                    offer["zip_codes"] = [postcode]
-                cached = (dt_util.utcnow().timestamp(), offers)
-                manager._live_cache[cache_key] = cached
-                if len(manager._live_cache) > LIVE_CACHE_MAX:
-                    oldest = min(manager._live_cache, key=lambda k: manager._live_cache[k][0])
-                    del manager._live_cache[oldest]
-    offers = cached[1]
+
+    async def fetch() -> list[dict[str, Any]]:
+        if manager._live_client is None:
+            manager._live_client = MarktguruClient(manager.hass)
+        raw = await manager._live_client.async_search(query, postcode, LIVE_RESULTS)
+        offers = [o for o in (normalize_marktguru(r, query) for r in raw) if o]
+        for offer in offers:
+            offer["zip_codes"] = [postcode]
+        return offers
+
+    offers = await cached_live_fetch(manager, (fold(query).strip(), postcode), fetch)
     if retailer is not None:
         return [
             o

@@ -449,6 +449,16 @@ class PriceBook:
 _DERIVED_PACK_LIMITS = {"g": (10.0, 50000.0), "ml": (10.0, 50000.0), "Stück": (1.0, 100.0)}
 
 
+def plausible_pack(amount: Any, unit: str | None) -> bool:
+    """Package size within the sanity limits (0.01–50 kg/l, 1–100 Stück)."""
+    limits = _DERIVED_PACK_LIMITS.get(str(unit or ""))
+    try:
+        value = float(amount)
+    except (TypeError, ValueError):
+        return False
+    return limits is not None and limits[0] * 0.95 <= value <= limits[1]
+
+
 def _derived_pack(price: Any, per_unit: float, base: str) -> float | None:
     """Package size = price / unit price, if plausible (0.01–50 kg/l, 1–100 Stück)."""
     try:
