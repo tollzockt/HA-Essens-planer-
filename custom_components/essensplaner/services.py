@@ -53,8 +53,11 @@ from .const import (
     OFFERS_MARKTGURU,
     SERVICE_ADD_OFFER,
     SERVICE_ADD_RECIPE,
+    SERVICE_ADD_SHOPPING_ITEM,
+    SERVICE_ASSIGN_SHOPPING_STORES,
     SERVICE_AUTO_PLAN,
     SERVICE_CLEAR_SHOPPING,
+    SERVICE_COMPARE_PRICES,
     SERVICE_COPY_PLAN,
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
@@ -80,6 +83,7 @@ from .const import (
     SERVICE_SAVE_BRANCH,
     SERVICE_SEARCH_OFFERS,
     SERVICE_SET_PRICE,
+    SERVICE_SET_SHOPPING_STORE,
     SERVICE_SHOPPING_LIST,
     SERVICE_SUGGEST,
     SERVICE_UPDATE_RECIPE,
@@ -272,6 +276,25 @@ SAVE_BRANCH_SCHEMA = vol.Schema(
     }
 )
 REMOVE_BRANCH_SCHEMA = vol.Schema({vol.Required("branch"): cv.string})
+GET_SHOPPING_LIST_SCHEMA = vol.Schema({vol.Optional("store"): cv.string})
+SET_SHOPPING_STORE_SCHEMA = vol.Schema(
+    {
+        vol.Required("item"): cv.string,
+        vol.Required("store"): cv.string,
+        vol.Optional("always", default=False): cv.boolean,
+    }
+)
+ASSIGN_SHOPPING_STORES_SCHEMA = vol.Schema({vol.Optional("reset", default=False): cv.boolean})
+COMPARE_PRICES_SCHEMA = vol.Schema({vol.Required("item"): cv.string})
+ADD_SHOPPING_ITEM_SCHEMA = vol.Schema(
+    {
+        vol.Required("item"): cv.string,
+        vol.Optional("store"): cv.string,
+        vol.Optional("price"): vol.All(vol.Coerce(float), vol.Range(min=0, max=10000)),
+        vol.Optional("pack"): cv.string,
+        vol.Optional("offer_id"): cv.string,
+    }
+)
 GET_COSTS_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_START_DATE): cv.string, vol.Optional(ATTR_DAYS): _DAYS}
 )
@@ -663,7 +686,33 @@ def async_setup_services(hass: HomeAssistant) -> None:
         }
 
     async def get_shopping_list(call: ServiceCall) -> ServiceResponse:
-        return get_manager(hass).shopping_overview()
+        return get_manager(hass).shopping_overview(call.data.get("store"))
+
+    async def set_shopping_store(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        item = manager.set_shopping_store(
+            call.data["item"], call.data["store"], call.data["always"]
+        )
+        return {"item": item, "stores": manager.stores_summary()}
+
+    async def assign_shopping_stores(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        result = manager.assign_shopping_stores(call.data["reset"])
+        return {**result, "stores": manager.stores_summary()}
+
+    async def compare_prices(call: ServiceCall) -> ServiceResponse:
+        return get_manager(hass).compare_prices(call.data["item"])
+
+    async def add_shopping_item(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        item = manager.shopping_add(
+            call.data["item"],
+            store=call.data.get("store"),
+            price=call.data.get("price"),
+            pack=call.data.get("pack"),
+            offer_id=call.data.get("offer_id"),
+        )
+        return {"item": item}
 
     async def export_recipes(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -807,7 +856,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_MOVE_MEAL, move_meal, MOVE_MEAL_SCHEMA),
         (SERVICE_COPY_PLAN, copy_plan, COPY_PLAN_SCHEMA),
         (SERVICE_FIND_BY_INGREDIENTS, find_by_ingredients, FIND_BY_INGREDIENTS_SCHEMA),
-        (SERVICE_GET_SHOPPING_LIST, get_shopping_list, EMPTY_SCHEMA),
+        (SERVICE_GET_SHOPPING_LIST, get_shopping_list, GET_SHOPPING_LIST_SCHEMA),
         (SERVICE_EXPORT_RECIPES, export_recipes, EXPORT_SCHEMA),
         (SERVICE_IMPORT_RECIPES, import_recipes, IMPORT_RECIPES_SCHEMA),
         (SERVICE_CLEAR_SHOPPING, clear_shopping_list, CLEAR_SHOPPING_SCHEMA),
@@ -823,6 +872,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SAVE_BRANCH, save_branch, SAVE_BRANCH_SCHEMA),
         (SERVICE_REMOVE_BRANCH, remove_branch, REMOVE_BRANCH_SCHEMA),
         (SERVICE_GET_BRANCHES, get_branches, EMPTY_SCHEMA),
+        (SERVICE_SET_SHOPPING_STORE, set_shopping_store, SET_SHOPPING_STORE_SCHEMA),
+        (SERVICE_ASSIGN_SHOPPING_STORES, assign_shopping_stores, ASSIGN_SHOPPING_STORES_SCHEMA),
+        (SERVICE_COMPARE_PRICES, compare_prices, COMPARE_PRICES_SCHEMA),
+        (SERVICE_ADD_SHOPPING_ITEM, add_shopping_item, ADD_SHOPPING_ITEM_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

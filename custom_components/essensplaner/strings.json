@@ -146,6 +146,12 @@
       },
       "recipes": {
         "name": "Recipes"
+      },
+      "shopping_stores": {
+        "name": "Shopping stores"
+      },
+      "shopping_total": {
+        "name": "Shopping total"
       }
     },
     "calendar": {
@@ -225,6 +231,9 @@
     },
     "branch_ambiguous": {
       "message": "There are several branches for \"{branch}\" – please be more specific, e.g. with the street."
+    },
+    "store_split_off": {
+      "message": "The shopping list is not split by store – please choose a main store first (Essensplaner → Stores) or enable the split in the options."
     }
   },
   "services": {
@@ -647,7 +656,12 @@
     "get_shopping_list": {
       "name": "Get shopping list",
       "description": "Returns the open items grouped by aisle.",
-      "fields": {}
+      "fields": {
+        "store": {
+          "name": "Store",
+          "description": "Optional: only the items of this store (branch, e.g. Aldi Süd, Lidl work or main store)."
+        }
+      }
     },
     "export_recipes": {
       "name": "Export recipes",
@@ -898,6 +912,70 @@
     "get_branches": {
       "name": "Get branches",
       "description": "Your branches, the main store and the postcodes offers are searched for."
+    },
+    "set_shopping_store": {
+      "name": "Set store of an item",
+      "description": "Chooses the branch where an item of the shopping list is bought.",
+      "fields": {
+        "item": {
+          "name": "Item",
+          "description": "Shopping list item (name or id)."
+        },
+        "store": {
+          "name": "Store",
+          "description": "Branch (e.g. REWE, Lidl work, main store); \"auto\" chooses automatically again."
+        },
+        "always": {
+          "name": "Always here",
+          "description": "Always buy this product at this store from now on."
+        }
+      }
+    },
+    "assign_shopping_stores": {
+      "name": "Assign stores again",
+      "description": "Assigns all open shopping list items to the stores again (main store + exceptions).",
+      "fields": {
+        "reset": {
+          "name": "Reset own choices",
+          "description": "Also reset the stores chosen by hand."
+        }
+      }
+    },
+    "compare_prices": {
+      "name": "Compare prices",
+      "description": "Compares the price of a product at your stores (store prices, regular prices, offers).",
+      "fields": {
+        "item": {
+          "name": "Product",
+          "description": "Product, optionally with an amount, e.g. \"Butter\" or \"500 g Hackfleisch\"."
+        }
+      }
+    },
+    "add_shopping_item": {
+      "name": "Add item",
+      "description": "Puts an item on the shopping list – with store and estimated price.",
+      "fields": {
+        "item": {
+          "name": "Item",
+          "description": "Item, optionally with an amount, e.g. \"2 l Milch\"."
+        },
+        "store": {
+          "name": "Store",
+          "description": "Optional: branch where the item is bought (else automatic)."
+        },
+        "price": {
+          "name": "Price",
+          "description": "Optional: price of one pack in EUR."
+        },
+        "pack": {
+          "name": "Pack",
+          "description": "Optional: pack size, e.g. \"250 g\"."
+        },
+        "offer_id": {
+          "name": "Offer",
+          "description": "Optional: id of a saved offer."
+        }
+      }
     }
   }
 }

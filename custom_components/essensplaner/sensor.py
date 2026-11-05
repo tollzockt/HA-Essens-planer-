@@ -38,6 +38,8 @@ async def async_setup_entry(
             WeekCostSensor(manager),
             BudgetRemainingSensor(manager),
             OffersSensor(manager),
+            ShoppingStoresSensor(manager),
+            ShoppingTotalSensor(manager),
         ]
     )
 
@@ -290,4 +292,76 @@ class OffersSensor(EssensplanerEntity, SensorEntity):
             "source": self.manager.offers_source,
             "last_update": meta.get("last_update"),
             "status": meta.get("status"),
+        }
+
+
+class ShoppingStoresSensor(EssensplanerEntity, SensorEntity):
+    """Number of stores with open shopping items ("Hauptladen + Ausnahmen")."""
+
+    _attr_icon = "mdi:store-outline"
+    _attr_native_unit_of_measurement = "Läden"
+    _unrecorded_attributes = frozenset({"stores"})
+
+    def __init__(self, manager: EssensplanerManager) -> None:
+        """Initialize the sensor."""
+        super().__init__(manager, "shopping_stores")
+
+    @property
+    def native_value(self) -> int:
+        """Stores with open items (0 while the list is not split by store)."""
+        return sum(1 for group in self.manager.stores_summary() if group["branch_id"])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Open items, subtotal and saving per store."""
+        groups = self.manager.stores_summary()
+        main = self.manager.get_main_branch()
+        return {
+            "split_active": self.manager.store_split_active,
+            "main_store": self.manager.branch_label(main) if main else None,
+            "without_store": sum(g["open"] for g in groups if not g["branch_id"]),
+            "stores": [
+                {
+                    "label": g["label"],
+                    "retailer": g["retailer"],
+                    "branch_id": g["branch_id"],
+                    "main": g["main"],
+                    "open": g["open"],
+                    "subtotal": g["subtotal"],
+                    "saving": g["saving"],
+                    "items": g["items"][:50],
+                }
+                for g in groups
+            ],
+        }
+
+
+class ShoppingTotalSensor(EssensplanerEntity, SensorEntity):
+    """Estimated total of the open shopping items."""
+
+    _attr_icon = "mdi:cart-variant"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "EUR"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, manager: EssensplanerManager) -> None:
+        """Initialize the sensor."""
+        super().__init__(manager, "shopping_total")
+
+    @property
+    def native_value(self) -> float:
+        """Sum of the estimated prices of the open items in EUR."""
+        return self.manager.shopping_overview()["estimated_total"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Item counts and savings."""
+        overview = self.manager.shopping_overview()
+        return {
+            "open": overview["open"],
+            "priced_items": overview["priced_items"],
+            "unpriced_items": overview["open"] - overview["priced_items"],
+            "offers": len(overview["offers"]),
+            "saving_by_stores": round(sum(g["saving"] for g in overview["stores"]), 2),
+            "estimate": True,
         }

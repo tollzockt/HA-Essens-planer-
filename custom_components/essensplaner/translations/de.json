@@ -146,6 +146,12 @@
       },
       "recipes": {
         "name": "Rezepte"
+      },
+      "shopping_stores": {
+        "name": "Einkauf nach Läden"
+      },
+      "shopping_total": {
+        "name": "Einkauf geschätzt"
       }
     },
     "calendar": {
@@ -225,6 +231,9 @@
     },
     "branch_ambiguous": {
       "message": "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
+    },
+    "store_split_off": {
+      "message": "Die Einkaufsliste wird nicht nach Läden aufgeteilt – bitte zuerst einen Hauptladen festlegen (Essensplaner → Läden) bzw. die Aufteilung in den Optionen einschalten."
     }
   },
   "services": {
@@ -647,7 +656,12 @@
     "get_shopping_list": {
       "name": "Einkaufsliste abrufen",
       "description": "Liefert die offenen Einträge nach Abteilung gruppiert.",
-      "fields": {}
+      "fields": {
+        "store": {
+          "name": "Laden",
+          "description": "Optional: nur die Artikel dieses Ladens (Filiale, z. B. Aldi Süd, Lidl Arbeit oder Hauptladen)."
+        }
+      }
     },
     "export_recipes": {
       "name": "Rezepte exportieren",
@@ -898,6 +912,70 @@
     "get_branches": {
       "name": "Filialen abrufen",
       "description": "Deine Filialen, der Hauptladen und die Postleitzahlen, für die Angebote gesucht werden."
+    },
+    "set_shopping_store": {
+      "name": "Laden für Artikel festlegen",
+      "description": "Legt fest, in welcher Filiale ein Artikel der Einkaufsliste gekauft wird.",
+      "fields": {
+        "item": {
+          "name": "Artikel",
+          "description": "Artikel der Einkaufsliste (Name oder ID)."
+        },
+        "store": {
+          "name": "Laden",
+          "description": "Filiale (z. B. REWE, Lidl Arbeit, Hauptladen); „auto“ wählt wieder automatisch."
+        },
+        "always": {
+          "name": "Immer hier",
+          "description": "Dieses Produkt künftig immer in diesem Laden einplanen."
+        }
+      }
+    },
+    "assign_shopping_stores": {
+      "name": "Läden neu zuordnen",
+      "description": "Ordnet alle offenen Artikel der Einkaufsliste neu den Läden zu (Hauptladen + Ausnahmen).",
+      "fields": {
+        "reset": {
+          "name": "Eigene Wahl zurücksetzen",
+          "description": "Auch die von Hand gewählten Läden der Artikel zurücksetzen."
+        }
+      }
+    },
+    "compare_prices": {
+      "name": "Preise vergleichen",
+      "description": "Vergleicht den Preis eines Produkts in deinen Läden (Ladenpreise, Normalpreise, Angebote).",
+      "fields": {
+        "item": {
+          "name": "Produkt",
+          "description": "Produkt, optional mit Menge, z. B. „Butter“ oder „500 g Hackfleisch“."
+        }
+      }
+    },
+    "add_shopping_item": {
+      "name": "Artikel hinzufügen",
+      "description": "Setzt einen Artikel auf die Einkaufsliste – mit Laden und geschätztem Preis.",
+      "fields": {
+        "item": {
+          "name": "Artikel",
+          "description": "Artikel, optional mit Menge, z. B. „2 l Milch“."
+        },
+        "store": {
+          "name": "Laden",
+          "description": "Optional: Filiale, in der der Artikel gekauft wird (sonst automatisch)."
+        },
+        "price": {
+          "name": "Preis",
+          "description": "Optional: Preis einer Packung in Euro."
+        },
+        "pack": {
+          "name": "Packung",
+          "description": "Optional: Packungsgröße, z. B. „250 g“."
+        },
+        "offer_id": {
+          "name": "Angebot",
+          "description": "Optional: ID eines gespeicherten Angebots."
+        }
+      }
     }
   }
 }

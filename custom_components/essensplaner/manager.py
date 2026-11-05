@@ -18,6 +18,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .articles import ArticlesMixin, parse_pack_text
 from .const import (
     ALL_MEALS,
     CONF_AUTO_COOKED,
@@ -56,8 +57,9 @@ from .ingredients import (
     parse_ingredient,
     scale_ingredient,
     strip_article,
+    to_base,
 )
-from .pricing import format_eur
+from .pricing import offer_pack, unit_price
 from .stores import StoresMixin
 
 _LOGGER = logging.getLogger(__name__)
@@ -126,6 +128,10 @@ ERROR_MESSAGES_DE = {
     "branch_ambiguous": (
         "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
     ),
+    "store_split_off": (
+        "Die Einkaufsliste wird nicht nach Läden aufgeteilt – lege zuerst einen Hauptladen "
+        "fest (Essensplaner → Läden)."
+    ),
 }
 
 
@@ -176,7 +182,7 @@ def _to_int(value: Any, minimum: int | None = None) -> int | None:
     return number
 
 
-class EssensplanerManager(StoresMixin, EconomyMixin):
+class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
     """Holds recipes, the meal plan, the shopping list, prices and offers."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -201,7 +207,9 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
         self._cost_cache: dict[tuple, dict[str, Any]] = {}
         self._offer_name_cache: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
         self._offer_day_cache: dict[date, Any] = {}
+        self._recipes_using_cache: dict[tuple[str, ...], list[str]] = {}
         self._init_store_data()
+        self._init_article_data()
 
     # ------------------------------------------------------------------
     # Options
@@ -355,6 +363,8 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
 
     @callback
     def _changed(self, change: str) -> None:
+        if change.startswith("recipe"):
+            self._recipes_using_cache = {}  # which recipes use an offer
         self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
         for update_callback in list(self._listeners):
             update_callback()
@@ -1115,30 +1125,29 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
                 and old.get("summary") == item["summary"]
                 else "needs_action"
             )
-            parts = [item["category"]]
-            if item.get("price") is not None:
-                parts.append(f"≈ {format_eur(item['price'])}")
-            if offer := item.get("offer"):
-                until = (
-                    f" bis {offer['valid_to'][8:10]}.{offer['valid_to'][5:7]}."
-                    if offer.get("valid_to")
-                    else ""
-                )
-                parts.append(f"🏷️ {offer['store']} {format_eur(offer['price'])}{until}")
-            if item["recipes"]:
-                parts.append(", ".join(item["recipes"]))
             shopping_item = {
                 "uid": uuid.uuid4().hex,
                 "summary": item["summary"],
                 "status": status,
-                "description": " · ".join(parts),
+                "description": "",
                 "source": "plan",
                 "key": item["key"],
                 "category": item["category"],
                 "price": item.get("price"),
                 "offer": item.get("offer"),
+                # 1.3: amounts/packs for store prices, recipes for the description
+                "name": item["name"],
+                "amounts": dict(item["amounts"]),
+                "packs": item.get("packs") if item.get("price") is not None else None,
+                "recipes": list(item["recipes"]),
             }
+            if old and old.get("store_override"):
+                shopping_item["store_override"] = old["store_override"]
             new_items.append(shopping_item)
+        if self.assign_stores(new_items, start):
+            total_price = round(sum(i["price"] for i in new_items if i.get("price") is not None), 2)
+        for shopping_item in new_items:
+            self.update_shopping_description(shopping_item)
         self.shopping.extend(new_items)
         self._changed("shopping")
         return {
@@ -1155,9 +1164,15 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
                     "status": i["status"],
                     "price": i.get("price"),
                     "offer": i.get("offer"),
+                    **{
+                        field: i.get(field)
+                        for field in ("branch_id", "retailer", "store_label", "store_reason")
+                        if field in i
+                    },
                 }
                 for i in new_items
             ],
+            "stores": self.stores_summary(),
         }
 
     def shopping_clear(self, mode: str = "all") -> int:
@@ -1175,22 +1190,133 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
         return removed
 
     def shopping_add(
-        self, summary: str, description: str | None = None, status: str = "needs_action"
+        self,
+        summary: str,
+        description: str | None = None,
+        status: str = "needs_action",
+        store: str | None = None,
+        price: float | None = None,
+        pack: str | None = None,
+        offer_id: str | None = None,
     ) -> dict[str, Any]:
-        """Add a manual shopping item."""
+        """Add a manual shopping item.
+
+        store: branch (id, label, store name) to buy it at (a manual store choice).
+        price/pack: price of one pack and its size as chosen by the user (e.g. from the
+        article search); offer_id: a saved offer (its store, price and pack).
+        Without them the price is estimated at the main store (or the given store).
+        """
+        summary = str(summary or "").strip()
         parsed = parse_ingredient(summary)
-        item = {
+        name = parsed["name"] or summary
+        amounts: dict[str, float] = {}
+        if parsed["amount"] is not None:
+            amount, unit = to_base(parsed["amount"], parsed["unit"])
+            if amount:
+                amounts[unit] = amount
+        item: dict[str, Any] = {
             "uid": uuid.uuid4().hex,
-            "summary": summary.strip(),
+            "summary": summary,
             "status": status,
             "description": description or "",
             "source": "manual",
-            "key": ingredient_key(parsed["name"]),
-            "category": guess_category(parsed["name"]),
+            "key": ingredient_key(name),
+            "category": guess_category(name),
+            "name": name,
+            "amounts": amounts,
         }
+        offer = None
+        if offer_id:
+            offer = next((o for o in self.offers if o.get("id") == offer_id), None)
+            if offer is None:
+                _LOGGER.debug("Offer %s not found (not saved?)", offer_id)
+        branch = self.resolve_branch(store) if store else None
+        retailer = branch.get("retailer") if branch else None
+        if store and branch is None:
+            if self.store_split_active:
+                raise _error("branch_not_found", branch=store)
+            retailer = self.require_retailer(store)  # no branches: that retailer's prices
+        if offer is not None and not store:
+            retailer = self.offer_retailer(offer)
+            branch = next(
+                (
+                    b
+                    for b in self.store_candidates()
+                    if b.get("retailer") == retailer
+                    and ("branches" not in offer or b["id"] in offer["branches"])
+                ),
+                None,
+            )
+        chosen = self._chosen_pick(name, price, pack, offer, retailer)
+        if chosen is not None:
+            chosen["retailer"] = retailer or self.main_retailer
+            item["chosen"] = chosen
+        if branch is not None:
+            item["store_override"] = branch["id"]
+        self._price_shopping_item(item, retailer, branch["id"] if branch else None)
+        self.remember_article(summary, item["key"], item.get("retailer") or retailer)
         self.shopping.append(item)
         self._changed("shopping")
         return item
+
+    def _price_shopping_item(
+        self, item: dict[str, Any], retailer: str | None = None, branch_id: str | None = None
+    ) -> None:
+        """Store, price and description of one item (store split, else that retailer)."""
+        if not self.assign_stores([item]):
+            cost = self.price_at(item, retailer, branch_id)
+            item["price"] = cost["price"] if cost else None
+            item["packs"] = cost["packs"] if cost else None
+            item["offer"] = cost["offer"] if cost else None
+        self.update_shopping_description(item)
+
+    def _chosen_pick(
+        self,
+        name: str,
+        price: float | None,
+        pack: str | None,
+        offer: dict[str, Any] | None,
+        retailer: str | None = None,
+    ) -> dict[str, Any] | None:
+        """The price/pack the user picked ({name, price, amount, unit, offer_id}).
+
+        A pack without price is priced by the unit price of the store (or the estimate).
+        """
+        if price is None and not pack and offer is None:
+            return None
+        size = parse_pack_text(pack) if pack else None
+        if size is None and offer is not None:
+            size = offer_pack(offer)
+        if price is None and offer is not None:
+            price = offer.get("price")
+        if price is None:
+            entry = self.regular_book(retailer).lookup(name)
+            if entry is None:
+                return None
+            per = unit_price(entry)
+            if (
+                size is not None
+                and per is not None
+                and (per[1] == size[1] or {per[1], size[1]} <= {"g", "ml"})
+            ):
+                price = per[0] * size[0]  # e.g. a 500-g pack at the price of 250 g
+            if price is None:
+                price, size = entry.price, (entry.amount, entry.unit)
+        try:
+            value = round(float(price), 2)
+        except (TypeError, ValueError) as err:
+            raise _error("invalid_price", price=price) from err
+        if value < 0:
+            raise _error("invalid_price", price=price)
+        chosen: dict[str, Any] = {
+            "name": name,
+            "price": value,
+            "amount": size[0] if size else 1,
+            "unit": size[1] if size else "Stück",
+        }
+        if offer is not None:
+            chosen["offer_id"] = offer.get("id")
+        return chosen
 
     def shopping_update(
         self,
@@ -1199,18 +1325,43 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
         status: str | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
-        """Update a shopping item."""
+        """Update a shopping item.
+
+        A changed text is parsed again ("Butter" -> "2 Butter": amount, price, store).
+        """
         for item in self.shopping:
             if item["uid"] == uid:
+                renamed = summary is not None and summary.strip() != item.get("summary")
                 if summary is not None:
                     item["summary"] = summary
                 if status is not None:
                     item["status"] = status
                 if description is not None:
                     item["description"] = description
+                if renamed and "amounts" in item:
+                    self._reparse_shopping_item(item)
                 self._changed("shopping")
                 return item
         raise _error("shopping_item_not_found")
+
+    def _reparse_shopping_item(self, item: dict[str, Any]) -> None:
+        """Amount, product and price after the text of an item (1.3 item) was changed."""
+        parsed = parse_ingredient(item["summary"])
+        amounts: dict[str, float] = {}
+        if parsed["amount"] is not None:
+            amount, unit = to_base(parsed["amount"], parsed["unit"])
+            if amount:
+                amounts[unit] = amount
+        if item.get("source") == "plan" and not amounts:
+            return  # e.g. "Spaghetti (500 g + 1 Pck.)": keep the planned amounts
+        item["amounts"] = amounts
+        name = parsed["name"] or item["summary"]
+        key = ingredient_key(name)
+        if item.get("source") != "plan" and key and key != item.get("key"):
+            item.update({"name": name, "key": key, "category": guess_category(name)})
+            item.pop("chosen", None)  # the picked price was for another product
+        chosen = item.get("chosen") or {}
+        self._price_shopping_item(item, chosen.get("retailer"))
 
     def shopping_delete(self, uids: list[str]) -> None:
         """Delete shopping items."""
@@ -1285,8 +1436,12 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
             self._changed("recipes_imported")
         return result
 
-    def shopping_overview(self) -> dict[str, Any]:
-        """Open shopping items grouped by aisle."""
+    def shopping_overview(self, store: str | None = None) -> dict[str, Any]:
+        """Open shopping items grouped by aisle (and by store with an active split).
+
+        store: also return "selection" – the open items of that store (None while the
+        split is inactive).
+        """
         groups: dict[str, list[str]] = {}
         done = 0
         total = 0.0
@@ -1303,14 +1458,19 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
             if item.get("offer"):
                 offers.append({"item": item["summary"], **item["offer"]})
         ordered = dict(sorted(groups.items(), key=lambda g: category_rank(g[0])))
-        return {
+        result: dict[str, Any] = {
             "open": sum(len(v) for v in ordered.values()),
             "completed": done,
             "groups": ordered,
             "estimated_total": round(total, 2),
             "priced_items": priced,
             "offers": offers,
+            "split_active": self.store_split_active,
+            "stores": self.stores_summary(),
         }
+        if store:
+            result["selection"] = self.store_selection(store) if self.store_split_active else None
+        return result
 
     # ------------------------------------------------------------------
     # Export for the panel / websocket
@@ -1345,6 +1505,8 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
             "today": self.today().isoformat(),
             "economy": self.economy_export(),
             **self.branches_export(),
+            "store_split": self.split_settings(),
+            "shopping_stores": self.stores_summary(),
             "offers": self.offers_view("all", limit=300),
             "recipe_costs": {
                 rid: self.recipe_cost(recipe)["per_serving"] for rid, recipe in self.recipes.items()

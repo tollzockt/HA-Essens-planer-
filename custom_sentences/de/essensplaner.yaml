@@ -3,6 +3,8 @@
 # und starte Home Assistant neu (bzw. Entwicklerwerkzeuge → YAML → Konversation neu laden).
 # LLM-Agenten (z. B. Jarvis/Hermes, OpenAI, Ollama, MCP) brauchen diese Datei NICHT –
 # sie bekommen die Essensplaner-Intents automatisch als Tools.
+# Hinweis: „Setz … auf die Einkaufsliste“ landet mit dieser Datei auf der Essensplaner-Liste
+# (mit Laden und Preis) statt auf der eingebauten Einkaufsliste.
 language: de
 intents:
   essensplaner_get_meals:
@@ -104,6 +106,40 @@ intents:
           - "(lies|sag) [mir] die einkaufsliste [vor]"
           - "was (muss|soll) ich (einkaufen|kaufen|besorgen)"
           - "was (müssen|sollen) wir (einkaufen|kaufen|besorgen)"
+          - "was (muss|soll) ich (bei|beim|im) {store} (einkaufen|kaufen|besorgen|holen)"
+          - "was (müssen|sollen) wir (bei|beim|im) {store} (einkaufen|kaufen|besorgen|holen)"
+          - "was (kaufe|hole) ich (bei|beim|im) {store}"
+          - "was (kaufen|holen) wir (bei|beim|im) {store}"
+          - "was steht (für|bei) {store} auf der einkaufsliste"
+          - "was (muss|soll) ich (bei|beim|im) {store_name:store} (einkaufen|kaufen|besorgen|holen)"
+          - "was (kaufe|hole) ich (bei|beim|im) {store_name:store}"
+  essensplaner_compare_prices:
+    data:
+      - sentences:
+          - "wo (ist|sind|gibt es) {item} am (günstigsten|billigsten)"
+          - "wo (bekomme|kaufe|kriege|kriegt man|bekommt man) [ich] {item} am (günstigsten|billigsten)"
+          - "(vergleiche|vergleich) die preise (für|von) {item}"
+          - "in welchem (laden|supermarkt) (ist|sind|gibt es) {item} am (günstigsten|billigsten)"
+  essensplaner_set_shopping_store:
+    data:
+      # "immer" first: otherwise the item wildcard would swallow it
+      - sentences:
+          - "(kauf|kaufe|hol|hole) {item} immer (bei|beim|im) {store}"
+          - "(kauf|kaufe|hol|hole) {item} immer (bei|beim|im) {store_name:store}"
+          - "{item} (kaufe ich|kaufen wir|hole ich|holen wir) immer (bei|beim|im) {store}"
+        slots:
+          always: true
+      - sentences:
+          - "(kauf|kaufe|hol|hole) {item} (bei|beim|im) {store}"
+          - "(kauf|kaufe|hol|hole) {item} (bei|beim|im) {store_name:store}"
+          - "{item} (kaufe ich|kaufen wir|hole ich|holen wir) (bei|beim|im) {store}"
+  essensplaner_add_shopping_item:
+    data:
+      - sentences:
+          - "(setz|setze|schreib|schreibe|pack|packe) {item} auf die einkaufsliste"
+          - "{item} auf die einkaufsliste"
+          - "(füge|füg) {item} (zur|der) einkaufsliste hinzu"
+          - "(setz|setze|schreib|schreibe|pack|packe) {item} (für|bei) {store} auf die einkaufsliste"
   essensplaner_move_meal:
     data:
       - sentences:
@@ -265,6 +301,25 @@ lists:
         out: "Frühstück"
       - in: "zum frühstück"
         out: "Frühstück"
+  store:
+    values:
+      - "aldi"
+      - "aldi süd"
+      - "aldi nord"
+      - "lidl"
+      - "rewe"
+      - "edeka"
+      - "penny"
+      - "netto"
+      - "kaufland"
+      - "norma"
+      - "globus"
+      - "marktkauf"
+      - "hauptladen"
+  store_name:
+    wildcard: true
+  item:
+    wildcard: true
   dish:
     wildcard: true
   query:

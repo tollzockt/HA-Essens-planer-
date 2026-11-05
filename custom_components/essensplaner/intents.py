@@ -56,6 +56,9 @@ INTENT_CLEAR_SHOPPING = "essensplaner_clear_shopping_list"
 INTENT_GET_OFFERS = "essensplaner_get_offers"
 INTENT_ADD_OFFER = "essensplaner_add_offer"
 INTENT_GET_COSTS = "essensplaner_get_costs"
+INTENT_COMPARE_PRICES = "essensplaner_compare_prices"
+INTENT_SET_SHOPPING_STORE = "essensplaner_set_shopping_store"
+INTENT_ADD_SHOPPING_ITEM = "essensplaner_add_shopping_item"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -65,6 +68,10 @@ _MEAL_DESC = "Mahlzeit/meal: 'Frühstück', 'Mittagessen', 'Abendessen' oder 'Sn
 _INT_1_14 = vol.All(vol.Coerce(int), vol.Range(min=1, max=14))
 _INT_1_30 = vol.All(vol.Coerce(int), vol.Range(min=1, max=30))
 _INT_MIN = vol.All(vol.Coerce(int), vol.Range(min=1, max=1440))
+_STORE_DESC = (
+    "Laden/Filiale/store: Supermarkt wie 'Aldi Süd', 'Lidl', 'REWE', eine eigene "
+    "Filial-Bezeichnung wie 'Lidl Arbeit' oder 'Hauptladen'."
+)
 
 _PREPOSITION = {meal: f"zum {label}" for meal, label in MEAL_LABELS.items()}
 _PREPOSITION[MEAL_SNACK] = "als Snack"
@@ -611,28 +618,70 @@ class CookWithIntent(_EssensplanerIntent):
 
 
 class GetShoppingListIntent(_EssensplanerIntent):
-    """Read the shopping list."""
+    """Read the shopping list (optionally only what to buy at one store)."""
 
     intent_type = INTENT_GET_SHOPPING
     description = (
         "Essensplaner: liest die offene Einkaufsliste vor, sortiert nach Supermarkt-Abteilung "
-        "('Was steht auf der Einkaufsliste?', 'Was muss ich einkaufen?'). Reads the shopping list."
+        "('Was steht auf der Einkaufsliste?', 'Was muss ich einkaufen?'). Mit Laden nur die "
+        "Artikel, die dort gekauft werden ('Was muss ich bei Aldi kaufen?'). "
+        "Reads the shopping list, optionally for one store."
     )
+    slot_schema = {
+        vol.Optional("store", description=_STORE_DESC + " Leer = ganze Liste."): cv.string,
+    }
 
     async def _async_handle(self, hass, manager, values):
-        overview = manager.shopping_overview()
-        if not overview["open"]:
-            return "Die Einkaufsliste ist leer.", overview
-        parts = [
-            f"{category.replace('&', 'und')}: {', '.join(items)}"
-            for category, items in overview["groups"].items()
+        store = values.get("store")
+        overview = manager.shopping_overview(store)
+        if store:
+            selection = overview.get("selection")
+            if selection is None:
+                prefix = (
+                    "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich "
+                    "einen Hauptladen."
+                )
+                return f"{prefix} {_shopping_speech(overview)}", overview
+            return _selection_speech(selection), overview
+        return _shopping_speech(overview), overview
+
+
+def _shopping_speech(overview: dict[str, Any]) -> str:
+    """'Auf der Einkaufsliste stehen 5 Einträge. Obst und Gemüse: …'."""
+    if not overview["open"]:
+        return "Die Einkaufsliste ist leer."
+    parts = [
+        f"{category.replace('&', 'und')}: {', '.join(items)}"
+        for category, items in overview["groups"].items()
+    ]
+    count = overview["open"]
+    speech = (
+        f"Auf der Einkaufsliste {'steht' if count == 1 else 'stehen'} {count} "
+        f"{'Eintrag' if count == 1 else 'Einträge'}."
+    )
+    stores = overview.get("stores") or []
+    if stores:
+        per_store = [
+            f"{g['open']} bei {g['label']}" if g["branch_id"] else f"{g['open']} ohne Laden"
+            for g in stores
         ]
-        count = overview["open"]
-        speech = (
-            f"Auf der Einkaufsliste {'steht' if count == 1 else 'stehen'} {count} "
-            f"{'Eintrag' if count == 1 else 'Einträge'}. " + ". ".join(parts) + "."
-        )
-        return speech, overview
+        speech += f" Davon {_join(per_store)}."
+    return speech + " " + ". ".join(parts) + "."
+
+
+def _selection_speech(selection: dict[str, Any]) -> str:
+    """'Bei Aldi Süd kaufst du 3 Artikel für ungefähr 7,47 €: …'."""
+    label = selection["label"]
+    count = selection["open"]
+    if not count:
+        return f"Bei {label} musst du gerade nichts kaufen."
+    speech = f"Bei {label} kaufst du {count} Artikel"
+    if selection.get("priced"):
+        speech += f" für ungefähr {format_eur(selection['subtotal'])}"
+    speech += f": {_join(selection['items'])}."
+    if selection.get("saving"):
+        speech += f" Dort sparst du etwa {format_eur(selection['saving'])}."
+    return speech
 
 
 class MoveMealIntent(_EssensplanerIntent):
@@ -851,6 +900,143 @@ class GetCostsIntent(_EssensplanerIntent):
         return speech, week
 
 
+class ComparePricesIntent(_EssensplanerIntent):
+    """Where is a product cheapest?"""
+
+    intent_type = INTENT_COMPARE_PRICES
+    description = (
+        "Essensplaner: vergleicht den Preis eines Produkts in den gewählten Läden "
+        "(eigene Ladenpreise, gelernte Normalpreise, gültige Angebote) "
+        "('Wo ist Butter am günstigsten?'). Compares the price of a product across stores."
+    )
+    slot_schema = {
+        vol.Required(
+            "item",
+            description="Produkt, optional mit Menge, z. B. 'Butter' oder '500 g Hackfleisch'",
+        ): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        result = manager.compare_prices(strip_article(str(values["item"])))
+        name = _cap(result["item"])
+        results = result["results"]
+        if not results:
+            return f"Für {name} habe ich keinen Preis.", result
+        cheapest = result["cheapest"]
+        if cheapest is None:
+            # "gibt es" works for "Butter" and "Eier" alike
+            first = results[0]
+            where = f"bei {first['label']}" if len(results) == 1 else "überall"
+            estimate = not any(r["real"] for r in results)
+            return (
+                f"{name} gibt es {where} für etwa {format_eur(first['price'])}"
+                f"{_pack_hint(first, estimate)}.",
+                result,
+            )
+        speech = (
+            f"Am günstigsten gibt es {name} bei {cheapest['label']}: "
+            f"{format_eur(cheapest['price'])}{_pack_hint(cheapest)}"
+        )
+        if cheapest.get("offer"):
+            speech += " im Angebot"
+        others = [
+            f"bei {r['label']} {format_eur(r['price'])}{_pack_hint(r)}"
+            for r in results
+            if r is not cheapest
+        ][:3]
+        speech += "."
+        if others:
+            speech += f" {_cap(_join(others))}."
+        return speech, result
+
+
+def _pack_hint(result: dict[str, Any], estimate: bool = False) -> str:
+    """' (250 g)', ' (2 × 250 g)', ' (250 g, Richtwert)'."""
+    parts = []
+    if result.get("pack"):
+        packs = result.get("packs") or 1
+        parts.append(f"{packs} × {result['pack']}" if packs > 1 else result["pack"])
+    if estimate:
+        parts.append("Richtwert")
+    return f" ({', '.join(parts)})" if parts else ""
+
+
+class SetShoppingStoreIntent(_EssensplanerIntent):
+    """Buy an item of the shopping list at another store."""
+
+    intent_type = INTENT_SET_SHOPPING_STORE
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: legt fest, in welchem Laden ein Artikel der Einkaufsliste gekauft wird "
+        "('Kauf die Butter bei REWE', 'Milch kaufe ich immer bei Lidl'). Laden 'automatisch' "
+        "setzt die Wahl zurück. Sets the store for a shopping list item."
+    )
+    slot_schema = {
+        vol.Required("item", description="Artikel der Einkaufsliste, z. B. 'Butter'"): cv.string,
+        vol.Required(
+            "store", description=_STORE_DESC + " 'automatisch' = wieder automatisch wählen."
+        ): cv.string,
+        vol.Optional(
+            "always", description="true = für dieses Produkt immer diesen Laden nehmen"
+        ): cv.boolean,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        always = bool(values.get("always", False))
+        item = manager.set_shopping_store(
+            strip_article(str(values["item"])), str(values["store"]), always
+        )
+        name = _cap(manager._item_name(item))
+        label = item.get("store_label") or ""
+        if item.get("store_override"):
+            speech = f"Okay, {name} kaufst du bei {label}"
+        else:
+            speech = f"Okay, für {name} wähle ich den Laden wieder automatisch: {label}"
+        if item.get("price") is not None:
+            speech += f" (etwa {format_eur(item['price'])})"
+        speech += "."
+        if always and item.get("store_override"):
+            speech += " Das merke ich mir auch für die nächsten Einkäufe."
+        return speech, {"item": item}
+
+
+class AddShoppingItemIntent(_EssensplanerIntent):
+    """Put an article on the Essensplaner shopping list (with store and price)."""
+
+    intent_type = INTENT_ADD_SHOPPING_ITEM
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: setzt einen Artikel auf die Einkaufsliste – mit Preis aus dem Hauptladen "
+        "bzw. dem genannten Laden ('Setz Butter auf die Einkaufsliste', '2 Liter Milch auf die "
+        "Einkaufsliste'). Adds an item to the shopping list with store and price."
+    )
+    slot_schema = {
+        vol.Required(
+            "item", description="Artikel, optional mit Menge, z. B. 'Butter' oder '2 l Milch'"
+        ): cv.string,
+        vol.Optional("store", description=_STORE_DESC + " Leer = automatisch."): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        item = manager.shopping_add(
+            strip_article(str(values["item"])), store=values.get("store") or None
+        )
+        speech = f"Ich habe {item['summary']} auf die Einkaufsliste gesetzt"
+        price = item.get("price")
+        if item.get("store_label") and price is not None:
+            speech += f" – bei {item['store_label']} etwa {format_eur(price)}"
+        elif item.get("store_label"):
+            speech += f" – zu kaufen bei {item['store_label']}"
+        elif price is not None:
+            speech += f" (etwa {format_eur(price)})"
+        speech += "."
+        if offer := item.get("offer"):
+            speech += (
+                f" Gerade im Angebot bei {offer.get('store')} für {format_eur(offer.get('price'))}."
+            )
+        return speech, {"item": item}
+
+
 INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetMealsIntent,
     GetWeekPlanIntent,
@@ -871,6 +1057,9 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetOffersIntent,
     AddOfferIntent,
     GetCostsIntent,
+    ComparePricesIntent,
+    SetShoppingStoreIntent,
+    AddShoppingItemIntent,
 ]
 
 

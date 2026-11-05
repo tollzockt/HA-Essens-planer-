@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 
@@ -202,6 +203,75 @@ def ws_reorder_branches(
     connection.send_result(msg["id"], manager.branches_export())
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/article_search",
+        vol.Required("query"): str,
+        vol.Optional("store"): vol.Any(str, None),
+        vol.Optional("live", default=False): bool,
+        vol.Optional("limit", default=10): vol.All(int, vol.Range(min=1, max=50)),
+    }
+)
+@websocket_api.async_response
+async def ws_article_search(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Articles for the "Artikel hinzufügen" field (local; live=True also online sources).
+
+    Result {query, store: {branch_id, retailer, retailer_name, label, postcode, main} | None,
+    results: [...], live: bool, error: str | None}.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .manager import error_message  # avoid loading the manager for the panel only
+
+    query = msg["query"]
+    try:
+        branch, retailer = manager.article_target(msg.get("store"))
+        results = manager.search_articles(query, msg.get("store"), msg["limit"])
+        response = {"results": [], "live": False, "error": None}
+        if msg["live"]:
+            response = await manager.async_search_articles_live(
+                query, msg.get("store"), msg["limit"]
+            )
+    except ServiceValidationError as err:
+        connection.send_error(msg["id"], "invalid_store", error_message(err))
+        return
+    known = {(r["offer"] or {}).get("id") for r in results if r.get("offer")}
+    results += [r for r in response["results"] if (r["offer"] or {}).get("id") not in known]
+    connection.send_result(
+        msg["id"],
+        {
+            "query": query,
+            "store": manager.article_store_info(branch, retailer),
+            "results": results,
+            "live": response["live"],
+            "error": response["error"],
+            "superseded": bool(response.get("superseded")),
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/compare_prices", vol.Required("item"): str}
+)
+@callback
+def ws_compare_prices(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Price of a product at every selected store (store picker of the shopping list)."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .manager import error_message
+
+    try:
+        result = manager.compare_prices(msg["item"])
+    except ServiceValidationError as err:
+        connection.send_error(msg["id"], "invalid_item", error_message(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -211,3 +281,5 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_store_prices)
     websocket_api.async_register_command(hass, ws_branches)
     websocket_api.async_register_command(hass, ws_reorder_branches)
+    websocket_api.async_register_command(hass, ws_article_search)
+    websocket_api.async_register_command(hass, ws_compare_prices)

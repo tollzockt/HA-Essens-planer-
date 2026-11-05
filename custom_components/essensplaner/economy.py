@@ -123,6 +123,7 @@ class EconomyMixin:
     _cost_cache: dict[tuple, dict[str, Any]]
     _offer_name_cache: dict[tuple[str, str | None], list[dict[str, Any]]]
     _offer_day_cache: dict[date, Any]
+    _recipes_using_cache: dict[tuple[str, ...], list[str]]
 
     # ------------------------------------------------------------------
     # Options
@@ -221,12 +222,18 @@ class EconomyMixin:
         cache = self._offer_name_cache
         cache_key = (name, retailer)
         if cache_key not in cache:
-            key = ingredient_key(name)
-            found = list(index.get(key, []))
-            if not found:
-                for other_key, offers in index.items():
-                    if other_key and (other_key in key.split() or offer_matches(name, other_key)):
-                        found.extend(offers)
+            # matching offers of every store (shared by all retailers, "*" = unfiltered)
+            found = cache.get((name, "*"))
+            if found is None:
+                key = ingredient_key(name)
+                found = list(index.get(key, []))
+                if not found:
+                    for other_key, offers in index.items():
+                        if other_key and (
+                            other_key in key.split() or offer_matches(name, other_key)
+                        ):
+                            found.extend(offers)
+                cache[(name, "*")] = found
             active = self.active_retailers()
             cache[cache_key] = [o for o in found if self._offer_in_scope(o, retailer, active)]
         found = list(cache[cache_key])
@@ -590,6 +597,10 @@ class EconomyMixin:
     ) -> dict[str, Any]:
         """Add an offer by hand (or by voice)."""
         offer = manual_offer(product, store, price, pack_text, valid_from, valid_to, old_price)
+        # ids come from the clock: keep them unique (offers added in the same millisecond)
+        known = {o.get("id") for o in self.offers}
+        while offer["id"] in known:
+            offer["id"] = f"man_{int(offer['id'][4:]) + 1}"
         offer["retailer"] = retailer_for_store_id(offer["store_id"]) or self.resolve_store(store)
         # also match recipe ingredients (e.g. offer "Hähnchenbrustfilet" -> "Hähnchenbrust")
         keys = set(offer["keys"])
@@ -751,8 +762,13 @@ class EconomyMixin:
         return result[:limit]
 
     def _recipes_using(self: EssensplanerManager, keys: list[str]) -> list[str]:
+        """Names of the recipes using one of these ingredient keys (cached until recipes change)."""
         if not keys:
             return []
+        cache_key = tuple(keys)
+        cached = self._recipes_using_cache.get(cache_key)
+        if cached is not None:
+            return list(cached)
         names = []
         for recipe in self.recipes.values():
             for ingredient in recipe.get("ingredients", []):
@@ -762,7 +778,9 @@ class EconomyMixin:
                 ):
                     names.append(recipe["name"])
                     break
-        return sorted(names, key=fold)
+        result = sorted(names, key=fold)
+        self._recipes_using_cache[cache_key] = result
+        return list(result)
 
     def prices_view(self: EssensplanerManager) -> list[dict[str, Any]]:
         """All known prices (own, learned, estimates)."""

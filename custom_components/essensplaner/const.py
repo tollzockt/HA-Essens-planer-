@@ -56,6 +56,39 @@ CONF_STRATEGY: Final = "plan_strategy"
 OFFERS_OFF: Final = "off"
 OFFERS_MARKTGURU: Final = "marktguru"
 
+# Stores (1.3): shopping list split "Hauptladen + Ausnahmen" ---------------------
+CONF_SPLIT_MODE: Final = "store_split_mode"
+SPLIT_OFF: Final = "off"
+SPLIT_MAIN_ONLY: Final = "main_only"
+SPLIT_MAIN_EXCEPTIONS: Final = "main_exceptions"
+SPLIT_MODES: Final = [SPLIT_OFF, SPLIT_MAIN_ONLY, SPLIT_MAIN_EXCEPTIONS]
+DEFAULT_SPLIT_MODE: Final = SPLIT_MAIN_EXCEPTIONS
+# another store gets an item if its offer saves >= offer_min, or its real price is
+# >= min_saving EUR or >= min_percent % cheaper (never less than SPLIT_FLOOR EUR)
+CONF_SPLIT_MIN_SAVING: Final = "store_split_min_saving"
+DEFAULT_SPLIT_MIN_SAVING: Final = 1.0
+CONF_SPLIT_MIN_PERCENT: Final = "store_split_min_percent"
+DEFAULT_SPLIT_MIN_PERCENT: Final = 20
+CONF_SPLIT_OFFER_MIN: Final = "store_split_offer_min"
+DEFAULT_SPLIT_OFFER_MIN: Final = 0.30
+# minimum total saving per extra store (is the trip worth it?), 0 = off
+CONF_SPLIT_TRIP_MIN: Final = "store_split_trip_min"
+DEFAULT_SPLIT_TRIP_MIN: Final = 0
+SPLIT_FLOOR: Final = 0.20
+# branch search (OpenStreetMap): zones (None = zone.home + "arbeit"/"work" zones),
+# radius around the zones, corridor along the way to work
+CONF_BRANCH_ZONES: Final = "branch_zones"
+DEFAULT_BRANCH_ZONES: Final = None
+CONF_BRANCH_RADIUS: Final = "branch_radius_km"
+DEFAULT_BRANCH_RADIUS: Final = 3
+CONF_BRANCH_ROUTE: Final = "branch_route"
+DEFAULT_BRANCH_ROUTE: Final = True
+CONF_BRANCH_ROUTE_RADIUS: Final = "branch_route_radius_m"
+DEFAULT_BRANCH_ROUTE_RADIUS: Final = 800
+# experimental REWE online shop prices (opt-in)
+CONF_REWE_ONLINE: Final = "rewe_online_prices"
+DEFAULT_REWE_ONLINE: Final = False
+
 STRATEGY_BALANCED: Final = "balanced"
 STRATEGY_CHEAP: Final = "cheap"
 STRATEGY_OFFERS: Final = "offers"
@@ -100,6 +133,10 @@ SERVICE_GET_STORE_PRICES: Final = "get_store_prices"
 SERVICE_SAVE_BRANCH: Final = "save_branch"
 SERVICE_REMOVE_BRANCH: Final = "remove_branch"
 SERVICE_GET_BRANCHES: Final = "get_branches"
+SERVICE_SET_SHOPPING_STORE: Final = "set_shopping_store"
+SERVICE_ASSIGN_SHOPPING_STORES: Final = "assign_shopping_stores"
+SERVICE_COMPARE_PRICES: Final = "compare_prices"
+SERVICE_ADD_SHOPPING_ITEM: Final = "add_shopping_item"
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"

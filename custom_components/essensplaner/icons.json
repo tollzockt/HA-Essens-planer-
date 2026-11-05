@@ -24,6 +24,12 @@
       },
       "offers": {
         "default": "mdi:sale"
+      },
+      "shopping_stores": {
+        "default": "mdi:store-outline"
+      },
+      "shopping_total": {
+        "default": "mdi:cart-variant"
       }
     },
     "calendar": {
@@ -141,6 +147,18 @@
     },
     "get_branches": {
       "service": "mdi:storefront-outline"
+    },
+    "set_shopping_store": {
+      "service": "mdi:store-edit"
+    },
+    "assign_shopping_stores": {
+      "service": "mdi:store-cog"
+    },
+    "compare_prices": {
+      "service": "mdi:scale-balance"
+    },
+    "add_shopping_item": {
+      "service": "mdi:cart-plus"
     }
   }
 }

@@ -308,6 +308,11 @@ find_by_ingredients:
     meal: *meal
 
 get_shopping_list:
+  fields:
+    store:
+      example: "Aldi Süd"
+      selector:
+        text:
 
 export_recipes:
   fields:
@@ -558,3 +563,64 @@ remove_branch:
         text:
 
 get_branches:
+
+set_shopping_store:
+  fields:
+    item:
+      required: true
+      example: "Butter"
+      selector:
+        text:
+    store:
+      required: true
+      example: "REWE"
+      selector:
+        text:
+    always:
+      default: false
+      selector:
+        boolean:
+
+assign_shopping_stores:
+  fields:
+    reset:
+      default: false
+      selector:
+        boolean:
+
+compare_prices:
+  fields:
+    item:
+      required: true
+      example: "Butter"
+      selector:
+        text:
+
+add_shopping_item:
+  fields:
+    item:
+      required: true
+      example: "2 l Milch"
+      selector:
+        text:
+    store:
+      example: "Lidl"
+      selector:
+        text:
+    price:
+      example: 1.79
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 0.01
+          mode: box
+          unit_of_measurement: "€"
+    pack:
+      example: "250 g"
+      selector:
+        text:
+    offer_id:
+      example: "mg_12345"
+      selector:
+        text:

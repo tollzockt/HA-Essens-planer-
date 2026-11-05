@@ -593,6 +593,48 @@ def package_cost(
     return round(packs * entry.price, 2), packs
 
 
+def piece_weight_known(key: str) -> bool:
+    """True if the weight of one piece of this product is known ('zwiebel', 'ei')."""
+    return bool(_PIECE_WEIGHTS.get(key.replace(" ", "")) or _PIECE_WEIGHTS.get(_last_word(key)))
+
+
+def item_cost(
+    amounts: dict[str, float] | None,
+    key: str,
+    entry: PriceEntry,
+    category: str | None = None,
+    count_as_packs: bool = False,
+) -> tuple[float, int] | None:
+    """Cost of a shopping item in whole packs: (price, packs).
+
+    amounts as in aggregate() (base unit -> amount). Without amounts: None, or one pack
+    with count_as_packs (manually added items like 'Butter'). With count_as_packs a plain
+    count of a product sold by weight/volume ('2 Butter', '2 Milch') means packs.
+    """
+    if not amounts:
+        if not count_as_packs or entry.price is None:
+            return None
+        return round(entry.price, 2), 1
+    if count_as_packs and set(amounts) <= COUNT_UNITS:
+        _, pack_unit = to_pricing_base(entry.amount, entry.unit)
+        if pack_unit != "Stück" and not piece_weight_known(key):
+            packs = max(1, math.ceil(sum(amounts.values()) - 1e-6))
+            return round(packs * entry.price, 2), packs
+    return package_cost(amounts, key, entry, category)
+
+
+def pack_text(amount: float | None, unit: str | None) -> str:
+    """'250 g', '1 l', '10 Stück' (empty without a size)."""
+    if not amount or not unit:
+        return ""
+    if unit in ("g", "ml") and amount >= 1000 and amount % 100 == 0:
+        value, unit = amount / 1000, "kg" if unit == "g" else "l"
+    else:
+        value = amount
+    number = f"{value:g}".replace(".", ",")
+    return f"{number} {unit}"
+
+
 def format_eur(value: float | None) -> str:
     """1.5 -> '1,50 €'."""
     if value is None:

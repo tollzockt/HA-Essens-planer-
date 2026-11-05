@@ -97,6 +97,77 @@ def test_all_intents_exist(intents: Intents) -> None:
         ("wie viel budget habe ich noch", "essensplaner_get_costs", {}),
         ("plane mir die woche günstig", "essensplaner_auto_plan", {"strategy": "günstig"}),
         ("plane die woche mit den angeboten", "essensplaner_auto_plan", {"strategy": "angebote"}),
+        # 1.3: shopping list per store, prices, adding items
+        (
+            "was muss ich bei aldi süd kaufen",
+            "essensplaner_get_shopping_list",
+            {"store": "aldi süd"},
+        ),
+        ("was kaufe ich bei lidl", "essensplaner_get_shopping_list", {"store": "lidl"}),
+        (
+            "was muss ich im hauptladen kaufen",
+            "essensplaner_get_shopping_list",
+            {"store": "hauptladen"},
+        ),
+        (
+            "was müssen wir bei rewe besorgen",
+            "essensplaner_get_shopping_list",
+            {"store": "rewe"},
+        ),
+        (
+            "was muss ich bei lidl arbeit kaufen",
+            "essensplaner_get_shopping_list",
+            {"store": "lidl arbeit"},
+        ),
+        ("wo ist butter am günstigsten", "essensplaner_compare_prices", {"item": "butter"}),
+        (
+            "wo bekomme ich hackfleisch am billigsten",
+            "essensplaner_compare_prices",
+            {"item": "hackfleisch"},
+        ),
+        ("vergleiche die preise für kaffee", "essensplaner_compare_prices", {"item": "kaffee"}),
+        (
+            "kauf die butter bei rewe",
+            "essensplaner_set_shopping_store",
+            {"item": "die butter", "store": "rewe"},
+        ),
+        (
+            "kauf die milch bei lidl arbeit",
+            "essensplaner_set_shopping_store",
+            {"item": "die milch", "store": "lidl arbeit"},
+        ),
+        (
+            "kauf butter immer bei aldi nord",
+            "essensplaner_set_shopping_store",
+            {"item": "butter", "store": "aldi nord", "always": True},
+        ),
+        (
+            "milch kaufe ich immer bei lidl",
+            "essensplaner_set_shopping_store",
+            {"item": "milch", "store": "lidl", "always": True},
+        ),
+        (
+            "setz butter auf die einkaufsliste",
+            "essensplaner_add_shopping_item",
+            {"item": "butter"},
+        ),
+        (
+            "2 liter milch auf die einkaufsliste",
+            "essensplaner_add_shopping_item",
+            {"item": "2 liter milch"},
+        ),
+        ("füge eier zur einkaufsliste hinzu", "essensplaner_add_shopping_item", {"item": "eier"}),
+        (
+            "schreib kaffee für edeka auf die einkaufsliste",
+            "essensplaner_add_shopping_item",
+            {"item": "kaffee", "store": "edeka"},
+        ),
+        # no conflicts with the older sentences
+        ("setze die zutaten auf die einkaufsliste", "essensplaner_create_shopping_list", {}),
+        ("schreib die zutaten auf die einkaufsliste", "essensplaner_create_shopping_list", {}),
+        ("was muss ich kaufen", "essensplaner_get_shopping_list", {}),
+        ("wo ist butter im angebot", "essensplaner_get_offers", {"query": "butter"}),
+        ("was kostet der essensplan", "essensplaner_get_costs", {}),
     ],
 )
 def test_sentences(intents: Intents, sentence: str, intent_name: str, slots: dict) -> None:
@@ -105,3 +176,14 @@ def test_sentences(intents: Intents, sentence: str, intent_name: str, slots: dic
     assert result is not None, sentence
     assert result.intent.name == intent_name
     assert {k: v.value for k, v in result.entities.items()} == slots
+
+
+def test_store_list(intents: Intents) -> None:
+    """Every store in the sentence list is understood by the integration."""
+    from custom_components.essensplaner.retailers import resolve_retailer
+
+    values = [v.value_out for v in intents.slot_lists["store"].values]
+    assert "hauptladen" in values
+    for value in values:
+        if value != "hauptladen":
+            assert resolve_retailer(value, zip_code="80331"), value

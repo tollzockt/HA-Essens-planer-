@@ -21,14 +21,35 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.util import dt as dt_util
 
-from .ingredients import fold, guess_category, ingredient_key
+from .const import (
+    CONF_SPLIT_MIN_PERCENT,
+    CONF_SPLIT_MIN_SAVING,
+    CONF_SPLIT_MODE,
+    CONF_SPLIT_OFFER_MIN,
+    CONF_SPLIT_TRIP_MIN,
+    DEFAULT_SPLIT_MIN_PERCENT,
+    DEFAULT_SPLIT_MIN_SAVING,
+    DEFAULT_SPLIT_MODE,
+    DEFAULT_SPLIT_OFFER_MIN,
+    DEFAULT_SPLIT_TRIP_MIN,
+    SPLIT_FLOOR,
+    SPLIT_MAIN_EXCEPTIONS,
+    SPLIT_MODES,
+    SPLIT_OFF,
+)
+from .economy import _offer_short
+from .ingredients import fold, guess_category, ingredient_key, parse_ingredient, to_base
 from .pricing import (
     LayeredPriceBook,
     PriceEntry,
     PriceIndex,
+    format_eur,
+    item_cost,
     lookup_keys,
     make_entry,
+    offer_as_entry,
     offer_pack,
+    pack_text,
     unit_price,
 )
 from .retailers import (
@@ -116,6 +137,20 @@ SHOPPING_STORE_FIELDS = (
     "saving",
     "alternatives",
 )
+# fields of the automatic store assignment (cleared while the split is inactive)
+ASSIGNED_FIELDS = ("branch_id", "retailer", "store_label", "store_reason", "saving", "alternatives")
+# why an item is bought at its store
+REASON_MAIN = "main"
+REASON_OFFER = "offer"
+REASON_CHEAPER = "cheaper"
+REASON_MANUAL = "manual"
+REASON_PREFERRED = "preferred"
+MAX_ALTERNATIVES = 4
+NO_STORE_LABEL = "Ohne Laden"
+# store texts that reset a manual store choice
+_AUTO_WORDS = {"auto", "automatisch", "automatic", "standard", "zuruecksetzen"}
+# description parts written by the integration (rebuilt on every change)
+_DESCRIPTION_PREFIXES = ("🏪", "≈ ", "🏷️")
 
 
 def _dict(value: Any) -> dict[str, Any]:
@@ -235,6 +270,7 @@ class StoresMixin:
     _default_index: PriceIndex | None
     _default_index_source: int | None
     _price_ctx: tuple[Any, ...] | None
+    _selected_memo: tuple[Any, list[dict[str, Any]]] | None
 
     # ------------------------------------------------------------------
     # Persistence
@@ -256,6 +292,7 @@ class StoresMixin:
         self._default_index = None
         self._default_index_source = None
         self._price_ctx = None
+        self._selected_memo = None
 
     def _load_store_data(self: EssensplanerManager, data: dict[str, Any]) -> None:
         """Read the 1.3 keys (missing in 1.2 data)."""
@@ -334,7 +371,25 @@ class StoresMixin:
     # ------------------------------------------------------------------
 
     def selected_branches(self: EssensplanerManager) -> list[dict[str, Any]]:
-        """Selected branches: main branch first, then by priority (ascending)."""
+        """Selected branches: main branch first, then by priority (ascending).
+
+        Memoized (called for every price lookup); the key covers everything that matters.
+        """
+        memo_key = (
+            self.main_branch,
+            tuple(
+                (id(b), b.get("id"), b.get("selected", True), b.get("priority"), b.get("name"))
+                for b in self.branches
+            ),
+        )
+        memo = self._selected_memo
+        if memo is not None and memo[0] == memo_key:
+            return list(memo[1])
+        result = self._sorted_selected()
+        self._selected_memo = (memo_key, result)
+        return list(result)
+
+    def _sorted_selected(self: EssensplanerManager) -> list[dict[str, Any]]:
         selected = [
             b for b in self.branches if b.get("selected", True) or b.get("id") == self.main_branch
         ]
@@ -681,6 +736,8 @@ class StoresMixin:
             if branch_id in (item.get("branch_id"), item.get("store_override")):
                 for field in SHOPPING_STORE_FIELDS:
                     item.pop(field, None)
+                if "description" in item:
+                    self.update_shopping_description(item)
         self._auto_main()
         self._branches_changed()
         return view
@@ -1291,6 +1348,591 @@ class StoresMixin:
             "total": len(result),
             "rows": result[: max(1, int(limit))],
         }
+
+    # ------------------------------------------------------------------
+    # Shopping list per store ("Hauptladen + Ausnahmen")
+    # ------------------------------------------------------------------
+
+    @property
+    def split_mode(self: EssensplanerManager) -> str:
+        """off | main_only | main_exceptions (option store_split_mode)."""
+        mode = self.options.get(CONF_SPLIT_MODE) or DEFAULT_SPLIT_MODE
+        return mode if mode in SPLIT_MODES else DEFAULT_SPLIT_MODE
+
+    def split_settings(self: EssensplanerManager) -> dict[str, Any]:
+        """Mode and thresholds of the store split (options with defaults)."""
+
+        def number(key: str, default: float) -> float:
+            try:
+                value = float(self.options.get(key, default))
+            except (TypeError, ValueError):
+                return float(default)
+            return value if value >= 0 else float(default)
+
+        return {
+            "mode": self.split_mode,
+            "active": self.store_split_active,
+            "min_saving": number(CONF_SPLIT_MIN_SAVING, DEFAULT_SPLIT_MIN_SAVING),
+            "min_percent": number(CONF_SPLIT_MIN_PERCENT, DEFAULT_SPLIT_MIN_PERCENT),
+            "offer_min": number(CONF_SPLIT_OFFER_MIN, DEFAULT_SPLIT_OFFER_MIN),
+            "trip_min": number(CONF_SPLIT_TRIP_MIN, DEFAULT_SPLIT_TRIP_MIN),
+            "floor": SPLIT_FLOOR,
+        }
+
+    @property
+    def store_split_active(self: EssensplanerManager) -> bool:
+        """True with a main branch (with retailer) and store_split_mode != off."""
+        return self.split_mode != SPLIT_OFF and bool(self.main_retailer)
+
+    def store_candidates(self: EssensplanerManager) -> list[dict[str, Any]]:
+        """First selected branch per retailer (main branch first)."""
+        seen: set[str] = set()
+        result: list[dict[str, Any]] = []
+        for branch in self.selected_branches():
+            retailer = branch.get("retailer")
+            if retailer and retailer not in seen and branch.get("id"):
+                seen.add(retailer)
+                result.append(branch)
+        return result
+
+    @staticmethod
+    def _item_name(item: dict[str, Any]) -> str:
+        """Product name of a shopping item ('250 g Butter' -> 'Butter')."""
+        if item.get("name"):
+            return str(item["name"])
+        summary = str(item.get("summary") or "")
+        return parse_ingredient(summary)["name"] or summary or str(item.get("key") or "")
+
+    @staticmethod
+    def _item_amounts(item: dict[str, Any]) -> dict[str, float]:
+        """Amounts of a shopping item (stored, else parsed from the summary)."""
+        if isinstance(item.get("amounts"), dict):
+            return item["amounts"]
+        parsed = parse_ingredient(str(item.get("summary") or ""))
+        if parsed["amount"] is None:
+            return {}
+        amount, unit = to_base(parsed["amount"], parsed["unit"])
+        return {unit: amount} if amount else {}
+
+    def _chosen_entry(
+        self: EssensplanerManager, item: dict[str, Any], retailer: str | None
+    ) -> PriceEntry | None:
+        """Price the user picked when adding the item (applies to its retailer only)."""
+        chosen = item.get("chosen")
+        if not isinstance(chosen, dict) or chosen.get("price") is None:
+            return None
+        if chosen.get("retailer") and chosen["retailer"] != retailer:
+            return None
+        if chosen.get("offer_id"):
+            # the picked offer while it is still valid (its price/pack may have been changed)
+            offer = next((o for o in self.offers if o.get("id") == chosen["offer_id"]), None)
+            if (
+                offer is not None
+                and float(offer.get("price") or -1) == float(chosen["price"])
+                and (offer.get("valid_to") or "9999")[:10] >= self.today().isoformat()
+                and (entry := offer_as_entry(offer)) is not None
+            ):
+                return entry
+        entry = make_entry(
+            {
+                "name": chosen.get("name") or self._item_name(item),
+                "price": chosen["price"],
+                "amount": chosen.get("amount") or 1,
+                "unit": chosen.get("unit") or "Stück",
+            },
+            SOURCE_USER,
+            chosen.get("retailer") or retailer,
+        )
+        return entry
+
+    def price_at(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        retailer: str | None,
+        branch_id: str | None = None,
+        day: date | None = None,
+        lead_days: int = 3,
+    ) -> dict[str, Any] | None:
+        """Cheapest way to buy a shopping item at one retailer (whole packs).
+
+        Compares the retailer's price (store price book) with its valid offers (that apply
+        to branch_id). Returns {price, packs, entry, offer, real, specific, regular} or None.
+        specific: a price of this retailer (store price, offer, own choice) – not a general
+        price or estimate. retailer None: like best_price() without retailer.
+        """
+        day = day or self.today()
+        today = self.today().isoformat()
+        name = self._item_name(item)
+        key = item.get("key") or ingredient_key(name)
+        category = item.get("category") or guess_category(name)
+        amounts = self._item_amounts(item)
+        as_packs = item.get("source") != "plan"
+        best: dict[str, Any] | None = None
+
+        def consider(entry: PriceEntry | None) -> dict[str, Any] | None:
+            nonlocal best
+            if entry is None:
+                return None
+            cost = item_cost(amounts, key, entry, category, as_packs)
+            if cost is None:
+                return None
+            option = {
+                "price": cost[0],
+                "packs": cost[1],
+                "entry": entry,
+                "offer": _offer_short(entry.offer) if entry.offer else None,
+                "real": entry.real,
+                "specific": entry.offer is not None
+                or (retailer is not None and entry.real and entry.store_id == retailer),
+            }
+            if best is None or option["price"] < best["price"] - 1e-9:
+                best = option
+            return option
+
+        regular_entry = self._chosen_entry(item, retailer)
+        if regular_entry is None:
+            regular_entry = self.regular_book(retailer).lookup(name)
+        regular = consider(regular_entry)
+        for offer in self.offers_for(name, day, lead_days, retailer=retailer):
+            if (offer.get("valid_to") or "9999")[:10] < today:
+                continue  # no longer buyable
+            if branch_id and "branches" in offer and branch_id not in offer["branches"]:
+                continue  # found for another postcode
+            consider(offer_as_entry(offer))
+        if best is None:
+            return None
+        return {**best, "regular": regular}
+
+    def assign_stores(
+        self: EssensplanerManager, items: list[dict[str, Any]], day: date | None = None
+    ) -> bool:
+        """Assign shopping items to branches ("Hauptladen + Ausnahmen"). Returns True if active.
+
+        Order: manual store_override -> store_preferences[key] ("immer hier") -> main branch,
+        unless another selected store (first branch per retailer) has an offer that saves
+        >= offer_min or a real store price that is >= min_saving EUR or >= min_percent %
+        cheaper (and at least SPLIT_FLOOR EUR) -> the cheapest such store. With trip_min,
+        stores whose items save less in total go back to the main branch. main_only: all at
+        the main branch, alternatives are still computed.
+
+        Sets branch_id, retailer, store_label, store_reason (main|offer|cheaper|manual|
+        preferred), saving, price/packs/offer at that store and up to 4 alternatives.
+        Without an active split the assignment fields are removed (1.2 behaviour).
+        Descriptions are not touched (see update_shopping_description()).
+        """
+        if not self.store_split_active:
+            for item in items:
+                for field in ASSIGNED_FIELDS:
+                    item.pop(field, None)
+            return False
+        day = day or self.today()
+        settings = self.split_settings()
+        candidates = self.store_candidates()
+        main = self.get_main_branch()
+        if main is None:  # cannot happen while the split is active
+            return False
+        if not candidates or candidates[0].get("id") != main.get("id"):
+            candidates = [main, *[c for c in candidates if c.get("id") != main.get("id")]]
+        by_retailer = {c["retailer"]: c for c in candidates}
+        moved: dict[str, list[tuple[dict[str, Any], dict[str, Any] | None]]] = {}
+        for item in items:
+            costs: dict[str, dict[str, Any] | None] = {
+                c["id"]: self.price_at(item, c["retailer"], c["id"], day) for c in candidates
+            }
+            main_cost = costs[main["id"]]
+            target, reason = main, REASON_MAIN
+            override = self.get_branch(item.get("store_override"))
+            preferred = by_retailer.get(self.store_preferences.get(item.get("key") or "") or "")
+            if override is not None and override.get("retailer"):
+                target, reason = override, REASON_MANUAL
+                if override["id"] not in costs:
+                    costs[override["id"]] = self.price_at(
+                        item, override["retailer"], override["id"], day
+                    )
+            elif preferred is not None:
+                target, reason = preferred, REASON_PREFERRED
+            elif settings["mode"] == SPLIT_MAIN_EXCEPTIONS and main_cost is not None:
+                best: tuple[dict[str, Any], dict[str, Any]] | None = None
+                for branch in candidates[1:]:
+                    cost = costs[branch["id"]]
+                    if cost is None or not self._worth_moving(main_cost, cost, settings):
+                        continue
+                    if best is None or cost["price"] < best[1]["price"]:
+                        best = (branch, cost)
+                if best is not None:
+                    target = best[0]
+                    reason = REASON_OFFER if best[1]["offer"] else REASON_CHEAPER
+            self._set_store(item, target, reason, costs, main_cost)
+            if reason in (REASON_OFFER, REASON_CHEAPER):
+                moved.setdefault(target["id"], []).append((item, main_cost))
+        if settings["trip_min"] > 0:
+            batch = {id(i) for i in items}
+            for branch_id, entries in moved.items():
+                total = sum(i.get("saving") or 0 for i, _ in entries) + sum(
+                    i.get("saving") or 0
+                    for i in self.shopping
+                    if id(i) not in batch
+                    and i.get("status") != "completed"
+                    and i.get("branch_id") == branch_id
+                    and i.get("store_reason") in (REASON_OFFER, REASON_CHEAPER)
+                )
+                if round(total, 2) >= settings["trip_min"]:
+                    continue
+                for item, main_cost in entries:
+                    self._set_store(item, main, REASON_MAIN, None, main_cost)
+        return True
+
+    @staticmethod
+    def _worth_moving(
+        main_cost: dict[str, Any], cost: dict[str, Any], settings: dict[str, Any]
+    ) -> bool:
+        """Offer saving >= offer_min, or a real store price clearly cheaper."""
+        if cost["offer"]:
+            saving = round(main_cost["price"] - cost["price"], 2)
+            if saving > 0 and saving >= settings["offer_min"]:
+                return True
+        regular = cost.get("regular")
+        if regular is None or not regular["specific"]:
+            return False
+        saving = round(main_cost["price"] - regular["price"], 2)
+        if saving < settings["floor"] or saving <= 0:
+            return False
+        percent = saving / main_cost["price"] * 100 if main_cost["price"] > 0 else 0.0
+        return saving >= settings["min_saving"] or percent >= settings["min_percent"]
+
+    def _set_store(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        branch: dict[str, Any],
+        reason: str,
+        costs: dict[str, dict[str, Any] | None] | None,
+        main_cost: dict[str, Any] | None,
+    ) -> None:
+        """Write the assignment of one item (costs None: keep the alternatives)."""
+        main_id = self.main_branch
+        if costs is None:
+            # moved back to the main branch (trip not worth it): previous store -> alternative
+            previous = {
+                "branch_id": item.get("branch_id"),
+                "retailer": item.get("retailer"),
+                "label": item.get("store_label"),
+                "price": item.get("price"),
+            }
+            if item.get("offer"):
+                previous["offer"] = item["offer"]
+            alternatives = [
+                a for a in item.get("alternatives") or [] if a.get("branch_id") != branch["id"]
+            ]
+            alternatives = sorted([previous, *alternatives], key=lambda a: a["price"] or 0)
+            cost = main_cost
+        else:
+            cost = costs.get(branch["id"])
+            alternatives = []
+            for other_id, other in costs.items():
+                other_branch = self.get_branch(other_id)
+                if other_id == branch["id"] or other is None or other_branch is None:
+                    continue
+                alternative = {
+                    "branch_id": other_id,
+                    "retailer": other_branch.get("retailer"),
+                    "label": self.branch_label(other_branch),
+                    "price": other["price"],
+                    "real": other["specific"],
+                }
+                if other["offer"]:
+                    alternative["offer"] = other["offer"]
+                alternatives.append(alternative)
+            alternatives.sort(key=lambda a: (a["price"], a["branch_id"] != main_id))
+        item["branch_id"] = branch["id"]
+        item["retailer"] = branch.get("retailer")
+        item["store_label"] = self.branch_label(branch)
+        item["store_reason"] = reason
+        item["price"] = cost["price"] if cost else None
+        item["packs"] = cost["packs"] if cost else None
+        item["offer"] = cost["offer"] if cost else None
+        if branch["id"] == main_id:
+            item["saving"] = 0.0
+        elif cost and main_cost:
+            item["saving"] = round(main_cost["price"] - cost["price"], 2)
+        else:
+            item["saving"] = None
+        item["alternatives"] = alternatives[:MAX_ALTERNATIVES]
+
+    def update_shopping_description(self: EssensplanerManager, item: dict[str, Any]) -> None:
+        """Rebuild the description: '🏪 store · aisle · ≈ price · 🏷️ offer · recipes/note'.
+
+        Without a store (split inactive) it is exactly the 1.2 description: plan items
+        'aisle · ≈ price · 🏷️ offer · recipes', manual items the user's text.
+        """
+        plan = item.get("source") == "plan"
+        if plan and isinstance(item.get("recipes"), list):
+            extra = [", ".join(item["recipes"])] if item["recipes"] else []
+        else:
+            extra = [
+                part.strip()
+                for part in str(item.get("description") or "").split(" · ")
+                if part.strip()
+                and not part.strip().startswith(_DESCRIPTION_PREFIXES)
+                and not (plan and part.strip() == item.get("category"))
+            ]
+        store = item.get("store_label") if item.get("branch_id") else None
+        parts: list[str] = []
+        if store:
+            parts.append(f"🏪 {store}")
+        if plan:
+            parts.append(item.get("category") or "Sonstiges")
+        if item.get("price") is not None and (plan or store):
+            parts.append(f"≈ {format_eur(item['price'])}")
+        if (plan or store) and (offer := item.get("offer")):
+            parts.append(offer_label(offer))
+        parts.extend(extra)
+        item["description"] = " · ".join(parts)
+
+    def find_shopping_item(self: EssensplanerManager, text: str) -> dict[str, Any]:
+        """Shopping item by uid or name (open items first) or a clear error."""
+        from .manager import _error  # avoid an import cycle
+
+        raw = str(text or "").strip()
+        for item in self.shopping:
+            if item.get("uid") == raw:
+                return item
+        key = ingredient_key(parse_ingredient(raw)["name"] or raw)
+        folded = fold(raw)
+        ordered = sorted(self.shopping, key=lambda i: i.get("status") == "completed")
+        if key:
+            for item in ordered:
+                if item.get("key") == key or fold(item.get("summary") or "") == folded:
+                    return item
+            for item in ordered:
+                if folded and folded in fold(item.get("summary") or ""):
+                    return item
+            for item in ordered:
+                if item.get("key") and (item["key"] in key or key in item["key"]):
+                    return item
+        raise _error("shopping_item_not_found")
+
+    def set_shopping_store(
+        self: EssensplanerManager, item_text: str, store: str | None, always: bool = False
+    ) -> dict[str, Any]:
+        """Buy an item at a branch (id, label, store name, 'Hauptladen').
+
+        store None / 'auto' resets the manual choice; always=True also remembers the store
+        for this product ("immer hier kaufen", store_preferences) or forgets it with 'auto'.
+        """
+        from .manager import _error  # avoid an import cycle
+
+        if not self.store_split_active:
+            raise _error("store_split_off")
+        item = self.find_shopping_item(item_text)
+        key = item.get("key") or ingredient_key(self._item_name(item))
+        words = fold(store or "").split()
+        if not words or " ".join(words) in _AUTO_WORDS:
+            item.pop("store_override", None)
+            if always and key:
+                self.store_preferences.pop(key, None)
+        else:
+            branch = self.require_branch(store)
+            item["store_override"] = branch["id"]
+            if always and key and branch.get("retailer"):
+                self.store_preferences[key] = branch["retailer"]
+        self.assign_stores([item])
+        self.update_shopping_description(item)
+        self._changed("shopping")
+        return item
+
+    def assign_shopping_stores(
+        self: EssensplanerManager, reset_overrides: bool = False
+    ) -> dict[str, Any]:
+        """Assign all open items again (e.g. after prices or branches changed).
+
+        reset_overrides: forget the manual store choices of the items first.
+        """
+        items = [i for i in self.shopping if i.get("status") != "completed"]
+        if reset_overrides:
+            for item in self.shopping:
+                item.pop("store_override", None)
+        active = self.assign_stores(items)
+        for item in items:
+            self.update_shopping_description(item)
+        if items or reset_overrides:
+            self._changed("shopping")
+        return {"active": active, "assigned": len(items) if active else 0}
+
+    def stores_summary(self: EssensplanerManager) -> list[dict[str, Any]]:
+        """Open items per store (main branch first, then the selected order, "Ohne Laden").
+
+        [{branch_id, retailer, label, main, open, priced, subtotal, saving, items: [summary]}].
+        Empty while the split is inactive (no main branch or store_split_mode off).
+        """
+        if not self.store_split_active:
+            return []
+        order = {b["id"]: n for n, b in enumerate(self.selected_branches())}
+        groups: dict[str | None, dict[str, Any]] = {}
+        for item in self.shopping:
+            if item.get("status") == "completed":
+                continue
+            branch = self.get_branch(item.get("branch_id"))
+            branch_id = branch["id"] if branch else None
+            group = groups.get(branch_id)
+            if group is None:
+                group = groups[branch_id] = {
+                    "branch_id": branch_id,
+                    "retailer": branch.get("retailer") if branch else None,
+                    "label": self.branch_label(branch) if branch else NO_STORE_LABEL,
+                    "main": branch_id is not None and branch_id == self.main_branch,
+                    "open": 0,
+                    "priced": 0,
+                    "subtotal": 0.0,
+                    "saving": 0.0,
+                    "items": [],
+                }
+            group["open"] += 1
+            group["items"].append(item.get("summary") or "")
+            if item.get("price") is not None:
+                group["subtotal"] += item["price"]
+                group["priced"] += 1
+            if (item.get("saving") or 0) > 0:
+                group["saving"] += item["saving"]
+        result = list(groups.values())
+        for group in result:
+            group["subtotal"] = round(group["subtotal"], 2)
+            group["saving"] = round(group["saving"], 2)
+        result.sort(
+            key=lambda g: (
+                g["branch_id"] is None,
+                not g["main"],
+                order.get(g["branch_id"] or "", len(order)),
+                fold(g["label"]),
+            )
+        )
+        return result
+
+    def store_selection(self: EssensplanerManager, store: str) -> dict[str, Any]:
+        """Open items of one store (branch id, label, store name, 'Hauptladen')."""
+        from .manager import _error  # avoid an import cycle
+
+        matches = self._match_branches(store)
+        if not matches:
+            raise _error("branch_not_found", branch=store)
+        ids = {b["id"] for b in matches}
+        retailers = {b.get("retailer") for b in matches}
+        label = (
+            self.branch_label(matches[0])
+            if len(matches) == 1
+            else retailer_name(next(iter(retailers)))
+            if len(retailers) == 1
+            else store
+        )
+        items = [
+            i for i in self.shopping if i.get("status") != "completed" and i.get("branch_id") in ids
+        ]
+        subtotal = sum(i["price"] for i in items if i.get("price") is not None)
+        return {
+            "branch_id": matches[0]["id"] if len(matches) == 1 else None,
+            "branch_ids": sorted(ids),
+            "retailer": matches[0].get("retailer") if len(retailers) == 1 else None,
+            "label": label,
+            "open": len(items),
+            "priced": sum(1 for i in items if i.get("price") is not None),
+            "subtotal": round(subtotal, 2),
+            "saving": round(
+                sum(i.get("saving") or 0 for i in items if (i.get("saving") or 0) > 0), 2
+            ),
+            "items": [i.get("summary") or "" for i in items],
+            "offers": [{"item": i.get("summary"), **i["offer"]} for i in items if i.get("offer")],
+        }
+
+    def compare_prices(
+        self: EssensplanerManager, name: str, amount_text: str | None = None
+    ) -> dict[str, Any]:
+        """Price of a product at every selected store (first branch per retailer).
+
+        Without branches the active retailers (offer_stores option) are compared. With an
+        amount ('500 g Hackfleisch') the cost in whole packs is compared, else the price
+        per unit (pack prices differ in size). cheapest: the best result (None with less
+        than two stores or when all cost the same).
+        """
+        from .manager import _error  # avoid an import cycle
+
+        parsed = parse_ingredient(str(name or ""))
+        product = parsed["name"] or str(name or "").strip()
+        if not ingredient_key(product):
+            raise _error("name_required")
+        amount, unit = parsed["amount"], parsed["unit"]
+        if amount_text:
+            extra = parse_ingredient(f"{amount_text} {product}")
+            amount, unit = extra["amount"], extra["unit"]
+        amounts: dict[str, float] = {}
+        if amount is not None:
+            base_amount, base_unit = to_base(amount, unit)
+            if base_amount:
+                amounts[base_unit] = base_amount
+        item = {
+            "name": product,
+            "key": ingredient_key(product),
+            "category": guess_category(product),
+            "amounts": amounts,
+            "source": "compare",
+        }
+        targets: list[tuple[dict[str, Any] | None, str]] = [
+            (b, b["retailer"]) for b in self.store_candidates()
+        ] or [(None, r) for r in self.active_retailers()]
+        today = self.today()
+        results: list[dict[str, Any]] = []
+        for branch, retailer in targets:
+            cost = self.price_at(item, retailer, branch["id"] if branch else None, today, 0)
+            if cost is None:
+                continue
+            entry: PriceEntry = cost["entry"]
+            per = unit_price(entry)
+            result = {
+                "branch_id": branch["id"] if branch else None,
+                "retailer": retailer,
+                "label": self.branch_label(branch) if branch else retailer_name(retailer),
+                "price": cost["price"],
+                "packs": cost["packs"],
+                "pack": pack_text(entry.amount, entry.unit),
+                "unit_price": round(per[0], 5) if per else None,
+                "base": per[1] if per else None,
+                "source": entry.source,
+                "real": cost["specific"],
+                "main": branch is not None and branch["id"] == self.main_branch,
+                "offer": cost["offer"],
+            }
+            results.append(result)
+        by_price = bool(amounts)
+        bases = [r["base"] for r in results if r["unit_price"] is not None]
+        base = max(set(bases), key=bases.count) if bases else None
+
+        def rank(result: dict[str, Any]) -> tuple[Any, ...]:
+            if by_price or result["unit_price"] is None or result["base"] != base:
+                value = result["price"] if by_price else float("inf")
+            else:
+                value = result["unit_price"]
+            return (value, result["price"], not result["main"])
+
+        results.sort(key=rank)
+        cheapest = None
+        if (
+            len(results) >= 2
+            and rank(results[0])[0] != float("inf")
+            and rank(results[0])[0] < rank(results[1])[0] - 1e-9
+        ):
+            cheapest = results[0]
+        return {
+            "item": product,
+            "amount": " + ".join(f"{a:g} {u}".strip() for u, a in amounts.items()) or None,
+            "compared_by": "price" if by_price else "unit_price",
+            "results": results,
+            "cheapest": cheapest,
+        }
+
+
+def offer_label(offer: dict[str, Any]) -> str:
+    """'🏷️ Lidl 4,99 € bis 07.11.' (shopping item descriptions)."""
+    valid_to = str(offer.get("valid_to") or "")
+    until = f" bis {valid_to[8:10]}.{valid_to[5:7]}." if valid_to else ""
+    return f"🏷️ {offer.get('store')} {format_eur(offer.get('price'))}{until}"
 
 
 def _cheapest(row: dict[str, Any]) -> str | None:
