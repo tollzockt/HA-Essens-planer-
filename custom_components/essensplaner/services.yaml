@@ -476,3 +476,14 @@ get_costs:
           min: 1
           max: 62
           mode: box
+
+get_store_prices:
+  fields:
+    store:
+      example: "Aldi Süd"
+      selector:
+        text:
+    query:
+      example: "Butter"
+      selector:
+        text:

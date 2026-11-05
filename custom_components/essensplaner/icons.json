@@ -129,6 +129,9 @@
     },
     "get_costs": {
       "service": "mdi:cash-multiple"
+    },
+    "get_store_prices": {
+      "service": "mdi:store-search"
     }
   }
 }

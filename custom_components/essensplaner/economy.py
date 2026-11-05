@@ -35,8 +35,9 @@ from .ingredients import (
     is_pantry_item,
     scale_ingredient,
 )
-from .offers import DEFAULT_STORES, STORES, manual_offer, offer_matches, store_allowed
+from .offers import manual_offer, offer_matches, store_allowed
 from .pricing import (
+    LayeredPriceBook,
     PriceBook,
     PriceEntry,
     format_eur,
@@ -46,6 +47,7 @@ from .pricing import (
     package_cost,
     unit_price,
 )
+from .retailers import DEFAULT_STORES, RETAILERS, STORES, retailer_for_store_id, retailer_name
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
@@ -119,7 +121,7 @@ class EconomyMixin:
     _price_book: PriceBook | None
     _offer_index: dict[str, list[dict[str, Any]]] | None
     _cost_cache: dict[tuple, dict[str, Any]]
-    _offer_name_cache: dict[str, list[dict[str, Any]]]
+    _offer_name_cache: dict[tuple[str, str | None], list[dict[str, Any]]]
     _offer_day_cache: dict[date, Any]
 
     # ------------------------------------------------------------------
@@ -172,6 +174,7 @@ class EconomyMixin:
         self._cost_cache = {}
         self._offer_name_cache = {}
         self._offer_day_cache = {}
+        self._store_books = {}
 
     @property
     def price_book(self: EssensplanerManager) -> PriceBook:
@@ -181,47 +184,85 @@ class EconomyMixin:
         return self._price_book
 
     def _offers_index(self: EssensplanerManager) -> dict[str, list[dict[str, Any]]]:
+        """All offers by ingredient key (store filters are applied in offers_for)."""
         if self._offer_index is None:
             index: dict[str, list[dict[str, Any]]] = {}
             for offer in self.offers:
-                if offer.get("source") == "marktguru" and not store_allowed(
-                    offer.get("store_id", ""), self.offer_stores
-                ):
-                    continue
                 for key in offer.get("keys") or []:
                     index.setdefault(key, []).append(offer)
             self._offer_index = index
         return self._offer_index
 
+    def _offer_in_scope(
+        self: EssensplanerManager,
+        offer: dict[str, Any],
+        retailer: str | None,
+        active: list[str],
+    ) -> bool:
+        """retailer given: only offers of that retailer; else manual + active retailers."""
+        if retailer is not None:
+            return self.offer_retailer(offer) == retailer
+        return offer.get("source") != "marktguru" or store_allowed(
+            offer.get("store_id", ""), active
+        )
+
     def offers_for(
-        self: EssensplanerManager, name: str, day: date | None = None, lead_days: int = 3
+        self: EssensplanerManager,
+        name: str,
+        day: date | None = None,
+        lead_days: int = 3,
+        retailer: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Offers usable for an ingredient (on a given day)."""
+        """Offers usable for an ingredient (on a given day, optionally of one retailer)."""
+        self._ensure_price_context()
         index = self._offers_index()
         if not index:
             return []
         cache = self._offer_name_cache
-        if name not in cache:
+        cache_key = (name, retailer)
+        if cache_key not in cache:
             key = ingredient_key(name)
             found = list(index.get(key, []))
             if not found:
                 for other_key, offers in index.items():
                     if other_key and (other_key in key.split() or offer_matches(name, other_key)):
                         found.extend(offers)
-            cache[name] = found
-        found = list(cache[name])
+            active = self.active_retailers()
+            cache[cache_key] = [o for o in found if self._offer_in_scope(o, retailer, active)]
+        found = list(cache[cache_key])
         if day is not None:
             found = [o for o in found if offer_valid_on(o, day, lead_days)]
         return found
 
+    def regular_book(
+        self: EssensplanerManager, retailer: str | None = None
+    ) -> PriceBook | LayeredPriceBook:
+        """Price book used for regular prices.
+
+        retailer given: that retailer's book; else the main branch's retailer book, or the
+        general 1.2 book without a main branch.
+        """
+        if retailer is None:
+            retailer = self.main_retailer
+            if retailer is None:
+                return self.price_book
+        return self.store_book(retailer)
+
     def best_price(
-        self: EssensplanerManager, name: str, day: date | None = None
+        self: EssensplanerManager,
+        name: str,
+        day: date | None = None,
+        retailer: str | None = None,
     ) -> tuple[PriceEntry | None, PriceEntry | None]:
-        """(cheapest usable entry, regular entry) for an ingredient."""
-        regular = self.price_book.lookup(name)
+        """(cheapest usable entry, regular entry) for an ingredient.
+
+        retailer: compare with that retailer's prices and offers only. Without it the main
+        branch's prices (or the general prices) and the offers of all selected stores.
+        """
+        regular = self.regular_book(retailer).lookup(name)
         best = regular
         best_unit = unit_price(regular) if regular else None
-        for offer in self.offers_for(name, day or self.today()):
+        for offer in self.offers_for(name, day or self.today(), retailer=retailer):
             entry = offer_as_entry(offer)
             if entry is None:
                 continue
@@ -264,6 +305,7 @@ class EconomyMixin:
         day: date | None = None,
     ) -> dict[str, Any]:
         """Estimated cost of a recipe (proportional to the used amounts)."""
+        self._ensure_price_context()
         base = recipe.get("servings") or self.default_servings
         target = servings or base
         day = day or self.today()
@@ -495,9 +537,16 @@ class EconomyMixin:
         unit: str = "Stück",
         store: str | None = None,
     ) -> dict[str, Any]:
-        """Store an own price for an ingredient."""
+        """Store an own price for an ingredient.
+
+        Like 1.2 the price is stored as own price with the store as label (used while no
+        main branch is set). If the store is a known retailer it is also stored as that
+        retailer's store price; for other retailers a price labelled with another store
+        is ignored.
+        """
         key = ingredient_key(name)
-        entry = {
+        retailer = self.resolve_store(store) if store else None
+        entry: dict[str, Any] = {
             "name": name.strip(),
             "price": round(float(price), 2),
             "amount": float(amount or 1),
@@ -505,18 +554,29 @@ class EconomyMixin:
             "store": store or None,
             "updated": dt_util.utcnow().isoformat(),
         }
+        if retailer:
+            self._put_store_price(retailer, name, price, amount, unit)
+            entry["retailer"] = retailer
         self.prices_user[key] = entry
         self._invalidate_prices()
         self._changed("prices")
         return entry
 
-    def remove_price(self: EssensplanerManager, name: str) -> bool:
-        """Remove an own price (falls back to the estimate)."""
-        removed = self.prices_user.pop(ingredient_key(name), None)
+    def remove_price(self: EssensplanerManager, name: str, store: str | None = None) -> bool:
+        """Remove an own price (falls back to the estimate).
+
+        With a known store: remove that store's price (and the own price labelled with it).
+        """
+        key = ingredient_key(name)
+        retailer = self.resolve_store(store) if store else None
+        if retailer:
+            removed = self._pop_store_price(retailer, key)
+        else:
+            removed = self.prices_user.pop(key, None) is not None
         if removed:
             self._invalidate_prices()
             self._changed("prices")
-        return bool(removed)
+        return removed
 
     def add_offer(
         self: EssensplanerManager,
@@ -530,6 +590,7 @@ class EconomyMixin:
     ) -> dict[str, Any]:
         """Add an offer by hand (or by voice)."""
         offer = manual_offer(product, store, price, pack_text, valid_from, valid_to, old_price)
+        offer["retailer"] = retailer_for_store_id(offer["store_id"]) or self.resolve_store(store)
         # also match recipe ingredients (e.g. offer "Hähnchenbrustfilet" -> "Hähnchenbrust")
         keys = set(offer["keys"])
         for recipe in self.recipes.values():
@@ -563,6 +624,9 @@ class EconomyMixin:
             for o in self.offers
             if o.get("source") != source and (o.get("valid_to") or "9999") >= today
         ]
+        for offer in offers:
+            if "retailer" not in offer:
+                offer["retailer"] = self.offer_retailer(offer)
         self.offers = kept + offers
         # learn regular prices from offers with an old price
         for offer in offers:
@@ -632,11 +696,10 @@ class EconomyMixin:
     ) -> list[dict[str, Any]]:
         """Offers for display: when = current | upcoming | all."""
         today = self.today()
+        active = self.active_retailers()
         result = []
         for offer in self.offers:
-            if offer.get("source") == "marktguru" and not store_allowed(
-                offer.get("store_id", ""), self.offer_stores
-            ):
+            if not self._offer_in_scope(offer, None, active):
                 continue
             start = (offer.get("valid_from") or "")[:10]
             end = (offer.get("valid_to") or "9999-12-31")[:10]
@@ -721,6 +784,10 @@ class EconomyMixin:
             "stores": [{"id": s, "name": STORES.get(s, s)} for s in self.offer_stores],
             "strategy": self.strategy,
             "user_prices": self.prices_user,
+            "retailers": [{"id": r, "name": retailer_name(r)} for r in RETAILERS],
+            "active_retailers": self.active_retailers(),
+            "main_branch": self.main_branch,
+            "main_retailer": self.main_retailer,
         }
 
     def shopping_from_items(

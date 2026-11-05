@@ -23,35 +23,14 @@ from homeassistant.util import dt as dt_util
 
 from .ingredients import _singular, fold, ingredient_key, to_base
 
+# STORES / DEFAULT_STORES moved to retailers.py in 1.3, re-exported here
+from .retailers import DEFAULT_STORES as DEFAULT_STORES, STORES as STORES, retailer_for_store_id
+
 _LOGGER = logging.getLogger(__name__)
 
 MARKTGURU_HOME = "https://www.marktguru.de/"
 MARKTGURU_API = "https://api.marktguru.de/api/v1"
 IMAGE_URL = "https://mg2de.b-cdn.net/api/v1/offers/{id}/images/default/0/medium.jpg"
-
-STORES: dict[str, str] = {
-    "aldi-sued": "Aldi Süd",
-    "aldi-nord": "Aldi Nord",
-    "lidl": "Lidl",
-    "rewe": "REWE",
-    "edeka": "EDEKA",
-    "penny": "Penny",
-    "netto-marken-discount": "Netto",
-    "kaufland": "Kaufland",
-    "norma": "Norma",
-    "globus": "Globus",
-    "marktkauf": "Marktkauf",
-}
-DEFAULT_STORES = [
-    "aldi-sued",
-    "aldi-nord",
-    "lidl",
-    "rewe",
-    "edeka",
-    "penny",
-    "netto-marken-discount",
-    "kaufland",
-]
 
 REQUEST_DELAY = 0.4
 
@@ -178,6 +157,7 @@ def normalize_marktguru(raw: dict[str, Any], query: str = "") -> dict[str, Any] 
             "description": description[:200],
             "store": advertiser.get("name") or "",
             "store_id": advertiser.get("uniqueName") or "",
+            "retailer": retailer_for_store_id(advertiser.get("uniqueName")),
             "price": round(float(price), 2),
             "old_price": round(float(raw["oldPrice"]), 2) if raw.get("oldPrice") else None,
             "unit_price": unit_price,

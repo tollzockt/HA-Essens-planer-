@@ -145,9 +145,31 @@ def ws_get_prices(
     connection.send_result(msg["id"], {"prices": entries[0].runtime_data.prices_view()})
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/store_prices",
+        vol.Optional("query"): str,
+        vol.Optional("limit", default=400): vol.All(int, vol.Range(min=1, max=2000)),
+    }
+)
+@callback
+def ws_store_prices(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Price list per store (estimate + each retailer's prices)."""
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    if not entries:
+        connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
+        return
+    connection.send_result(
+        msg["id"], entries[0].runtime_data.store_price_matrix(msg.get("query"), msg["limit"])
+    )
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
     websocket_api.async_register_command(hass, ws_get_data)
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_get_prices)
+    websocket_api.async_register_command(hass, ws_store_prices)

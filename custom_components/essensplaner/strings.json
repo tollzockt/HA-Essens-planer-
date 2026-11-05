@@ -210,6 +210,9 @@
     },
     "invalid_price": {
       "message": "Could not understand the price \"{price}\"."
+    },
+    "unknown_store": {
+      "message": "Unknown store \"{store}\" (e.g. Aldi Süd, Lidl, REWE)."
     }
   },
   "services": {
@@ -756,7 +759,7 @@
     },
     "set_price": {
       "name": "Set price",
-      "description": "Stores your own price for an ingredient.",
+      "description": "Stores your own price for an ingredient. With a store (e.g. Aldi Süd) it is also stored in that store's price list.",
       "fields": {
         "ingredient": {
           "name": "Ingredient",
@@ -776,7 +779,7 @@
         },
         "store": {
           "name": "Store",
-          "description": "e.g. Lidl, Aldi Süd, REWE."
+          "description": "e.g. Lidl, Aldi Süd, REWE: the price is saved for this store's price list (with remove: removes that store's price)."
         },
         "remove": {
           "name": "Remove",
@@ -795,6 +798,20 @@
         "days": {
           "name": "Days",
           "description": "Number of days."
+        }
+      }
+    },
+    "get_store_prices": {
+      "name": "Get store prices",
+      "description": "Price list per store: estimate and the prices of each store side by side.",
+      "fields": {
+        "store": {
+          "name": "Store",
+          "description": "Only this store, e.g. Aldi Süd, Lidl, REWE."
+        },
+        "query": {
+          "name": "Search",
+          "description": "Product or ingredient."
         }
       }
     }

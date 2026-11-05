@@ -58,6 +58,7 @@ from .ingredients import (
     strip_article,
 )
 from .pricing import format_eur
+from .stores import StoresMixin
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ ERROR_MESSAGES_DE = {
     "invalid_zip": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen.",
     "invalid_strategy": "Die Planungsart „{strategy}“ kenne ich nicht.",
     "invalid_price": "Den Preis „{price}“ habe ich nicht verstanden.",
+    "unknown_store": "Den Laden „{store}“ kenne ich nicht.",
 }
 
 
@@ -165,7 +167,7 @@ def _to_int(value: Any, minimum: int | None = None) -> int | None:
     return number
 
 
-class EssensplanerManager(EconomyMixin):
+class EssensplanerManager(StoresMixin, EconomyMixin):
     """Holds recipes, the meal plan, the shopping list, prices and offers."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -188,8 +190,9 @@ class EssensplanerManager(EconomyMixin):
         self._price_book = None
         self._offer_index = None
         self._cost_cache: dict[tuple, dict[str, Any]] = {}
-        self._offer_name_cache: dict[str, list[dict[str, Any]]] = {}
+        self._offer_name_cache: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
         self._offer_day_cache: dict[date, Any] = {}
+        self._init_store_data()
 
     # ------------------------------------------------------------------
     # Options
@@ -281,8 +284,12 @@ class EssensplanerManager(EconomyMixin):
         self.prices_learned = data.get("prices_learned", {})
         self.offers = data.get("offers", [])
         self.offers_meta = data.get("offers_meta", {})
+        self._load_store_data(data)
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
+        migrated = self._migrate_v2()
         self.cleanup_offers()
+        if migrated:
+            await self.async_save_now()
 
     async def async_save_now(self) -> None:
         """Write data to disk immediately."""
@@ -316,6 +323,7 @@ class EssensplanerManager(EconomyMixin):
             "prices_learned": self.prices_learned,
             "offers": self.offers,
             "offers_meta": self.offers_meta,
+            **self._store_data(),
         }
 
     async def async_import_starter_recipes(self) -> dict[str, list[str]]:

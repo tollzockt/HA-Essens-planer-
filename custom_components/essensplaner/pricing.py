@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from .ingredients import _singular, fold, guess_category, ingredient_key, to_base
+from .retailers import retailer_for_store_id
 
 # spoon sizes
 _SPOON_LIQUID = {"EL": 15.0, "TL": 5.0}
@@ -141,11 +142,19 @@ class PriceEntry:
     amount: float
     unit: str
     price: float
-    source: str = "default"  # default | user | offer_regular | offer
+    # default | user | offer_regular | offer | leaflet | rewe_online
+    source: str = "default"
     store: str | None = None
     spice: bool = False
     offer: dict[str, Any] | None = None
     aliases: list[str] = field(default_factory=list)
+    store_id: str | None = None  # retailer id ("aldi-sued") of store specific prices
+    updated: str | None = None
+
+    @property
+    def real(self) -> bool:
+        """True for a real price (own, learned, offer) – False for a rough estimate."""
+        return self.source != "default"
 
     def as_dict(self) -> dict[str, Any]:
         """Serialize."""
@@ -158,6 +167,10 @@ class PriceEntry:
         }
         if self.store:
             data["store"] = self.store
+        if self.store_id:
+            data["store_id"] = self.store_id
+        if self.updated:
+            data["updated"] = self.updated
         return data
 
 
@@ -228,71 +241,110 @@ def convert(
     return None
 
 
-class PriceBook:
-    """Look up prices by ingredient name (user prices > learned > defaults)."""
+def lookup_keys(name: str) -> tuple[str, str]:
+    """(full key, short key) used to look up a name in a price index."""
+    return _full_key(name), ingredient_key(name)
 
-    def __init__(
-        self,
-        defaults: list[dict[str, Any]],
-        user: dict[str, dict[str, Any]] | None = None,
-        learned: dict[str, dict[str, Any]] | None = None,
-    ) -> None:
-        """Build the index."""
+
+def _fuzzy_hit(candidate: str, key: str) -> bool:
+    """Compound words: 'Rinderhackfleisch' ~ 'hackfleisch', 'Hähnchenbrustfilet' ~ 'haehnchenbrust'."""
+    words = candidate.split()
+    return any(w == key or w.endswith(key) or w.startswith(key) for w in words) or (
+        " " in key and key in candidate
+    )
+
+
+def make_entry(item: dict[str, Any], source: str, store_id: str | None = None) -> PriceEntry | None:
+    """PriceEntry from a stored price dict (None if invalid)."""
+    try:
+        return PriceEntry(
+            name=str(item["name"]),
+            amount=float(item.get("amount") or 1),
+            unit=str(item.get("unit") or "Stück"),
+            price=float(item["price"]),
+            source=source,
+            store=item.get("store"),
+            spice=bool(item.get("spice")),
+            aliases=list(item.get("aliases") or []),
+            store_id=store_id,
+            updated=item.get("updated"),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+class PriceIndex:
+    """Price entries indexed by name keys (one layer of a price book)."""
+
+    def __init__(self) -> None:
+        """Create an empty index."""
         self._index: dict[str, PriceEntry] = {}
-        self._keys_by_length: list[str] = []
-        self._cache: dict[str, PriceEntry | None] = {}
-        for item in defaults:
-            self._add(item, "default")
-        for item in (learned or {}).values():
-            self._add(item, "offer_regular")
-        for item in (user or {}).values():
-            self._add(item, "user")
-        self._keys_by_length = sorted(self._index, key=len, reverse=True)
+        self._sorted: list[str] | None = None
 
-    def _add(self, item: dict[str, Any], source: str) -> None:
-        try:
-            entry = PriceEntry(
-                name=str(item["name"]),
-                amount=float(item.get("amount") or 1),
-                unit=str(item.get("unit") or "Stück"),
-                price=float(item["price"]),
-                source=source,
-                store=item.get("store"),
-                spice=bool(item.get("spice")),
-                aliases=list(item.get("aliases") or []),
-            )
-        except (KeyError, TypeError, ValueError):
-            return
+    def __len__(self) -> int:
+        """Number of keys."""
+        return len(self._index)
+
+    def __contains__(self, key: object) -> bool:
+        """True if the exact key is indexed."""
+        return key in self._index
+
+    def add(
+        self,
+        item: dict[str, Any] | PriceEntry,
+        source: str = "default",
+        keys: list[str] | tuple[str, ...] = (),
+        weak_keys: list[str] | tuple[str, ...] = (),
+        store_id: str | None = None,
+    ) -> PriceEntry | None:
+        """Add an entry under its name/alias keys (later entries win).
+
+        keys: extra keys that also win; weak_keys: extra keys only used if still free.
+        """
+        entry = item if isinstance(item, PriceEntry) else make_entry(item, source, store_id)
+        if entry is None:
+            return None
         for name in [entry.name, *entry.aliases]:
             for key in {_full_key(name), ingredient_key(name)}:
                 if key:
                     self._index[key] = entry
+        for key in keys:
+            if key:
+                self._index[key] = entry
+        for key in weak_keys:
+            if key:
+                self._index.setdefault(key, entry)
+        self._sorted = None
+        return entry
 
-    def lookup(self, name: str) -> PriceEntry | None:
-        """Best matching price entry for an ingredient name (cached)."""
-        if name in self._cache:
-            return self._cache[name]
-        result = self._lookup(name)
-        self._cache[name] = result
-        return result
+    def get(self, key: str) -> PriceEntry | None:
+        """Entry stored under an exact key."""
+        return self._index.get(key)
 
-    def _lookup(self, name: str) -> PriceEntry | None:
-        full = _full_key(name)
-        short = ingredient_key(name)
-        for key in (full, short):
+    def keys_by_length(self) -> list[str]:
+        """All keys, longest first (insertion order for equal lengths)."""
+        if self._sorted is None:
+            self._sorted = sorted(self._index, key=len, reverse=True)
+        return self._sorted
+
+    def exact(self, name: str) -> PriceEntry | None:
+        """Entry for the full or short key of a name."""
+        for key in lookup_keys(name):
             if key in self._index:
                 return self._index[key]
-        # compound words: "Rinderhackfleisch" -> "hackfleisch", "Hähnchenbrustfilet" -> "haehnchenbrust"
-        for candidate in (full, short):
-            for key in self._keys_by_length:
-                if len(key) < 4:
-                    continue
-                words = candidate.split()
-                if any(w == key or w.endswith(key) or w.startswith(key) for w in words) or (
-                    " " in key and key in candidate
-                ):
+        return None
+
+    def fuzzy(self, name: str) -> PriceEntry | None:
+        """Entry whose key is part of a compound word of the name (longest key first)."""
+        for candidate in lookup_keys(name):
+            for key in self.keys_by_length():
+                if len(key) >= 4 and _fuzzy_hit(candidate, key):
                     return self._index[key]
         return None
+
+    def lookup(self, name: str) -> PriceEntry | None:
+        """Exact match, else fuzzy match."""
+        return self.exact(name) or self.fuzzy(name)
 
     def entries(self) -> list[PriceEntry]:
         """All distinct entries."""
@@ -302,34 +354,169 @@ class PriceBook:
         return sorted(seen.values(), key=lambda e: fold(e.name))
 
 
+class LayeredPriceBook:
+    """Look up prices in several indexes, the first layer has the highest priority.
+
+    Exact keys are tried across all layers first (full key, then short key, each in
+    layer order). Then compound-word matching: the most specific (longest) key across
+    all layers wins, equal lengths go to the higher priority layer – the same rule as
+    the single 1.2 index, so a short own price ("Milch") never captures "Kokosmilch".
+    """
+
+    def __init__(self, layers: list[PriceIndex]) -> None:
+        """Build the book."""
+        self.layers = [layer for layer in layers if layer is not None]
+        self._cache: dict[str, PriceEntry | None] = {}
+        self._fuzzy_keys: list[tuple[str, PriceIndex]] | None = None
+
+    def lookup(self, name: str) -> PriceEntry | None:
+        """Best matching price entry for an ingredient name (cached)."""
+        if name in self._cache:
+            return self._cache[name]
+        result = self._lookup(name)
+        self._cache[name] = result
+        return result
+
+    def _merged_keys(self) -> list[tuple[str, PriceIndex]]:
+        if self._fuzzy_keys is None:
+            merged = [
+                (len(key), position, order, key, layer)
+                for position, layer in enumerate(self.layers)
+                for order, key in enumerate(layer.keys_by_length())
+                if len(key) >= 4
+            ]
+            merged.sort(key=lambda m: (-m[0], m[1], m[2]))
+            self._fuzzy_keys = [(m[3], m[4]) for m in merged]
+        return self._fuzzy_keys
+
+    def _lookup(self, name: str) -> PriceEntry | None:
+        keys = lookup_keys(name)
+        for key in keys:
+            for layer in self.layers:
+                if (entry := layer.get(key)) is not None:
+                    return entry
+        for candidate in keys:
+            for key, layer in self._merged_keys():
+                if _fuzzy_hit(candidate, key):
+                    return layer.get(key)
+        return None
+
+    def entries(self) -> list[PriceEntry]:
+        """Distinct entries of all layers (higher priority first for equal names)."""
+        seen: dict[int, PriceEntry] = {}
+        for layer in self.layers:
+            for entry in layer._index.values():
+                seen.setdefault(id(entry), entry)
+        return list(seen.values())
+
+
+class PriceBook:
+    """Look up prices by ingredient name (user prices > learned > defaults).
+
+    The 1.2 price book: one index where later sources overwrite earlier ones.
+    """
+
+    def __init__(
+        self,
+        defaults: list[dict[str, Any]],
+        user: dict[str, dict[str, Any]] | None = None,
+        learned: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
+        """Build the index."""
+        self.index = PriceIndex()
+        self._cache: dict[str, PriceEntry | None] = {}
+        for item in defaults:
+            self.index.add(item, "default")
+        for item in (learned or {}).values():
+            self.index.add(item, "offer_regular")
+        for item in (user or {}).values():
+            self.index.add(item, "user")
+
+    def lookup(self, name: str) -> PriceEntry | None:
+        """Best matching price entry for an ingredient name (cached)."""
+        if name in self._cache:
+            return self._cache[name]
+        result = self.index.lookup(name)
+        self._cache[name] = result
+        return result
+
+    def entries(self) -> list[PriceEntry]:
+        """All distinct entries."""
+        return self.index.entries()
+
+
+# plausible package sizes when deriving them from price / unit price
+_DERIVED_PACK_LIMITS = {"g": (10.0, 50000.0), "ml": (10.0, 50000.0), "Stück": (1.0, 100.0)}
+
+
+def _derived_pack(price: Any, per_unit: float, base: str) -> float | None:
+    """Package size = price / unit price, if plausible (0.01–50 kg/l, 1–100 Stück)."""
+    try:
+        amount = float(price) / per_unit
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    limits = _DERIVED_PACK_LIMITS.get(base)
+    if limits is None or not limits[0] * 0.95 <= amount <= limits[1]:
+        return None
+    return float(max(1, round(amount))) if base == "Stück" else float(round(amount))
+
+
 def offer_as_entry(offer: dict[str, Any]) -> PriceEntry | None:
     """Turn a normalized offer into a price entry."""
+    store_id = offer.get("retailer") or retailer_for_store_id(offer.get("store_id"))
+    name = offer.get("product") or offer.get("title") or ""
     try:
         if offer.get("pack_amount") and offer.get("pack_unit"):
             return PriceEntry(
-                name=offer.get("product") or offer.get("title") or "",
+                name=name,
                 amount=float(offer["pack_amount"]),
                 unit=str(offer["pack_unit"]),
                 price=float(offer["price"]),
                 source="offer",
                 store=offer.get("store"),
                 offer=offer,
+                store_id=store_id,
             )
         if offer.get("unit_price") and offer.get("base_unit"):
             base = offer["base_unit"]
+            per_unit = float(offer["unit_price"])
+            derived = (
+                _derived_pack(offer["price"], per_unit, base)
+                if offer.get("price") is not None
+                else None
+            )
+            if derived:
+                return PriceEntry(
+                    name=name,
+                    amount=derived,
+                    unit=base,
+                    price=float(offer["price"]),
+                    source="offer",
+                    store=offer.get("store"),
+                    offer=offer,
+                    store_id=store_id,
+                )
             amount = 1000.0 if base in ("g", "ml") else 1.0
             return PriceEntry(
-                name=offer.get("product") or offer.get("title") or "",
+                name=name,
                 amount=amount,
                 unit=base,
-                price=float(offer["unit_price"]) * amount,
+                price=per_unit * amount,
                 source="offer",
                 store=offer.get("store"),
                 offer=offer,
+                store_id=store_id,
             )
     except (TypeError, ValueError):
         return None
     return None
+
+
+def cheaper_by(a: float, b: float) -> tuple[float, float]:
+    """How much cheaper a is than b: (absolute EUR, percent of b). Negative = more expensive."""
+    absolute = round(b - a, 2)
+    percent = round((b - a) / b * 100, 1) if b > 0 else 0.0
+    return absolute, percent
 
 
 def unit_price(entry: PriceEntry) -> tuple[float, str] | None:

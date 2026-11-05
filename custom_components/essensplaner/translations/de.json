@@ -210,6 +210,9 @@
     },
     "invalid_price": {
       "message": "Der Preis „{price}“ wurde nicht verstanden."
+    },
+    "unknown_store": {
+      "message": "Den Laden „{store}“ kenne ich nicht (z. B. Aldi Süd, Lidl, REWE)."
     }
   },
   "services": {
@@ -756,7 +759,7 @@
     },
     "set_price": {
       "name": "Preis festlegen",
-      "description": "Speichert einen eigenen Preis für eine Zutat.",
+      "description": "Speichert einen eigenen Preis für eine Zutat. Mit Markt (z. B. Aldi Süd) zusätzlich in der Preisliste dieses Ladens.",
       "fields": {
         "ingredient": {
           "name": "Zutat",
@@ -776,7 +779,7 @@
         },
         "store": {
           "name": "Markt",
-          "description": "z. B. Lidl, Aldi Süd, REWE."
+          "description": "z. B. Lidl, Aldi Süd, REWE: der Preis gilt für die Preisliste dieses Ladens (mit Entfernen: entfernt den Preis dieses Ladens)."
         },
         "remove": {
           "name": "Entfernen",
@@ -795,6 +798,20 @@
         "days": {
           "name": "Tage",
           "description": "Anzahl der Tage."
+        }
+      }
+    },
+    "get_store_prices": {
+      "name": "Ladenpreise abrufen",
+      "description": "Preisliste je Laden: Richtwert und die Preise der Läden nebeneinander.",
+      "fields": {
+        "store": {
+          "name": "Markt",
+          "description": "Nur dieser Laden, z. B. Aldi Süd, Lidl, REWE."
+        },
+        "query": {
+          "name": "Suche",
+          "description": "Produkt oder Zutat."
         }
       }
     }

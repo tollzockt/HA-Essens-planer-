@@ -65,6 +65,7 @@ from .const import (
     SERVICE_GET_RECIPE,
     SERVICE_GET_RECIPES,
     SERVICE_GET_SHOPPING_LIST,
+    SERVICE_GET_STORE_PRICES,
     SERVICE_IMPORT_RECIPE,
     SERVICE_IMPORT_RECIPES,
     SERVICE_IMPORT_STARTER,
@@ -252,6 +253,9 @@ SET_PRICE_SCHEMA = vol.Schema(
         vol.Optional("store"): cv.string,
         vol.Optional("remove", default=False): cv.boolean,
     }
+)
+GET_STORE_PRICES_SCHEMA = vol.Schema(
+    {vol.Optional("store"): cv.string, vol.Optional(ATTR_QUERY): cv.string}
 )
 GET_COSTS_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_START_DATE): cv.string, vol.Optional(ATTR_DAYS): _DAYS}
@@ -692,7 +696,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             else:
                 for item in raw:
                     offer = normalize_marktguru(item, query)
-                    if offer and store_allowed(offer["store_id"], manager.offer_stores):
+                    if offer and store_allowed(offer["store_id"], manager.active_retailers()):
                         live.append(offer)
         live.sort(key=lambda o: (o.get("unit_price") or 9e9, o["price"]))
         return {
@@ -739,7 +743,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def set_price(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data["remove"] or call.data.get("price") is None:
-            return {"removed": manager.remove_price(call.data["ingredient"])}
+            return {
+                "removed": manager.remove_price(call.data["ingredient"], call.data.get("store"))
+            }
         return {
             "price": manager.set_price(
                 call.data["ingredient"],
@@ -749,6 +755,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 call.data.get("store"),
             )
         }
+
+    async def get_store_prices(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        retailer = manager.require_retailer(call.data["store"]) if call.data.get("store") else None
+        return manager.store_price_matrix(call.data.get(ATTR_QUERY), retailer=retailer)
 
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -788,6 +799,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_REMOVE_OFFER, remove_offer, REMOVE_OFFER_SCHEMA),
         (SERVICE_SET_PRICE, set_price, SET_PRICE_SCHEMA),
         (SERVICE_GET_COSTS, get_costs, GET_COSTS_SCHEMA),
+        (SERVICE_GET_STORE_PRICES, get_store_prices, GET_STORE_PRICES_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(
