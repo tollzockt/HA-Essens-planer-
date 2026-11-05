@@ -166,6 +166,42 @@ def ws_store_prices(
     )
 
 
+def _loaded_manager(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> Any:
+    """The manager of the loaded entry (sends an error and returns None if not loaded)."""
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    if not entries:
+        connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
+        return None
+    return entries[0].runtime_data
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/branches"})
+@callback
+def ws_branches(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The user's branches, the main branch and the postcodes offers are searched at."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    connection.send_result(msg["id"], manager.branches_export())
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/reorder_branches", vol.Required("ids"): [str]}
+)
+@callback
+def ws_reorder_branches(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Change the order (priority) of the branches."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    manager.reorder_branches(msg["ids"])
+    connection.send_result(msg["id"], manager.branches_export())
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -173,3 +209,5 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_get_prices)
     websocket_api.async_register_command(hass, ws_store_prices)
+    websocket_api.async_register_command(hass, ws_branches)
+    websocket_api.async_register_command(hass, ws_reorder_branches)

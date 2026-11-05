@@ -64,15 +64,15 @@
           "weekly_budget": "Euro pro Woche fürs Essen, 0 = kein Budget.",
           "plan_strategy": "Für automatische Planung und Vorschläge.",
           "offers_source": "Woher aktuelle und kommende Angebote kommen.",
-          "zip_code": "Für die Angebote der Märkte in deiner Nähe.",
-          "offer_stores": "Nur Angebote dieser Märkte.",
+          "zip_code": "Für die Angebote der Märkte in deiner Nähe. Kann leer bleiben, wenn deine Filialen (im Panel) eine Postleitzahl haben – dann wird für deren Postleitzahlen gesucht.",
+          "offer_stores": "Nur Angebote dieser Märkte (ohne Filialen). Mit Filialen zählen deren Läden.",
           "offers_watchlist": "Zusätzliche Produkte, nach denen gesucht wird, kommagetrennt (z. B. „Kaffee, Butter“)."
         }
       }
     },
     "error": {
       "no_meals": "Bitte mindestens eine Mahlzeit auswählen.",
-      "invalid_zip": "Bitte eine 5-stellige Postleitzahl eingeben."
+      "invalid_zip": "Bitte eine 5-stellige Postleitzahl eingeben oder im Essensplaner-Panel eine Filiale mit Postleitzahl hinzufügen."
     }
   },
   "selector": {
@@ -203,7 +203,7 @@
       "message": "Online-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren)."
     },
     "invalid_zip": {
-      "message": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen."
+      "message": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen oder eine Filiale mit Postleitzahl hinzufügen."
     },
     "invalid_strategy": {
       "message": "Unbekannte Planungsart „{strategy}“."
@@ -213,6 +213,18 @@
     },
     "unknown_store": {
       "message": "Den Laden „{store}“ kenne ich nicht (z. B. Aldi Süd, Lidl, REWE)."
+    },
+    "store_required": {
+      "message": "Bitte den Laden angeben, z. B. Aldi Süd, Lidl oder REWE."
+    },
+    "invalid_postcode": {
+      "message": "Die Postleitzahl „{postcode}“ ist ungültig (5 Ziffern)."
+    },
+    "branch_not_found": {
+      "message": "Die Filiale „{branch}“ wurde nicht gefunden."
+    },
+    "branch_ambiguous": {
+      "message": "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
     }
   },
   "services": {
@@ -814,6 +826,78 @@
           "description": "Produkt oder Zutat."
         }
       }
+    },
+    "save_branch": {
+      "name": "Filiale speichern",
+      "description": "Legt eine Filiale (deinen Laden) an oder ändert sie. Angebote werden für die Postleitzahlen der gewählten Filialen gesucht; der Hauptladen bestimmt die Preise.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "Nur zum Ändern: ID einer vorhandenen Filiale (aus „Filialen abrufen“)."
+        },
+        "store": {
+          "name": "Laden",
+          "description": "Supermarktkette, z. B. Aldi Süd, Lidl, REWE (bei neuen Filialen erforderlich)."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name der Filiale, z. B. „REWE Markt Müller“."
+        },
+        "label": {
+          "name": "Bezeichnung",
+          "description": "Eigene Bezeichnung, z. B. „Lidl Arbeit“. Standard: Laden + Straße oder Ort."
+        },
+        "street": {
+          "name": "Straße",
+          "description": "Straße und Hausnummer."
+        },
+        "postcode": {
+          "name": "Postleitzahl",
+          "description": "5-stellige Postleitzahl (für Angebote in der Nähe)."
+        },
+        "city": {
+          "name": "Ort",
+          "description": "Ort der Filiale."
+        },
+        "lat": {
+          "name": "Breitengrad",
+          "description": "Optional: Koordinate der Filiale."
+        },
+        "lon": {
+          "name": "Längengrad",
+          "description": "Optional: Koordinate der Filiale."
+        },
+        "selected": {
+          "name": "Gewählt",
+          "description": "Angebote und Preise dieser Filiale berücksichtigen."
+        },
+        "main": {
+          "name": "Hauptladen",
+          "description": "In diesem Laden wird normalerweise eingekauft."
+        },
+        "priority": {
+          "name": "Reihenfolge",
+          "description": "Kleinere Zahl = weiter oben."
+        },
+        "rewe_market_id": {
+          "name": "REWE-Markt-ID",
+          "description": "Nur für REWE: ID des Markts für Onlinepreise."
+        }
+      }
+    },
+    "remove_branch": {
+      "name": "Filiale entfernen",
+      "description": "Entfernt eine Filiale aus deinen Läden.",
+      "fields": {
+        "branch": {
+          "name": "Filiale",
+          "description": "ID, Bezeichnung oder Laden, z. B. „Lidl Hauptstraße“."
+        }
+      }
+    },
+    "get_branches": {
+      "name": "Filialen abrufen",
+      "description": "Deine Filialen, der Hauptladen und die Postleitzahlen, für die Angebote gesucht werden."
     }
   }
 }

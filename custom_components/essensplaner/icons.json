@@ -132,6 +132,15 @@
     },
     "get_store_prices": {
       "service": "mdi:store-search"
+    },
+    "save_branch": {
+      "service": "mdi:store-plus"
+    },
+    "remove_branch": {
+      "service": "mdi:store-remove"
+    },
+    "get_branches": {
+      "service": "mdi:storefront-outline"
     }
   }
 }

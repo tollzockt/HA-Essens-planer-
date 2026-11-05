@@ -92,7 +92,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     _auto_cooked()
     entry.async_on_unload(async_track_time_change(hass, _auto_cooked, hour=0, minute=5, second=0))
 
-    if manager.offers_source == OFFERS_MARKTGURU and manager.zip_code:
+    if manager.offers_source == OFFERS_MARKTGURU:
+        # postcodes come from the options or the branches (can change without a reload)
         _setup_offer_refresh(hass, entry, manager)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -104,6 +105,8 @@ def _setup_offer_refresh(
     """Refresh offers once a day and shortly after start if they are stale."""
 
     async def _refresh(_now: datetime | None = None) -> None:
+        if not manager.offer_targets():
+            return  # no zip code and no branch with a postcode yet
         try:
             meta = await async_refresh_offers(hass, manager)
         except Exception:

@@ -33,6 +33,9 @@ MARKTGURU_API = "https://api.marktguru.de/api/v1"
 IMAGE_URL = "https://mg2de.b-cdn.net/api/v1/offers/{id}/images/default/0/medium.jpg"
 
 REQUEST_DELAY = 0.4
+# search terms per refresh: main postcode / each further postcode
+MAX_QUERIES = 40
+EXTRA_TARGET_QUERIES = 25
 
 _USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -259,30 +262,102 @@ async def async_fetch_offers(
     stores: list[str],
     delay: float | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Fetch offers for (search term, ingredient key) pairs. Returns (offers, errors)."""
+    """Fetch offers for (search term, ingredient key) pairs near one zip code (1.2 API)."""
+    return await async_fetch_target_offers(hass, terms, [(zip_code, stores)], delay)
+
+
+async def async_fetch_target_offers(
+    hass: HomeAssistant,
+    terms: list[tuple[str, str]],
+    targets: list[tuple[str, list[str]]],
+    delay: float | None = None,
+    extra_limit: int | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Fetch offers for several (zip code, [retailers]) targets. Returns (offers, errors).
+
+    The first target (main branch) is searched with all terms (up to MAX_QUERIES), further
+    targets with the first EXTRA_TARGET_QUERIES terms. Offers found at several zip codes
+    are merged (keys and "zip_codes" collected). Every offer has "retailer" and
+    "zip_codes". Stops early when the source is unavailable.
+    """
     client = MarktguruClient(hass)
     offers: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
     delay = REQUEST_DELAY if delay is None else delay
-    for index, (term, key) in enumerate(terms):
-        if index and delay > 0:
-            await asyncio.sleep(delay)  # be polite to the web site
+    extra_limit = EXTRA_TARGET_QUERIES if extra_limit is None else extra_limit
+    several = len(targets) > 1
+    requests = 0
+    succeeded = False
+    for position, (zip_code, stores) in enumerate(targets):
+        target_terms = terms if position == 0 else terms[:extra_limit]
+        target_errors = 0
+        unavailable = False
+        for index, (term, key) in enumerate(target_terms):
+            if requests and delay > 0:
+                await asyncio.sleep(delay)  # be polite to the web site
+            requests += 1
+            try:
+                raw_offers = await client.async_search(term, zip_code)
+            except OfferError as err:
+                errors.append(f"{term} ({zip_code}): {err}" if several else f"{term}: {err}")
+                target_errors += 1
+                if index == 0 or target_errors >= 3:
+                    unavailable = not succeeded  # nothing worked so far: stop completely
+                    break
+                continue
+            succeeded = True
+            for raw in raw_offers:
+                offer = normalize_marktguru(raw, term)
+                if offer is None or not store_allowed(offer["store_id"], stores):
+                    continue
+                if not offer_matches(f"{offer['product']} {offer['description']}", key):
+                    continue
+                _merge_offer(offers, offer, key, zip_code)
+        if unavailable:
+            break
+    return list(offers.values()), errors
+
+
+def _merge_offer(
+    offers: dict[str, dict[str, Any]], offer: dict[str, Any], key: str | None, zip_code: str
+) -> None:
+    existing = offers.get(offer["id"])
+    if existing is None:
+        existing = offers[offer["id"]] = {**offer, "keys": [], "zip_codes": []}
+    if key and key not in existing["keys"]:
+        existing["keys"].append(key)
+    if zip_code not in existing["zip_codes"]:
+        existing["zip_codes"].append(zip_code)
+
+
+async def async_search_target_offers(
+    hass: HomeAssistant,
+    query: str,
+    targets: list[tuple[str, list[str]]],
+    delay: float | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Live search of one product at every target (no ingredient matching)."""
+    client = MarktguruClient(hass)
+    offers: dict[str, dict[str, Any]] = {}
+    errors: list[str] = []
+    delay = REQUEST_DELAY if delay is None else delay
+    for position, (zip_code, stores) in enumerate(targets):
+        if position and delay > 0:
+            await asyncio.sleep(delay)
         try:
-            raw_offers = await client.async_search(term, zip_code)
+            raw_offers = await client.async_search(query, zip_code)
         except OfferError as err:
-            errors.append(f"{term}: {err}")
-            if index == 0 or len(errors) >= 3:
-                break  # source unavailable – stop early
+            errors.append(str(err))
+            if not offers:
+                break  # source unavailable
             continue
         for raw in raw_offers:
-            offer = normalize_marktguru(raw, term)
-            if offer is None or not store_allowed(offer["store_id"], stores):
-                continue
-            if not offer_matches(f"{offer['product']} {offer['description']}", key):
-                continue
-            existing = offers.setdefault(offer["id"], {**offer, "keys": []})
-            if key not in existing["keys"]:
-                existing["keys"].append(key)
+            offer = normalize_marktguru(raw, query)
+            if offer is not None and store_allowed(offer["store_id"], stores):
+                _merge_offer(offers, offer, None, zip_code)
+    for offer in offers.values():
+        if not offer["keys"]:
+            del offer["keys"]
     return list(offers.values()), errors
 
 
@@ -323,13 +398,17 @@ def manual_offer(
     }
 
 
-MAX_QUERIES = 40
-
-
 async def async_refresh_offers(hass: HomeAssistant, manager: Any) -> dict[str, Any]:
-    """Fetch offers from marktguru for the manager's ingredients and store them."""
+    """Fetch offers from marktguru for the manager's ingredients and store them.
+
+    Searched at every postcode of manager.offer_targets() (branches, else the zip option).
+    """
+    targets = manager.offer_targets()
     terms = manager.offer_search_terms(limit=MAX_QUERIES)
-    offers, errors = await async_fetch_offers(hass, terms, manager.zip_code, manager.offer_stores)
+    if targets:
+        offers, errors = await async_fetch_target_offers(hass, terms, targets)
+    else:
+        offers, errors = [], ["Keine gültige Postleitzahl (Optionen oder Filialen)"]
     meta = {
         "source": "marktguru",
         "last_update": dt_util.utcnow().isoformat(),
@@ -337,6 +416,7 @@ async def async_refresh_offers(hass: HomeAssistant, manager: Any) -> dict[str, A
         "count": len(offers),
         "errors": errors[:5],
         "status": "error" if errors and not offers else "ok",
+        "targets": [{"zip_code": z, "retailers": list(r)} for z, r in targets],
     }
     if meta["status"] == "error":
         # keep the previous offers, only report the problem

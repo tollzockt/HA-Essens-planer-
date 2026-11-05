@@ -187,6 +187,13 @@ class EssensplanerOptionsFlow(OptionsFlow):
         )
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema), errors=errors)
 
+    def _branch_postcodes(self) -> list[str]:
+        """Postcodes of the selected branches (empty if the entry is not loaded)."""
+        manager = getattr(self.config_entry, "runtime_data", None)
+        if manager is None or not hasattr(manager, "branch_postcodes"):
+            return []
+        return manager.branch_postcodes()
+
     async def async_step_economy(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -195,8 +202,10 @@ class EssensplanerOptionsFlow(OptionsFlow):
         options = {**self.config_entry.options, **(user_input or {})}
         if user_input is not None:
             zip_code = str(user_input.get(CONF_ZIP) or "").strip()
-            if user_input.get(CONF_OFFERS_SOURCE) == OFFERS_MARKTGURU and not re.fullmatch(
-                r"\d{5}", zip_code
+            # marktguru needs a zip code or selected branches with a postcode (panel)
+            if user_input.get(CONF_OFFERS_SOURCE) == OFFERS_MARKTGURU and (
+                (zip_code and not re.fullmatch(r"\d{5}", zip_code))
+                or (not zip_code and not self._branch_postcodes())
             ):
                 errors[CONF_ZIP] = "invalid_zip"
             else:

@@ -64,15 +64,15 @@
           "weekly_budget": "EUR per week for food, 0 = no budget.",
           "plan_strategy": "Used for automatic planning and suggestions.",
           "offers_source": "Where current and upcoming offers come from.",
-          "zip_code": "For the offers of the shops near you.",
-          "offer_stores": "Only offers of these shops.",
+          "zip_code": "For the offers of the shops near you. Can stay empty if your branches (in the panel) have a postcode – then their postcodes are searched.",
+          "offer_stores": "Only offers of these shops (without branches). With branches their stores count.",
           "offers_watchlist": "Additional products to look for, comma separated (e.g. 'Kaffee, Butter')."
         }
       }
     },
     "error": {
       "no_meals": "Select at least one meal.",
-      "invalid_zip": "Please enter a 5-digit zip code."
+      "invalid_zip": "Please enter a 5-digit zip code or add a branch with a postcode in the Essensplaner panel."
     }
   },
   "selector": {
@@ -203,7 +203,7 @@
       "message": "Online offers are not enabled (Essensplaner → Configure)."
     },
     "invalid_zip": {
-      "message": "Please enter a valid zip code for offers in the options."
+      "message": "Please enter a valid zip code for offers in the options or add a branch with a postcode."
     },
     "invalid_strategy": {
       "message": "Unknown planning strategy \"{strategy}\"."
@@ -213,6 +213,18 @@
     },
     "unknown_store": {
       "message": "Unknown store \"{store}\" (e.g. Aldi Süd, Lidl, REWE)."
+    },
+    "store_required": {
+      "message": "Please name the store, e.g. Aldi Süd, Lidl or REWE."
+    },
+    "invalid_postcode": {
+      "message": "The postcode \"{postcode}\" is invalid (5 digits)."
+    },
+    "branch_not_found": {
+      "message": "Branch \"{branch}\" not found."
+    },
+    "branch_ambiguous": {
+      "message": "There are several branches for \"{branch}\" – please be more specific, e.g. with the street."
     }
   },
   "services": {
@@ -814,6 +826,78 @@
           "description": "Product or ingredient."
         }
       }
+    },
+    "save_branch": {
+      "name": "Save branch",
+      "description": "Adds or changes a branch (one of your shops). Offers are searched for the postcodes of the selected branches; the main branch decides the prices.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "Only to change one: ID of an existing branch (from 'Get branches')."
+        },
+        "store": {
+          "name": "Store",
+          "description": "Supermarket chain, e.g. Aldi Süd, Lidl, REWE (required for new branches)."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the branch, e.g. 'REWE Markt Müller'."
+        },
+        "label": {
+          "name": "Label",
+          "description": "Own label, e.g. 'Lidl work'. Default: store + street or city."
+        },
+        "street": {
+          "name": "Street",
+          "description": "Street and house number."
+        },
+        "postcode": {
+          "name": "Postcode",
+          "description": "5-digit postcode (for offers nearby)."
+        },
+        "city": {
+          "name": "City",
+          "description": "City of the branch."
+        },
+        "lat": {
+          "name": "Latitude",
+          "description": "Optional: coordinate of the branch."
+        },
+        "lon": {
+          "name": "Longitude",
+          "description": "Optional: coordinate of the branch."
+        },
+        "selected": {
+          "name": "Selected",
+          "description": "Use the offers and prices of this branch."
+        },
+        "main": {
+          "name": "Main store",
+          "description": "The store you usually shop at."
+        },
+        "priority": {
+          "name": "Order",
+          "description": "Lower number = further up."
+        },
+        "rewe_market_id": {
+          "name": "REWE market ID",
+          "description": "REWE only: market ID for online prices."
+        }
+      }
+    },
+    "remove_branch": {
+      "name": "Remove branch",
+      "description": "Removes a branch from your shops.",
+      "fields": {
+        "branch": {
+          "name": "Branch",
+          "description": "ID, label or store, e.g. 'Lidl Hauptstraße'."
+        }
+      }
+    },
+    "get_branches": {
+      "name": "Get branches",
+      "description": "Your branches, the main store and the postcodes offers are searched for."
     }
   }
 }

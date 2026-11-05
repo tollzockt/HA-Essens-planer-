@@ -97,6 +97,9 @@ SERVICE_REMOVE_OFFER: Final = "remove_offer"
 SERVICE_SET_PRICE: Final = "set_price"
 SERVICE_GET_COSTS: Final = "get_costs"
 SERVICE_GET_STORE_PRICES: Final = "get_store_prices"
+SERVICE_SAVE_BRANCH: Final = "save_branch"
+SERVICE_REMOVE_BRANCH: Final = "remove_branch"
+SERVICE_GET_BRANCHES: Final = "get_branches"
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"

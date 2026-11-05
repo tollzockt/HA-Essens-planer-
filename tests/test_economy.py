@@ -1,10 +1,11 @@
-"""Tests for prices, budget, offers and cost aware planning (1.2)."""
+"""Tests for prices, budget, offers and cost aware planning (1.2 + 1.3 offers per branch)."""
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import intent
 from homeassistant.setup import async_setup_component
 import pytest
@@ -369,3 +370,337 @@ def test_price_conversions() -> None:
     entry = book.lookup("Spaghetti")
     assert package_cost({"g": 700}, "spaghetti", entry) == (1.98, 2)
     assert date.today()  # keep import used
+
+
+# ----------------------------------------------------------------------------
+# 1.3: offers for several postcodes, tagging, learned store prices
+# ----------------------------------------------------------------------------
+
+SEARCH_URL = f"{MARKTGURU_API}/offers/search"
+
+
+def _searches(aioclient_mock: AiohttpClientMocker) -> list:
+    return [c for c in aioclient_mock.mock_calls if "offers/search" in str(c[1])]
+
+
+async def test_marktguru_multi_postcode(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Offers per branch postcode: term limits, dedupe, retailer/branch tags, learned prices."""
+    chicken = _mg_offer(1, "Hähnchenbrustfilet", "lidl", "Lidl", 4.99, 7.49, 4.99, "kg", "1-kg")
+    aldi_butter = _mg_offer(5, "Butter", "aldi-sued", "Aldi Süd", 1.69, 2.29, 6.76, "kg", "250 g")
+    aldi_chicken = _mg_offer(6, "Hähnchenbrust", "aldi-sued", "Aldi Süd", 0.49, 0.99, 0.49, "kg")
+    rewe_butter = _mg_offer(7, "Butter", "rewe", "REWE", 1.79, 2.39, 7.16, "kg", "250 g")
+    penny_butter = _mg_offer(8, "Butter", "penny", "Penny", 1.59, 2.19, 6.36, "kg", "250 g")
+    edeka_butter = _mg_offer(
+        9, "Butter", "edeka-suedwest", "EDEKA Südwest", 1.99, None, 7.96, "kg", "250 g"
+    )
+    aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
+    aioclient_mock.get(
+        SEARCH_URL,
+        params={"zipCode": "80331"},
+        json={"results": [chicken, aldi_butter, aldi_chicken, rewe_butter, edeka_butter]},
+    )
+    aioclient_mock.get(
+        SEARCH_URL,
+        params={"zipCode": "85748"},
+        json={"results": [chicken, rewe_butter, penny_butter]},
+    )
+    await _setup(
+        hass,
+        config_entry,
+        freezer,
+        **{CONF_OFFERS_SOURCE: "marktguru", "offers_watchlist": "Butter, Hähnchenbrust"},
+    )
+    manager = config_entry.runtime_data
+    aldi = manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})  # main
+    lidl = manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    edeka = manager.save_branch({"store": "EDEKA", "postcode": "80331"})
+    work = manager.save_branch({"store": "Lidl", "postcode": "85748", "label": "Lidl Arbeit"})
+    rewe = manager.save_branch({"store": "REWE", "postcode": "85748"})
+    terms = manager.offer_search_terms(limit=40)
+    assert len(terms) == 40
+    assert terms[:2] == [("Butter", "butter"), ("Hähnchenbrust", "haehnchenbrust")]
+
+    meta = await _call(hass, "refresh_offers")
+    assert meta["status"] == "ok"
+    assert meta["errors"] == []
+    assert meta["targets"] == [
+        {"zip_code": "80331", "retailers": ["aldi-sued", "lidl", "edeka"]},
+        {"zip_code": "85748", "retailers": ["lidl", "rewe"]},
+    ]
+    # main postcode: all 40 terms, further postcodes: 25 terms
+    zips = [c[1].query["zipCode"] for c in _searches(aioclient_mock)]
+    assert (zips.count("80331"), zips.count("85748")) == (40, 25)
+
+    offers = {o["id"]: o for o in manager.offers}
+    assert set(offers) == {"mg_1", "mg_5", "mg_6", "mg_7", "mg_9"}  # no Penny (not selected)
+    # one offer found at both postcodes is stored once
+    assert offers["mg_1"]["zip_codes"] == ["80331", "85748"]
+    assert offers["mg_1"]["retailer"] == "lidl"
+    assert "haehnchenbrust" in offers["mg_1"]["keys"]
+    assert offers["mg_1"]["branches"] == [lidl["id"], work["id"]]
+    # REWE is only selected at 85748
+    assert (offers["mg_7"]["zip_codes"], offers["mg_7"]["branches"]) == (["85748"], [rewe["id"]])
+    assert offers["mg_5"]["branches"] == [aldi["id"]]
+    # regional marktguru variant -> retailer
+    assert (offers["mg_9"]["retailer"], offers["mg_9"]["branches"]) == ("edeka", [edeka["id"]])
+
+    # regular prices per store, learned from the old prices (with history)
+    learned = manager.store_prices_learned
+    lidl_chicken = learned["lidl"]["haehnchenbrust"]
+    assert (lidl_chicken["price"], lidl_chicken["amount"], lidl_chicken["unit"]) == (
+        7.49,
+        1000,
+        "g",
+    )
+    assert (lidl_chicken["source"], lidl_chicken["ref"]) == ("leaflet", "mg_1")
+    assert lidl_chicken["history"] == [{"date": "2026-11-04", "price": 7.49, "source": "leaflet"}]
+    assert learned["aldi-sued"]["butter"]["price"] == 2.29
+    assert learned["rewe"]["butter"]["price"] == 2.39
+    assert "haehnchenbrust" not in learned["aldi-sued"]  # 0,99 €/kg is implausible
+    assert "edeka" not in learned  # no old price
+    assert meta["learned"] >= 3
+    assert manager.best_price("Hähnchenbrust", retailer="lidl")[1].price == 7.49
+    assert manager.best_price("Butter", retailer="rewe")[1].source == "leaflet"
+    # the 1.2 general learned prices are still written
+    assert manager.prices_learned["butter"]["price"] in (2.29, 2.39)
+
+    # the live search covers all postcodes, too
+    aioclient_mock.mock_calls.clear()
+    search = await _call(hass, "search_offers", query="Butter")
+    assert search["error"] is None
+    stores = {o["store"] for o in search["live"]}
+    assert {"Aldi Süd", "REWE", "Lidl", "EDEKA Südwest"} <= stores
+    assert "Penny" not in stores
+    assert [c[1].query["zipCode"] for c in _searches(aioclient_mock)] == ["80331", "85748"]
+    rewe_live = next(o for o in search["live"] if o["store"] == "REWE")
+    assert rewe_live["zip_codes"] == ["85748"]
+
+
+async def test_marktguru_postcode_errors(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A failing further postcode keeps the others; an unavailable source stops early."""
+    chicken = _mg_offer(1, "Hähnchenbrustfilet", "lidl", "Lidl", 4.99, 7.49, 4.99, "kg", "1-kg")
+    aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
+    aioclient_mock.get(SEARCH_URL, params={"zipCode": "80331"}, json={"results": [chicken]})
+    aioclient_mock.get(SEARCH_URL, params={"zipCode": "85748"}, status=500)
+    await _setup(hass, config_entry, freezer, **{CONF_OFFERS_SOURCE: "marktguru"})
+    manager = config_entry.runtime_data
+    with pytest.raises(ServiceValidationError) as err:
+        await _call(hass, "refresh_offers")  # neither zip code nor branches
+    assert err.value.translation_key == "invalid_zip"
+
+    manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    manager.save_branch({"store": "Lidl", "postcode": "85748"})
+    meta = await _call(hass, "refresh_offers")
+    assert meta["status"] == "ok"
+    assert meta["errors"][0].endswith("(85748): Angebotssuche: HTTP 500")
+    assert len(meta["errors"]) == 1  # the postcode is skipped after its first error
+    assert [o["id"] for o in manager.offers] == ["mg_1"]
+    assert manager.offers[0]["zip_codes"] == ["80331"]
+    assert manager.offers[0]["branches"] == [manager.branches[0]["id"]]
+
+    # source unavailable: one error, no requests for the other postcode
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(MARKTGURU_HOME, status=503)
+    meta = await _call(hass, "refresh_offers")
+    assert meta["status"] == "error"
+    assert len(meta["errors"]) == 1
+    assert "HTTP 503" in meta["errors"][0]
+    assert len(manager.offers) == 1  # kept
+
+
+async def test_fetch_offers_single_zip(
+    hass: HomeAssistant, setup_integration, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The 1.2 signature async_fetch_offers(hass, terms, zip_code, stores) still works."""
+    from custom_components.essensplaner.offers import async_fetch_offers
+
+    aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
+    aioclient_mock.get(
+        SEARCH_URL,
+        json={
+            "results": [
+                _mg_offer(5, "Butter", "aldi-sued", "Aldi Süd", 1.69, 2.29, 6.76, "kg", "250 g"),
+                _mg_offer(7, "Butter", "rewe", "REWE", 1.79, None, 7.16, "kg", "250 g"),
+            ]
+        },
+    )
+    offers, errors = await async_fetch_offers(
+        hass, [("Butter", "butter"), ("Markenbutter", "butter")], "10115", ["aldi-sued"]
+    )
+    assert errors == []
+    assert len(offers) == 1
+    assert (offers[0]["retailer"], offers[0]["zip_codes"], offers[0]["keys"]) == (
+        "aldi-sued",
+        ["10115"],
+        ["butter"],
+    )
+    assert len(_searches(aioclient_mock)) == 2
+
+
+async def test_learn_store_price_history(hass: HomeAssistant, setup_integration) -> None:
+    """History of learned store prices and the plausibility filter."""
+    manager = setup_integration.runtime_data
+    day = manager.today()
+
+    def learn(price, days=0, retailer="lidl", source="leaflet", amount=250, unit="g", key="butter"):
+        return manager.learn_store_price(
+            retailer,
+            key,
+            "Butter",
+            price,
+            amount,
+            unit,
+            source,
+            ref="mg_1",
+            day=day + timedelta(days),
+        )
+
+    assert learn(1.99)
+    entry = manager.store_prices_learned["lidl"]["butter"]
+    assert entry["history"] == [{"date": day.isoformat(), "price": 1.99, "source": "leaflet"}]
+    assert (entry["seen"], entry["ref"], entry["source"]) == (day.isoformat(), "mg_1", "leaflet")
+    updated = entry["updated"]
+    assert learn(1.99, 3)  # same price within a week: only "seen" moves
+    entry = manager.store_prices_learned["lidl"]["butter"]
+    assert len(entry["history"]) == 1
+    assert (entry["seen"], entry["updated"]) == ((day + timedelta(3)).isoformat(), updated)
+    assert learn(2.19, 4)  # price changed
+    assert learn(2.19, 11)  # unchanged, but a week later
+    history = manager.store_prices_learned["lidl"]["butter"]["history"]
+    assert [(h["date"], h["price"]) for h in history] == [
+        (day.isoformat(), 1.99),
+        ((day + timedelta(4)).isoformat(), 2.19),
+        ((day + timedelta(11)).isoformat(), 2.19),
+    ]
+    for week in range(20):
+        assert learn(round(2.0 + week / 100, 2), 12 + week)
+    history = manager.store_prices_learned["lidl"]["butter"]["history"]
+    assert len(history) == 12
+    assert history[-1]["price"] == 2.19
+    assert manager.best_price("Butter", retailer="lidl")[1].price == 2.19
+
+    # 0,3x – 3x of the estimate (Butter: 1,99 € / 250 g)
+    assert not learn(0.50)
+    assert not learn(6.50)
+    assert learn(5.90)
+    assert not learn(0)
+    assert not learn("abc")
+    assert not manager.learn_store_price("", "butter", "Butter", 1.99, 250, "g", "leaflet")
+    # nothing comparable to check against: kept
+    assert learn(9.99, retailer="penny", amount=1, unit="Stück")
+    assert learn(99, retailer="penny", key="zzyzx", amount=1, unit="Stück")
+
+    # a fresh REWE online price is not replaced by a leaflet price
+    assert learn(2.09, retailer="rewe", source="rewe_online")
+    assert not learn(1.79, 1, retailer="rewe")
+    assert manager.store_prices_learned["rewe"]["butter"]["source"] == "rewe_online"
+    # ... but a stale one is
+    assert learn(1.79, 200, retailer="rewe")
+    assert manager.store_prices_learned["rewe"]["butter"]["source"] == "leaflet"
+
+
+async def test_learn_from_offers(hass: HomeAssistant, setup_integration) -> None:
+    """Lowest regular price per retailer and ingredient; derived packs; needs an old price."""
+    manager = setup_integration.runtime_data
+    base = {"source": "marktguru", "keys": ["butter"], "retailer": "lidl"}
+    offers = [
+        {
+            **base,
+            "id": "a",
+            "product": "Markenbutter",
+            "old_price": 2.79,
+            "pack_amount": 250,
+            "pack_unit": "g",
+        },
+        {
+            **base,
+            "id": "b",
+            "product": "Butter",
+            "old_price": 2.09,
+            "pack_amount": 250,
+            "pack_unit": "g",
+        },
+        # pack derived from price / unit price (1,69 € at 6,76 €/kg = 250 g)
+        {
+            **base,
+            "id": "c",
+            "product": "Butter",
+            "retailer": "aldi-sued",
+            "price": 1.69,
+            "old_price": 2.19,
+            "unit_price": 0.00676,
+            "base_unit": "g",
+        },
+        {
+            **base,
+            "id": "d",
+            "product": "Butter",
+            "retailer": "penny",
+            "old_price": None,
+            "pack_amount": 250,
+            "pack_unit": "g",
+        },
+        {
+            **base,
+            "id": "e",
+            "product": "Butter",
+            "retailer": None,
+            "old_price": 2.0,
+            "pack_amount": 250,
+            "pack_unit": "g",
+        },
+    ]
+    assert manager.learn_from_offers(offers) == 2
+    assert manager.store_prices_learned["lidl"]["butter"]["ref"] == "b"
+    aldi = manager.store_prices_learned["aldi-sued"]["butter"]
+    assert (aldi["price"], aldi["amount"], aldi["unit"]) == (2.19, 250, "g")
+    assert set(manager.store_prices_learned) == {"lidl", "aldi-sued"}
+
+
+async def test_options_flow_marktguru_with_branches(hass: HomeAssistant, setup_integration) -> None:
+    """marktguru needs a zip code option or selected branches with a postcode."""
+    from homeassistant.data_entry_flow import FlowResultType
+
+    entry = setup_integration
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "default_servings": 2,
+            "enabled_meals": ["mittagessen", "abendessen"],
+            "default_meal": "abendessen",
+            "time_fruehstueck": "07:30:00",
+            "time_mittagessen": "12:30:00",
+            "time_snack": "15:30:00",
+            "time_abendessen": "18:30:00",
+            "register_intents": True,
+            "show_panel": True,
+        },
+    )
+    assert result["step_id"] == "economy"
+    economy = {
+        "weekly_budget": 0,
+        "plan_strategy": "balanced",
+        "offers_source": "marktguru",
+        "zip_code": "",
+        "offer_stores": ["lidl"],
+    }
+    result = await hass.config_entries.options.async_configure(result["flow_id"], economy)
+    assert result["errors"] == {"zip_code": "invalid_zip"}  # neither zip code nor branches
+
+    entry.runtime_data.save_branch({"store": "Lidl", "postcode": "80331"})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {**economy, "zip_code": "123"}
+    )
+    assert result["errors"] == {"zip_code": "invalid_zip"}  # a wrong zip code stays wrong
+    result = await hass.config_entries.options.async_configure(result["flow_id"], economy)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    manager = entry.runtime_data
+    assert manager.offers_source == "marktguru"
+    assert manager.zip_code == ""
+    assert manager.offer_targets() == [("80331", ["lidl"])]

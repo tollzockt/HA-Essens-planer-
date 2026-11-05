@@ -113,10 +113,19 @@ ERROR_MESSAGES_DE = {
     "dish_not_planned": "„{name}“ ist in den nächsten Tagen nicht geplant.",
     "invalid_json": "Die Rezeptdaten konnten nicht gelesen werden.",
     "offers_disabled": "Online-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren).",
-    "invalid_zip": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen.",
+    "invalid_zip": (
+        "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen "
+        "oder eine Filiale mit Postleitzahl hinzufügen."
+    ),
     "invalid_strategy": "Die Planungsart „{strategy}“ kenne ich nicht.",
     "invalid_price": "Den Preis „{price}“ habe ich nicht verstanden.",
     "unknown_store": "Den Laden „{store}“ kenne ich nicht.",
+    "store_required": "Bitte gib den Laden an, z. B. Aldi Süd, Lidl oder REWE.",
+    "invalid_postcode": "Die Postleitzahl „{postcode}“ ist ungültig (5 Ziffern).",
+    "branch_not_found": "Die Filiale „{branch}“ habe ich nicht gefunden.",
+    "branch_ambiguous": (
+        "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
+    ),
 }
 
 
@@ -288,6 +297,7 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
         migrated = self._migrate_v2()
         self.cleanup_offers()
+        self.tag_offer_branches()
         if migrated:
             await self.async_save_now()
 
@@ -1334,6 +1344,7 @@ class EssensplanerManager(StoresMixin, EconomyMixin):
             "excluded": self.excluded,
             "today": self.today().isoformat(),
             "economy": self.economy_export(),
+            **self.branches_export(),
             "offers": self.offers_view("all", limit=300),
             "recipe_costs": {
                 rid: self.recipe_cost(recipe)["per_serving"] for rid, recipe in self.recipes.items()

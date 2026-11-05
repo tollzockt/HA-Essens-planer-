@@ -59,6 +59,7 @@ from .const import (
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
     SERVICE_FIND_BY_INGREDIENTS,
+    SERVICE_GET_BRANCHES,
     SERVICE_GET_COSTS,
     SERVICE_GET_OFFERS,
     SERVICE_GET_PLAN,
@@ -73,8 +74,10 @@ from .const import (
     SERVICE_MOVE_MEAL,
     SERVICE_PLAN_MEAL,
     SERVICE_REFRESH_OFFERS,
+    SERVICE_REMOVE_BRANCH,
     SERVICE_REMOVE_MEAL,
     SERVICE_REMOVE_OFFER,
+    SERVICE_SAVE_BRANCH,
     SERVICE_SEARCH_OFFERS,
     SERVICE_SET_PRICE,
     SERVICE_SHOPPING_LIST,
@@ -84,13 +87,7 @@ from .const import (
 )
 from .dates import DateParseError, parse_date, parse_meal, week_start
 from .ingredients import fold
-from .offers import (
-    MarktguruClient,
-    OfferError,
-    async_refresh_offers,
-    normalize_marktguru,
-    store_allowed,
-)
+from .offers import async_refresh_offers, async_search_target_offers
 from .recipe_import import async_fetch_recipe
 
 if TYPE_CHECKING:
@@ -257,6 +254,24 @@ SET_PRICE_SCHEMA = vol.Schema(
 GET_STORE_PRICES_SCHEMA = vol.Schema(
     {vol.Optional("store"): cv.string, vol.Optional(ATTR_QUERY): cv.string}
 )
+SAVE_BRANCH_SCHEMA = vol.Schema(
+    {
+        vol.Optional("id"): cv.string,
+        vol.Optional("store"): cv.string,
+        vol.Optional(ATTR_NAME): cv.string,
+        vol.Optional("label"): cv.string,
+        vol.Optional("street"): cv.string,
+        vol.Optional("postcode"): cv.string,
+        vol.Optional("city"): cv.string,
+        vol.Optional("lat"): vol.All(vol.Coerce(float), vol.Range(min=-90, max=90)),
+        vol.Optional("lon"): vol.All(vol.Coerce(float), vol.Range(min=-180, max=180)),
+        vol.Optional("selected"): cv.boolean,
+        vol.Optional("main"): cv.boolean,
+        vol.Optional("priority"): vol.All(vol.Coerce(float), vol.Range(min=0, max=1000)),
+        vol.Optional("rewe_market_id"): cv.string,
+    }
+)
+REMOVE_BRANCH_SCHEMA = vol.Schema({vol.Required("branch"): cv.string})
 GET_COSTS_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_START_DATE): cv.string, vol.Optional(ATTR_DAYS): _DAYS}
 )
@@ -326,10 +341,10 @@ def split_list(value: Any) -> list[str]:
 
 
 def require_offer_source(manager: EssensplanerManager) -> None:
-    """Raise unless online offers are configured."""
+    """Raise unless online offers are configured (zip code option or branches with postcode)."""
     if manager.offers_source != OFFERS_MARKTGURU:
         raise ServiceValidationError(translation_domain=DOMAIN, translation_key="offers_disabled")
-    if not re.fullmatch(r"\d{5}", manager.zip_code):
+    if not manager.offer_targets():
         raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_zip")
 
 
@@ -688,16 +703,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         query = call.data[ATTR_QUERY]
         live: list[dict[str, Any]] = []
         error = None
-        if manager.offers_source == OFFERS_MARKTGURU and manager.zip_code:
-            try:
-                raw = await MarktguruClient(hass).async_search(query, manager.zip_code)
-            except OfferError as err:
-                error = str(err)
-            else:
-                for item in raw:
-                    offer = normalize_marktguru(item, query)
-                    if offer and store_allowed(offer["store_id"], manager.active_retailers()):
-                        live.append(offer)
+        targets = manager.offer_targets() if manager.offers_source == OFFERS_MARKTGURU else []
+        if targets:
+            live, errors = await async_search_target_offers(hass, query, targets)
+            error = "; ".join(errors) if errors else None
         live.sort(key=lambda o: (o.get("unit_price") or 9e9, o["price"]))
         return {
             "query": query,
@@ -761,6 +770,17 @@ def async_setup_services(hass: HomeAssistant) -> None:
         retailer = manager.require_retailer(call.data["store"]) if call.data.get("store") else None
         return manager.store_price_matrix(call.data.get(ATTR_QUERY), retailer=retailer)
 
+    async def save_branch(call: ServiceCall) -> ServiceResponse:
+        return {"branch": get_manager(hass).save_branch(dict(call.data))}
+
+    async def remove_branch(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        removed = manager.remove_branch(call.data["branch"])
+        return {"removed": removed, "main_branch": manager.branches_export()["main_branch"]}
+
+    async def get_branches(call: ServiceCall) -> ServiceResponse:
+        return get_manager(hass).branches_export()
+
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
@@ -800,6 +820,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SET_PRICE, set_price, SET_PRICE_SCHEMA),
         (SERVICE_GET_COSTS, get_costs, GET_COSTS_SCHEMA),
         (SERVICE_GET_STORE_PRICES, get_store_prices, GET_STORE_PRICES_SCHEMA),
+        (SERVICE_SAVE_BRANCH, save_branch, SAVE_BRANCH_SCHEMA),
+        (SERVICE_REMOVE_BRANCH, remove_branch, REMOVE_BRANCH_SCHEMA),
+        (SERVICE_GET_BRANCHES, get_branches, EMPTY_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

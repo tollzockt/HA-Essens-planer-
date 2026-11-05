@@ -599,6 +599,7 @@ class EconomyMixin:
                 if ikey and offer_matches(product, ikey):
                     keys.add(ikey)
         offer["keys"] = sorted(keys)
+        self.tag_offer_branches([offer])
         self.offers.append(offer)
         self._invalidate_prices()
         self._changed("offers")
@@ -617,7 +618,11 @@ class EconomyMixin:
     def replace_source_offers(
         self: EssensplanerManager, source: str, offers: list[dict[str, Any]], meta: dict[str, Any]
     ) -> None:
-        """Replace all offers of one source (e.g. after a marktguru refresh)."""
+        """Replace all offers of one source (e.g. after a marktguru refresh).
+
+        Tags the offers with the branches they apply to and learns regular prices from
+        old prices: like 1.2 as general learned prices, and per retailer (with history).
+        """
         today = self.today().isoformat()
         kept = [
             o
@@ -628,7 +633,8 @@ class EconomyMixin:
             if "retailer" not in offer:
                 offer["retailer"] = self.offer_retailer(offer)
         self.offers = kept + offers
-        # learn regular prices from offers with an old price
+        self.tag_offer_branches()
+        # learn regular prices from offers with an old price (1.2: general learned prices)
         for offer in offers:
             if offer.get("old_price") and offer.get("pack_amount") and offer.get("keys"):
                 for key in offer["keys"]:
@@ -640,6 +646,7 @@ class EconomyMixin:
                         "store": offer.get("store"),
                         "updated": dt_util.utcnow().isoformat(),
                     }
+        meta["learned"] = self.learn_from_offers(offers)
         self.offers_meta = meta
         self._invalidate_prices()
         self._changed("offers")

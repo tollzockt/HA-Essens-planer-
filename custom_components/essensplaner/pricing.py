@@ -512,6 +512,21 @@ def offer_as_entry(offer: dict[str, Any]) -> PriceEntry | None:
     return None
 
 
+def offer_pack(offer: dict[str, Any]) -> tuple[float, str] | None:
+    """Package size of an offer: stated pack, else derived from price / unit price."""
+    try:
+        if offer.get("pack_amount") and offer.get("pack_unit"):
+            return float(offer["pack_amount"]), str(offer["pack_unit"])
+        if offer.get("unit_price") and offer.get("base_unit") and offer.get("price") is not None:
+            base = str(offer["base_unit"])
+            derived = _derived_pack(offer["price"], float(offer["unit_price"]), base)
+            if derived:
+                return derived, base
+    except (TypeError, ValueError):
+        return None
+    return None
+
+
 def cheaper_by(a: float, b: float) -> tuple[float, float]:
     """How much cheaper a is than b: (absolute EUR, percent of b). Negative = more expensive."""
     absolute = round(b - a, 2)

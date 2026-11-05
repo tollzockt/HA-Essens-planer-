@@ -487,3 +487,74 @@ get_store_prices:
       example: "Butter"
       selector:
         text:
+
+save_branch:
+  fields:
+    id:
+      example: "man_1793782800000"
+      selector:
+        text:
+    store:
+      example: "Aldi Süd"
+      selector:
+        text:
+    name:
+      example: "Aldi Süd"
+      selector:
+        text:
+    label:
+      example: "Aldi Arbeit"
+      selector:
+        text:
+    street:
+      example: "Hauptstraße 5"
+      selector:
+        text:
+    postcode:
+      example: "80331"
+      selector:
+        text:
+    city:
+      example: "München"
+      selector:
+        text:
+    lat:
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+          mode: box
+    lon:
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+          mode: box
+    selected:
+      selector:
+        boolean:
+    main:
+      selector:
+        boolean:
+    priority:
+      selector:
+        number:
+          min: 0
+          max: 1000
+          mode: box
+    rewe_market_id:
+      example: "1940156"
+      selector:
+        text:
+
+remove_branch:
+  fields:
+    branch:
+      required: true
+      example: "Lidl Hauptstraße"
+      selector:
+        text:
+
+get_branches:
