@@ -20,6 +20,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 import voluptuous as vol
 
+from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE, async_find_branches
 from .const import (
     ATTR_COOK_TIME,
     ATTR_COUNT,
@@ -61,6 +62,7 @@ from .const import (
     SERVICE_COPY_PLAN,
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
+    SERVICE_FIND_BRANCHES,
     SERVICE_FIND_BY_INGREDIENTS,
     SERVICE_GET_BRANCHES,
     SERVICE_GET_COSTS,
@@ -276,6 +278,20 @@ SAVE_BRANCH_SCHEMA = vol.Schema(
     }
 )
 REMOVE_BRANCH_SCHEMA = vol.Schema({vol.Required("branch"): cv.string})
+FIND_BRANCHES_SCHEMA = vol.Schema(
+    {
+        vol.Optional("zones"): vol.Any(cv.string, [cv.string]),
+        vol.Optional("radius_km"): vol.All(
+            vol.Coerce(float), vol.Range(min=RADIUS_KM_RANGE[0], max=RADIUS_KM_RANGE[1])
+        ),
+        vol.Optional("route"): cv.boolean,
+        vol.Optional("route_radius_m"): vol.All(
+            vol.Coerce(int), vol.Range(min=ROUTE_RADIUS_RANGE[0], max=ROUTE_RADIUS_RANGE[1])
+        ),
+        vol.Optional("retailers"): vol.Any(cv.string, [cv.string]),
+        vol.Optional("refresh", default=False): cv.boolean,
+    }
+)
 GET_SHOPPING_LIST_SCHEMA = vol.Schema({vol.Optional("store"): cv.string})
 SET_SHOPPING_STORE_SCHEMA = vol.Schema(
     {
@@ -830,6 +846,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def get_branches(call: ServiceCall) -> ServiceResponse:
         return get_manager(hass).branches_export()
 
+    async def find_branches(call: ServiceCall) -> ServiceResponse:
+        return await async_find_branches(
+            hass,
+            get_manager(hass),
+            zones=split_list(call.data.get("zones")) or None,
+            radius_km=call.data.get("radius_km"),
+            route=call.data.get("route"),
+            route_radius_m=call.data.get("route_radius_m"),
+            retailers=split_list(call.data.get("retailers")) or None,
+            refresh=call.data["refresh"],
+        )
+
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
@@ -872,6 +900,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SAVE_BRANCH, save_branch, SAVE_BRANCH_SCHEMA),
         (SERVICE_REMOVE_BRANCH, remove_branch, REMOVE_BRANCH_SCHEMA),
         (SERVICE_GET_BRANCHES, get_branches, EMPTY_SCHEMA),
+        (SERVICE_FIND_BRANCHES, find_branches, FIND_BRANCHES_SCHEMA),
         (SERVICE_SET_SHOPPING_STORE, set_shopping_store, SET_SHOPPING_STORE_SCHEMA),
         (SERVICE_ASSIGN_SHOPPING_STORES, assign_shopping_stores, ASSIGN_SHOPPING_STORES_SCHEMA),
         (SERVICE_COMPARE_PRICES, compare_prices, COMPARE_PRICES_SCHEMA),

@@ -67,6 +67,7 @@ async def async_get_config_entry_diagnostics(
         ],
         "price_sources_meta": async_redact_data(manager.price_sources_meta, TO_REDACT),
         "branch_search": async_redact_data(
-            {k: v for k, v in manager.branch_search.items() if k != "results"}, TO_REDACT
+            {k: v for k, v in manager.branch_search.items() if k not in ("results", "key")},
+            TO_REDACT,
         ),
     }

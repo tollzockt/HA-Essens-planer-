@@ -88,6 +88,8 @@ DEFAULT_BRANCH_ROUTE_RADIUS: Final = 800
 # experimental REWE online shop prices (opt-in)
 CONF_REWE_ONLINE: Final = "rewe_online_prices"
 DEFAULT_REWE_ONLINE: Final = False
+# honest User-Agent of the 1.3 HTTP clients (OpenStreetMap, REWE)
+HTTP_USER_AGENT: Final = "HA-Essensplaner/1.3 (+https://github.com/tollzockt/HA-Essens-planer-)"
 
 STRATEGY_BALANCED: Final = "balanced"
 STRATEGY_CHEAP: Final = "cheap"
@@ -137,6 +139,7 @@ SERVICE_SET_SHOPPING_STORE: Final = "set_shopping_store"
 SERVICE_ASSIGN_SHOPPING_STORES: Final = "assign_shopping_stores"
 SERVICE_COMPARE_PRICES: Final = "compare_prices"
 SERVICE_ADD_SHOPPING_ITEM: Final = "add_shopping_item"
+SERVICE_FIND_BRANCHES: Final = "find_branches"
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"

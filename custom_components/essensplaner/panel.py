@@ -9,7 +9,7 @@ from typing import Any
 
 from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 
@@ -272,6 +272,53 @@ def ws_compare_prices(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/find_branches",
+        vol.Optional("zones"): [str],
+        vol.Optional("radius_km"): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=25)),
+        vol.Optional("route"): bool,
+        vol.Optional("route_radius_m"): vol.All(vol.Coerce(int), vol.Range(min=100, max=5000)),
+        vol.Optional("retailers"): [str],
+        vol.Optional("refresh", default=False): bool,
+        vol.Optional("cached_only", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_find_branches(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Supermarkets near the zones and on the way to work (OpenStreetMap).
+
+    Same parameters and result as the find_branches service; cached_only=True returns the
+    last stored search without any request. Error codes are the translation keys
+    (overpass_busy, overpass_timeout, overpass_failed, branch_search_wait,
+    zone_not_found, no_search_area, unknown_store) with a German message.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .branches import async_find_branches
+    from .manager import error_message
+
+    try:
+        result = await async_find_branches(
+            hass,
+            manager,
+            zones=msg.get("zones") or None,
+            radius_km=msg.get("radius_km"),
+            route=msg.get("route"),
+            route_radius_m=msg.get("route_radius_m"),
+            retailers=msg.get("retailers") or None,
+            refresh=msg["refresh"],
+            cached_only=msg["cached_only"],
+        )
+    except HomeAssistantError as err:
+        code = getattr(err, "translation_key", None) or "search_failed"
+        connection.send_error(msg["id"], code, error_message(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -283,3 +330,4 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_reorder_branches)
     websocket_api.async_register_command(hass, ws_article_search)
     websocket_api.async_register_command(hass, ws_compare_prices)
+    websocket_api.async_register_command(hass, ws_find_branches)

@@ -128,6 +128,23 @@ ERROR_MESSAGES_DE = {
     "branch_ambiguous": (
         "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
     ),
+    "overpass_busy": (
+        "OpenStreetMap ist gerade ausgelastet – bitte in ein paar Minuten erneut versuchen."
+    ),
+    "overpass_timeout": (
+        "OpenStreetMap hat nicht rechtzeitig geantwortet – bitte später erneut versuchen "
+        "oder den Radius verkleinern."
+    ),
+    "overpass_failed": "Die Filialsuche bei OpenStreetMap ist fehlgeschlagen ({error}).",
+    "branch_search_wait": (
+        "Bitte warte noch {seconds} Sekunden bis zur nächsten Filialsuche – so wird "
+        "OpenStreetMap nicht überlastet."
+    ),
+    "zone_not_found": "Die Zone „{zone}“ habe ich nicht gefunden.",
+    "no_search_area": (
+        "Keine Zone mit Koordinaten gefunden – lege in Home Assistant die Zone „Zuhause“ "
+        "fest oder wähle Zonen aus."
+    ),
     "store_split_off": (
         "Die Einkaufsliste wird nicht nach Läden aufgeteilt – lege zuerst einen Hauptladen "
         "fest (Essensplaner → Läden)."
@@ -369,6 +386,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         for update_callback in list(self._listeners):
             update_callback()
         self.hass.bus.async_fire(EVENT_UPDATED, {"change": change})
+
+    @callback
+    def _save_later(self) -> None:
+        """Save soon without notifying entities or the panel (e.g. caches)."""
+        self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
 
     @callback
     def async_refresh_listeners(self) -> None:

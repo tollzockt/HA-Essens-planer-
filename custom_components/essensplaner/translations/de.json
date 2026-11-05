@@ -111,6 +111,21 @@
         "current": "Aktuell",
         "upcoming": "Kommend"
       }
+    },
+    "retailer": {
+      "options": {
+        "aldi-sued": "Aldi Süd",
+        "aldi-nord": "Aldi Nord",
+        "lidl": "Lidl",
+        "rewe": "REWE",
+        "edeka": "EDEKA",
+        "penny": "Penny",
+        "netto-marken-discount": "Netto",
+        "kaufland": "Kaufland",
+        "norma": "Norma",
+        "globus": "Globus",
+        "marktkauf": "Marktkauf"
+      }
     }
   },
   "entity": {
@@ -234,6 +249,24 @@
     },
     "store_split_off": {
       "message": "Die Einkaufsliste wird nicht nach Läden aufgeteilt – bitte zuerst einen Hauptladen festlegen (Essensplaner → Läden) bzw. die Aufteilung in den Optionen einschalten."
+    },
+    "overpass_busy": {
+      "message": "OpenStreetMap ist gerade ausgelastet – bitte in ein paar Minuten erneut versuchen."
+    },
+    "overpass_timeout": {
+      "message": "OpenStreetMap hat nicht rechtzeitig geantwortet – bitte später erneut versuchen oder den Radius verkleinern."
+    },
+    "overpass_failed": {
+      "message": "Die Filialsuche bei OpenStreetMap ist fehlgeschlagen ({error})."
+    },
+    "branch_search_wait": {
+      "message": "Bitte warte noch {seconds} Sekunden bis zur nächsten Filialsuche – so wird OpenStreetMap nicht überlastet."
+    },
+    "zone_not_found": {
+      "message": "Die Zone „{zone}“ wurde nicht gefunden."
+    },
+    "no_search_area": {
+      "message": "Keine Zone mit Koordinaten gefunden – lege in Home Assistant die Zone „Zuhause“ fest oder wähle Zonen aus."
     }
   },
   "services": {
@@ -974,6 +1007,36 @@
         "offer_id": {
           "name": "Angebot",
           "description": "Optional: ID eines gespeicherten Angebots."
+        }
+      }
+    },
+    "find_branches": {
+      "name": "Filialen suchen (OpenStreetMap)",
+      "description": "Sucht Supermärkte (Aldi, Lidl, REWE, EDEKA …) im Umkreis deiner Zonen und auf dem Arbeitsweg bei OpenStreetMap. Dazu werden die Koordinaten der Zonen (auf ca. 100 m gerundet) an overpass-api.de gesendet. Ergebnisse werden 30 Tage gespeichert; hinzufügen mit „Filiale speichern“ und der ID des Treffers. Daten © OpenStreetMap-Mitwirkende (ODbL).",
+      "fields": {
+        "zones": {
+          "name": "Zonen",
+          "description": "Zonen, um die gesucht wird. Standard: Zuhause und Zonen mit „Arbeit“ bzw. „Work“ im Namen."
+        },
+        "radius_km": {
+          "name": "Umkreis",
+          "description": "Suchradius um jede Zone in Kilometern (Standard aus den Optionen, 3 km)."
+        },
+        "route": {
+          "name": "Arbeitsweg",
+          "description": "Auch entlang der Luftlinie von Zuhause zu den anderen Zonen suchen."
+        },
+        "route_radius_m": {
+          "name": "Breite Arbeitsweg",
+          "description": "Abstand zur Strecke Zuhause → Zone in Metern (Standard 800 m)."
+        },
+        "retailers": {
+          "name": "Läden",
+          "description": "Optional: nur diese Supermarktketten anzeigen."
+        },
+        "refresh": {
+          "name": "Neu suchen",
+          "description": "Gespeichertes Ergebnis ignorieren und OpenStreetMap neu abfragen (höchstens alle 2 Minuten)."
         }
       }
     }

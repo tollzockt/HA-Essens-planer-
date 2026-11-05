@@ -624,3 +624,54 @@ add_shopping_item:
       example: "mg_12345"
       selector:
         text:
+
+find_branches:
+  fields:
+    zones:
+      example: "zone.home, zone.arbeit"
+      selector:
+        entity:
+          domain: zone
+          multiple: true
+    radius_km:
+      example: 3
+      selector:
+        number:
+          min: 0.5
+          max: 25
+          step: 0.5
+          unit_of_measurement: km
+          mode: box
+    route:
+      selector:
+        boolean:
+    route_radius_m:
+      example: 800
+      selector:
+        number:
+          min: 100
+          max: 5000
+          step: 50
+          unit_of_measurement: m
+          mode: box
+    retailers:
+      selector:
+        select:
+          multiple: true
+          translation_key: retailer
+          options:
+            - aldi-sued
+            - aldi-nord
+            - lidl
+            - rewe
+            - edeka
+            - penny
+            - netto-marken-discount
+            - kaufland
+            - norma
+            - globus
+            - marktkauf
+    refresh:
+      default: false
+      selector:
+        boolean:

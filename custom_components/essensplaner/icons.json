@@ -159,6 +159,9 @@
     },
     "add_shopping_item": {
       "service": "mdi:cart-plus"
+    },
+    "find_branches": {
+      "service": "mdi:map-search"
     }
   }
 }

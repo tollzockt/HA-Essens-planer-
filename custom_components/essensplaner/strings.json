@@ -111,6 +111,21 @@
         "current": "Current",
         "upcoming": "Upcoming"
       }
+    },
+    "retailer": {
+      "options": {
+        "aldi-sued": "Aldi Süd",
+        "aldi-nord": "Aldi Nord",
+        "lidl": "Lidl",
+        "rewe": "REWE",
+        "edeka": "EDEKA",
+        "penny": "Penny",
+        "netto-marken-discount": "Netto",
+        "kaufland": "Kaufland",
+        "norma": "Norma",
+        "globus": "Globus",
+        "marktkauf": "Marktkauf"
+      }
     }
   },
   "entity": {
@@ -234,6 +249,24 @@
     },
     "store_split_off": {
       "message": "The shopping list is not split by store – please choose a main store first (Essensplaner → Stores) or enable the split in the options."
+    },
+    "overpass_busy": {
+      "message": "OpenStreetMap is busy right now – please try again in a few minutes."
+    },
+    "overpass_timeout": {
+      "message": "OpenStreetMap did not answer in time – please try again later or use a smaller radius."
+    },
+    "overpass_failed": {
+      "message": "The branch search on OpenStreetMap failed ({error})."
+    },
+    "branch_search_wait": {
+      "message": "Please wait {seconds} more seconds before the next branch search so OpenStreetMap is not overloaded."
+    },
+    "zone_not_found": {
+      "message": "The zone '{zone}' was not found."
+    },
+    "no_search_area": {
+      "message": "No zone with coordinates found – set the home zone in Home Assistant or choose zones."
     }
   },
   "services": {
@@ -974,6 +1007,36 @@
         "offer_id": {
           "name": "Offer",
           "description": "Optional: id of a saved offer."
+        }
+      }
+    },
+    "find_branches": {
+      "name": "Find branches (OpenStreetMap)",
+      "description": "Searches OpenStreetMap for supermarkets (Aldi, Lidl, REWE, EDEKA …) around your zones and along the way to work. The coordinates of the zones (rounded to about 100 m) are sent to overpass-api.de. Results are kept for 30 days; add one with 'Save branch' and the result's ID. Data © OpenStreetMap contributors (ODbL).",
+      "fields": {
+        "zones": {
+          "name": "Zones",
+          "description": "Zones to search around. Default: home and zones with 'Arbeit' or 'Work' in their name."
+        },
+        "radius_km": {
+          "name": "Radius",
+          "description": "Search radius around each zone in kilometers (default from the options, 3 km)."
+        },
+        "route": {
+          "name": "Way to work",
+          "description": "Also search along the straight line from home to the other zones."
+        },
+        "route_radius_m": {
+          "name": "Way to work width",
+          "description": "Distance to the line home → zone in meters (default 800 m)."
+        },
+        "retailers": {
+          "name": "Stores",
+          "description": "Optional: only show these supermarket chains."
+        },
+        "refresh": {
+          "name": "Search again",
+          "description": "Ignore the saved result and query OpenStreetMap again (at most every 2 minutes)."
         }
       }
     }

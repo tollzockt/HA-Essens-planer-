@@ -9,11 +9,13 @@ and are skipped for r.
 Branches (Filialen) are the user's shops: {id ("man_<ms>" | "osm_node_123" | "osm_way_…"),
 retailer, name, label, street, postcode, city, postcode_guessed, lat, lon, source (osm|manual),
 selected, priority, near, route, rewe_market_id, retailer_guessed, added, updated}.
-Offers are fetched per postcode of the selected branches (offer_targets()).
+Offers are fetched per postcode of the selected branches (offer_targets()). Branches are
+added manually or from the OpenStreetMap search (branches.py, cached in branch_search).
 """
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, timedelta
 import logging
 import re
@@ -271,6 +273,7 @@ class StoresMixin:
     _default_index_source: int | None
     _price_ctx: tuple[Any, ...] | None
     _selected_memo: tuple[Any, list[dict[str, Any]]] | None
+    _branch_lock: asyncio.Lock | None
 
     # ------------------------------------------------------------------
     # Persistence
@@ -293,6 +296,7 @@ class StoresMixin:
         self._default_index_source = None
         self._price_ctx = None
         self._selected_memo = None
+        self._branch_lock = None  # one OpenStreetMap search at a time (branches.py)
 
     def _load_store_data(self: EssensplanerManager, data: dict[str, Any]) -> None:
         """Read the 1.3 keys (missing in 1.2 data)."""
@@ -569,6 +573,9 @@ class StoresMixin:
         lat, lon, selected, main, priority, rewe_market_id, and from the map search
         source, near, route, postcode_guessed, retailer_guessed.
 
+        A new OpenStreetMap id from the last branch search (find_branches) takes the
+        missing fields from that search result (address, coordinates, near/route).
+
         Without an id a manual branch is created ("man_<ms>"); a branch with the same
         retailer and address is updated instead. Main branch: main=True makes it the main
         branch, main=False or deselecting it removes that; if no main branch is set the
@@ -581,6 +588,8 @@ class StoresMixin:
         existing = self.get_branch(branch_id) if branch_id else None
         if branch_id and existing is None and not _OSM_ID_RE.fullmatch(branch_id):
             raise _error("branch_not_found", branch=branch_id)
+        if branch_id and existing is None:
+            data = self._with_search_result(branch_id, data)
 
         postcode = (existing or {}).get("postcode") or ""
         if "postcode" in data:
@@ -691,6 +700,43 @@ class StoresMixin:
             self._auto_main()
         self._branches_changed()
         return self.branch_view(branch)
+
+    def branch_search_result(self: EssensplanerManager, branch_id: str) -> dict[str, Any] | None:
+        """A shop of the last OpenStreetMap search (branch_search results) by its id."""
+        return next(
+            (
+                r
+                for r in _list(self.branch_search.get("results"))
+                if isinstance(r, dict) and r.get("id") == branch_id
+            ),
+            None,
+        )
+
+    def _with_search_result(
+        self: EssensplanerManager, branch_id: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Fill a new OpenStreetMap branch from the last search (given fields win).
+
+        Keeps name, address, coordinates and the distances to the zones (near/route), so
+        the panel only needs to send the id of a search result.
+        """
+        result = self.branch_search_result(branch_id)
+        if result is None:
+            return data
+        found: dict[str, Any] = {"source": "osm"}
+        for field in ("name", "street", "city", "lat", "lon"):
+            if result.get(field) not in (None, ""):
+                found[field] = result[field]
+        for field in ("near", "route"):
+            if isinstance(result.get(field), dict):
+                found[field] = result[field]
+        if result.get("postcode") and "postcode" not in data:
+            found["postcode"] = result["postcode"]
+            found["postcode_guessed"] = bool(result.get("postcode_guessed"))
+        if result.get("retailer") and not (data.get("store") or data.get("retailer")):
+            found["store"] = result["retailer"]
+            found["retailer_guessed"] = bool(result.get("retailer_guessed"))
+        return {**found, **data}
 
     def _auto_main(self: EssensplanerManager) -> None:
         """Without a (valid) main branch the only selected branch becomes the main branch."""
