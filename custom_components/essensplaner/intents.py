@@ -842,7 +842,17 @@ class GetOffersIntent(_EssensplanerIntent):
             if "naechst" in when_text or "kommend" in when_text
             else ("all" if "alle" in when_text else "current")
         )
-        offers = manager.offers_view(when, values.get("query"), values.get("store"), 50)
+        query, store = values.get("query"), values.get("store")
+        # "Butter bei Lidl Arbeit" (one wildcard of the sentence file): the store at the end
+        if (
+            query
+            and not store
+            and (match := _AT_BRANCH_RE.match(str(query)))
+            and not manager.is_generic_store(match[2])
+            and (manager.resolve_branch(match[2]) or manager.resolve_store(match[2]))
+        ):
+            query, store = match[1].strip(), match[2].strip()
+        offers = manager.offers_view(when, query, store, 50)
         if not offers:
             hint = ""
             if manager.offers_source == "off" and not manager.offers:
@@ -888,7 +898,7 @@ class AddOfferIntent(_EssensplanerIntent):
     )
     slot_schema = {
         vol.Required("product", description="Produkt, z. B. 'Hähnchenbrust'"): cv.string,
-        vol.Required("store", description="Supermarkt, z. B. 'Lidl'"): cv.string,
+        vol.Required("store", description=_STORE_DESC): cv.string,
         vol.Required("price", description="Preis in Euro, z. B. '4,99'"): cv.string,
         vol.Optional("pack", description="Packungsgröße, z. B. '1 kg' oder '500 g'"): cv.string,
         vol.Optional(
@@ -904,9 +914,9 @@ class AddOfferIntent(_EssensplanerIntent):
             values["product"], values["store"], price, values.get("pack"), None, valid_to
         )
         recipes = manager._recipes_using(offer["keys"])
-        speech = (
-            f"Ich habe mir {offer['title']} bei {offer['store']} für {format_eur(price)} gemerkt"
-        )
+        # an offer of one branch ("Hauptladen", "Lidl Arbeit"): named like the branch
+        store = manager.branch_label(manager.get_branch(offer.get("branch_id"))) or offer["store"]
+        speech = f"Ich habe mir {offer['title']} bei {store} für {format_eur(price)} gemerkt"
         if offer.get("valid_to"):
             # without "bis …" it ends with the leaflet week (the coming Saturday): say so
             end = date.fromisoformat(offer["valid_to"][:10])

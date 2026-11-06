@@ -179,6 +179,16 @@ intents:
           mode: "erledigte"
   essensplaner_get_offers:
     data:
+      # offers of one store ("Hauptladen", own branch labels like "Lidl Arbeit" only with
+      # "bei"); "wo ist Butter bei Lidl im Angebot": the integration splits off the store
+      - sentences:
+          - "welche angebote (gibt es|hat) (bei|beim|im) {store} [diese woche|gerade|aktuell]"
+          - "was (ist|gibt es) (bei|beim|im) {store} [gerade|diese woche|aktuell] im angebot"
+          - "was hat {store} [gerade|diese woche|aktuell] im angebot"
+          - "wo (ist|gibt es) {query} (bei|beim|im) {store} [gerade] im angebot"
+          - "gibt es {query} (bei|beim|im) {store} [gerade] im angebot"
+          - "welche angebote (gibt es|hat) (bei|beim) {store_name:store}"
+          - "was (ist|gibt es) (bei|beim) {store_name:store} im angebot"
       - sentences:
           - "welche angebote gibt es [diese woche|gerade|aktuell]"
           - "was ist [gerade|diese woche] im angebot"

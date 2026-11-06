@@ -53,7 +53,13 @@ from .ingredients import (
     parse_ingredient,
     to_base,
 )
-from .offers import leaflet_week_end, names_key_product, offer_matches, short_key
+from .offers import (
+    leaflet_week_end,
+    names_key_product,
+    names_other_compound,
+    offer_matches,
+    short_key,
+)
 from .pricing import (
     LayeredPriceBook,
     PriceEntry,
@@ -73,6 +79,7 @@ from .retailers import (
     ALDI_SUED,
     RETAILERS,
     aldi_for_postcode,
+    is_chain_name,
     resolve_retailer,
     retailer_for_store_id,
     retailer_name,
@@ -346,6 +353,9 @@ class StoresMixin:
     store_preferences: dict[str, str]
     # key of a found list item -> the spoken product it was remembered for (both stored)
     store_preference_aliases: dict[str, str]
+    # key -> branch id when "immer hier" names a further branch of the chain ("Lidl Arbeit");
+    # without an entry the chain's first selected branch is meant
+    store_preference_branches: dict[str, str]
     price_sources_meta: dict[str, Any]
     branch_search: dict[str, Any]
     article_history: list[dict[str, Any]]
@@ -373,6 +383,7 @@ class StoresMixin:
         self.store_prices_learned = {}
         self.store_preferences = {}
         self.store_preference_aliases = {}
+        self.store_preference_branches = {}
         self.price_sources_meta = {}
         self.branch_search = {}
         self.article_history = []
@@ -386,6 +397,7 @@ class StoresMixin:
         self._offer_refresh = None  # set while marktguru is on (see enable_offer_refresh())
         self._offer_refresh_timer = None
         self._other_product_cache: dict[tuple[str, str], bool] = {}
+        self._estimate_cache: dict[str, bool] = {}
 
     def _load_store_data(self: EssensplanerManager, data: dict[str, Any]) -> None:
         """Read the 1.3 keys (missing in 1.2 data)."""
@@ -404,6 +416,11 @@ class StoresMixin:
         self.store_preference_aliases = {
             str(k): str(v)
             for k, v in _dict(data.get("store_preference_aliases")).items()
+            if v and k in self.store_preferences
+        }
+        self.store_preference_branches = {
+            str(k): str(v)
+            for k, v in _dict(data.get("store_preference_branches")).items()
             if v and k in self.store_preferences
         }
         self.price_sources_meta = _dict(data.get("price_sources_meta"))
@@ -425,6 +442,11 @@ class StoresMixin:
             "store_preference_aliases": {
                 k: v
                 for k, v in self.store_preference_aliases.items()
+                if k in self.store_preferences
+            },
+            "store_preference_branches": {
+                k: v
+                for k, v in self.store_preference_branches.items()
                 if k in self.store_preferences
             },
             "price_sources_meta": self.price_sources_meta,
@@ -950,7 +972,7 @@ class StoresMixin:
         self._ensure_price_context()
         self._reassign_open_items()
         self._changed("branches")
-        self._schedule_offer_refresh()
+        self.schedule_offer_refresh()
 
     def enable_offer_refresh(
         self: EssensplanerManager, refresh: Callable[[datetime | None], None]
@@ -982,9 +1004,10 @@ class StoresMixin:
             for retailer in retailers
         )
 
-    def _schedule_offer_refresh(self: EssensplanerManager) -> None:
+    def schedule_offer_refresh(self: EssensplanerManager) -> None:
         """Refresh offers in OFFER_REFRESH_DELAY s if the branches need a new search
-        (several changes in a row: one search, the running one is awaited anyway)."""
+        (several changes in a row: one search). Also called after every refresh: a branch
+        saved while a refresh was running (it searched the old postcodes) gets its own."""
         if self._offer_refresh is None or not self._new_offer_targets():
             return
         if self._offer_refresh_timer is not None:
@@ -1022,6 +1045,9 @@ class StoresMixin:
         self.branches = [b for b in self.branches if b.get("id") != branch_id]
         if self.main_branch == branch_id:
             self.main_branch = None
+        # "immer hier" at this branch: the chain's first branch again
+        for key in [k for k, v in self.store_preference_branches.items() if v == branch_id]:
+            del self.store_preference_branches[key]
         for item in self.shopping:
             if item.get("store_override") == branch_id:
                 item.pop("store_override", None)
@@ -1099,6 +1125,41 @@ class StoresMixin:
         """True for words that name no store ('im Supermarkt', 'beim Einkaufen', 'Laden')."""
         words = [w for w in fold(str(text or "")).split() if w not in _PREPOSITION_WORDS]
         return bool(words) and " ".join(words) in _GENERIC_STORE_WORDS
+
+    def named_branch(self: EssensplanerManager, text: str | None) -> dict[str, Any] | None:
+        """The one branch a store text names by itself: an id, "Hauptladen" / "mein Laden"
+        or an own label ("Lidl Arbeit", "Ecke"). None for a plain chain name ("Lidl": all
+        its branches) or another text. "Hauptladen" without a main branch: branch_not_found
+        (without any branch it is just a text, as in 1.2).
+        """
+        from .manager import _error  # avoid an import cycle
+
+        raw = str(text or "").strip()
+        if not raw:
+            return None
+        if found := self.get_branch(raw):
+            return found
+        words = fold(raw).split()
+        while words and words[0] in _FILLER_WORDS:
+            words.pop(0)
+        folded = " ".join(words)
+        if folded in _MAIN_WORDS and self.branches:
+            main = self.get_main_branch()
+            if main is None:
+                raise _error("branch_not_found", branch=raw)
+            return main
+        if not folded or is_chain_name(folded):
+            return None
+        labelled = [b for b in self.branches if fold(self.branch_label(b)) == folded]
+        return labelled[0] if len(labelled) == 1 else None
+
+    def store_text(self: EssensplanerManager, text: str | None) -> str | None:
+        """A store text with a branch word replaced by the branch's chain name ("Hauptladen"
+        -> "Aldi Süd", own label "Ecke" -> "Lidl"); other texts unchanged."""
+        branch = self.named_branch(text)
+        if branch is None or not branch.get("retailer"):
+            return text
+        return retailer_name(branch["retailer"])
 
     def resolve_branch(self: EssensplanerManager, text: str | None) -> dict[str, Any] | None:
         """Branch for an id, a label, 'Hauptladen' / 'main' or a store name (best match)."""
@@ -1181,7 +1242,7 @@ class StoresMixin:
 
         An offer found for certain postcodes ("zip_codes") applies to the branches searched
         at these postcodes; offers without postcode info (manual ones) to all branches of
-        the retailer.
+        the retailer, a manual offer for one branch ("branch_id") only to that one.
         """
         branch_zip = self._offer_plan()[1]
         by_retailer: dict[str, list[tuple[str, str | None]]] = {}
@@ -1193,8 +1254,12 @@ class StoresMixin:
         for offer in self.offers if offers is None else offers:
             candidates = by_retailer.get(self.offer_retailer(offer) or "", [])
             zips = offer.get("zip_codes")
+            # an offer entered for one branch ("Hauptladen", "Lidl Arbeit") applies there only
+            pinned = offer.get("branch_id")
             offer["branches"] = [
-                bid for bid, zip_code in candidates if not zips or zip_code in zips
+                bid
+                for bid, zip_code in candidates
+                if (bid == pinned if pinned else not zips or zip_code in zips)
             ]
 
     # ------------------------------------------------------------------
@@ -1210,7 +1275,19 @@ class StoresMixin:
             self._default_index = index
             self._default_index_source = id(self.default_prices)
             self._other_product_cache = {}
+            self._estimate_cache = {}
         return self._default_index
+
+    def has_estimate(self: EssensplanerManager, name: str) -> bool:
+        """True if a bundled estimate prices the name. Without one (e.g. Kaffee) nothing
+        tells an offer or price of "Eiskaffee" from one of Kaffee (see names_key_product())."""
+        defaults = self.defaults_index()
+        cache = self._estimate_cache
+        if name not in cache:
+            if len(cache) > 5000:
+                cache.clear()
+            cache[name] = defaults.lookup(name) is not None
+        return cache[name]
 
     def names_other_product(self: EssensplanerManager, name: str, key: str) -> bool:
         """True if `name` is a different, more specific product than the key `key`.
@@ -1426,11 +1503,13 @@ class StoresMixin:
     def _plausible_price(self: EssensplanerManager, key: str, entry: PriceEntry) -> bool:
         """Price per base unit within PLAUSIBLE_MIN..MAX x the estimate.
 
-        Without an estimate any price counts. Units that cannot be compared (100 g vs. the
-        estimate per piece) are converted with a known piece weight ("Paprika 500 g"),
-        else a price by weight is kept for an estimate per piece / Bund (nothing to compare
-        with: "Baguette 250 g", "Weißkohl 1 kg"). Not learned: a price per piece for an
-        estimate by weight ("Butter 1 Stück" would price 250 g as several pieces) and
+        Without an estimate any price counts, except a compound naming another product
+        ("Eiskaffee" for Kaffee). Units that cannot be compared (100 g vs. the estimate per
+        piece) are converted with a known piece weight ("Paprika 500 g"), else a price by
+        weight is kept for an estimate per piece / Bund only if it is the product itself
+        (nothing to compare with: "Baguette 250 g", "Weißkohl 1 kg"; not "Pesto Basilikum"
+        or "Gurken-Dill" for a Bund Basilikum / Dill). Not learned: a price per piece for
+        an estimate by weight ("Butter 1 Stück" would price 250 g as several pieces) and
         prices that may be another product – a short key ("ei": a 100-g bag of
         "Schoko-Eier") or a name of another product.
         """
@@ -1440,7 +1519,8 @@ class StoresMixin:
         default = self.defaults_index().lookup(key)
         reference = unit_price(default) if default else None
         if reference is None or reference[0] <= 0:
-            return True  # nothing to compare with
+            # nothing to compare with, but "Eiskaffee" is still no price of Kaffee
+            return not names_other_compound(entry.name, key)
         value = per[0]
         if not _comparable(per[1], reference[1]):
             if short_key(key) or self.names_other_product(entry.name, key):
@@ -1453,10 +1533,23 @@ class StoresMixin:
                 else None
             )
             if not size:
-                # nothing to compare with: kept, unless a piece price for a weight estimate
-                return not (per[1] == "Stück" and reference[1] in ("g", "ml"))
+                # nothing to compare with: never a piece price for a weight estimate, else
+                # only a price of the product itself (no range check protects the Bund)
+                if per[1] == "Stück" and reference[1] in ("g", "ml"):
+                    return False
+                return self._is_estimate_product(entry.name, key, default)
             value = per[0] * size
         return PLAUSIBLE_MIN <= value / reference[0] <= PLAUSIBLE_MAX
+
+    def _is_estimate_product(
+        self: EssensplanerManager, name: str, key: str, estimate: PriceEntry | None
+    ) -> bool:
+        """True if a price's product name is the key's product itself: its key ("Frische
+        Hefe" for "hefe") or the full name of the key's estimate ("Eisbergsalat" for
+        "salat"). Not "Pesto Basilikum", "Gurken-Dill" or "Kartoffelsalat"."""
+        if ingredient_key(name) == key:
+            return True
+        return estimate is not None and self.defaults_index().get(lookup_keys(name)[0]) is estimate
 
     def learn_store_price(
         self: EssensplanerManager,
@@ -1573,6 +1666,10 @@ class StoresMixin:
             )
             per = unit_price(entry) if entry else None
             for key in keys:
+                if not self.has_estimate(key) and not names_key_product(
+                    str(offer.get("product") or ""), key, str(offer.get("description") or "")
+                ):
+                    continue  # nothing to check the price with: "Eiskaffee" is no Kaffee
                 current = best.get((retailer, key))
                 if current is None or (
                     per is not None
@@ -1869,8 +1966,10 @@ class StoresMixin:
         price or estimate. retailer None: like best_price() without retailer.
         by_unit: the option with the lowest price per kg / l / piece wins (comparing
         products without an amount: a bigger pack on offer can be the better buy).
-        same_product: only offers of the item's product itself ("Kaffee Crema" for Kaffee,
-        not a compound like "Eiskaffee"; see names_key_product()).
+        same_product: only offers of the item's product itself ("Kaffee Crema" or "Jacobs
+        Krönung, Röstkaffee" for Kaffee, not a compound like "Eiskaffee"; see
+        names_key_product()). Always so for a product without an estimate: an "Eiskaffee"
+        offer neither prices Kaffee nor keeps it at its store.
         """
         day = day or self.today()
         today = self.today().isoformat()
@@ -1905,13 +2004,18 @@ class StoresMixin:
         if regular_entry is None:
             regular_entry = self.regular_book(retailer).lookup(name)
         regular = consider(regular_entry)
+        # without an estimate (e.g. Kaffee) nothing tells "Eiskaffee" from Kaffee: only
+        # offers of the product itself price the item
+        same_product = same_product or not self.has_estimate(name)
         for offer in self.offers_for(name, day, lead_days, retailer=retailer):
             if (offer.get("valid_to") or "9999")[:10] < today:
                 continue  # no longer buyable
             if branch_id and "branches" in offer and branch_id not in offer["branches"]:
                 continue  # found for another postcode
             if same_product and not names_key_product(
-                str(offer.get("product") or offer.get("title") or ""), key
+                str(offer.get("product") or offer.get("title") or ""),
+                key,
+                str(offer.get("description") or ""),
             ):
                 continue
             consider(self.offer_entry(offer, name))
@@ -1924,7 +2028,8 @@ class StoresMixin:
     ) -> bool:
         """Assign shopping items to branches ("Hauptladen + Ausnahmen"). Returns True if active.
 
-        Order: manual store_override -> store_preferences[key] ("immer hier") -> main branch,
+        Order: manual store_override -> store_preferences[key] ("immer hier": the chain's
+        first branch, or the branch in store_preference_branches) -> main branch,
         unless another selected store (first branch per retailer) has an offer that saves
         >= offer_min or a real store price that is >= min_saving EUR or >= min_percent %
         cheaper (and at least SPLIT_FLOOR EUR) -> the cheapest such store (another branch of
@@ -1962,6 +2067,7 @@ class StoresMixin:
             for b in self.selected_branches()
             if b.get("id") not in first_ids and b.get("retailer") in by_retailer
         ]
+        selected_ids = first_ids | {b["id"] for b in extras}
         moved: dict[str, list[tuple[dict[str, Any], dict[str, Any] | None]]] = {}
         for item in items:
             costs: dict[str, dict[str, Any] | None] = {
@@ -1991,7 +2097,7 @@ class StoresMixin:
                 override.get("selected", True) or override.get("id") == main.get("id")
             ):
                 override = None  # a paused branch: chosen again when it is active
-            preferred = by_retailer.get(self.store_preferences.get(item.get("key") or "") or "")
+            preferred = self._preferred_target(item.get("key") or "", by_retailer, selected_ids)
             if override is not None and override.get("retailer"):
                 target, reason = override, REASON_MANUAL
                 if override["id"] not in costs:
@@ -2000,6 +2106,10 @@ class StoresMixin:
                     )
             elif preferred is not None:
                 target, reason = preferred, REASON_PREFERRED
+                if preferred["id"] not in costs:  # a further branch of the chain
+                    costs[preferred["id"]] = self.price_at(
+                        item, preferred["retailer"], preferred["id"], day
+                    )
             elif settings["mode"] == SPLIT_MAIN_EXCEPTIONS:
                 best: tuple[dict[str, Any], dict[str, Any]] | None = None
                 if main_cost is None:
@@ -2060,6 +2170,53 @@ class StoresMixin:
                 for item, main_cost in entries:
                     self._set_store(item, main, REASON_MAIN, None, main_cost)
         return True
+
+    def _preferred_target(
+        self: EssensplanerManager,
+        key: str,
+        by_retailer: dict[str, dict[str, Any]],
+        selected_ids: set[str],
+    ) -> dict[str, Any] | None:
+        """Branch of "immer hier" for a product key: the remembered branch of the chain
+        while it is selected ("Lidl Arbeit"), else the chain's first selected branch."""
+        retailer = self.store_preferences.get(key)
+        if not retailer:
+            return None
+        pinned = self.get_branch(self.store_preference_branches.get(key))
+        if (
+            pinned is not None
+            and pinned.get("retailer") == retailer
+            and pinned.get("id") in selected_ids
+        ):
+            return pinned
+        return by_retailer.get(retailer)
+
+    def preference_branch(self: EssensplanerManager, key: str) -> dict[str, Any] | None:
+        """The branch a product is bought at "immer" (None if nothing is remembered)."""
+        candidates = self.store_candidates()
+        by_retailer = {c["retailer"]: c for c in candidates}
+        selected_ids = {b["id"] for b in self.selected_branches() if b.get("id")}
+        return self._preferred_target(key, by_retailer, selected_ids)
+
+    def _remember_preference(
+        self: EssensplanerManager, keys: list[str], branch: dict[str, Any]
+    ) -> None:
+        """store_preferences[key] = chain; a further branch of the chain also by its id."""
+        first = next(
+            (c for c in self.store_candidates() if c.get("retailer") == branch["retailer"]),
+            None,
+        )
+        for key in keys:
+            self.store_preferences[key] = branch["retailer"]
+            if first is not None and first.get("id") == branch.get("id"):
+                self.store_preference_branches.pop(key, None)
+            else:
+                self.store_preference_branches[key] = branch["id"]
+
+    def _forget_preference(self: EssensplanerManager, key: str) -> None:
+        self.store_preferences.pop(key, None)
+        self.store_preference_aliases.pop(key, None)
+        self.store_preference_branches.pop(key, None)
 
     @staticmethod
     def _worth_moving(
@@ -2141,25 +2298,29 @@ class StoresMixin:
         """Rebuild the description: '🏪 store · aisle · ≈ price · 🏷️ offer · recipes/note'.
 
         Without a store (split inactive) it is exactly the 1.2 description: plan items
-        'aisle · ≈ price · 🏷️ offer · recipes', manual items the user's text.
+        'aisle · ≈ price · 🏷️ offer · recipes', manual items the user's text. What the user
+        added (a note written in the to-do app, also on a generated item) is kept.
         """
         plan = item.get("source") == "plan"
-        if plan and isinstance(item.get("recipes"), list):
-            extra = [", ".join(item["recipes"])] if item["recipes"] else []
-        else:
-            extra = [
-                part.strip()
-                for part in str(item.get("description") or "").split(" · ")
-                if part.strip()
-                and not part.strip().startswith(_DESCRIPTION_PREFIXES)
-                and not (plan and part.strip() == item.get("category"))
-            ]
+        category = item.get("category") or "Sonstiges"
+        recipes = item.get("recipes") if plan and isinstance(item.get("recipes"), list) else None
+        joined = ", ".join(recipes) if recipes else ""
+        extra = [
+            part.strip()
+            for part in str(item.get("description") or "").split(" · ")
+            if part.strip()
+            and not part.strip().startswith(_DESCRIPTION_PREFIXES)
+            and not (plan and part.strip() == category)
+            and not (recipes is not None and part.strip() == joined)
+        ]
+        if joined:
+            extra.insert(0, joined)
         store = item.get("store_label") if item.get("branch_id") else None
         parts: list[str] = []
         if store:
             parts.append(f"🏪 {store}")
         if plan:
-            parts.append(item.get("category") or "Sonstiges")
+            parts.append(category)
         if item.get("price") is not None and (plan or store):
             parts.append(f"≈ {format_eur(item['price'])}")
         if (plan or store) and (offer := item.get("offer")):
@@ -2257,21 +2418,23 @@ class StoresMixin:
             item.pop("store_override", None)
             if always:
                 for k in keys:
-                    self.store_preferences.pop(k, None)
-                    self.store_preference_aliases.pop(k, None)
+                    self._forget_preference(k)
         else:
             branch = self.require_branch(store)
             item["store_override"] = branch["id"]
             if always and branch.get("retailer"):
-                for k in keys:
-                    self.store_preferences[k] = branch["retailer"]
+                self._remember_preference(keys, branch)
                 if len(keys) > 1:
                     # "Cherrytomaten" stored for "Tomaten": named as "Tomaten" only
                     self.store_preference_aliases[keys[0]] = keys[1]
                 else:
                     self.store_preference_aliases.pop(key, None)
-        self.assign_stores([item])
-        self.update_shopping_description(item)
+        if self.trip_depends_on_items() and item.get("status") != "completed":
+            # a store the user goes to now (or no longer) is (no longer) an extra trip
+            self._reassign_open_items()
+        else:
+            self.assign_stores([item])
+            self.update_shopping_description(item)
         self._changed("shopping")
         return item
 
@@ -2292,11 +2455,11 @@ class StoresMixin:
         words = fold(store or "").split()
         self.store_preference_aliases.pop(key, None)  # now named by itself
         if not words or " ".join(words) in _AUTO_WORDS:
-            self.store_preferences.pop(key, None)
+            self._forget_preference(key)
         else:
             branch = self.require_branch(store)
             if branch.get("retailer"):
-                self.store_preferences[key] = branch["retailer"]
+                self._remember_preference([key], branch)
             label = self.branch_label(branch)
         self._changed("shopping")
         return {"name": name, "key": key, "store_label": label, "preference_only": True}
@@ -2308,17 +2471,36 @@ class StoresMixin:
         return bool(words) and not set(words) <= _NO_PRODUCT_WORDS
 
     def preferred_products(self: EssensplanerManager, store: str) -> dict[str, Any]:
-        """Products bought "immer" at a store: {label, retailer, items: [names]}."""
+        """Products bought "immer" at a store: {label, retailer, items: [names]}.
+
+        A chain name ("Lidl") lists the products of all its branches, a branch ("Lidl
+        Arbeit", "Hauptladen") the ones bought at that branch.
+        """
         branch = self.require_branch(store)
         retailer = branch.get("retailer")
-        keys = [k for k, v in self.store_preferences.items() if retailer and v == retailer]
+        specific = self.named_branch(store)
+        keys = [
+            k
+            for k, v in self.store_preferences.items()
+            if retailer
+            and v == retailer
+            and (
+                specific is None
+                or (self.preference_branch(k) or {}).get("id") == specific.get("id")
+            )
+        ]
         # "Tomaten" also stands for the "Cherrytomaten" set_shopping_store() found and stored
         # with it; every product remembered by itself is named ("Milch" and "Kokosmilch")
         aliases = self.store_preference_aliases
         names = [self._preference_name(key) for key in keys if aliases.get(key) not in keys]
         return {
-            "label": retailer_name(retailer) if retailer else self.branch_label(branch),
+            "label": self.branch_label(specific)
+            if specific is not None
+            else retailer_name(retailer)
+            if retailer
+            else self.branch_label(branch),
             "retailer": retailer,
+            "branch_id": specific.get("id") if specific is not None else None,
             "items": sorted(names, key=fold),
         }
 
@@ -2377,13 +2559,21 @@ class StoresMixin:
             self.update_shopping_description(item)
         return bool(items)
 
+    def trip_depends_on_items(self: EssensplanerManager) -> bool:
+        """True with a minimum saving per extra store (trip_min): whether an offer elsewhere
+        is worth the trip depends on the other open items (a store visited anyway for an
+        own store choice, the savings of all items there), so a change of one item assigns
+        all open items again."""
+        return self.store_split_active and self.split_settings()["trip_min"] > 0
+
     def _after_price_change(self: EssensplanerManager, change: str) -> None:
         """Prices or offers changed: assign the open items again, save and notify."""
         self._reassign_open_items()
         self._changed(change)
 
     def new_day(self: EssensplanerManager) -> None:
-        """After midnight: drop expired offers and move items off offers that ended."""
+        """After midnight: drop expired offers, move items off offers that ended and onto
+        offers that start today (a leaflet of next week, a manual offer "Gültig ab")."""
         today = self.today().isoformat()
         removed = self.cleanup_offers()
         expired = any(
@@ -2391,7 +2581,10 @@ class StoresMixin:
             for i in self.shopping
             if i.get("status") != "completed"
         )
-        if removed or expired:
+        started = any(str(o.get("valid_from") or "")[:10] == today for o in self.offers)
+        if started:
+            self._invalidate_prices()
+        if removed or expired or started:
             self._after_price_change("offers")
 
     def stores_summary(self: EssensplanerManager) -> list[dict[str, Any]]:

@@ -1338,6 +1338,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._price_shopping_item(item, retailer, branch["id"] if branch else None)
         self.remember_article(summary, item["key"], item.get("retailer") or retailer)
         self.shopping.append(item)
+        if self.trip_depends_on_items():
+            # an own store choice or one more offer there: other offers of that store may
+            # now be worth the trip
+            self._reassign_open_items()
         self._changed("shopping")
         return item
 
@@ -1480,7 +1484,13 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
     def shopping_delete(self, uids: list[str]) -> None:
         """Delete shopping items."""
         remove = set(uids)
+        removed = [i for i in self.shopping if i["uid"] in remove]
         self.shopping = [i for i in self.shopping if i["uid"] not in remove]
+        if self.trip_depends_on_items() and any(
+            i.get("branch_id") not in (None, self.main_branch) and i.get("status") != "completed"
+            for i in removed
+        ):
+            self._reassign_open_items()  # one store less on the list: is the trip still worth it?
         self._changed("shopping")
 
     def shopping_move(self, uid: str, previous_uid: str | None) -> None:
@@ -1623,6 +1633,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "shopping_stores": self.stores_summary(),
             # "immer hier kaufen": product key -> retailer (store picker of the panel)
             "store_preferences": dict(self.store_preferences),
+            # ... at a further branch of the chain ("Lidl Arbeit"): product key -> branch id
+            "store_preference_branches": dict(self.store_preference_branches),
             "offers": self.offers_view("all", limit=300),
             "recipe_costs": {
                 rid: self.recipe_cost(recipe)["per_serving"] for rid, recipe in self.recipes.items()

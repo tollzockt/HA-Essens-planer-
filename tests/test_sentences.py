@@ -196,11 +196,54 @@ def test_all_intents_exist(intents: Intents) -> None:
             "essensplaner_set_shopping_store",
             {"item": "butter", "store": "rewe arbeit", "always": True},
         ),
+        # offer questions with a store (review round 4)
+        (
+            "welche angebote gibt es bei lidl",
+            "essensplaner_get_offers",
+            {"store": "lidl"},
+        ),
+        (
+            "was ist im hauptladen im angebot",
+            "essensplaner_get_offers",
+            {"store": "hauptladen"},
+        ),
+        (
+            "welche angebote gibt es im hauptladen",
+            "essensplaner_get_offers",
+            {"store": "hauptladen"},
+        ),
+        (
+            "wo ist butter bei lidl im angebot",
+            "essensplaner_get_offers",
+            {"query": "butter", "store": "lidl"},
+        ),
+        (
+            "gibt es butter bei rewe im angebot",
+            "essensplaner_get_offers",
+            {"query": "butter", "store": "rewe"},
+        ),
+        (
+            "was ist bei lidl arbeit im angebot",
+            "essensplaner_get_offers",
+            {"store": "lidl arbeit"},
+        ),
+        # one wildcard: the integration splits off the branch ("butter" at "lidl arbeit")
+        (
+            "wo ist butter bei lidl arbeit im angebot",
+            "essensplaner_get_offers",
+            {"query": "butter bei lidl arbeit"},
+        ),
         # no conflicts with the older sentences
         ("setze die zutaten auf die einkaufsliste", "essensplaner_create_shopping_list", {}),
         ("schreib die zutaten auf die einkaufsliste", "essensplaner_create_shopping_list", {}),
         ("was muss ich kaufen", "essensplaner_get_shopping_list", {}),
         ("wo ist butter im angebot", "essensplaner_get_offers", {"query": "butter"}),
+        ("was ist gerade im angebot", "essensplaner_get_offers", {}),
+        (
+            "welche angebote gibt es nächste woche",
+            "essensplaner_get_offers",
+            {"when": "nächste woche"},
+        ),
         ("was kostet der essensplan", "essensplaner_get_costs", {}),
     ],
 )

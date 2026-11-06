@@ -10,14 +10,24 @@ Fehlerbehebungen zu 1.3.0 – deine Daten bleiben erhalten, es gibt keine neuen 
   Nacht endet); „🔄 Läden neu zuordnen“ macht das weiterhin von Hand. Pausierte Filialen verlieren
   die Ladenwahl, bis sie wieder aktiv sind.
 - Ein Artikel **ohne Preis im Hauptladen** (z. B. Kaffee) wandert, wenn ein anderer Laden genau
-  dieses Produkt im Angebot hat – nicht für „Eiskaffee“ oder „Milchkaffee“. Bei mehreren Angeboten
-  zählt der Preis pro kg, Liter bzw. Stück, nicht die kleinste Packung.
+  dieses Produkt im Angebot hat – auch als Markenangebot („Jacobs Krönung“, Röstkaffee), nicht für
+  „Eiskaffee“ oder „Milchkaffee“. Bei mehreren Angeboten zählt der Preis pro kg, Liter bzw. Stück,
+  nicht die kleinste Packung. Ein „Eiskaffee“-Angebot im Hauptladen ist kein Preis für Kaffee und
+  hält ihn dort auch nicht fest.
 - **Angetippte Angebote**: Ein Angebot des Hauptladens ist keine Ladenwahl (der Artikel bleibt
   automatisch); ein Angebot eines anderen Ladens hält den Artikel dort, bis das Angebot endet.
   Gilt ein Angebot nur bei einer weiteren Filiale einer Kette (z. B. „Lidl Arbeit“ mit anderer
   Postleitzahl), landet der Artikel dort – und der Angebotspreis gilt nur in dieser Filiale.
 - **„Extra-Laden lohnt sich ab“** schickt Angebote nicht mehr in den Hauptladen zurück, wenn du in
-  dem Laden ohnehin einkaufst (ein Artikel dort von Hand gewählt oder „immer hier“).
+  dem Laden ohnehin einkaufst (ein Artikel dort von Hand gewählt oder „immer hier“) – sofort, wenn
+  du einen Laden wählst, einen Artikel hinzufügst oder wieder „Automatisch“ einstellst.
+- **„Immer in diesem Laden kaufen“** merkt sich auch eine weitere Filiale einer Kette (z. B. „Lidl
+  Arbeit“ neben „Lidl Zuhause“); bisher landete das Produkt beim nächsten Mal in der ersten
+  Filiale der Kette.
+- Eine **eigene Notiz an einem erzeugten Artikel** (z. B. in der To-do-App von Home Assistant
+  eingetragen) bleibt erhalten, wenn die Liste automatisch neu verteilt wird.
+- Ein Angebot, das **erst ab heute gilt** (Prospekt der nächsten Woche, „Gültig ab“), verteilt die
+  Liste kurz nach Mitternacht neu.
 - Mit der Aufteilung **„Aus“** gilt ein gewählter Preis bzw. eine gewählte Packung (z. B. 500 g
   aus der Artikelsuche) wieder.
 - Einträge aus 1.2 wie „Butter (2 EL + 25 g)“ behalten einen Preis in den Läden.
@@ -32,8 +42,13 @@ Fehlerbehebungen zu 1.3.0 – deine Daten bleiben erhalten, es gibt keine neuen 
 
 ### Jarvis
 - Die Satzdatei kennt die Formulierungen der eingebauten Einkaufsliste („setzt“, „meine Liste“,
-  „hinzufügen“) und eigene Filial-Bezeichnungen („Lidl Arbeit“, „Hauptladen“ – auch bei
-  Angebotsfragen).
+  „hinzufügen“) und eigene Filial-Bezeichnungen („Lidl Arbeit“, „Hauptladen“), auch bei
+  Angebotsfragen: „Welche Angebote gibt es bei Lidl?“, „Was ist im Hauptladen im Angebot?“, „Wo ist
+  Butter bei Lidl Arbeit im Angebot?“.
+- Ein Angebot für den **„Hauptladen“** oder eine eigene Filial-Bezeichnung („Im Hauptladen gibt es
+  Butter für 1,49 Euro“) gilt für genau diese Filiale; ein Preis für „Hauptladen“ wird der
+  Ladenpreis des Hauptladens (bisher ein allgemeiner Preis für alle Läden). „Was kaufe ich immer
+  bei Lidl Arbeit?“ nennt die Produkte dieser Filiale.
 - „Kauf Hackfleisch bei Lidl“ findet „Rinderhackfleisch“, „Tomaten“ die „Cherrytomaten“, wenn es
   das einzige dieser Art auf der Liste ist – „Milch“ aber nicht „Buttermilch“ oder „Kokosmilch“,
   „Zucker“ nicht „Puderzucker“.
@@ -55,15 +70,19 @@ Fehlerbehebungen zu 1.3.0 – deine Daten bleiben erhalten, es gibt keine neuen 
   Kokos-, Butter- und Hafermilch von Milch); unter dem alten Schlüssel gespeicherte Preise werden
   beim Update umgezogen. Ein einfaches „Aldi“ folgt deiner Aldi-Filiale.
 - **Eier-Angebote** werden erkannt („Frische Eier 10 Stück“, auch mit Gewichtsklasse „Größe M
-  (53-63 g), 10 Stück“) – Schoko-Eier, Eierlikör, Überraschungseier oder Eier-Nudeln nicht.
+  (53-63 g), 10 Stück“, „Gewichtsklasse M (53 g bis unter 63 g)“ oder „Größe L (ab 63 g)“) –
+  Schoko-Eier, Eierlikör, Überraschungseier oder Eier-Nudeln nicht.
 - **Gelernte Normalpreise**: Prospekt- und REWE-Preise nach Gewicht werden auch für Produkte mit
-  Richtwert je Stück gelernt (Baguette, Weißkohl, Hefe …); nicht gelernt wird ein Stückpreis für
-  ein Produkt mit Richtwert nach Gewicht (z. B. Butter) oder ein 100-g-Beutel für Eier.
+  Richtwert je Stück gelernt, wenn es das Produkt selbst ist (Baguette, Weißkohl, Hefe …) – nicht
+  „Pesto Basilikum“ für einen Bund Basilikum, „Gurken-Dill“ für Dill oder „Kartoffelsalat“ für
+  Salat. Nicht gelernt wird ein Stückpreis für ein Produkt mit Richtwert nach Gewicht (z. B.
+  Butter), ein 100-g-Beutel für Eier oder für Produkte ohne Richtwert ein anderes Produkt
+  („Eiskaffee“ für Kaffee).
 - Angebote ohne Packungsgröße (per Sprache) oder mit „10 Stück“ zählen für Preise und Läden; ein
   Preis ohne Packung gilt für die übliche Packung des Ladens.
 - marktguru sucht auch bis zu 10 Artikel, die du selbst auf die Liste gesetzt hast. Eine **neue
   Filiale** mit neuer Postleitzahl (oder Kette) wird etwa eine Minute nach dem Speichern
-  abgefragt, nicht erst am nächsten Morgen.
+  abgefragt, nicht erst am nächsten Morgen – auch wenn gerade eine Abfrage läuft.
 - Ohne Enddatum gespeicherte Angebote (aus 1.2 / 1.3.0) enden mit der laufenden Prospektwoche.
 - Einen Ladenpreis setzen behält den allgemeinen eigenen Preis; eine Ladenzelle zurücksetzen
   löscht ihn nicht mehr.

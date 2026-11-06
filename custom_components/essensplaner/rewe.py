@@ -40,7 +40,7 @@ from .const import CONF_REWE_ONLINE, DEFAULT_REWE_ONLINE, DOMAIN, HTTP_USER_AGEN
 from .ingredients import fold, ingredient_key, parse_ingredient, to_base
 from .netio import BodyTooLarge, async_read_body
 from .offers import OfferError, offer_matches
-from .pricing import offer_pack, plausible_pack, unit_price
+from .pricing import offer_pack, piece_weight_known, plausible_pack, unit_price
 from .stores import valid_postcode
 
 if TYPE_CHECKING:
@@ -470,7 +470,8 @@ def best_product(
 
     Only products with a plausible pack size count. base (g / ml / Stück, e.g. of the
     estimate) prefers products sold in a comparable unit; otherwise the unit most matches
-    are sold in is used.
+    are sold in is used – not for an estimate per Bund / Kopf / piece without a known
+    piece weight: the cheapest per g would be another product ("Pesto" for Basilikum).
     """
     candidates: list[tuple[float, float, str, dict[str, Any], str]] = []
     for product in products:
@@ -491,6 +492,8 @@ def best_product(
     wanted = {"g", "ml"} if base in ("g", "ml") else {base} if base else set()
     preferred = [c for c in candidates if c[4] in wanted]
     if not preferred:
+        if base and base not in ("g", "ml") and not piece_weight_known(key):
+            return None  # nothing to compare a price by weight with
         units = [c[4] for c in candidates]
         common = max(("g", "ml", "Stück"), key=units.count)
         preferred = [c for c in candidates if c[4] == common] or candidates

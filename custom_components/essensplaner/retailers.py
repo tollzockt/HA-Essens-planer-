@@ -166,6 +166,15 @@ def _alias_match(folded: str) -> str | None:
     return None
 
 
+def is_chain_name(text: str | None) -> bool:
+    """True if a text is just a chain's name or id ('Lidl', 'Aldi', 'rewe', 'Aldi Süd'),
+    not a branch ('Lidl Arbeit') or another word."""
+    folded = fold(str(text or ""))
+    return bool(folded) and (
+        folded == _GENERIC_ALDI or folded in _ALIASES or str(text).strip().lower() in RETAILERS
+    )
+
+
 def resolve_retailer(
     text: str | None, selected: list[str] | None = None, zip_code: str | None = None
 ) -> str | None:

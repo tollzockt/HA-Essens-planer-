@@ -49,6 +49,12 @@ _RANGE_RE = re.compile(
     r"\d+(?:[.,]\d+)?\s*(?:kg|g|ml|l)?\s*[-–]\s*\d+(?:[.,]\d+)?\s*-?\s*(?:kg|g|ml|l|liter)\b",
     re.IGNORECASE,
 )
+# the same written out: egg weight classes "(53 g bis unter 63 g)", "(ab 63 g)", "über 73 g"
+_WEIGHT_CLASS_RE = re.compile(
+    r"\d+(?:[.,]\d+)?\s*g\s+bis\s+(?:unter\s+)?\d+(?:[.,]\d+)?\s*g\b"
+    r"|\b(?:ab|über|ueber|unter|bis(?:\s+unter)?)\s+\d+(?:[.,]\d+)?\s*g\b",
+    re.IGNORECASE,
+)
 
 
 class OfferError(Exception):
@@ -58,11 +64,12 @@ class OfferError(Exception):
 def parse_pack(text: str | None) -> tuple[float, str] | None:
     """Package size from texts like 'je 500-g-Packung', '2 x 125 g', '1,5-l-Flasche'.
 
-    Ranges are skipped: 'Eier Größe M (53-63 g), 10 Stück' has no size in grams.
+    Ranges and weight classes are skipped: 'Eier Größe M (53-63 g), 10 Stück' or 'Größe L
+    (ab 63 g)' has no size in grams.
     """
     if not text:
         return None
-    text = _RANGE_RE.sub(" ", text)
+    text = _WEIGHT_CLASS_RE.sub(" ", _RANGE_RE.sub(" ", text))
     if match := _MULTI_RE.search(text):
         count = float(match.group(1))
         value = float(match.group(2).replace(",", "."))
@@ -164,18 +171,6 @@ def _short_key_matches(offer_text: str, key: str) -> bool:
     return not (pack and pack[1] in ("g", "ml") and not _COUNT_RE.search(offer_text))
 
 
-def names_key_product(product: str, key: str) -> bool:
-    """True if a product name is the key's product itself: 'Kaffee Crema, ganze Bohne' or
-    'Bio-Kaffee' for "kaffee" (the key as whole words), not 'Eiskaffee' or 'Milchkaffee'
-    (compounds that offer_matches() accepts, but other products)."""
-    if not key:
-        return False
-    if ingredient_key(product) == key:
-        return True
-    words = {_singular(w) for w in fold(product).split()}
-    return all(w in words for w in key.split())
-
-
 def offer_matches(offer_text: str, key: str) -> bool:
     """True if an offer title fits an ingredient key ('haehnchenbrust' ~ 'Hähnchenbrustfilet')."""
     if not key:
@@ -216,6 +211,92 @@ def _token_match(token: str, word: str) -> bool:
     if token.startswith(word):
         rest = token[len(word) :]
         return rest in _PLURAL_REST or rest.startswith(_ALLOWED_REST)
+    return False
+
+
+# the first part of a compound that makes it another product ("Eis|kaffee", "Milch|kaffee",
+# "Malz|kaffee"); other compounds are the same product ("Röst|kaffee", "Filter|kaffee")
+_OTHER_PRODUCT_MODIFIERS = (
+    "eis",
+    "milch",
+    "malz",
+    "getreide",
+    "gerste",
+    "zichorie",
+    "lupine",
+    "dinkel",
+    "kinder",
+    "kokos",
+    "mandel",
+    "hafer",
+    "soja",
+    "reis",
+    "butter",
+    "schoko",
+    "kakao",
+)
+# what may follow the key inside a compound of the same product ("Kaffee|bohnen",
+# "Kaffee|pads"); else the compound is another product ("Kaffee|sahne", "Kaffee|filter")
+_SAME_PRODUCT_REST = (*_ALLOWED_REST, "bohne", "pad", "kapsel", "pulver")
+
+
+def _key_product_verdict(text: str, key: str) -> bool | None:
+    """How a text names the key's product: True (the product: whole words or a compound of
+    the same product), False (a compound naming another product), None (not mentioned)."""
+    tokens = [_singular(w) for w in fold(text).split()]
+    words = key.split()
+    if all(w in tokens for w in words):
+        return True
+    mentioned = 0
+    for word in [w for w in words if len(w) >= 3]:
+        found = word in tokens
+        for token in tokens:
+            if token == word or word not in token:
+                continue
+            if token.endswith(word):
+                modifier = token[: -len(word)]
+                forms = {modifier, modifier[:-1] if modifier.endswith("s") else modifier}
+                if any(
+                    form.startswith(_OTHER_PRODUCT_MODIFIERS)
+                    or form.endswith(_OTHER_PRODUCT_MODIFIERS)
+                    for form in forms
+                ):
+                    return False  # "Eiskaffee", "Vollmilchkaffee"
+                found = True  # "Röstkaffee", "Bohnenkaffee"
+            elif token.startswith(word):
+                rest = token[len(word) :]
+                if rest not in _PLURAL_REST and not rest.startswith(_SAME_PRODUCT_REST):
+                    return False  # "Kaffeesahne"
+                found = True  # "Kaffeebohnen"
+        mentioned += found
+    if mentioned and mentioned == len([w for w in words if len(w) >= 3]):
+        return True
+    return None
+
+
+def names_other_compound(text: str, key: str) -> bool:
+    """True if a text names another product in a compound with the key ('Eiskaffee',
+    'Kaffeesahne' for "kaffee"); False for the product itself or a text without the key."""
+    return bool(key) and _key_product_verdict(text, key) is False
+
+
+def names_key_product(product: str, key: str, description: str = "") -> bool:
+    """True if an offer is of the key's product itself, not of a compound that
+    offer_matches() accepts but that is another product.
+
+    The product name decides when it names the key: 'Kaffee Crema, ganze Bohne',
+    'Bio-Kaffee' or 'Röstkaffee' for "kaffee", not 'Eiskaffee', 'Milchkaffee' or
+    'Kaffeesahne'. A brand name without it ('Krönung', 'Prodomo') is decided by the
+    description the offer was matched with ('Röstkaffee, gemahlen').
+    """
+    if not key:
+        return False
+    if ingredient_key(product) == key:
+        return True
+    for text in (product, description, f"{product} {description}"):
+        verdict = _key_product_verdict(text, key)
+        if verdict is not None:
+            return verdict
     return False
 
 

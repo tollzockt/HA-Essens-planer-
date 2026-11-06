@@ -586,6 +586,7 @@ class EconomyMixin:
         over a general price without store label (that one stays the price everywhere).
         """
         key = ingredient_key(name)
+        store = self.store_text(store) if store else None  # "Hauptladen" -> "Aldi Süd"
         retailer = self.resolve_store(store) if store else None
         entry: dict[str, Any] = {
             "name": name.strip(),
@@ -621,6 +622,7 @@ class EconomyMixin:
         store label (made by the 1.3 upgrade or by set_price with a store).
         """
         key = ingredient_key(name)
+        store = self.store_text(store) if store else None
         retailer = self.resolve_store(store) if store else None
         if retailer:
             removed = self._pop_store_price(retailer, key, name)
@@ -659,10 +661,17 @@ class EconomyMixin:
         """Add an offer by hand (or by voice).
 
         Without valid_to it ends with the leaflet week (the coming Saturday): an offer
-        without an end would move items to that store for good.
+        without an end would move items to that store for good. A store text naming one
+        branch ("Hauptladen", an own label like "Lidl Arbeit") stores the offer for that
+        branch (its chain as store); a chain name ("Lidl") for all branches of the chain.
         """
         if valid_to is None:
             valid_to = leaflet_week_end(max(valid_from or self.today(), self.today()))
+        branch = self.named_branch(store)
+        if branch is not None and not branch.get("retailer"):
+            branch = None
+        if branch is not None:
+            store = retailer_name(branch["retailer"])
         offer = manual_offer(product, store, price, pack_text, valid_from, valid_to, old_price)
         # ids come from the clock: keep them unique (offers added in the same millisecond)
         known = {o.get("id") for o in self.offers}
@@ -670,6 +679,10 @@ class EconomyMixin:
             offer["id"] = f"man_{int(offer['id'][4:]) + 1}"
         # a plain "Aldi" is not stored: it follows the Aldi branch (see offer_retailer())
         offer["retailer"] = self._certain_offer_retailer(offer)
+        if branch is not None:
+            offer["retailer"] = branch["retailer"]
+            offer["store_id"] = branch["retailer"]
+            offer["branch_id"] = branch["id"]
         # also match recipe ingredients (e.g. offer "Hähnchenbrustfilet" -> "Hähnchenbrust")
         keys = set(offer["keys"])
         for recipe in self.recipes.values():

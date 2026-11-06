@@ -132,8 +132,8 @@ async def test_unpriced_item_ignores_compound_offers(
     item = _item(manager, "Kaffee")
     assert (item["branch_id"], item["store_reason"], item["price"]) == (aldi["id"], "main", None)
     assert "🏷️" not in item["description"]
-    # the offer is still shown as an alternative
-    assert lidl["id"] in [a["branch_id"] for a in item["alternatives"]]
+    # an iced coffee is no price of Kaffee at Lidl either (review round 4)
+    assert lidl["id"] not in [a["branch_id"] for a in item["alternatives"]]
 
 
 async def test_unpriced_item_moves_by_unit_price(

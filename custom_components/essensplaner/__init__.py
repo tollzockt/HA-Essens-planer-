@@ -141,6 +141,9 @@ def _setup_offer_refresh(
             return
         if meta.get("status") == "error":
             _LOGGER.warning("Essensplaner offers: %s", "; ".join(meta.get("errors") or []))
+        # a branch saved while this (or the joined) refresh ran: its postcode was not
+        # searched yet (the run's targets are in offers_meta, so this ends)
+        manager.schedule_offer_refresh()
 
     @callback
     def _refresh(_now: datetime | None = None) -> None:
