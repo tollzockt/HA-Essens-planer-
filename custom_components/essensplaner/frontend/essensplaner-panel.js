@@ -411,6 +411,7 @@ const STYLE = `
   /* stores & prices (1.3) */
   .rdot { width: 30px; height: 30px; border-radius: 9px; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: -.02em; }
   .rdot.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 10px; }
+  .rdot.xs { width: 18px; height: 18px; border-radius: 6px; font-size: 8.5px; }
   .bdg { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; line-height: 1.5; border-radius: 999px; padding: 1px 8px; background: var(--ep-accent-bg); color: var(--primary-text-color); white-space: nowrap; }
   .bdg.star { background: var(--ep-primary); color: var(--ep-on-primary); }
   .bdg.warn { background: color-mix(in srgb, #ef6c00 16%, transparent); color: var(--ep-orange); }
@@ -446,8 +447,18 @@ const STYLE = `
   .markets { display: flex; flex-direction: column; gap: 4px; }
   .market { display: flex; gap: 8px; align-items: center; font-size: 13px; border: 1px solid var(--ep-divider); border-radius: 9px; padding: 6px 8px; }
   .market span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .zonechips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .zonechips .chip { font-size: 13px; padding: 7px 12px; min-height: 36px; }
+  details.prefbox { border: 1px solid var(--ep-divider); border-radius: 12px; padding: 0 12px; }
+  details.prefbox[open] { padding-bottom: 12px; }
+  details.prefbox > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 500; }
+  details.prefbox > summary .meta { font-weight: 400; }
+  details.prefbox > .hint { margin: 0 0 8px; }
+  .prefrow { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--ep-divider); min-width: 0; }
+  .prefitems { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .prefchip { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; background: var(--ep-accent-bg); padding-left: 11px; font-size: 13.5px; max-width: 100%; overflow-wrap: anywhere; }
+  .prefchip .icon { width: 32px; height: 32px; font-size: 14px; flex: none; }
+  .zonechips, .chainchips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .zonechips .chip, .chainchips .chip { font-size: 13px; padding: 7px 12px; min-height: 36px; }
+  .chainchips .chip { display: inline-flex; align-items: center; gap: 5px; }
   .osmlist { display: flex; flex-direction: column; gap: 6px; }
   .osm { display: flex; gap: 10px; align-items: center; border: 1px solid var(--ep-divider); border-radius: 10px; padding: 8px 10px; min-width: 0; }
   .osm .info { flex: 1; min-width: 0; }
@@ -534,8 +545,8 @@ const STYLE = `
   @media (pointer: coarse) {
     .btn, .btn.small, .add { min-height: 40px; }
     .btn.small { padding: 6px 12px; }
-    .icon, .bacts .icon, .recipe .fav { width: 40px; height: 40px; }
-    button.chip, label.chip, .zonechips .chip { min-height: 40px; display: inline-flex; align-items: center; gap: 4px; }
+    .icon, .bacts .icon, .recipe .fav, .prefchip .icon { width: 40px; height: 40px; }
+    button.chip, label.chip, .zonechips .chip, .chainchips .chip { min-height: 40px; display: inline-flex; align-items: center; gap: 4px; }
     input:not([type=checkbox]):not([type=radio]), select { min-height: 40px; }
     .rewebox input { padding: 8px 10px; }
   }
@@ -567,6 +578,7 @@ class EssensplanerPanel extends HTMLElement {
     this._searchZones = null;
     this._searchRoute = null;
     this._searchRadius = null;
+    this._searchChains = new Set(); // chain filter of the search results (empty = all)
     this._searching = false;
     this._searchError = null;
     this._manual = { store: "", label: "", street: "", postcode: "", city: "" };
@@ -1794,6 +1806,9 @@ class EssensplanerPanel extends HTMLElement {
       case "branch-move":
         await this._moveBranch(d.id, Number(d.delta));
         break;
+      case "pref-forget":
+        await this._forgetStorePref(el, d.key);
+        break;
       case "branch-edit":
         this._openBranchEditor(d.id);
         break;
@@ -1838,6 +1853,14 @@ class EssensplanerPanel extends HTMLElement {
         const zones = this._zoneSelection();
         if (zones.has(d.zone)) zones.delete(d.zone);
         else zones.add(d.zone);
+        this._renderContent();
+        break;
+      }
+      case "chain-toggle": {
+        const chains = this._searchChains;
+        if (!d.chain) chains.clear();
+        else if (chains.has(d.chain)) chains.delete(d.chain);
+        else chains.add(d.chain);
         this._renderContent();
         break;
       }
@@ -2543,8 +2566,12 @@ class EssensplanerPanel extends HTMLElement {
         .slice(0, 60)
         .map((p) => `<div class="pricerow"><span>${esc(p.name)} <span class="meta">${p.amount} ${esc(p.unit)} · ${sourceLabel[p.source] || p.source}${p.store ? ` · ${esc(p.store)}` : ""}</span></span><b>${eur(p.price)}</b><button class="btn small" data-edit="${esc(p.name)}">✏️</button></div>`)
         .join("");
+    // with a main store its store book counts (README order): store prices before general ones
+    const precedence = this._data.economy?.main_retailer
+      ? "Eigene Preise haben Vorrang vor Richtwerten. Ein Ladenpreis (eigener oder aus dem Prospekt gelernter) gilt in seinem Laden vor dem allgemeinen Preis – beim Hauptladen also auch für Einkaufsliste und Rezeptkosten."
+      : "Eigene Preise haben Vorrang; Normalpreise aus Prospekten werden automatisch gelernt.";
     const body = `
-      <div class="hint">Richtwerte sind typische Discounter-Preise. Eigene Preise haben Vorrang; Normalpreise aus Prospekten werden automatisch gelernt.</div>
+      <div class="hint">Richtwerte sind typische Discounter-Preise. ${precedence}</div>
       <input type="search" class="q" placeholder="Zutat suchen …">
       <div class="list">${rows()}</div>
       <div class="section editor" style="display:none">
@@ -2734,7 +2761,73 @@ class EssensplanerPanel extends HTMLElement {
     else if (split.mode === "main_only") intro += `<div class="notice">ℹ️ Modus „nur Hauptladen“: alles kommt in den Hauptladen, die anderen Läden dienen zum Preisvergleich.</div>`;
     const others = branches.filter((b) => !b.main);
     const cards = branches.map((b) => this._branchCard(b, others)).join("");
-    return `${intro}<div class="branchgrid">${cards}</div>`;
+    return `${intro}<div class="branchgrid">${cards}</div>${this._renderStorePrefs()}`;
+  }
+
+  /** Readable name of an "immer hier" product key (from the backend, else the key). */
+  _prefName(key) {
+    const name = this._data.store_preference_names?.[key];
+    return name || String(key).charAt(0).toUpperCase() + String(key).slice(1);
+  }
+
+  /** "Immer hier gekauft": the remembered store per product (also ones not on the list). */
+  _renderStorePrefs() {
+    const prefs = this._data.store_preferences || {};
+    const keys = Object.keys(prefs);
+    // without an active split (no main store / "aus") the preferences have no effect
+    if (!keys.length || !this._data.store_split?.active) return "";
+    const order = this._orderedBranches();
+    const active = new Set(order.filter((b) => b.selected).map((b) => b.retailer));
+    const rank = (retailer) => {
+      const i = order.findIndex((b) => b.retailer === retailer);
+      return i < 0 ? order.length : i;
+    };
+    const groups = new Map();
+    for (const key of keys) {
+      if (!groups.has(prefs[key])) groups.set(prefs[key], []);
+      groups.get(prefs[key]).push({ key, name: this._prefName(key) });
+    }
+    const rows = [...groups.entries()]
+      .sort((a, b) => rank(a[0]) - rank(b[0]) || this._retailerName(a[0]).localeCompare(this._retailerName(b[0]), "de"))
+      .map(([retailer, items]) => {
+        const store = this._retailerName(retailer);
+        const chips = items
+          .sort((a, b) => a.name.localeCompare(b.name, "de"))
+          .map((p) => `<span class="prefchip">${esc(p.name)}<button class="icon" data-action="pref-forget" data-key="${esc(p.key)}" title="${esc(`${p.name} nicht mehr immer bei ${store} kaufen`)}" aria-label="${esc(`${p.name} nicht mehr immer bei ${store} kaufen`)}">✕</button></span>`)
+          .join("");
+        const off = active.has(retailer) ? "" : ' <span class="bdg warn" title="Kein aktiver Laden dieser Kette – der Artikel kommt in den Hauptladen">kein aktiver Laden</span>';
+        return `<div class="prefrow">${retailerDot(retailer, store).replace('class="rdot"', 'class="rdot sm"')}<div class="prefitems"><b>${esc(store)}</b>${off}<div class="badges">${chips}</div></div></div>`;
+      })
+      .join("");
+    const open = this._secOpen.prefs ?? true;
+    return `<details class="prefbox" data-sec="prefs" data-open="${open ? 1 : 0}" ${open ? "open" : ""}>
+        <summary>⭐ Immer hier gekauft <span class="meta">${keys.length} Artikel</span></summary>
+        <div class="hint">Diese Artikel kommen auf jeder Einkaufsliste in den gemerkten Laden (gemerkt per Sprache oder mit ⇄ „Immer in diesem Laden kaufen“). ✕ = Laden wieder automatisch wählen.</div>
+        ${rows}
+      </details>`;
+  }
+
+  /** ✕ at an "immer hier" product: forget the remembered store (as the ⇄ picker does). */
+  async _forgetStorePref(el, key) {
+    const retailer = this._data.store_preferences?.[key];
+    if (!retailer) return;
+    const name = this._prefName(key);
+    const shopping = this._data.shopping || [];
+    // on the list: by uid (exact match); else by the product key ("Kaffee" not on the list)
+    const item = shopping.find((i) => i.key === key && i.status !== "completed") || shopping.find((i) => i.key === key);
+    const overrides = Object.fromEntries(shopping.filter((i) => i.store_override).map((i) => [i.uid, i.store_override]));
+    el.disabled = true;
+    try {
+      const res = await this._service("set_shopping_store", { item: item?.uid || key, store: "auto", always: true }, true);
+      // "automatisch" also drops the item's own store choice: keep it, only "immer" is forgotten
+      const uid = res?.item?.uid;
+      if (uid && overrides[uid] && this._branch(overrides[uid])) {
+        await this._service("set_shopping_store", { item: uid, store: overrides[uid] }, true);
+      }
+      this._toast(`✕ ${name}: nicht mehr immer bei ${this._retailerName(retailer)}`);
+    } catch (e) {
+      el.disabled = false; // toast shown
+    }
   }
 
   _branchCard(b, others) {
@@ -2841,8 +2934,29 @@ class EssensplanerPanel extends HTMLElement {
     const results = s?.results || [];
     const warnings = [...(s?.warnings || [])];
     const error = this._searchError || s?.error;
+    // chain filter: around home, work and the commute there can be a hundred shops
+    const chainOf = (r) => r.retailer || "?";
+    const chains = new Map();
+    for (const r of results) {
+      const id = chainOf(r);
+      const c = chains.get(id) || { id, name: r.retailer_name || this._retailerName(r.retailer) || "Unbekannt", count: 0 };
+      c.count += 1;
+      chains.set(id, c);
+    }
+    const picked = new Set([...this._searchChains].filter((id) => chains.has(id)));
+    const shown = picked.size ? results.filter((r) => picked.has(chainOf(r))) : results;
+    const chainChips =
+      chains.size > 1
+        ? `<div class="chainchips" role="group" aria-label="Nach Kette filtern">
+            <button class="chip ${picked.size ? "" : "active"}" data-action="chain-toggle" data-chain="" aria-pressed="${!picked.size}">Alle · ${results.length}</button>
+            ${[...chains.values()]
+              .sort((a, b) => a.name.localeCompare(b.name, "de"))
+              .map((c) => `<button class="chip ${picked.has(c.id) ? "active" : ""}" data-action="chain-toggle" data-chain="${esc(c.id)}" aria-pressed="${picked.has(c.id)}">${retailerDot(c.id === "?" ? "" : c.id, c.name).replace('class="rdot"', 'class="rdot xs"')} ${esc(c.name)} · ${c.count}</button>`)
+              .join("")}
+          </div>`
+        : "";
     const list = results.length
-      ? `<div class="osmlist">${results
+      ? `${chainChips}<div class="osmlist">${shown
           .map((r) => {
             const addr = [r.street, [r.postcode, r.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
             const flags = [
@@ -2875,7 +2989,7 @@ class EssensplanerPanel extends HTMLElement {
       <div class="hint">🔒 Die Koordinaten deiner Zonen werden – auf ca. 100 m gerundet – an overpass-api.de gesendet. Das passiert nur, wenn du auf „Suchen“ tippst.</div>
       ${error ? `<div class="notice err">⚠️ ${esc(error)}</div>` : ""}
       ${warnings.map((w) => `<div class="notice warn">${esc(w)}</div>`).join("")}
-      ${s?.time ? `<div class="meta">Letzte Suche: ${esc(timeText(s.time))} · ${results.length} Läden${s.areas?.length ? ` um ${esc(s.areas.map((a) => a.name).join(", "))}` : ""}${s.cached ? " · gespeichert" : ""}</div>` : ""}
+      ${s?.time ? `<div class="meta">Letzte Suche: ${esc(timeText(s.time))} · ${shown.length < results.length ? `${shown.length} von ${results.length}` : results.length} Läden${s.areas?.length ? ` um ${esc(s.areas.map((a) => a.name).join(", "))}` : ""}${s.cached ? " · gespeichert" : ""}</div>` : ""}
       ${list}
       <div class="meta">${esc(s?.attribution || "© OpenStreetMap-Mitwirkende (ODbL)")}</div>`;
   }
@@ -3020,7 +3134,7 @@ class EssensplanerPanel extends HTMLElement {
         <input type="search" placeholder="🔍 Artikel suchen, z. B. „Butter“" value="${esc(this._priceQuery)}" data-input="price-filter" data-focuskey="price-filter" aria-label="Preisliste filtern">
         <button class="btn ghost" data-action="open-prices" title="Richtwerte und eigene allgemeine Preise">📋 Allgemeine Richtwerte</button>
       </div>
-      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. Ohne eigenen Preis gilt der Richtwert. Fehlt ein Artikel (z. B. Kaffee)? Such ihn oben und lege ihn an.</div>
+      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. Ohne Ladenpreis gilt dein allgemeiner Preis bzw. der Richtwert. Fehlt ein Artikel (z. B. Kaffee)? Such ihn oben und lege ihn an.</div>
       <div class="pmbox">${this._priceMatrixHtml()}</div>`;
   }
 
@@ -3046,7 +3160,7 @@ class EssensplanerPanel extends HTMLElement {
     if (!cell) return `<button class="cell none" data-action="price-cell" data-key="${esc(row.key)}"><span class="p">＋</span></button>`;
     // an own general price from 1.2 may carry a store label ("Preis bei Aldi")
     const label = general ? `✏️ eigener Preis${general.store ? ` (${general.store})` : ""}` : "Richtwert";
-    return `<button class="cell" data-action="price-cell" data-key="${esc(row.key)}" title="Gilt in allen Läden ohne eigenen Preis">
+    return `<button class="cell" data-action="price-cell" data-key="${esc(row.key)}" title="Gilt in allen Läden ohne eigenen oder gelernten Ladenpreis">
         <span class="p">${eur(cell.price)}</span><span class="s">${esc(packText(cell.amount, cell.unit))}</span><span class="s">${esc(label)}</span></button>`;
   }
 
@@ -3126,7 +3240,7 @@ class EssensplanerPanel extends HTMLElement {
       ? `<label class="field">Artikel<input class="ename" autocomplete="off" placeholder="z. B. Kaffee" value="${esc(row.name)}"></label>
       <label class="field">Laden<select class="estore"><option value="">Alle Läden (allgemeiner Preis)</option>${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === retailer ? "selected" : ""}>${esc(r.name)}${r.id === main ? " ⭐" : ""}</option>`).join("")}</select></label>
       <div class="hint">Der Artikel steht danach in der Preisliste; auf der Einkaufsliste bekommt er diesen Preis.</div>`
-      : `<div class="hint">${retailer ? `Preis bei <b>${esc(storeName)}</b>` : "Allgemeiner Preis – gilt in allen Läden ohne eigenen Preis"} · ${esc(info)}</div>`;
+      : `<div class="hint">${retailer ? `Preis bei <b>${esc(storeName)}</b>` : "Allgemeiner Preis – gilt in allen Läden ohne eigenen oder gelernten Ladenpreis"} · ${esc(info)}</div>`;
     const body = `
       ${head}
       <div class="grid2">

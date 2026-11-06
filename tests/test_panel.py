@@ -260,3 +260,51 @@ async def test_price_list_new_article(
     await client.send_json({"id": 2, "type": f"{DOMAIN}/store_prices", "query": "Kaffee"})
     rows = (await client.receive_json())["result"]["rows"]
     assert [(r["name"], r["stores"]["lidl"]["price"]) for r in rows] == [("Kaffee", 4.99)]
+
+
+async def test_store_preferences_overview(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
+) -> None:
+    """The panel lists the "immer hier" products with names and forgets them with ✕.
+
+    Also a product that is not on the list ("Kaffee kaufe ich immer bei Lidl"). For an item
+    on the list the panel sends its uid and keeps the item's own store choice.
+    """
+    manager = setup_integration.runtime_data
+    manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    lidl = manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    manager.set_shopping_store("Kaffee", "Lidl", always=True)
+    cheese = manager.shopping_add("Frischkäse")
+    manager.set_shopping_store(cheese["uid"], lidl["id"], always=True)
+
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/data"})
+    data = (await client.receive_json())["result"]
+    assert data["store_preferences"] == {"kaffee": "lidl", "frischkaese": "lidl"}
+    assert data["store_preference_names"] == {"kaffee": "Kaffee", "frischkaese": "Frischkäse"}
+
+    # ✕ at "Kaffee" (not on the list): by key
+    await hass.services.async_call(
+        DOMAIN,
+        "set_shopping_store",
+        {"item": "kaffee", "store": "auto", "always": True},
+        blocking=True,
+        return_response=True,
+    )
+    assert manager.store_preferences == {"frischkaese": "lidl"}
+    # ✕ at "Frischkäse" (on the list): by uid, then the item's own choice again
+    for store in ("auto", lidl["id"]):
+        await hass.services.async_call(
+            DOMAIN,
+            "set_shopping_store",
+            {"item": cheese["uid"], "store": store, "always": store == "auto"},
+            blocking=True,
+            return_response=True,
+        )
+    assert manager.store_preferences == {}
+    item = next(i for i in manager.shopping if i["uid"] == cheese["uid"])
+    assert (item["store_override"], item["store_reason"]) == (lidl["id"], "manual")
+
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/data"})
+    data = (await client.receive_json())["result"]
+    assert data["store_preferences"] == data["store_preference_names"] == {}

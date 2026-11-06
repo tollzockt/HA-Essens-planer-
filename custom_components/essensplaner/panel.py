@@ -113,8 +113,13 @@ def ws_get_data(
         connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
         return
     entry = entries[0]
-    data = entry.runtime_data.export()
+    manager = entry.runtime_data
+    data = manager.export()
     data["entities"] = _entity_ids(hass, entry.entry_id)
+    # readable names of the "immer hier kaufen" products (also ones not on the list)
+    data["store_preference_names"] = {
+        key: manager._preference_name(key) for key in data.get("store_preferences") or {}
+    }
     connection.send_result(msg["id"], data)
 
 
