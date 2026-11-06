@@ -412,9 +412,15 @@ class ArticlesMixin:
         if key and any(r["match"] == MATCH_EXACT for r in found):
             # the query names an article: its variants ("Süßrahmbutter") rank like prefix
             # matches, i.e. with the other products that start with it ("Butterkäse")
+            # offers of another product ("Gehackte Tomaten" for "Tomaten") rank last, like
+            # in the live search
             for item in found:
-                if item["match"] > MATCH_PREFIX and self._is_article(item["title"], key):
-                    item["match"] = MATCH_PREFIX
+                if item["match"] == MATCH_EXACT:
+                    continue
+                if self._is_article(item["title"], key):
+                    item["match"] = min(item["match"], MATCH_PREFIX)
+                elif item["source"] == "offer":
+                    item["match"] = MATCH_SUBSTRING
         found.sort(key=_sort_key)
         result: list[dict[str, Any]] = []
         seen: set[tuple[str, str | None]] = set()

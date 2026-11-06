@@ -590,8 +590,9 @@ async def test_learn_store_price_history(hass: HomeAssistant, setup_integration)
     assert not learn(0)
     assert not learn("abc")
     assert not manager.learn_store_price("", "butter", "Butter", 1.99, 250, "g", "leaflet")
-    # nothing comparable to check against: kept
-    assert learn(9.99, retailer="penny", amount=1, unit="Stück")
+    # units that cannot be compared with the estimate (no piece weight): not learned
+    assert not learn(9.99, retailer="penny", amount=1, unit="Stück")
+    # no estimate at all: kept
     assert learn(99, retailer="penny", key="zzyzx", amount=1, unit="Stück")
 
     # a fresh REWE online price is not replaced by a leaflet price

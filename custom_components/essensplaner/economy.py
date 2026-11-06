@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, timedelta
 import json
 import logging
@@ -76,6 +77,8 @@ VARIETY_TAGS = {
     "mexikanisch",
 }
 
+# open items added by hand that are searched for offers (before the recipe ingredients)
+MAX_SHOPPING_TERMS = 10
 # relevant aisles when searching offers (spices etc. are cheap anyway)
 _OFFER_CATEGORIES = {
     "Fleisch & Fisch",
@@ -734,7 +737,8 @@ class EconomyMixin:
         return False
 
     def offer_search_terms(self: EssensplanerManager, limit: int = 40) -> list[tuple[str, str]]:
-        """Ingredients worth looking up: watchlist, planned, favourites, frequent."""
+        """Ingredients worth looking up: watchlist, open items added by hand (up to
+        MAX_SHOPPING_TERMS, any aisle), planned, favourites, frequent."""
         scores: dict[str, float] = {}
         names: dict[str, str] = {}
 
@@ -759,6 +763,19 @@ class EconomyMixin:
                 add(ingredient.get("name", ""), 1 + bonus)
         terms = [(w, ingredient_key(w)) for w in self.watchlist if ingredient_key(w)]
         seen = {k for _, k in terms}
+        manual = 0
+        for item in self.shopping:
+            if manual >= MAX_SHOPPING_TERMS:
+                break
+            if item.get("source") == "plan" or item.get("status") == "completed":
+                continue
+            name = self._item_name(item)
+            key = item.get("key") or ingredient_key(name)
+            if not key or key in seen or is_pantry_item(name, self.pantry):
+                continue
+            terms.append((name, key))
+            seen.add(key)
+            manual += 1
         for key in sorted(scores, key=lambda k: -scores[k]):
             if key in seen:
                 continue
@@ -775,9 +792,14 @@ class EconomyMixin:
         store: str | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
-        """Offers for display: when = current | upcoming | all."""
+        """Offers for display: when = current | upcoming | all.
+
+        store: a chain ("Lidl"), an own branch label ("Lidl Arbeit") or "Hauptladen" (offers
+        of that branch); without a matching branch a part of the store name (1.2).
+        """
         today = self.today()
         active = self.active_retailers()
+        in_store = self._offer_store_filter(store) if store else None
         result = []
         for offer in self.offers:
             if not self._offer_in_scope(offer, None, active):
@@ -799,7 +821,7 @@ class EconomyMixin:
                 and fold(query) not in fold(offer.get("title", ""))
             ):
                 continue
-            if store and fold(store) not in fold(offer.get("store", "")):
+            if in_store is not None and not in_store(offer):
                 continue
             discount = None
             if offer.get("old_price") and offer["old_price"] > offer["price"]:
@@ -823,6 +845,28 @@ class EconomyMixin:
             )
         )
         return result[:limit]
+
+    def _offer_store_filter(
+        self: EssensplanerManager, store: str
+    ) -> Callable[[dict[str, Any]], bool]:
+        """Test for offers of a store text (see offers_view())."""
+        branches = [b for b in self._match_branches(store) if b.get("retailer")]
+        if not branches:
+            needle = fold(store)
+            return lambda offer: needle in fold(offer.get("store", ""))
+        retailers = {b["retailer"] for b in branches}
+        ids = {b["id"] for b in branches}
+        # the whole chain was asked for: all its offers (also those of other postcodes)
+        whole_chain = all(
+            b.get("id") in ids for b in self.selected_branches() if b.get("retailer") in retailers
+        )
+
+        def keep(offer: dict[str, Any]) -> bool:
+            if self.offer_retailer(offer) not in retailers:
+                return False
+            return whole_chain or "branches" not in offer or bool(set(offer["branches"]) & ids)
+
+        return keep
 
     def _recipes_using(self: EssensplanerManager, keys: list[str]) -> list[str]:
         """Names of the recipes using one of these ingredient keys (cached until recipes change)."""

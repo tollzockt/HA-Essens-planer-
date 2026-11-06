@@ -453,12 +453,28 @@ class ShoppingListIntent(_EssensplanerIntent):
                 f"Die Einkaufsliste ist fertig: {len(result['items'])} Artikel "
                 f"für {result['meals']} {'Mahlzeit' if result['meals'] == 1 else 'Mahlzeiten'}."
             )
+        groups = result.get("stores") or []
+        stores = [{k: g.get(k) for k in ("label", "open", "subtotal", "saving")} for g in groups]
+        if result["items"] and len(groups) > 1:
+            # "Hauptladen + Ausnahmen": where to shop (the whole open list)
+            per_store = [
+                f"{g['open']} bei {g['label']}" if g["branch_id"] else f"{g['open']} ohne Laden"
+                for g in groups
+            ]
+            speech += f" Nach Laden: {_join(per_store)}"
+            saving = round(sum(g["saving"] or 0 for g in stores), 2)
+            if saving > 0:
+                speech += f" – das spart etwa {format_eur(saving)}"
+            speech += "."
         if result["meals_without_recipe"]:
             speech += " Ohne Rezept: " + _join(result["meals_without_recipe"]) + "."
-        return speech, {
+        data: dict[str, Any] = {
             "items": [i["summary"] for i in result["items"]],
             "meals": result["meals"],
         }
+        if stores:
+            data["stores"] = stores
+        return speech, data
 
 
 class AutoPlanIntent(_EssensplanerIntent):
@@ -816,7 +832,7 @@ class GetOffersIntent(_EssensplanerIntent):
         vol.Optional(
             "when", description="'aktuell' (Standard), 'nächste Woche' oder 'alle'"
         ): cv.string,
-        vol.Optional("store", description="Supermarkt, z. B. 'Lidl'"): cv.string,
+        vol.Optional("store", description=_STORE_DESC): cv.string,
     }
 
     async def _async_handle(self, hass, manager, values):
@@ -1034,6 +1050,12 @@ class SetShoppingStoreIntent(_EssensplanerIntent):
         always = bool(values.get("always", False))
         if not manager.store_split_active:
             raise _SpokenError(_split_off_reason(manager))
+        if always and not manager.names_product(strip_article(str(values["item"]))):
+            # "Was kaufe ich immer bei Lidl?" is a question, no product
+            found = manager.preferred_products(str(values["store"]))
+            if not found["items"]:
+                return f"Für {found['label']} habe ich mir noch keine Produkte gemerkt.", found
+            return f"Bei {found['label']} kaufst du immer {_join(found['items'])}.", found
         item = manager.set_shopping_store(
             strip_article(str(values["item"])), str(values["store"]), always
         )

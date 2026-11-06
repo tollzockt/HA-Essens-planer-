@@ -455,6 +455,153 @@ def _singular(word: str) -> str:
 
 _ARTICLES = ("der ", "die ", "das ", "den ", "dem ", "ein ", "eine ", "einen ", "einem ")
 
+# spoken quantities ("zwei Liter Milch", "einen Liter Milch", "Packung Butter")
+_DIGIT_WORDS = {
+    "ein": 1,
+    "eins": 1,
+    "zwei": 2,
+    "zwo": 2,
+    "drei": 3,
+    "vier": 4,
+    "fuenf": 5,
+    "sechs": 6,
+    "sieben": 7,
+    "acht": 8,
+    "neun": 9,
+}
+_TEEN_WORDS = {
+    "zehn": 10,
+    "elf": 11,
+    "zwoelf": 12,
+    "dreizehn": 13,
+    "vierzehn": 14,
+    "fuenfzehn": 15,
+    "sechzehn": 16,
+    "siebzehn": 17,
+    "achtzehn": 18,
+    "neunzehn": 19,
+}
+_TEN_WORDS = {
+    "zwanzig": 20,
+    "dreissig": 30,
+    "vierzig": 40,
+    "fuenfzig": 50,
+    "sechzig": 60,
+    "siebzig": 70,
+    "achtzig": 80,
+    "neunzig": 90,
+}
+_FRACTION_WORDS = {
+    "halb": 0.5,
+    "halbe": 0.5,
+    "halben": 0.5,
+    "halber": 0.5,
+    "halbes": 0.5,
+    "anderthalb": 1.5,
+    "eineinhalb": 1.5,
+}
+# articles count as "1" only in front of a unit ("einen Liter Milch", not "eine Gurke")
+_ARTICLE_WORDS = {"ein", "eine", "einen", "einem", "einer"}
+# units that may be said without a number ("Liter Milch" = 1 l)
+_BARE_UNITS = {
+    "liter",
+    "kilo",
+    "kilogramm",
+    "gramm",
+    "milliliter",
+    "packung",
+    "paeckchen",
+    "paket",
+    "dose",
+    "flasche",
+    "glas",
+    "becher",
+    "beutel",
+    "tuete",
+    "netz",
+    "schale",
+    "bund",
+    "kopf",
+    "stueck",
+    "tafel",
+    "stange",
+    "knolle",
+}
+_POUND_WORDS = {"pfund"}
+
+
+def _number_word(word: str) -> float | None:
+    """German number words up to 999 ('drei', 'zweihundertfünfzig', 'halbe') -> number."""
+    word = word.lower().translate(_UMLAUTS)
+    if word in _FRACTION_WORDS:
+        return _FRACTION_WORDS[word]
+    if word in _DIGIT_WORDS:
+        return float(_DIGIT_WORDS[word])
+    if word in _TEEN_WORDS:
+        return float(_TEEN_WORDS[word])
+    if word in _TEN_WORDS:
+        return float(_TEN_WORDS[word])
+    if "hundert" in word:
+        head, _, rest = word.partition("hundert")
+        if head and head not in _DIGIT_WORDS:
+            return None
+        tail = _number_word(rest) if rest else 0.0
+        if tail is None or tail != int(tail):
+            return None
+        return float(_DIGIT_WORDS.get(head, 1) * 100 + tail)
+    if "und" in word:
+        ones, _, tens = word.partition("und")
+        if ones in _DIGIT_WORDS and tens in _TEN_WORDS:
+            return float(_DIGIT_WORDS[ones] + _TEN_WORDS[tens])
+    return None
+
+
+def _number_text(value: float) -> str:
+    return f"{value:g}".replace(".", ",")
+
+
+def normalize_spoken_quantity(text: str) -> str:
+    """Spoken amounts as digits, for items typed or said by the user (not for recipes).
+
+    'zwei Liter Milch' -> '2 Liter Milch', 'drei Packungen Butter' -> '3 Packungen Butter',
+    'einen Liter Milch' / 'Liter Milch' -> '1 Liter Milch', 'eine halbe Gurke' ->
+    '0,5 Gurke', 'ein Pfund Hackfleisch' -> '500 g Hackfleisch'. Anything else is returned
+    unchanged ('eine Gurke' stays, see strip_article()).
+    """
+    words = " ".join(str(text or "").split()).split(" ")
+    if len(words) < 2:
+        return " ".join(words)
+    first = words[0].lower().translate(_UMLAUTS)
+    amount: float | None = None
+    rest = words[1:]
+    if first in _ARTICLE_WORDS:
+        second = rest[0].lower().translate(_UMLAUTS)
+        if second in _FRACTION_WORDS and len(rest) > 1:
+            amount, rest = _FRACTION_WORDS[second], rest[1:]  # "ein halbes Kilo"
+        elif _unit_word(second) and len(rest) > 1:
+            amount = 1.0
+    elif re.fullmatch(r"\d+(?:[.,]\d+)?", first):
+        if _unit_word(rest[0]) in _POUND_WORDS:
+            amount = _to_float(first)
+    elif (value := _number_word(first)) is not None:
+        amount = value
+    elif _unit_word(first) and len(words) > 1:
+        amount, rest = 1.0, words  # "Liter Milch"
+    if amount is None:
+        return " ".join(words)
+    if len(rest) > 1 and _unit_word(rest[0]) in _POUND_WORDS:
+        return f"{_number_text(amount * 500)} g {' '.join(rest[1:])}"
+    return f"{_number_text(amount)} {' '.join(rest)}"
+
+
+def _unit_word(word: str) -> str | None:
+    """Folded unit word that may stand without a number ('Packungen' -> 'packung')."""
+    folded = word.lower().translate(_UMLAUTS).rstrip(".")
+    for candidate in (folded, folded[:-1], folded[:-2]):
+        if candidate in _BARE_UNITS or candidate in _POUND_WORDS:
+            return candidate
+    return None
+
 
 def strip_article(text: str) -> str:
     """'die Lasagne' -> 'Lasagne' (for spoken dish names)."""

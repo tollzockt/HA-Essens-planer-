@@ -55,6 +55,7 @@ from .ingredients import (
     ingredient_key,
     is_pantry_item,
     normalize_ingredient,
+    normalize_spoken_quantity,
     parse_ingredient,
     scale_ingredient,
     strip_article,
@@ -358,10 +359,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         migrated = self._migrate_v2()
         expired = self.cleanup_offers()
         self.tag_offer_branches()
-        if expired:
-            self._reassign_open_items()  # e.g. items on an offer that ended overnight
+        # the store options (mode, thresholds) may have changed with this reload and offers
+        # may have ended overnight: assign the open items again (no-op for 1.2 lists)
+        before = [dict(i) for i in self.shopping]
+        self._reassign_open_items()
         if migrated:
             await self.async_save_now()
+        elif expired or self.shopping != before:
+            self._save_later()
 
     async def async_save_now(self) -> None:
         """Write data to disk immediately."""
@@ -1279,8 +1284,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         price/pack: price of one pack and its size as chosen by the user (e.g. from the
         article search); offer_id: a saved offer (its store, price and pack).
         Without them the price is estimated at the main store (or the given store).
+        Spoken amounts become digits ("zwei Liter Milch" -> "2 Liter Milch").
         """
-        summary = str(summary or "").strip()
+        summary = normalize_spoken_quantity(str(summary or "").strip())
         parsed = parse_ingredient(summary)
         name = parsed["name"] or summary
         amounts: dict[str, float] = {}
@@ -1321,8 +1327,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if chosen is not None:
             chosen["retailer"] = retailer or self.main_retailer
             item["chosen"] = chosen
-        if branch is not None:
+        if branch is not None and (store or branch["id"] != self.main_branch):
+            # an offer of the main store is no store choice: the item stays automatic
             item["store_override"] = branch["id"]
+            if not store and chosen is not None:
+                chosen["pins_store"] = True  # until the offer ends (see assign_stores)
         self._price_shopping_item(item, retailer, branch["id"] if branch else None)
         self.remember_article(summary, item["key"], item.get("retailer") or retailer)
         self.shopping.append(item)
@@ -1442,7 +1451,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
     def _reparse_shopping_item(self, item: dict[str, Any]) -> None:
         """Amount, product and price after the text of an item (1.3 item) was changed."""
-        parsed = parse_ingredient(item["summary"])
+        parsed = parse_ingredient(normalize_spoken_quantity(item["summary"]))
         amounts: dict[str, float] = {}
         if parsed["amount"] is not None:
             amount, unit = to_base(parsed["amount"], parsed["unit"])

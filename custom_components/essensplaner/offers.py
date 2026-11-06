@@ -92,15 +92,68 @@ def _date(value: Any) -> str | None:
         return text[:10] if re.match(r"\d{4}-\d{2}-\d{2}", text) else None
 
 
+def short_key(key: str) -> bool:
+    """Keys without a word of 3+ letters ("ei" for Eier): matched by whole words only."""
+    return bool(key) and all(len(w) < 3 for w in key.split())
+
+
+# words that make an "Eier" offer another product (chocolate eggs, egg liqueur, noodles)
+_SHORT_KEY_OTHER = (
+    "schoko",
+    "ueberraschung",
+    "kinder",
+    "likoer",
+    "nudel",
+    "spaetzle",
+    "zartbitter",
+    "vollmilch",
+    "oster",
+    "marzipan",
+    "nougat",
+    "praline",
+    "trueffel",
+    "milka",
+    "lindt",
+    "ferrero",
+    "salat",
+    "creme",
+    "waffel",
+    "gummi",
+    "zucker",
+    "hohl",
+    "fondant",
+    "keks",
+    "plaetzchen",
+)
+_COUNT_RE = re.compile(r"\d+\s*(?:stück|stueck|stk\b|st\.|er\b)", re.IGNORECASE)
+
+
+def _short_key_matches(offer_text: str, key: str) -> bool:
+    """'Frische Eier', 'Bio-Eier, 10 Stück' fit "ei"; 'Eierlikör', 'Eier-Nudeln',
+    'Schoko-Eier', 'Kinder Überraschung Eier' or a 100-g bag do not (eggs are sold by count).
+    """
+    heads: set[str] = set()
+    for word in offer_text.split():
+        parts = fold(word).split()
+        if parts:
+            heads.add(_singular(parts[-1]))  # the head of "Bio-Eier" is "Eier"
+    if not all(w in heads for w in key.split()):
+        return False
+    tokens = fold(offer_text).split()
+    if any(t.startswith(_SHORT_KEY_OTHER) for t in tokens):
+        return False
+    pack = parse_pack(offer_text)
+    return not (pack and pack[1] in ("g", "ml") and not _COUNT_RE.search(offer_text))
+
+
 def offer_matches(offer_text: str, key: str) -> bool:
     """True if an offer title fits an ingredient key ('haehnchenbrust' ~ 'Hähnchenbrustfilet')."""
     if not key:
         return False
+    if short_key(key):
+        return _short_key_matches(offer_text, key)
     tokens = [_singular(w) for w in fold(offer_text).split()]
     words = [w for w in key.split() if len(w) >= 3]
-    if not words:
-        # very short keys ("ei" for Eier): only whole words ("Frische Eier", not "Eierlikör")
-        return all(w in tokens for w in key.split())
     return all(any(_token_match(t, w) for t in tokens) for w in words)
 
 

@@ -41,18 +41,28 @@ from .const import (
     SPLIT_OFF,
 )
 from .economy import _key_by_name, _offer_short
-from .ingredients import _singular, fold, guess_category, ingredient_key, parse_ingredient, to_base
-from .offers import offer_matches
+from .ingredients import (
+    _singular,
+    fold,
+    guess_category,
+    ingredient_key,
+    normalize_spoken_quantity,
+    parse_ingredient,
+    to_base,
+)
+from .offers import offer_matches, short_key
 from .pricing import (
     LayeredPriceBook,
     PriceEntry,
     PriceIndex,
+    convert,
     format_eur,
     item_cost,
     lookup_keys,
     make_entry,
     offer_pack,
     pack_text,
+    piece_weight_known,
     unit_price,
 )
 from .retailers import (
@@ -179,6 +189,36 @@ MAX_ALTERNATIVES = 4
 NO_STORE_LABEL = "Ohne Laden"
 # store texts that reset a manual store choice
 _AUTO_WORDS = {"auto", "automatisch", "automatic", "standard", "zuruecksetzen"}
+# words that name no product ("Was kaufe ich immer bei Lidl?" is a question)
+_NO_PRODUCT_WORDS = {
+    "was",
+    "wer",
+    "wie",
+    "wo",
+    "wann",
+    "warum",
+    "welche",
+    "welcher",
+    "welches",
+    "welchen",
+    "das",
+    "dies",
+    "diese",
+    "dieses",
+    "es",
+    "alles",
+    "nichts",
+    "etwas",
+    "sachen",
+    "dinge",
+    "zeug",
+    "artikel",
+    "produkte",
+    "denn",
+    "eigentlich",
+    "sonst",
+    "noch",
+}
 # description parts written by the integration (rebuilt on every change)
 _DESCRIPTION_PREFIXES = ("🏪", "≈ ", "🏷️")
 
@@ -451,13 +491,17 @@ class StoresMixin:
         """The offer's ingredient keys without keys of another product.
 
         A canned-tomato offer found for "Tomaten" ("Oro di Parma Gehackte Tomaten", key
-        "tomate") gets the key of its own product ("gehackte tomate") instead.
+        "tomate") gets the key of its own product ("gehackte tomate") instead. Short keys
+        ("ei") need an offer sold by count: a 100-g bag of "Schoko-Eier" is no egg offer.
         """
         product = str(offer.get("product") or offer.get("title") or "")
+        pack = offer_pack(offer)
         keys: list[str] = []
         for key in offer.get("keys") or []:
             if self.names_other_product(product, key):
                 key = self.variant_key(product)
+            if short_key(key) and pack is not None and pack[1] != "Stück":
+                continue
             if key and key not in keys:
                 keys.append(key)
         return keys
@@ -1302,15 +1346,31 @@ class StoresMixin:
     # ------------------------------------------------------------------
 
     def _plausible_price(self: EssensplanerManager, key: str, entry: PriceEntry) -> bool:
-        """Price per base unit within PLAUSIBLE_MIN..MAX x the estimate (if comparable)."""
+        """Price per base unit within PLAUSIBLE_MIN..MAX x the estimate.
+
+        Without an estimate any price counts. Units that cannot be compared (100 g vs. the
+        estimate per piece) are converted with a known piece weight ("Paprika 500 g"),
+        else the price is not learned: it may be another product ("Schoko-Eier").
+        """
         per = unit_price(entry)
         if per is None or per[0] <= 0:
             return False
         default = self.defaults_index().lookup(key)
         reference = unit_price(default) if default else None
-        if reference is None or reference[0] <= 0 or not _comparable(per[1], reference[1]):
+        if reference is None or reference[0] <= 0:
             return True  # nothing to compare with
-        return PLAUSIBLE_MIN <= per[0] / reference[0] <= PLAUSIBLE_MAX
+        value = per[0]
+        if not _comparable(per[1], reference[1]):
+            units = {per[1], reference[1]}
+            if "Stück" not in units or not units - {"Stück"} <= {"g", "ml"}:
+                return False
+            if not piece_weight_known(key):
+                return False
+            size = convert(1.0, reference[1], per[1], key)  # one estimate unit in entry units
+            if not size:
+                return False
+            value = per[0] * size
+        return PLAUSIBLE_MIN <= value / reference[0] <= PLAUSIBLE_MAX
 
     def learn_store_price(
         self: EssensplanerManager,
@@ -1766,9 +1826,11 @@ class StoresMixin:
         unless another selected store (first branch per retailer) has an offer that saves
         >= offer_min or a real store price that is >= min_saving EUR or >= min_percent %
         cheaper (and at least SPLIT_FLOOR EUR) -> the cheapest such store (another branch of
-        a chain counts with offers found only there, e.g. REWE near work). With trip_min,
-        stores whose items save less in total go back to the main branch. main_only: all at
-        the main branch, alternatives are still computed.
+        a chain counts with offers found only there, e.g. REWE near work). Without any price
+        at the main branch (no estimate, e.g. Kaffee) an offer elsewhere moves the item
+        (saving unknown: counts 0 for trip_min). With trip_min, stores whose items save
+        less in total go back to the main branch. main_only: all at the main branch,
+        alternatives are still computed.
 
         Sets branch_id, retailer, store_label, store_reason (main|offer|cheaper|manual|
         preferred), saving, price/packs/offer at that store and up to 4 alternatives.
@@ -1812,6 +1874,14 @@ class StoresMixin:
                     costs[extra["id"]] = cost
             main_cost = costs[main["id"]]
             target, reason = main, REASON_MAIN
+            chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
+            if (
+                chosen.get("pins_store")
+                and self._chosen_entry(item, chosen.get("retailer")) is None
+            ):
+                # the store came from a picked offer that ended: automatic again
+                item.pop("store_override", None)
+                chosen.pop("pins_store", None)
             override = self.get_branch(item.get("store_override"))
             if override is not None and not (
                 override.get("selected", True) or override.get("id") == main.get("id")
@@ -1826,12 +1896,18 @@ class StoresMixin:
                     )
             elif preferred is not None:
                 target, reason = preferred, REASON_PREFERRED
-            elif settings["mode"] == SPLIT_MAIN_EXCEPTIONS and main_cost is not None:
+            elif settings["mode"] == SPLIT_MAIN_EXCEPTIONS:
                 best: tuple[dict[str, Any], dict[str, Any]] | None = None
                 movable = candidates[1:] + [b for b in extras if b["id"] in costs]
                 for branch in movable:
                     cost = costs[branch["id"]]
-                    if cost is None or not self._worth_moving(main_cost, cost, settings):
+                    if cost is None:
+                        continue
+                    if main_cost is None:
+                        # no price at the main store (e.g. Kaffee): an offer elsewhere wins
+                        if not cost["offer"]:
+                            continue
+                    elif not self._worth_moving(main_cost, cost, settings):
                         continue
                     if best is None or cost["price"] < best[1]["price"]:
                         best = (branch, cost)
@@ -1967,9 +2043,10 @@ class StoresMixin:
     def find_shopping_item(self: EssensplanerManager, text: str) -> dict[str, Any]:
         """Shopping item by uid or name (open items first) or a clear error.
 
-        Whole words only: "Milch" finds "1 l Milch" or "frische Milch", not "Kokosmilch";
-        a compound with the product at the end only if it is the same product
-        ("Hähnchenbrustfilet" for "Hähnchen").
+        Whole words first: "Milch" finds "1 l Milch" or "frische Milch", then a compound
+        with the product at the end that is the same product ("Hähnchenbrustfilet" for
+        "Hähnchen"). Last, the only open item of the same kind with the product at the end
+        of its name ("Rinderhackfleisch" for "Hackfleisch"); "Kokosmilch" is no "Milch".
         """
         from .manager import _error  # avoid an import cycle
 
@@ -1977,6 +2054,7 @@ class StoresMixin:
         for item in self.shopping:
             if item.get("uid") == raw:
                 return item
+        raw = normalize_spoken_quantity(raw)  # "zwei Liter Milch" like "2 Liter Milch"
         name = parse_ingredient(raw)["name"] or raw
         key = ingredient_key(name)
         folded = fold(raw)
@@ -1995,7 +2073,27 @@ class StoresMixin:
                 item_name = self._item_name(item)
                 if offer_matches(item_name, key) and not self.names_other_product(item_name, key):
                     return item
+            loose = self._loose_shopping_matches(name)
+            if len(loose) == 1:
+                return loose[0]
         raise _error("shopping_item_not_found")
+
+    def _loose_shopping_matches(self: EssensplanerManager, name: str) -> list[dict[str, Any]]:
+        """Open items of the same kind whose name ends with the product: "Rinderhackfleisch"
+        or "Cherrytomaten" for "Hackfleisch" / "Tomaten" (same aisle), not "Kokosmilch"
+        for "Milch" or "Gehackte Tomaten" for "Tomaten" (another aisle)."""
+        key = ingredient_key(name)
+        if not key:
+            return []
+        category = guess_category(name)
+        result = []
+        for item in self.shopping:
+            if item.get("status") == "completed":
+                continue
+            item_name = self._item_name(item)
+            if offer_matches(item_name, key) and guess_category(item_name) == category:
+                result.append(item)
+        return result
 
     def set_shopping_store(
         self: EssensplanerManager, item_text: str, store: str | None, always: bool = False
@@ -2011,23 +2109,33 @@ class StoresMixin:
 
         if not self.store_split_active:
             raise _error("store_split_off")
+        text = normalize_spoken_quantity(str(item_text or "").strip())
+        spoken = parse_ingredient(text)["name"] or text
         try:
             item = self.find_shopping_item(item_text)
         except ServiceValidationError:
-            if not always:
+            # "immer" for a product that is not on the list (not even as "Rinderhackfleisch")
+            if not always or self._loose_shopping_matches(spoken):
                 raise
             return self._remember_store(item_text, store)
         key = item.get("key") or ingredient_key(self._item_name(item))
+        # "Hackfleisch kaufe ich immer bei Lidl" found "Rinderhackfleisch": remember both
+        spoken_key = "" if item.get("uid") == str(item_text or "").strip() else spoken
+        keys = [k for k in dict.fromkeys([key, ingredient_key(spoken_key)]) if k]
+        if isinstance(item.get("chosen"), dict):
+            item["chosen"].pop("pins_store", None)  # now the user's own store choice
         words = fold(store or "").split()
         if not words or " ".join(words) in _AUTO_WORDS:
             item.pop("store_override", None)
-            if always and key:
-                self.store_preferences.pop(key, None)
+            if always:
+                for k in keys:
+                    self.store_preferences.pop(k, None)
         else:
             branch = self.require_branch(store)
             item["store_override"] = branch["id"]
-            if always and key and branch.get("retailer"):
-                self.store_preferences[key] = branch["retailer"]
+            if always and branch.get("retailer"):
+                for k in keys:
+                    self.store_preferences[k] = branch["retailer"]
         self.assign_stores([item])
         self.update_shopping_description(item)
         self._changed("shopping")
@@ -2039,10 +2147,13 @@ class StoresMixin:
         """ "Kaffee kaufe ich immer bei Lidl" for a product that is not on the list."""
         from .manager import _error  # avoid an import cycle
 
-        name = parse_ingredient(str(item_text or ""))["name"] or str(item_text or "").strip()
+        text = normalize_spoken_quantity(str(item_text or "").strip())
+        name = parse_ingredient(text)["name"] or text
         key = ingredient_key(name)
         if not key:
             raise _error("name_required")
+        if not self.names_product(name):
+            raise _error("shopping_item_not_found")
         label = None
         words = fold(store or "").split()
         if not words or " ".join(words) in _AUTO_WORDS:
@@ -2054,6 +2165,42 @@ class StoresMixin:
             label = self.branch_label(branch)
         self._changed("shopping")
         return {"name": name, "key": key, "store_label": label, "preference_only": True}
+
+    @staticmethod
+    def names_product(text: str | None) -> bool:
+        """False for question words and pronouns ("was", "welche Sachen", "das")."""
+        words = fold(str(text or "")).split()
+        return bool(words) and not set(words) <= _NO_PRODUCT_WORDS
+
+    def preferred_products(self: EssensplanerManager, store: str) -> dict[str, Any]:
+        """Products bought "immer" at a store: {label, retailer, items: [names]}."""
+        branch = self.require_branch(store)
+        retailer = branch.get("retailer")
+        keys = [k for k, v in self.store_preferences.items() if retailer and v == retailer]
+        # "Tomaten" also stands for "Cherrytomaten" (set_shopping_store() stores both keys)
+        names = [
+            self._preference_name(key)
+            for key in keys
+            if " " in key or not any(o != key and key.endswith(o) for o in keys)
+        ]
+        return {
+            "label": retailer_name(retailer) if retailer else self.branch_label(branch),
+            "retailer": retailer,
+            "items": sorted(names, key=fold),
+        }
+
+    def _preference_name(self: EssensplanerManager, key: str) -> str:
+        """Readable name of a product key (list item, added article, estimate, the key)."""
+        for item in self.shopping:
+            if item.get("key") == key:
+                return self._item_name(item)
+        for article in self.article_history:
+            if article.get("key") == key and article.get("summary"):
+                return parse_ingredient(str(article["summary"]))["name"] or article["summary"]
+        default = self.defaults_index().get(key)
+        if default is not None:
+            return default.name
+        return key[:1].upper() + key[1:]
 
     def assign_shopping_stores(
         self: EssensplanerManager, reset_overrides: bool = False
@@ -2210,13 +2357,14 @@ class StoresMixin:
         """
         from .manager import _error  # avoid an import cycle
 
-        parsed = parse_ingredient(str(name or ""))
-        product = parsed["name"] or str(name or "").strip()
+        text = normalize_spoken_quantity(str(name or "").strip())
+        parsed = parse_ingredient(text)
+        product = parsed["name"] or text
         if not ingredient_key(product):
             raise _error("name_required")
         amount, unit = parsed["amount"], parsed["unit"]
         if amount_text:
-            extra = parse_ingredient(f"{amount_text} {product}")
+            extra = parse_ingredient(normalize_spoken_quantity(f"{amount_text} {product}"))
             amount, unit = extra["amount"], extra["unit"]
         amounts: dict[str, float] = {}
         if amount is not None:

@@ -20,9 +20,11 @@
   Liste steht der Laden in der Beschreibung („🏪 Aldi Süd · …“).
 - **Ladenwahl je Artikel** (⇄): Preise aller Läden ansehen, Laden von Hand wählen, „Automatisch“
   oder **„immer hier kaufen“**; die Wahl bleibt beim Neuerstellen der Liste erhalten.
-  Offene Artikel werden automatisch neu verteilt, wenn sich Filialen, Hauptladen, Preise oder
-  Angebote ändern (auch wenn ein Angebot über Nacht endet); „🔄 Läden neu zuordnen“ macht das
-  von Hand.
+  Offene Artikel werden automatisch neu verteilt, wenn sich Filialen, Hauptladen, Preise,
+  Angebote oder die Laden-Optionen ändern (auch wenn ein Angebot über Nacht endet); „🔄 Läden
+  neu zuordnen“ macht das von Hand. Ein Artikel ohne Preis im Hauptladen (z. B. Kaffee) wandert,
+  wenn ein anderer Laden ihn im Angebot hat. Ein angetipptes Angebot des Hauptladens ist keine
+  Ladenwahl; ein Angebot eines anderen Ladens hält den Artikel dort, bis das Angebot endet.
 - **Preisliste je Laden**: Richtwert und die Preise von Aldi, Lidl, REWE … nebeneinander, der
   günstigste ist markiert, jede Zelle lässt sich bearbeiten. Reihenfolge je Laden: eigener
   Ladenpreis → gelernter Ladenpreis → eigener allgemeiner Preis → gelernter allgemeiner Preis →
@@ -49,8 +51,14 @@
     Laden (`essensplaner_add_shopping_item`); die Satzdatei kennt dieselben Formulierungen wie die
     eingebaute Einkaufsliste von Home Assistant (siehe Upgrade-Hinweise)
   - Eigene Filial-Bezeichnungen („Was müssen wir bei Lidl Arbeit kaufen?“, „Setz Butter bei Lidl
-    Arbeit auf die Einkaufsliste.“); „Kaffee kaufe ich immer bei Lidl“ klappt auch, wenn Kaffee
-    gerade nicht auf der Liste steht
+    Arbeit auf die Einkaufsliste.“, Angebote „bei Lidl Arbeit“ oder „im Hauptladen“); „Kaffee
+    kaufe ich immer bei Lidl“ klappt auch, wenn Kaffee gerade nicht auf der Liste steht;
+    „Was kaufe ich immer bei Lidl?“ zählt die gemerkten Produkte auf
+  - „Kauf Hackfleisch bei Lidl“ findet auch „Rinderhackfleisch“ (wenn es das einzige
+    Hackfleisch auf der Liste ist); Mengen in Worten („zwei Liter Milch“, „drei Packungen
+    Butter“, „einen Liter Milch“, „ein Pfund Hackfleisch“) werden als Zahl übernommen
+  - „Erstelle die Einkaufsliste“ sagt mit Hauptladen + Ausnahmen, wie viele Artikel in welchen
+    Laden kommen und was die Angebote sparen
 - **Neue Sensoren**: `sensor.essensplaner_shopping_stores` (Läden mit offenen Artikeln, je Laden
   Artikel, Zwischensumme und Ersparnis) und `sensor.essensplaner_shopping_total` (geschätzte
   Summe der Einkaufsliste in €).
@@ -84,7 +92,9 @@
   Buttermilch oder Hafermilch nicht als Milch); unter dem alten Schlüssel gespeicherte Preise
   werden beim Update umgezogen.
 - **Angebote für Eier** wurden nie erkannt; jetzt schon („Frische Eier 10 Stück“, nicht
-  „Eierlikör“).
+  „Eierlikör“, „Schoko-Eier“, „Kinder Überraschung Eier“ oder „Eier-Nudeln“). Ein Prospektpreis,
+  dessen Einheit nicht zum Richtwert passt (100 g statt Stück), wird nicht als Normalpreis
+  gelernt.
 - Angebote ohne Packungsgröße (z. B. per Sprache „Hackfleisch bei Lidl für 2,49“) und mit „10
   Stück“ zählen für Preise und Läden.
 
@@ -94,8 +104,9 @@
   auf ca. 100 m gerundeten Koordinaten deiner Zonen. Ergebnisse werden 30 Tage gespeichert,
   höchstens eine Suche alle 2 Minuten. Daten © OpenStreetMap-Mitwirkende (ODbL).
 - **marktguru.de** (nur wenn eingeschaltet): Postleitzahlen deiner Filialen (bis zu 4) bzw. aus
-  den Optionen und Suchbegriffe – **neu** auch, was du in „Artikel hinzufügen“ tippst (ab 3
-  Zeichen, für die Live-Suche).
+  den Optionen und Suchbegriffe – **neu** auch bis zu 10 Artikel, die du selbst auf die
+  Einkaufsliste gesetzt hast, und was du in „Artikel hinzufügen“ tippst (ab 3 Zeichen, für die
+  Live-Suche).
 - **REWE** (nur wenn eingeschaltet): Markt-ID und Suchbegriffe an `shop.rewe.de`; „Markt suchen“
   sendet die Postleitzahl an `www.rewe.de`.
 
