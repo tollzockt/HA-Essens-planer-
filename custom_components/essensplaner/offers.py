@@ -10,7 +10,7 @@ Sources:
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import json
 import logging
 import re
@@ -44,6 +44,11 @@ _USER_AGENT = (
 _CONFIG_RE = re.compile(r'<script[^>]*type="application/json"[^>]*>(.*?)</script>', re.DOTALL)
 _PACK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l|liter)\b", re.IGNORECASE)
 _MULTI_RE = re.compile(r"(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l)\b", re.IGNORECASE)
+# a weight class or range ("Größe M (53-63 g)", "500-600 g") is no package size
+_RANGE_RE = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:kg|g|ml|l)?\s*[-–]\s*\d+(?:[.,]\d+)?\s*-?\s*(?:kg|g|ml|l|liter)\b",
+    re.IGNORECASE,
+)
 
 
 class OfferError(Exception):
@@ -51,9 +56,13 @@ class OfferError(Exception):
 
 
 def parse_pack(text: str | None) -> tuple[float, str] | None:
-    """Package size from texts like 'je 500-g-Packung', '2 x 125 g', '1,5-l-Flasche'."""
+    """Package size from texts like 'je 500-g-Packung', '2 x 125 g', '1,5-l-Flasche'.
+
+    Ranges are skipped: 'Eier Größe M (53-63 g), 10 Stück' has no size in grams.
+    """
     if not text:
         return None
+    text = _RANGE_RE.sub(" ", text)
     if match := _MULTI_RE.search(text):
         count = float(match.group(1))
         value = float(match.group(2).replace(",", "."))
@@ -125,7 +134,16 @@ _SHORT_KEY_OTHER = (
     "keks",
     "plaetzchen",
 )
-_COUNT_RE = re.compile(r"\d+\s*(?:stück|stueck|stk\b|st\.|er\b)", re.IGNORECASE)
+_COUNT_RE = re.compile(r"(\d+)\s*(?:stück|stueck|stk\b|st\.|er\b)", re.IGNORECASE)
+
+
+def _parse_count(text: str | None) -> tuple[float, str] | None:
+    """'10 Stück', '10er-Packung', '6 St.' -> (10, 'Stück') (1–100 pieces)."""
+    match = _COUNT_RE.search(text or "")
+    if match is None:
+        return None
+    count = float(match.group(1))
+    return (count, "Stück") if 1 <= count <= 100 else None
 
 
 def _short_key_matches(offer_text: str, key: str) -> bool:
@@ -144,6 +162,18 @@ def _short_key_matches(offer_text: str, key: str) -> bool:
         return False
     pack = parse_pack(offer_text)
     return not (pack and pack[1] in ("g", "ml") and not _COUNT_RE.search(offer_text))
+
+
+def names_key_product(product: str, key: str) -> bool:
+    """True if a product name is the key's product itself: 'Kaffee Crema, ganze Bohne' or
+    'Bio-Kaffee' for "kaffee" (the key as whole words), not 'Eiskaffee' or 'Milchkaffee'
+    (compounds that offer_matches() accepts, but other products)."""
+    if not key:
+        return False
+    if ingredient_key(product) == key:
+        return True
+    words = {_singular(w) for w in fold(product).split()}
+    return all(w in words for w in key.split())
 
 
 def offer_matches(offer_text: str, key: str) -> bool:
@@ -216,6 +246,9 @@ def normalize_marktguru(raw: dict[str, Any], query: str = "") -> dict[str, Any] 
             elif unit in ("stück", "stk", "st", "stk."):
                 unit_price, base_unit = float(reference), "Stück"
         pack = parse_pack(description) or parse_pack(product)
+        if pack is None and base_unit in (None, "Stück"):
+            # sold by count ("Eier Größe M (53-63 g), 10 Stück", "10er-Packung")
+            pack = _parse_count(description) or _parse_count(product)
         title = (
             f"{brand} {product}".strip()
             if brand and brand.lower() not in product.lower()
@@ -428,6 +461,14 @@ async def async_search_target_offers(
         if not offer["keys"]:
             del offer["keys"]
     return list(offers.values()), errors
+
+
+def leaflet_week_end(day: date) -> date:
+    """End of the leaflet week of a day: the coming Saturday (the day itself on a Saturday).
+
+    Offers entered without an end date end then, they never count forever.
+    """
+    return day + timedelta(days=(5 - day.weekday()) % 7)
 
 
 def manual_offer(

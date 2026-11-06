@@ -203,7 +203,7 @@ async def test_websocket_local(
     )
     assert (item["store_override"], item["store_reason"]) == (aldi["id"], "manual")
     assert (item["price"], item["offer"]["id"]) == (2.22, offer["id"])
-    assert item["description"] == "🏪 Aldi Süd · ≈ 2,22 € · 🏷️ Aldi Süd 2,22 €"
+    assert item["description"] == "🏪 Aldi Süd · ≈ 2,22 € · 🏷️ Aldi Süd 2,22 € bis 07.11."
 
     await client.send_json({"id": 4, "type": f"{DOMAIN}/compare_prices", "item": "Butter"})
     msg = await client.receive_json()

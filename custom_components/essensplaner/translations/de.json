@@ -862,7 +862,7 @@
         },
         "valid_to": {
           "name": "Gültig bis",
-          "description": "z. B. „Samstag“ oder JJJJ-MM-TT."
+          "description": "z. B. „Samstag“ oder JJJJ-MM-TT. Ohne Datum endet das Angebot am kommenden Samstag (Ende der Prospektwoche)."
         }
       }
     },

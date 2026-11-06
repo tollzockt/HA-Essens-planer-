@@ -862,7 +862,7 @@
         },
         "valid_to": {
           "name": "Valid until",
-          "description": "e.g. 'Samstag' or YYYY-MM-DD."
+          "description": "e.g. 'Samstag' or YYYY-MM-DD. Without a date the offer ends on the coming Saturday (end of the leaflet week)."
         }
       }
     },

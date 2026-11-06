@@ -535,7 +535,7 @@ async def test_assign_offers_and_packages(hass: HomeAssistant, setup_integration
     assert _store_of(manager, "250 g Butter") == ("lidl", "offer")
     item = next(i for i in manager.shopping if i["summary"] == "250 g Butter")
     assert (item["price"], item["saving"], item["offer"]["id"]) == (1.69, 0.3, offer["id"])
-    assert item["description"] == "🏪 Lidl · ≈ 1,69 € · 🏷️ Lidl 1,69 €"
+    assert item["description"] == "🏪 Lidl · ≈ 1,69 € · 🏷️ Lidl 1,69 € bis 07.11."
     assert lidl["id"] in offer["branches"]
 
     # an offer found for another postcode does not count for this branch

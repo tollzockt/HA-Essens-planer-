@@ -891,7 +891,10 @@ class AddOfferIntent(_EssensplanerIntent):
         vol.Required("store", description="Supermarkt, z. B. 'Lidl'"): cv.string,
         vol.Required("price", description="Preis in Euro, z. B. '4,99'"): cv.string,
         vol.Optional("pack", description="Packungsgröße, z. B. '1 kg' oder '500 g'"): cv.string,
-        vol.Optional("valid_to", description="Gültig bis. " + _DATE_DESC): cv.string,
+        vol.Optional(
+            "valid_to",
+            description="Gültig bis (ohne Angabe: bis zum kommenden Samstag). " + _DATE_DESC,
+        ): cv.string,
     }
 
     async def _async_handle(self, hass, manager, values):
@@ -902,8 +905,13 @@ class AddOfferIntent(_EssensplanerIntent):
         )
         recipes = manager._recipes_using(offer["keys"])
         speech = (
-            f"Ich habe mir {offer['title']} bei {offer['store']} für {format_eur(price)} gemerkt."
+            f"Ich habe mir {offer['title']} bei {offer['store']} für {format_eur(price)} gemerkt"
         )
+        if offer.get("valid_to"):
+            # without "bis …" it ends with the leaflet week (the coming Saturday): say so
+            end = date.fromisoformat(offer["valid_to"][:10])
+            speech += f", gültig bis {describe_date(end, manager.today()).removeprefix('am ')}"
+        speech += "."
         if recipes:
             speech += f" Passt zum Beispiel zu {_join(recipes[:3])}."
         return speech, {"offer": offer, "recipes": recipes[:10]}

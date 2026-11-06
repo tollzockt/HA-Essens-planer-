@@ -1313,12 +1313,15 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 raise _error("branch_not_found", branch=store)
             retailer = self.require_retailer(store)  # no branches: that retailer's prices
         if offer is not None and not store:
+            # the branch the offer was found for (main branch first), also a further branch
+            # of a chain ("Lidl Arbeit" for an offer found only at the work postcode)
             retailer = self.offer_retailer(offer)
             branch = next(
                 (
                     b
-                    for b in self.store_candidates()
+                    for b in self.selected_branches()
                     if b.get("retailer") == retailer
+                    and b.get("id")
                     and ("branches" not in offer or b["id"] in offer["branches"])
                 ),
                 None,
@@ -1341,8 +1344,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
     def _price_shopping_item(
         self, item: dict[str, Any], retailer: str | None = None, branch_id: str | None = None
     ) -> None:
-        """Store, price and description of one item (store split, else that retailer)."""
+        """Store, price and description of one item (store split, else that retailer).
+
+        Without a store split a picked price counts at its retailer (e.g. the main store's
+        500 g pack from the article search while "Aus" is set), as in _reassign_open_items().
+        """
         if not self.assign_stores([item]):
+            if retailer is None and isinstance(item.get("chosen"), dict):
+                retailer = item["chosen"].get("retailer")
             cost = self.price_at(item, retailer, branch_id)
             item["price"] = cost["price"] if cost else None
             item["packs"] = cost["packs"] if cost else None

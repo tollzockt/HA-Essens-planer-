@@ -36,7 +36,7 @@ from .ingredients import (
     is_pantry_item,
     scale_ingredient,
 )
-from .offers import manual_offer, offer_matches, store_allowed
+from .offers import leaflet_week_end, manual_offer, offer_matches, store_allowed
 from .pricing import (
     LayeredPriceBook,
     PriceBook,
@@ -656,7 +656,13 @@ class EconomyMixin:
         valid_to: date | None = None,
         old_price: float | None = None,
     ) -> dict[str, Any]:
-        """Add an offer by hand (or by voice)."""
+        """Add an offer by hand (or by voice).
+
+        Without valid_to it ends with the leaflet week (the coming Saturday): an offer
+        without an end would move items to that store for good.
+        """
+        if valid_to is None:
+            valid_to = leaflet_week_end(max(valid_from or self.today(), self.today()))
         offer = manual_offer(product, store, price, pack_text, valid_from, valid_to, old_price)
         # ids come from the clock: keep them unique (offers added in the same millisecond)
         known = {o.get("id") for o in self.offers}

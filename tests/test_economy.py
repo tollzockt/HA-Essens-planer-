@@ -152,7 +152,9 @@ async def test_manual_offer_changes_costs(hass: HomeAssistant, setup_integration
         pack="1 kg",
         valid_to="Samstag",
     )
-    assert speech.startswith("Ich habe mir Hähnchenbrustfilet bei Lidl für 4,99 € gemerkt.")
+    assert speech.startswith(
+        "Ich habe mir Hähnchenbrustfilet bei Lidl für 4,99 € gemerkt, gültig bis Samstag."
+    )
     assert "Passt zum Beispiel zu" in speech
     offered = (await _call(hass, "get_recipe", recipe="Hähnchen-Reis-Pfanne"))["recipe"]["cost"]
     assert offered["total"] < regular["total"]
@@ -590,7 +592,7 @@ async def test_learn_store_price_history(hass: HomeAssistant, setup_integration)
     assert not learn(0)
     assert not learn("abc")
     assert not manager.learn_store_price("", "butter", "Butter", 1.99, 250, "g", "leaflet")
-    # units that cannot be compared with the estimate (no piece weight): not learned
+    # a price per piece for an estimate by weight (no piece weight): not learned
     assert not learn(9.99, retailer="penny", amount=1, unit="Stück")
     # no estimate at all: kept
     assert learn(99, retailer="penny", key="zzyzx", amount=1, unit="Stück")

@@ -128,7 +128,8 @@ def _daily_minute(entry: EssensplanerConfigEntry) -> int:
 def _setup_offer_refresh(
     hass: HomeAssistant, entry: EssensplanerConfigEntry, manager: EssensplanerManager
 ) -> None:
-    """Refresh offers once a day and shortly after start if they are stale."""
+    """Refresh offers once a day, shortly after start if they are stale and a minute after
+    a branch change that needs a postcode or chain not searched yet."""
 
     async def _async_refresh() -> None:
         if not manager.offer_targets():
@@ -152,6 +153,8 @@ def _setup_offer_refresh(
         stale = dt_util.utcnow() - parsed > timedelta(hours=20)
     if stale:
         entry.async_on_unload(async_call_later(hass, 90, _refresh))
+    # a new branch at a postcode (or of a chain) not searched yet: search shortly after
+    entry.async_on_unload(manager.enable_offer_refresh(_refresh))
     # spread the daily request over the morning (stable per installation)
     entry.async_on_unload(
         async_track_time_change(hass, _refresh, hour=6, minute=_daily_minute(entry), second=0)
