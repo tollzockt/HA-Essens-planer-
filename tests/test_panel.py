@@ -267,8 +267,9 @@ async def test_store_preferences_overview(
 ) -> None:
     """The panel lists the "immer hier" products with names and forgets them with ✕.
 
-    Also a product that is not on the list ("Kaffee kaufe ich immer bei Lidl"). For an item
-    on the list the panel sends its uid and keeps the item's own store choice.
+    Also a product that is not on the list ("Kaffee kaufe ich immer bei Lidl"). ✕ sends the
+    stored key; an item on the list gets the automatic store again – the store choice that
+    came with "immer" is dropped with it.
     """
     manager = setup_integration.runtime_data
     manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
@@ -283,28 +284,88 @@ async def test_store_preferences_overview(
     assert data["store_preferences"] == {"kaffee": "lidl", "frischkaese": "lidl"}
     assert data["store_preference_names"] == {"kaffee": "Kaffee", "frischkaese": "Frischkäse"}
 
-    # ✕ at "Kaffee" (not on the list): by key
-    await hass.services.async_call(
-        DOMAIN,
-        "set_shopping_store",
-        {"item": "kaffee", "store": "auto", "always": True},
-        blocking=True,
-        return_response=True,
-    )
+    # ✕ at "Kaffee" (not on the list)
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/forget_store_preference", "key": "kaffee"})
+    result = (await client.receive_json())["result"]
+    assert result == {"key": "kaffee", "retailer": "lidl", "items": []}
     assert manager.store_preferences == {"frischkaese": "lidl"}
-    # ✕ at "Frischkäse" (on the list): by uid, then the item's own choice again
-    for store in ("auto", lidl["id"]):
-        await hass.services.async_call(
-            DOMAIN,
-            "set_shopping_store",
-            {"item": cheese["uid"], "store": store, "always": store == "auto"},
-            blocking=True,
-            return_response=True,
-        )
+    # ✕ at "Frischkäse" (on the list, Lidl via "Immer in diesem Laden kaufen"): automatic
+    await client.send_json(
+        {"id": 3, "type": f"{DOMAIN}/forget_store_preference", "key": "frischkaese"}
+    )
+    result = (await client.receive_json())["result"]
+    assert result == {"key": "frischkaese", "retailer": "lidl", "items": [cheese["uid"]]}
     assert manager.store_preferences == {}
     item = next(i for i in manager.shopping if i["uid"] == cheese["uid"])
-    assert (item["store_override"], item["store_reason"]) == (lidl["id"], "manual")
+    assert "store_override" not in item
+    assert (item["branch_id"], item["store_reason"]) == (manager.main_branch, "main")
+    assert "Lidl" not in item["description"]
+    # already forgotten (a second tap): nothing happens
+    await client.send_json(
+        {"id": 4, "type": f"{DOMAIN}/forget_store_preference", "key": "frischkaese"}
+    )
+    assert (await client.receive_json())["result"]["retailer"] is None
 
-    await client.send_json({"id": 2, "type": f"{DOMAIN}/data"})
+    await client.send_json({"id": 5, "type": f"{DOMAIN}/data"})
     data = (await client.receive_json())["result"]
     assert data["store_preferences"] == data["store_preference_names"] == {}
+
+
+async def test_forget_store_preference_exact_key(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
+) -> None:
+    """✕ forgets exactly the tapped product: "bio milch" is no "Milch" and "milch" does not
+    find the "Vollmilch" on the list (the service parses a spoken name again)."""
+    manager = setup_integration.runtime_data
+    manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    manager.save_branch({"store": "REWE", "postcode": "80331"})
+    manager.set_shopping_store("Milch", "Aldi", always=True)
+    manager.set_shopping_store("Bio-Milch", "Lidl", always=True)
+    whole = manager.shopping_add("Vollmilch")
+    manager.set_shopping_store(whole["uid"], "REWE", always=True)
+    assert manager.store_preferences == {
+        "milch": "aldi-sued",
+        "bio milch": "lidl",
+        "vollmilch": "rewe",
+    }
+
+    client = await hass_ws_client(hass)
+    await client.send_json(
+        {"id": 1, "type": f"{DOMAIN}/forget_store_preference", "key": "bio milch"}
+    )
+    assert (await client.receive_json())["result"]["retailer"] == "lidl"
+    assert manager.store_preferences == {"milch": "aldi-sued", "vollmilch": "rewe"}
+
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/forget_store_preference", "key": "milch"})
+    assert (await client.receive_json())["result"] == {
+        "key": "milch",
+        "retailer": "aldi-sued",
+        "items": [],
+    }
+    assert manager.store_preferences == {"vollmilch": "rewe"}
+    item = next(i for i in manager.shopping if i["uid"] == whole["uid"])
+    assert item["retailer"] == "rewe"  # untouched
+
+
+async def test_forget_store_preference_keeps_own_choice(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
+) -> None:
+    """✕ keeps an item's own choice of another store (picked once with ⇄)."""
+    manager = setup_integration.runtime_data
+    manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    lidl = manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    rewe = manager.save_branch({"store": "REWE", "postcode": "80331"})
+    cheese = manager.shopping_add("Frischkäse")
+    manager.set_shopping_store(cheese["uid"], lidl["id"], always=True)
+    manager.set_shopping_store(cheese["uid"], rewe["id"])  # this time at REWE
+    assert manager.store_preferences == {"frischkaese": "lidl"}
+
+    client = await hass_ws_client(hass)
+    await client.send_json(
+        {"id": 1, "type": f"{DOMAIN}/forget_store_preference", "key": "frischkaese"}
+    )
+    assert (await client.receive_json())["result"]["items"] == [cheese["uid"]]
+    assert manager.store_preferences == {}
+    item = next(i for i in manager.shopping if i["uid"] == cheese["uid"])
+    assert (item["store_override"], item["store_reason"]) == (rewe["id"], "manual")

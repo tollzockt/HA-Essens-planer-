@@ -208,6 +208,50 @@ def ws_reorder_branches(
     connection.send_result(msg["id"], manager.branches_export())
 
 
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/forget_store_preference", vol.Required("key"): str}
+)
+@callback
+def ws_forget_store_preference(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """✕ at a product of "Immer hier gekauft": forget exactly this remembered product key.
+
+    The panel has the stored key; the set_shopping_store service would parse it as a
+    spoken name again ("bio milch" is "Milch") and might find another list item
+    ("Vollmilch" for "milch"). Open items of this product are assigned automatically
+    again: a store choice at the forgotten chain came with "immer" (set_shopping_store
+    always=True sets both) and is dropped, one at another store is the item's own choice
+    and stays. Result {key, retailer (None if nothing was remembered), items: [uid]}.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    key = msg["key"]
+    retailer = manager.store_preferences.pop(key, None)
+    manager.store_preference_aliases.pop(key, None)
+    if retailer is None:
+        connection.send_result(msg["id"], {"key": key, "retailer": None, "items": []})
+        return
+    items = [i for i in manager.shopping if i.get("key") == key]
+    for item in items:
+        override = manager.get_branch(item.get("store_override"))
+        if override is not None and override.get("retailer") != retailer:
+            continue  # the item's own choice of another store
+        item.pop("store_override", None)
+        if isinstance(item.get("chosen"), dict):
+            item["chosen"].pop("pins_store", None)
+    open_items = [i for i in items if i.get("status") != "completed"]
+    if manager.store_split_active:
+        manager.assign_stores(open_items)
+        for item in open_items:
+            manager.update_shopping_description(item)
+    manager._changed("shopping")
+    connection.send_result(
+        msg["id"],
+        {"key": key, "retailer": retailer, "items": [i["uid"] for i in open_items]},
+    )
+
+
 def merge_article_results(
     manager: Any,
     query: str,
@@ -400,6 +444,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_store_prices)
     websocket_api.async_register_command(hass, ws_branches)
     websocket_api.async_register_command(hass, ws_reorder_branches)
+    websocket_api.async_register_command(hass, ws_forget_store_preference)
     websocket_api.async_register_command(hass, ws_article_search)
     websocket_api.async_register_command(hass, ws_compare_prices)
     websocket_api.async_register_command(hass, ws_find_branches)

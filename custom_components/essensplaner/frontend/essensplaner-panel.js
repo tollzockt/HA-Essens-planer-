@@ -2807,26 +2807,21 @@ class EssensplanerPanel extends HTMLElement {
       </details>`;
   }
 
-  /** ✕ at an "immer hier" product: forget the remembered store (as the ⇄ picker does). */
+  /** ✕ at an "immer hier" product: forget exactly this remembered product key.
+   *  By key, not by name: the name would be parsed again ("bio milch" is "Milch") or find
+   *  another list item ("Vollmilch"). Items of the product get the automatic store again,
+   *  only a choice of another store stays (the backend decides, in one step). */
   async _forgetStorePref(el, key) {
     const retailer = this._data.store_preferences?.[key];
     if (!retailer) return;
     const name = this._prefName(key);
-    const shopping = this._data.shopping || [];
-    // on the list: by uid (exact match); else by the product key ("Kaffee" not on the list)
-    const item = shopping.find((i) => i.key === key && i.status !== "completed") || shopping.find((i) => i.key === key);
-    const overrides = Object.fromEntries(shopping.filter((i) => i.store_override).map((i) => [i.uid, i.store_override]));
     el.disabled = true;
     try {
-      const res = await this._service("set_shopping_store", { item: item?.uid || key, store: "auto", always: true }, true);
-      // "automatisch" also drops the item's own store choice: keep it, only "immer" is forgotten
-      const uid = res?.item?.uid;
-      if (uid && overrides[uid] && this._branch(overrides[uid])) {
-        await this._service("set_shopping_store", { item: uid, store: overrides[uid] }, true);
-      }
+      await this._hass.callWS({ type: `${DOMAIN}/forget_store_preference`, key });
       this._toast(`✕ ${name}: nicht mehr immer bei ${this._retailerName(retailer)}`);
-    } catch (e) {
-      el.disabled = false; // toast shown
+    } catch (err) {
+      el.disabled = false;
+      this._toast(errText(err));
     }
   }
 
