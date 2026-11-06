@@ -78,7 +78,7 @@ async def marktguru_aldi(
     aioclient_mock: AiohttpClientMocker,
     monkeypatch,
 ) -> MockConfigEntry:
-    """marktguru on, main store Aldi Süd with butter offers only found live."""
+    """marktguru on, main store Aldi Süd with butter offers (and others) only found live."""
     monkeypatch.setattr("custom_components.essensplaner.articles.LIVE_MIN_INTERVAL", 0)
 
     def offer(oid: int, product: str, brand: str, price: float, old: float | None) -> dict:
@@ -95,6 +95,7 @@ async def marktguru_aldi(
                 offer(13, "Butterkekse", "ja!", 0.79, None),
                 offer(11, "Feine Butter", "Meggle", 1.49, 2.19),
                 offer(14, "Deutsche Markenbutter", "Kerrygold", 1.99, 2.79),
+                offer(15, "Erdnussbutter", "Mars", 1.29, None),
             ]
         },
     )
@@ -143,6 +144,44 @@ async def test_ws_article_search_live_order(
     assert [r["title"] for r in msg["result"]["results"]] == titles[:3]
 
 
+async def test_ws_article_search_keeps_backend_rank(
+    hass: HomeAssistant, marktguru_aldi: MockConfigEntry, hass_ws_client
+) -> None:
+    """Offers for other products never move ahead of the article in the merged answer.
+
+    Compound heads ("Erdnussbutter", "Kokosmilch") are other products: the websocket keeps
+    the manager's rank for them, saved and live ones, and the typed article comes first.
+    """
+    manager = marktguru_aldi.runtime_data
+    manager.add_offer("Erdnussbutter", "Aldi Süd", 1.79, "350 g")
+    manager.add_offer("Kokosmilch", "Aldi Süd", 0.99, "400 ml")
+    manager.add_offer("Oro di Parma Gehackte Tomaten", "Aldi Süd", 0.59, "400 g")
+    client = await hass_ws_client(hass)
+    for msg_id, query in enumerate(("Butter", "Milch", "Tomaten"), start=1):
+        await client.send_json(
+            {"id": msg_id, "type": f"{DOMAIN}/article_search", "query": query, "limit": 20}
+        )
+        results = (await client.receive_json())["result"]["results"]
+        assert results[0]["title"] == query, (query, [r["title"] for r in results])
+        backend = {r["title"]: r["match"] for r in manager.search_articles(query, None, 20)}
+        for result in results:
+            assert result["match"] >= backend[result["title"]], (query, result["title"])
+
+    await client.send_json(
+        {"id": 9, "type": f"{DOMAIN}/article_search", "query": "Butter", "live": True, "limit": 20}
+    )
+    results = (await client.receive_json())["result"]["results"]
+    titles = [r["title"] for r in results]
+    assert titles[:3] == ["Meggle Feine Butter", "Kerrygold Deutsche Markenbutter", "Butter"]
+    live = {
+        r["title"]: r["match"]
+        for r in (await manager.async_search_articles_live("Butter", None, 20))["results"]
+    }
+    peanut = next(r for r in results if r["title"] == "Mars Erdnussbutter")
+    assert peanut["match"] == live["Mars Erdnussbutter"] == 3
+    assert titles.index("Mars Erdnussbutter") > titles.index("Butter")
+
+
 async def test_article_pick_of_main_store_stays_automatic(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
 ) -> None:
@@ -174,3 +213,50 @@ async def test_article_pick_of_main_store_stays_automatic(
     manager.add_offer("Butter", "Lidl", 0.99, "250 g")
     manager.assign_shopping_stores()
     assert (item["retailer"], item["store_reason"], item["price"]) == ("lidl", "offer", 0.99)
+
+
+async def test_offer_card_merken_keeps_the_offer(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """The offer card's "🛒 Merken" (add_shopping_item with offer_id) buys it at the offer.
+
+    Also when the offer saves less than the "Ausnahme" threshold against the main store.
+    """
+    manager = setup_integration.runtime_data
+    manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    lidl = manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    offer = manager.add_offer("Butter", "Lidl", 1.79, "250 g")
+    response = await hass.services.async_call(
+        DOMAIN,
+        "add_shopping_item",
+        {"item": offer["title"], "offer_id": offer["id"]},
+        blocking=True,
+        return_response=True,
+    )
+    item = next(i for i in manager.shopping if i["uid"] == response["item"]["uid"])
+    assert (item["branch_id"], item["retailer"], item["price"]) == (lidl["id"], "lidl", 1.79)
+    assert response["item"]["store_label"] == item["store_label"]
+
+
+async def test_price_list_new_article(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
+) -> None:
+    """An article that is not in the list ("Kaffee") gets a row once a price is saved for it."""
+    manager = setup_integration.runtime_data
+    manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
+    manager.save_branch({"store": "Lidl", "postcode": "80331"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/store_prices", "query": "Kaffee"})
+    assert (await client.receive_json())["result"]["rows"] == []
+
+    # what the panel's "＋ „Kaffee“ als Artikel anlegen" dialog sends
+    await hass.services.async_call(
+        DOMAIN,
+        "set_price",
+        {"ingredient": "Kaffee", "price": 4.99, "amount": 500, "unit": "g", "store": "lidl"},
+        blocking=True,
+        return_response=True,
+    )
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/store_prices", "query": "Kaffee"})
+    rows = (await client.receive_json())["result"]["rows"]
+    assert [(r["name"], r["stores"]["lidl"]["price"]) for r in rows] == [("Kaffee", 4.99)]

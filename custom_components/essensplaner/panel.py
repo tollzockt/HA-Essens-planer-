@@ -204,34 +204,38 @@ def ws_reorder_branches(
 
 
 def merge_article_results(
-    query: str, local: list[dict[str, Any]], live: list[dict[str, Any]], limit: int
+    manager: Any,
+    query: str,
+    local: list[dict[str, Any]],
+    live: list[dict[str, Any]],
+    limit: int,
 ) -> list[dict[str, Any]]:
     """Local and live article hits in one order: offers and exact matches first, at most limit.
 
-    Live offers that are also saved offers (local hits) are left out. When the query names an
-    article (a hit matches it exactly, e.g. "Butter"), an offer only counts as a hit for it if
-    it is an offer for that article the way the shopping list uses offers (offer_matches:
-    "Feine Butter", "Weidebutter" yes, "Butterkekse" no) – those rank like word matches, other
-    offers like substring matches (they no longer jump ahead of the article itself).
+    Both lists come ranked from the manager (match quality); this only merges them. Live
+    offers that are also saved offers (local hits) are left out. When the query names an
+    article (a hit matches it exactly, e.g. "Butter"), an offer that is another product
+    ("Butterkekse", "Erdnussbutter", "Gehackte Tomaten" for "Tomaten" – the manager's
+    _is_article rule, as for the shopping list) ranks like a substring match, so it never
+    comes before the article itself. A match is only ever lowered here, never raised.
     """
-    from .articles import MATCH_EXACT, MATCH_SUBSTRING, MATCH_WORD, _sort_key
+    from .articles import MATCH_EXACT, MATCH_SUBSTRING, _sort_key
     from .ingredients import ingredient_key
-    from .offers import offer_matches
 
     known = {(r.get("offer") or {}).get("id") for r in local if r.get("offer")}
     merged = [*local, *(r for r in live if (r.get("offer") or {}).get("id") not in known)]
     key = ingredient_key(query)
     if key and any(r["match"] == MATCH_EXACT for r in merged):
 
-        def ranked(result: dict[str, Any]) -> dict[str, Any]:
-            if result["source"] not in ("offer", "live") or result["match"] == MATCH_EXACT:
-                return result
-            texts = {result.get("key") or "", ingredient_key(result.get("title") or "")}
-            fits = any(f" {key} " in f" {t} " or offer_matches(t, key) for t in texts if t)
-            match = min(result["match"], MATCH_WORD) if fits else MATCH_SUBSTRING
-            return result if match == result["match"] else {**result, "match": match}
+        def other_product(result: dict[str, Any]) -> bool:
+            if result["source"] not in ("offer", "live"):
+                return False
+            if not MATCH_EXACT < result["match"] < MATCH_SUBSTRING:
+                return False
+            texts = (result.get("title") or "", result.get("key") or "")
+            return not any(manager._is_article(t, key) for t in texts if t)
 
-        merged = [ranked(r) for r in merged]
+        merged = [{**r, "match": MATCH_SUBSTRING} if other_product(r) else r for r in merged]
     merged.sort(key=lambda r: (_sort_key(r), r.get("unit_price") or 9e9, r.get("price") or 0))
     return merged[: max(1, limit)]
 
@@ -275,7 +279,9 @@ async def ws_article_search(
         {
             "query": query,
             "store": manager.article_store_info(branch, retailer),
-            "results": merge_article_results(query, results, response["results"], msg["limit"]),
+            "results": merge_article_results(
+                manager, query, results, response["results"], msg["limit"]
+            ),
             "live": response["live"],
             "error": response["error"],
             "superseded": bool(response.get("superseded")),

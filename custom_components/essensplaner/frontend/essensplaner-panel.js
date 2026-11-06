@@ -1853,6 +1853,9 @@ class EssensplanerPanel extends HTMLElement {
       case "price-cell":
         this._openPriceCell(d.key, d.store || null);
         break;
+      case "price-new":
+        this._openPriceCell(null, null, this._priceQuery.trim());
+        break;
       case "price-more":
         this._priceLimit += 50;
         this._renderPriceMatrix();
@@ -1903,8 +1906,20 @@ class EssensplanerPanel extends HTMLElement {
         break;
       case "offer-to-list": {
         const o = (this._data.offers || []).find((x) => x.id === d.id);
-        if (o) await this._todo("add_item", { item: `${o.title} (${o.store} ${eur(o.price)})` });
-        this._toast("🛒 Auf die Einkaufsliste gesetzt");
+        if (!o) break;
+        if (!this._splitActive() || !o.id) {
+          // without stores (1.2): the offer's store and price are part of the text
+          await this._todo("add_item", { item: `${o.title} (${o.store} ${eur(o.price)})` });
+          this._toast("🛒 Auf die Einkaufsliste gesetzt");
+          break;
+        }
+        // with stores: the item is put at the offer's branch with the offer price and pack
+        const res = await this._service("add_shopping_item", { item: o.title, offer_id: o.id }, true);
+        const item = res?.item || {};
+        const cost = item.price;
+        const price = cost != null ? ` für ${cost === o.price ? "" : "≈ "}${eur(cost)}` : "";
+        const label = item.store_label ? ` bei ${item.store_label}` : "";
+        this._toast(`🛒 ${item.summary || o.title}${price}${label} auf die Einkaufsliste gesetzt`);
         break;
       }
       case "offer-recipes": {
@@ -3005,7 +3020,7 @@ class EssensplanerPanel extends HTMLElement {
         <input type="search" placeholder="🔍 Artikel suchen, z. B. „Butter“" value="${esc(this._priceQuery)}" data-input="price-filter" data-focuskey="price-filter" aria-label="Preisliste filtern">
         <button class="btn ghost" data-action="open-prices" title="Richtwerte und eigene allgemeine Preise">📋 Allgemeine Richtwerte</button>
       </div>
-      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. Ohne eigenen Preis gilt der Richtwert.</div>
+      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. Ohne eigenen Preis gilt der Richtwert. Fehlt ein Artikel (z. B. Kaffee)? Such ihn oben und lege ihn an.</div>
       <div class="pmbox">${this._priceMatrixHtml()}</div>`;
   }
 
@@ -3041,7 +3056,12 @@ class EssensplanerPanel extends HTMLElement {
     if (this._priceError) return `<div class="notice err">${esc(this._priceError)}</div>`;
     const retailers = m.retailers || [];
     const rows = (m.rows || []).slice(0, this._priceLimit);
-    if (!rows.length) return `<div class="hint">${this._priceQuery ? `Nichts gefunden für „${esc(this._priceQuery)}“.` : "Noch keine Preise."}</div>`;
+    // an article that is not in the list yet (e.g. "Kaffee") can be added under the typed name
+    const query = this._priceQuery.trim();
+    const q = fold(query);
+    const listed = (m.rows || []).some((r) => r.key === q || fold(r.name) === q || (r.aliases || []).some((a) => fold(a) === q));
+    const add = q && !listed ? `<button class="btn small" data-action="price-new">＋ „${esc(query)}“ als Artikel anlegen</button>` : "";
+    if (!rows.length) return `<div class="hint">${query ? `Nichts gefunden für „${esc(query)}“.` : "Noch keine Preise."}</div>${add ? `<div class="row">${add}</div>` : ""}`;
     // phone: no Richtwert column, so the general price / estimate goes under the name
     const baseLine = (row) => {
       const cell = row.general || row.default;
@@ -3073,13 +3093,23 @@ class EssensplanerPanel extends HTMLElement {
     const shown = Math.min(rows.length, total);
     const more = (m.rows || []).length > this._priceLimit ? `<button class="btn small" data-action="price-more">Mehr anzeigen</button>` : "";
     const empty = !retailers.length ? `<div class="notice">Noch keine Läden – speichere oben deine Läden, dann siehst du hier ihre Preise nebeneinander.</div>` : "";
-    return `${empty}${table}<div class="row" style="margin:6px 0 0"><span class="meta">${shown} von ${total} Artikeln${this._storePricesLoading ? " · ⏳" : ""}</span><span class="spacer"></span>${more}</div>`;
+    const addRow = add ? `<div class="row" style="margin:0 0 6px"><span class="meta">Nicht dabei?</span>${add}</div>` : "";
+    return `${empty}${addRow}${table}<div class="row" style="margin:6px 0 0"><span class="meta">${shown} von ${total} Artikeln${this._storePricesLoading ? " · ⏳" : ""}</span><span class="spacer"></span>${more}</div>`;
   }
 
-  _openPriceCell(key, retailer) {
-    const row = (this._storePrices?.rows || []).find((r) => r.key === key);
+  _openPriceCell(key, retailer, newName = null) {
+    // newName: a new article (not in the list yet), its name and store are chosen here
+    const draft = newName != null;
+    const row = draft ? { key: "", name: newName, stores: {}, default: null, general: null } : (this._storePrices?.rows || []).find((r) => r.key === key);
     if (!row) return;
-    const cell = retailer ? row.stores?.[retailer] : row.general;
+    const retailers = this._storePrices?.retailers || [];
+    const main = this._storePrices?.main_retailer;
+    if (draft) {
+      // preset: the store shown on the phone, else the main store, else all stores
+      const shown = this._narrowQuery?.matches && retailers.some((r) => r.id === this._priceStore) ? this._priceStore : null;
+      retailer = shown || (retailers.some((r) => r.id === main) ? main : retailers[0]?.id) || null;
+    }
+    const cell = draft ? null : retailer ? row.stores?.[retailer] : row.general;
     const base = cell || row.default || { price: "", amount: 1, unit: "Stück" };
     const storeName = retailer ? this._retailerName(retailer) : "";
     const units = PRICE_UNITS.includes(base.unit) ? PRICE_UNITS : [base.unit, ...PRICE_UNITS];
@@ -3092,8 +3122,13 @@ class EssensplanerPanel extends HTMLElement {
       : row.default
         ? `Noch kein eigener Preis – Richtwert ${eur(row.default.price)} für ${packText(row.default.amount, row.default.unit)}`
         : "Noch kein Preis";
+    const head = draft
+      ? `<label class="field">Artikel<input class="ename" autocomplete="off" placeholder="z. B. Kaffee" value="${esc(row.name)}"></label>
+      <label class="field">Laden<select class="estore"><option value="">Alle Läden (allgemeiner Preis)</option>${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === retailer ? "selected" : ""}>${esc(r.name)}${r.id === main ? " ⭐" : ""}</option>`).join("")}</select></label>
+      <div class="hint">Der Artikel steht danach in der Preisliste; auf der Einkaufsliste bekommt er diesen Preis.</div>`
+      : `<div class="hint">${retailer ? `Preis bei <b>${esc(storeName)}</b>` : "Allgemeiner Preis – gilt in allen Läden ohne eigenen Preis"} · ${esc(info)}</div>`;
     const body = `
-      <div class="hint">${retailer ? `Preis bei <b>${esc(storeName)}</b>` : "Allgemeiner Preis – gilt in allen Läden ohne eigenen Preis"} · ${esc(info)}</div>
+      ${head}
       <div class="grid2">
         <label class="field">Preis (€)<input class="eprice" inputmode="decimal" autocomplete="off" placeholder="1,99" value="${esc(num(base.price))}"></label>
         <label class="field">Packung<span style="display:flex;gap:6px"><input class="eamount" inputmode="decimal" autocomplete="off" style="width:100px" value="${esc(num(base.amount ?? 1))}"><select class="eunit">${units.map((u) => `<option ${u === base.unit ? "selected" : ""}>${esc(u)}</option>`).join("")}</select></span></label>
@@ -3101,30 +3136,43 @@ class EssensplanerPanel extends HTMLElement {
       ${history.length > 1 ? `<div class="meta">Verlauf: ${history.map((h) => `${dayText(h.date)} ${eur(h.price)}`).join(" · ")}</div>` : ""}
       ${retailer && cell && !own ? `<div class="hint">Dieser Preis wurde automatisch gelernt. Ein eigener Preis hat Vorrang.</div>` : ""}`;
     const footer = `${own ? `<button class="btn reset">↩ Zurücksetzen</button>` : ""}<span class="spacer"></span><button class="btn" data-close>Abbrechen</button><button class="btn primary save">💾 Speichern</button>`;
-    this._showModal(`${row.name}${storeName ? ` · ${storeName}` : ""}`, body, footer, (root) => {
+    const title = draft ? "＋ Neuer Artikel" : `${row.name}${storeName ? ` · ${storeName}` : ""}`;
+    this._showModal(title, body, footer, (root) => {
       const price = root.querySelector(".eprice");
-      price.focus();
-      price.select?.();
+      const nameField = root.querySelector(".ename");
+      const first = nameField && !nameField.value.trim() ? nameField : price;
+      first.focus();
+      first.select?.();
       const done = async (data, message) => {
         try {
           await this._service("set_price", data, true);
           this._closeModal();
           this._toast(message);
+          if (draft) {
+            // show the new article in the list
+            this._priceQuery = data.ingredient;
+            const filter = this._content.querySelector('[data-input="price-filter"]');
+            if (filter) filter.value = data.ingredient;
+          }
           await this._fetchStorePrices();
         } catch (e) {
           /* toast shown */
         }
       };
       const save = () => {
+        const name = draft ? nameField.value.trim() : row.name;
+        if (!name) return this._toast("Bitte einen Artikel eingeben, z. B. Kaffee.");
         const value = parse(price.value);
         if (price.value.trim() === "" || !Number.isFinite(value) || value < 0) return this._toast("Bitte einen Preis eingeben, z. B. 1,99.");
+        const store = draft ? root.querySelector(".estore").value || null : retailer;
+        const where = store ? ` bei ${this._retailerName(store)}` : "";
         const amount = parse(root.querySelector(".eamount").value);
-        const data = { ingredient: row.name, price: value, amount: Number.isFinite(amount) && amount > 0 ? amount : 1, unit: root.querySelector(".eunit").value };
-        if (retailer) data.store = retailer;
-        done(data, `💶 ${row.name}: ${eur(value)}${storeName ? ` bei ${storeName}` : ""} gespeichert`);
+        const data = { ingredient: name, price: value, amount: Number.isFinite(amount) && amount > 0 ? amount : 1, unit: root.querySelector(".eunit").value };
+        if (store) data.store = store;
+        done(data, `💶 ${name}: ${eur(value)}${where} gespeichert`);
       };
       root.querySelector(".save").addEventListener("click", save);
-      price.addEventListener("keydown", (ev) => ev.key === "Enter" && save());
+      for (const field of [price, nameField]) field?.addEventListener("keydown", (ev) => ev.key === "Enter" && save());
       root.querySelector(".reset")?.addEventListener("click", () => {
         const data = { ingredient: row.name, remove: true };
         if (retailer) data.store = retailer;
