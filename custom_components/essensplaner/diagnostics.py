@@ -12,10 +12,14 @@ from .const import CONF_ZIP
 from .manager import EssensplanerManager
 
 # where the user lives / shops: coordinates, streets (also in labels), distances to zones
-# and OpenStreetMap / REWE market ids (which point to one exact shop)
+# and OpenStreetMap / REWE / EDEKA market ids and ALDI SÜD service points (which point to
+# one exact shop)
 TO_REDACT = {
     "market_id",
     "rewe_market_id",
+    "edeka_market_id",
+    "aldi_service_point",
+    "service_point",
     "branch_id",
     "lat",
     "lon",

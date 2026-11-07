@@ -168,6 +168,12 @@
     },
     "find_rewe_markets": {
       "service": "mdi:store-search"
+    },
+    "find_edeka_markets": {
+      "service": "mdi:store-search"
+    },
+    "find_aldi_stores": {
+      "service": "mdi:map-search"
     }
   }
 }

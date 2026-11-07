@@ -1,0 +1,388 @@
+{
+ "docs": [
+  {
+   "angebotid": 6447346,
+   "externeid": null,
+   "titel": "Mio Mio Erfrischungsgetränk",
+   "preis": 0.89,
+   "beschreibung": "versch. Sorten, teilweise koffeinhaltig, je 0,5 l Glasflasche zzgl. € 0.15 Pfand",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/29e6fd21-5519-49a7-bdd4-f3039abdfec5_Mio_Mio_Mate_0_5l_2365084008.jpg",
+   "bild_web130": "https://offer-images.api.edeka/a44a3e76-997e-4266-b9da-eac775b13a23_Mio_Mio_Mate_0_5l_2365084008.jpg",
+   "bild_app": "https://offer-images.api.edeka/8b36d57b-3af0-467f-8c6f-9d5984d27089_Mio_Mio_Mate_0_5l_2365084008.jpg",
+   "warengruppe": "Getränke",
+   "warengruppeid": 7,
+   "kriterien": [
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 l = € 1.78",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447361,
+   "externeid": null,
+   "titel": "Vöslauer Mineralwasser",
+   "preis": 3.99,
+   "beschreibung": "prickelnd oder still, je Packung = 6 x 1,5 l zzgl. € 1.50 Pfand",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/da0dea22-184d-4a7d-be85-9def3656da24_Voeslauer_Mineralwasser_Prickelnd_6x1_5l_9009700212431.jpg",
+   "bild_web130": "https://offer-images.api.edeka/004e1612-3ae9-46db-adc6-cf055b611dc1_Voeslauer_Mineralwasser_Prickelnd_6x1_5l_9009700212431.jpg",
+   "bild_app": "https://offer-images.api.edeka/b3443f74-5234-4831-8f72-4c31a80aede7_Voeslauer_Mineralwasser_Prickelnd_6x1_5l_9009700212431.jpg",
+   "warengruppe": "Getränke",
+   "warengruppeid": 7,
+   "kriterien": [
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 l = € 0.44",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447531,
+   "externeid": null,
+   "titel": "EDEKA - Butter-Spekulatius oder Butter-Mandel-Spekulatius",
+   "preis": 1.99,
+   "beschreibung": "je 200 g Beutel",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/a4d0f5ca-c57c-49b2-9ea9-9d16778f0bc1_EDEKA_Butterspekulatius_200g_2853617004.jpg",
+   "bild_web130": "https://offer-images.api.edeka/497739ac-b85b-446d-b603-07ca0e7ae1da_EDEKA_Butterspekulatius_200g_2853617004.jpg",
+   "bild_app": "https://offer-images.api.edeka/a71212a1-42bd-4974-8ca1-8ae8cdfd3ba8_EDEKA_Butterspekulatius_200g_2853617004.jpg",
+   "warengruppe": "Knabbern & Naschen",
+   "warengruppeid": 10,
+   "kriterien": [
+    {
+     "id": 237,
+     "name": "PAYBACK",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 kg = € 9.95",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447491,
+   "externeid": null,
+   "titel": "Mini Babybel Original, Balance, High Protein oder Mini Rolls",
+   "preis": 1.79,
+   "beschreibung": "25% - 45% Fett i. Tr., je 5 x 20 g = 100 g Netz / 85 g Beutel",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/6fca9939-d887-4c51-9eef-f31fcf87f30b_Babybel_Mini__45Prz_Toy_5x20g_3753787006.jpg",
+   "bild_web130": "https://offer-images.api.edeka/f8986b7f-c31f-4797-ae98-9e0bf105e0cd_Babybel_Mini__45Prz_Toy_5x20g_3753787006.jpg",
+   "bild_app": "https://offer-images.api.edeka/21d5be50-0215-447b-984b-ee638065ea81_Babybel_Mini__45Prz_Toy_5x20g_3753787006.jpg",
+   "warengruppe": "Molkerei & Käse",
+   "warengruppeid": 3,
+   "kriterien": [
+    {
+     "id": 1081,
+     "name": "App-Preis",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 kg = € 17.90 / € 21.06",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447725,
+   "externeid": null,
+   "titel": "Frisches Hähnchenbrustfilet",
+   "preis": 0.99,
+   "beschreibung": "für den kalorienbewussten Genuss, Handelsklasse A, je 100 g",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/fcf4245c-7140-4d9b-8a6d-95220d824431_Haehnchenbrust_Filets_1_PL.jpg",
+   "bild_web130": "https://offer-images.api.edeka/3b45c73f-8043-4343-8ebd-4a3b2504be00_Haehnchenbrust_Filets_1_PL.jpg",
+   "bild_app": "https://offer-images.api.edeka/28db4f6f-6ef7-4366-8892-04bb302b20df_Haehnchenbrust_Filets_1_PL.jpg",
+   "warengruppe": "Fleisch & Wurst",
+   "warengruppeid": 1,
+   "kriterien": [
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": null,
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6448260,
+   "externeid": null,
+   "titel": "Deutschland - Kohlrabi",
+   "preis": 0.55,
+   "beschreibung": "weiß, Klasse I, Stück",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/91101df1-5cdb-4e63-a925-43f1e27ac5e6_Kohlrabi_5_PL.jpg",
+   "bild_web130": "https://offer-images.api.edeka/27204e29-4de1-45a7-864c-ab70c63866fb_Kohlrabi_5_PL.jpg",
+   "bild_app": "https://offer-images.api.edeka/ccc3f403-a294-48ac-9ac2-00313f60ed6e_Kohlrabi_5_PL.jpg",
+   "warengruppe": "Obst & Gemüse",
+   "warengruppeid": 4,
+   "kriterien": null,
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": null,
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6448143,
+   "externeid": null,
+   "titel": "Kuschelweich Weichspüler",
+   "preis": 1.99,
+   "beschreibung": "versch. Sorten, je 38 WA / 43 WA Flasche",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/441db8b5-d33c-4c5a-8f21-e4183d2a493d_Kuschelweich_Weichspueler_Sommerwind_TOP_38WL_1l_5179941002.jpg",
+   "bild_web130": "https://offer-images.api.edeka/a7bd1cb8-1936-493b-9aeb-1c77e05355b1_Kuschelweich_Weichspueler_Sommerwind_TOP_38WL_1l_5179941002.jpg",
+   "bild_app": "https://offer-images.api.edeka/882bb7d4-b8c1-4272-944c-9fc556d79280_Kuschelweich_Weichspueler_Sommerwind_TOP_38WL_1l_5179941002.jpg",
+   "warengruppe": "Drogerie",
+   "warengruppeid": 9,
+   "kriterien": [
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 WA = € 0.05",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6448218,
+   "externeid": null,
+   "titel": "EDEKA - Toilettenpapier Kamille",
+   "preis": 2.99,
+   "beschreibung": "3-lagig, 8 x 150 Blatt Packung",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/e7e81c5b-52c4-4361-ba4a-ae03ee18a57f_EDEKA_Toilettenpapier_Kamille_3_lagig_8x150BL_6112979007.jpg",
+   "bild_web130": "https://offer-images.api.edeka/6b5ef203-4387-4e72-878a-2fe4c14b89b5_EDEKA_Toilettenpapier_Kamille_3_lagig_8x150BL_6112979007.jpg",
+   "bild_app": "https://offer-images.api.edeka/cf0897f9-251d-4120-9437-dca740ecc759_EDEKA_Toilettenpapier_Kamille_3_lagig_8x150BL_6112979007.jpg",
+   "warengruppe": "Drogerie",
+   "warengruppeid": 9,
+   "kriterien": [
+    {
+     "id": 237,
+     "name": "PAYBACK",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": null,
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447571,
+   "externeid": null,
+   "titel": "Bärenmarke Frische Milch",
+   "preis": 1.11,
+   "beschreibung": "3,8% / 1,8% Fett, je 1 l Packung",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/d794bcb5-3412-4ac8-b001-37ea3414aa81_Baerenmarke_Frische_Milch_3_8_Prozent_1l_4045317058067.jpg",
+   "bild_web130": "https://offer-images.api.edeka/6642be70-5381-4a4c-a5e8-e7b08c411bbf_Baerenmarke_Frische_Milch_3_8_Prozent_1l_4045317058067.jpg",
+   "bild_app": "https://offer-images.api.edeka/4baa2043-6e3d-4e86-8eef-c9a9bf118c79_Baerenmarke_Frische_Milch_3_8_Prozent_1l_4045317058067.jpg",
+   "warengruppe": "Molkerei & Käse",
+   "warengruppeid": 3,
+   "kriterien": [
+    {
+     "id": 237,
+     "name": "PAYBACK",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": null,
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447526,
+   "externeid": null,
+   "titel": "Leerdammer",
+   "preis": 1.39,
+   "beschreibung": "in Scheiben oder gerieben, versch. Sorten und Fettstufen, je 100 g - 150 g Packung / Beutel",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/04b9cdf6-a6d6-4c82-8890-5b077090e127_leerdammer_caractere_herzhaft_wuerzig_125g_08721800405360_frei.jpg",
+   "bild_web130": "https://offer-images.api.edeka/c0aeadb3-0ee3-4a9f-95ab-9ad411633ce2_leerdammer_caractere_herzhaft_wuerzig_125g_08721800405360_frei.jpg",
+   "bild_app": "https://offer-images.api.edeka/9e28c249-abce-4d33-8051-0dcdb0c7e86b_leerdammer_caractere_herzhaft_wuerzig_125g_08721800405360_frei.jpg",
+   "warengruppe": "Molkerei & Käse",
+   "warengruppeid": 3,
+   "kriterien": [
+    {
+     "id": 1081,
+     "name": "App-Preis",
+     "schieneTyp": "E"
+    },
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 kg = ab € 9.27",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6448295,
+   "externeid": null,
+   "titel": "Deutschland - Speisekartoffeln",
+   "preis": 1.99,
+   "beschreibung": "festkochend, vorwiegend festkochend oder mehligkochend, je 2 kg Netz",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/42f00e02-820b-4334-8771-6002d4719185_Ackergold_Kartoffeln_1_PL.jpg",
+   "bild_web130": "https://offer-images.api.edeka/64f1c041-2938-4ae1-8784-e2010fb83f2f_Ackergold_Kartoffeln_1_PL.jpg",
+   "bild_app": "https://offer-images.api.edeka/8cda08d4-77a3-46dd-a420-f814a40e7718_Ackergold_Kartoffeln_1_PL.jpg",
+   "warengruppe": "Obst & Gemüse",
+   "warengruppeid": 4,
+   "kriterien": null,
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 kg = € 1.00",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6448305,
+   "externeid": null,
+   "titel": "Deutschland - GUT & GÜNSTIG - Möhren",
+   "preis": 0.99,
+   "beschreibung": "Klasse I, 2 kg Beutel",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/3d33e302-1448-49cf-ad6f-e1d1019951af_GG_Moehren_2000g.jpg",
+   "bild_web130": "https://offer-images.api.edeka/9728193d-c363-4406-bfd5-ee07faf93e06_GG_Moehren_2000g.jpg",
+   "bild_app": "https://offer-images.api.edeka/e79dc886-0db7-40e8-a07b-5d134810a5a7_GG_Moehren_2000g.jpg",
+   "warengruppe": "Obst & Gemüse",
+   "warengruppeid": 4,
+   "kriterien": null,
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 kg = € 0.50",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447600,
+   "externeid": null,
+   "titel": "Président Meersalzbutter",
+   "preis": 2.79,
+   "beschreibung": "mit echten Meersalzkörnern, 250 g Packung",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/b8eda360-e622-43b9-a637-448cd1230081_President_La_Motte_Butter_Meersalz_250g_3228021000084.jpg",
+   "bild_web130": "https://offer-images.api.edeka/cac17c93-bdd6-4a0b-a2c5-a68e11d31a95_President_La_Motte_Butter_Meersalz_250g_3228021000084.jpg",
+   "bild_app": "https://offer-images.api.edeka/2f113a60-af42-457a-995b-c7f42946cd3c_President_La_Motte_Butter_Meersalz_250g_3228021000084.jpg",
+   "warengruppe": "Molkerei & Käse",
+   "warengruppeid": 3,
+   "kriterien": [
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 kg = € 11.16",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  },
+  {
+   "angebotid": 6447391,
+   "externeid": null,
+   "titel": "Veltins Pilsener",
+   "preis": 10.99,
+   "beschreibung": "versch. Sorten, je Kasten = 20 x 0,5 l / 24 x 0,33 l zzgl. € 3.10 / € 3.42 Pfand",
+   "punkte_deutschlandcard": "0",
+   "zusatztext": "Diese Artikel sind in den mit dieser Werbung gekennzeichneten Märkten erhältlich. Alle Angebote gültig bis Samstag, den 07.11.2026, KW 45. Wir haben uns für diesen Zeitraum ausreichend bevorratet. Bitte entschuldige, wenn die Artikel auf Grund der großen Nachfrage dennoch im Einzelfall ausverkauft sein sollten. Abgabe in haushaltsüblichen Mengen. Für Darstellungsfehler übernehmen wir keine Haftung. EDEKA Nordwest Stiftung & Co. KG, Edekaplatz 1, 47445 Moers",
+   "bild_web90": "https://offer-images.api.edeka/874b044f-abf0-4b49-898d-998ad3c9b030_Veltins_Pilsener_20x0_5l.jpg",
+   "bild_web130": "https://offer-images.api.edeka/c528f9d8-2a8d-46d6-9c88-9de108649b16_Veltins_Pilsener_20x0_5l.jpg",
+   "bild_app": "https://offer-images.api.edeka/a0f7c949-2d44-488b-acec-3def32e815c6_Veltins_Pilsener_20x0_5l.jpg",
+   "warengruppe": "Getränke",
+   "warengruppeid": 7,
+   "kriterien": [
+    {
+     "id": 236,
+     "name": "Superknüller",
+     "schieneTyp": "E"
+    }
+   ],
+   "sonderkennzeichen": null,
+   "zutaten": null,
+   "nachlass": null,
+   "genussplus": null,
+   "basicPrice": "1 l = € 1.10 / € 1.39",
+   "national": false,
+   "gueltig_bis": 1794009600000
+  }
+ ],
+ "anzahl": 14,
+ "gueltig_von": 1793577600000,
+ "gueltig_bis": 1794009600000,
+ "lastModified": 0,
+ "national": false
+}

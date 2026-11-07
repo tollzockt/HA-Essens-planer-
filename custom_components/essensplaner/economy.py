@@ -712,12 +712,17 @@ class EconomyMixin:
         return False
 
     def replace_source_offers(
-        self: EssensplanerManager, source: str, offers: list[dict[str, Any]], meta: dict[str, Any]
+        self: EssensplanerManager,
+        source: str,
+        offers: list[dict[str, Any]],
+        meta: dict[str, Any] | None,
     ) -> None:
         """Replace all offers of one source (e.g. after a marktguru refresh).
 
         Tags the offers with the branches they apply to and learns regular prices from
         old prices: like 1.2 as general learned prices, and per retailer (with history).
+        meta becomes offers_meta (marktguru); the chain sources (EDEKA, ALDI SÜD) pass None
+        and keep their status in price_sources_meta.
         """
         today = self.today().isoformat()
         kept = [
@@ -744,8 +749,10 @@ class EconomyMixin:
                         "store": offer.get("store"),
                         "updated": dt_util.utcnow().isoformat(),
                     }
-        meta["learned"] = self.learn_from_offers(offers)
-        self.offers_meta = meta
+        learned = self.learn_from_offers(offers)
+        if meta is not None:
+            meta["learned"] = learned
+            self.offers_meta = meta
         self._invalidate_prices()
         self._after_price_change("offers")
 
@@ -950,10 +957,14 @@ class EconomyMixin:
         }
 
     def price_sources_view(self: EssensplanerManager) -> dict[str, Any]:
-        """Status of the online price sources besides the offers (REWE online shop)."""
-        from .rewe import rewe_status  # rewe.py imports the mixins
+        """Status of the online sources besides marktguru: REWE online shop, ALDI SÜD
+        (prices) and the EDEKA market offers."""
+        # the adapters import the mixins
+        from .aldi import aldi_status
+        from .edeka import edeka_status
+        from .rewe import rewe_status
 
-        return {"rewe": rewe_status(self)}
+        return {"rewe": rewe_status(self), "aldi": aldi_status(self), "edeka": edeka_status(self)}
 
     def shopping_from_items(
         self: EssensplanerManager, entries: list[tuple[dict[str, Any], str]]

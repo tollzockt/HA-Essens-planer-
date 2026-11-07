@@ -88,7 +88,13 @@ DEFAULT_BRANCH_ROUTE_RADIUS: Final = 800
 # experimental REWE online shop prices (opt-in)
 CONF_REWE_ONLINE: Final = "rewe_online_prices"
 DEFAULT_REWE_ONLINE: Final = False
-# honest User-Agent of all HTTP clients (OpenStreetMap, REWE, marktguru)
+# experimental ALDI SÜD prices and reduced articles (opt-in, 1.4)
+CONF_ALDI_ONLINE: Final = "aldi_online_prices"
+DEFAULT_ALDI_ONLINE: Final = False
+# offers of the linked EDEKA market from edeka.de (opt-in, 1.4)
+CONF_EDEKA_OFFERS: Final = "edeka_offers"
+DEFAULT_EDEKA_OFFERS: Final = False
+# honest User-Agent of all HTTP clients (OpenStreetMap, REWE, ALDI SÜD, EDEKA, marktguru)
 HTTP_USER_AGENT: Final = "HA-Essensplaner/1.4 (+https://github.com/tollzockt/HA-Essens-planer-)"
 
 STRATEGY_BALANCED: Final = "balanced"
@@ -142,10 +148,19 @@ SERVICE_ADD_SHOPPING_ITEM: Final = "add_shopping_item"
 SERVICE_FIND_BRANCHES: Final = "find_branches"
 SERVICE_REFRESH_PRICES: Final = "refresh_prices"
 SERVICE_FIND_REWE_MARKETS: Final = "find_rewe_markets"
+SERVICE_FIND_ALDI_STORES: Final = "find_aldi_stores"
+SERVICE_FIND_EDEKA_MARKETS: Final = "find_edeka_markets"
 # sources of refresh_prices
 PRICE_SOURCE_OFFERS: Final = "offers"
 PRICE_SOURCE_REWE: Final = "rewe"
-PRICE_SOURCES: Final = [PRICE_SOURCE_OFFERS, PRICE_SOURCE_REWE]
+PRICE_SOURCE_ALDI: Final = "aldi"
+PRICE_SOURCE_EDEKA: Final = "edeka"
+PRICE_SOURCES: Final = [
+    PRICE_SOURCE_OFFERS,
+    PRICE_SOURCE_REWE,
+    PRICE_SOURCE_ALDI,
+    PRICE_SOURCE_EDEKA,
+]
 
 # Attributes / service fields --------------------------------------------------
 ATTR_RECIPE: Final = "recipe"

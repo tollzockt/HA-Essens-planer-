@@ -1,0 +1,110 @@
+{
+ "data": [
+  {
+   "name": "Zum Jägertal 1",
+   "alcoholAvailability": [],
+   "publicPhoneNumber": null,
+   "facilities": [],
+   "address": {
+    "countryName": "Germany",
+    "countryIsoCode": "DE",
+    "regionName": "Rheinland-Pfalz",
+    "regionIsoCode": "RP",
+    "address1": "Zum Jägertal 1",
+    "address2": null,
+    "address3": null,
+    "city": "Asbach",
+    "zipCode": "53567",
+    "district": "Asbach",
+    "latitude": "50.65618200000000",
+    "longitude": "7.41849900000000"
+   },
+   "id": "B402",
+   "availableCustomerServiceTypes": [
+    "walk-in"
+   ],
+   "distance": "4.1 km",
+   "geofencing": {
+    "enabled": false,
+    "geofences": {
+     "inner": 5,
+     "outer": 10
+    }
+   },
+   "isOpenNow": false
+  },
+  {
+   "name": "Am Rennenberg 3",
+   "alcoholAvailability": [],
+   "publicPhoneNumber": null,
+   "facilities": [],
+   "address": {
+    "countryName": "Germany",
+    "countryIsoCode": "DE",
+    "regionName": "Rheinland-Pfalz",
+    "regionIsoCode": "RP",
+    "address1": "Am Rennenberg 3",
+    "address2": null,
+    "address3": null,
+    "city": "Sankt Katharinen",
+    "zipCode": "53562",
+    "district": "Sankt Katharinen",
+    "latitude": "50.60336900000000",
+    "longitude": "7.33229500000000"
+   },
+   "id": "B455",
+   "availableCustomerServiceTypes": [
+    "walk-in"
+   ],
+   "distance": "7.1 km",
+   "geofencing": {
+    "enabled": false,
+    "geofences": {
+     "inner": 5,
+     "outer": 10
+    }
+   },
+   "isOpenNow": false
+  },
+  {
+   "name": "Rottbitzer Straße 24",
+   "alcoholAvailability": [],
+   "publicPhoneNumber": null,
+   "facilities": [],
+   "address": {
+    "countryName": "Germany",
+    "countryIsoCode": "DE",
+    "regionName": "Nordrhein-Westfalen",
+    "regionIsoCode": "NW",
+    "address1": "Rottbitzer Straße 24",
+    "address2": null,
+    "address3": null,
+    "city": "Bad Honnef-Rottbitze",
+    "zipCode": "53604",
+    "district": "Bad Honnef-Rottbitze",
+    "latitude": "50.64559700000000",
+    "longitude": "7.31240900000000"
+   },
+   "id": "B456",
+   "availableCustomerServiceTypes": [
+    "walk-in"
+   ],
+   "distance": "8.8 km",
+   "geofencing": {
+    "enabled": false,
+    "geofences": {
+     "inner": 5,
+     "outer": 10
+    }
+   },
+   "isOpenNow": false
+  }
+ ],
+ "meta": {
+  "pagination": {
+   "offset": 0,
+   "limit": 5,
+   "totalCount": 46
+  }
+ }
+}

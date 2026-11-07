@@ -1,0 +1,338 @@
+{
+ "totalCount": 3,
+ "limit": 10,
+ "offset": 0,
+ "markets": [
+  {
+   "id": 2644015,
+   "isEdekaHomepageMarket": true,
+   "isEdekaAppMarket": true,
+   "name": "EDEKA Hoffmann",
+   "name_searchable": "EDEKA Hoffmann",
+   "address_searchable": "Landblum 1 Horhausen 56593 Rheinland-Pfalz",
+   "searchable_terms": [
+    "EDEKA Hoffmann",
+    "Landblum 1",
+    "Horhausen",
+    "Rheinland-Pfalz"
+   ],
+   "zipCode_keyword": "56593",
+   "distributionChannelName": "EDEKA",
+   "distributionChannelType": "EDEKA",
+   "region_abbreviation_keyword": "rr",
+   "distributionChannel": {
+    "name": "EDEKA",
+    "type": "EDEKA"
+   },
+   "contact": {
+    "address": {
+     "city": {
+      "name": "Horhausen",
+      "zipCode": "56593"
+     },
+     "street": "Landblum 1",
+     "federalState": "Rheinland-Pfalz"
+    },
+    "facsimileNumber": "+492687921957",
+    "phoneNumber": "+492687559"
+   },
+   "imprint": {
+    "companyName": "EDEKA Stefan Hoffmann",
+    "address": {
+     "city": {
+      "name": "Horhausen",
+      "zipCode": "56593"
+     },
+     "street": "Landblum 1"
+    }
+   },
+   "coordinates": {
+    "lat": "50.59341209999999",
+    "lon": "7.5288122"
+   },
+   "businessHours": {
+    "monday": {
+     "weekday": "MONDAY",
+     "open": true,
+     "from": "08:00",
+     "to": "21:00",
+     "timeEntries": [
+      {
+       "from": "08:00",
+       "to": "21:00"
+      }
+     ]
+    }
+   },
+   "regularBusinessHours": [
+    {
+     "day": "FRIDAY",
+     "from": "08:00",
+     "to": "21:00",
+     "open": true
+    }
+   ],
+   "specialBusinessHours": [
+    {
+     "date": "01.01.2027",
+     "reason": "Neujahrstag",
+     "open": false
+    }
+   ],
+   "merchant": {
+    "id": 10001922,
+    "name": "EDEKA Stefan Hoffmann",
+    "address": {
+     "street": "Landblum 1",
+     "city": "Horhausen",
+     "zipCode": "56593"
+    }
+   },
+   "url": "https://www.edeka.de/eh/rhein-ruhr/edeka-hoffmann-landblum-1/index.jsp",
+   "nationalOffers": true,
+   "validFrom": "31.08.2010",
+   "services": [
+    {
+     "id": "AUSBILDENDER_BETRIEB",
+     "name": "Ausbildender Betrieb",
+     "abbreviation": "a",
+     "type": "service"
+    },
+    {
+     "id": "BACKSHOP_BAECKEREI",
+     "name": "Backshop/Bäckerei",
+     "abbreviation": "b",
+     "type": "assortment"
+    }
+   ],
+   "region": {
+    "abbreviation": "RR",
+    "name": "Rhein-Ruhr",
+    "id": 900
+   },
+   "payback": true
+  },
+  {
+   "id": 8000788,
+   "isEdekaHomepageMarket": true,
+   "isEdekaAppMarket": true,
+   "name": "EDEKA Geschull",
+   "name_searchable": "EDEKA Geschull",
+   "address_searchable": "Marienstr. 1 Breitscheid 53547 Rheinland-Pfalz",
+   "searchable_terms": [
+    "EDEKA Geschull",
+    "Marienstr. 1",
+    "Breitscheid",
+    "Rheinland-Pfalz"
+   ],
+   "zipCode_keyword": "53547",
+   "distributionChannelName": "nah & gut",
+   "distributionChannelType": "EDEKA",
+   "region_abbreviation_keyword": "rr",
+   "distributionChannel": {
+    "name": "nah & gut",
+    "type": "EDEKA"
+   },
+   "contact": {
+    "address": {
+     "city": {
+      "name": "Breitscheid",
+      "zipCode": "53547"
+     },
+     "street": "Marienstraße 1",
+     "federalState": "Rheinland-Pfalz"
+    },
+    "facsimileNumber": "+492638947879",
+    "phoneNumber": "+492638947878"
+   },
+   "imprint": {
+    "companyName": "EDEKA Gschull",
+    "address": {
+     "city": {
+      "name": "Breitscheid",
+      "zipCode": "53547"
+     },
+     "street": "Marienstr. 1"
+    }
+   },
+   "coordinates": {
+    "lat": "50.5724917",
+    "lon": "7.4612865"
+   },
+   "businessHours": {
+    "monday": {
+     "weekday": "MONDAY",
+     "open": true,
+     "from": "06:00",
+     "to": "18:30",
+     "timeEntries": [
+      {
+       "from": "06:00",
+       "to": "18:30"
+      }
+     ]
+    }
+   },
+   "regularBusinessHours": [
+    {
+     "day": "FRIDAY",
+     "from": "06:00",
+     "to": "18:30",
+     "open": true
+    }
+   ],
+   "specialBusinessHours": [
+    {
+     "date": "01.01.2027",
+     "reason": "Neujahrstag",
+     "open": false
+    }
+   ],
+   "merchant": {
+    "id": 10001917,
+    "name": "EDEKA Gschull",
+    "address": {
+     "street": "Marienstr. 1",
+     "city": "Breitscheid",
+     "zipCode": "53547"
+    }
+   },
+   "nationalOffers": false,
+   "validFrom": "15.09.2015",
+   "services": [
+    {
+     "id": "GENUSS_PLUS",
+     "name": "Genuss+",
+     "abbreviation": "gp",
+     "type": "service"
+    },
+    {
+     "id": "MOBILES_BEZAHLEN",
+     "name": "Mobiles Bezahlen per Handy",
+     "abbreviation": "mb",
+     "type": "service"
+    }
+   ],
+   "region": {
+    "abbreviation": "RR",
+    "name": "Rhein-Ruhr",
+    "id": 900
+   },
+   "payback": true
+  },
+  {
+   "id": 10005029,
+   "isEdekaHomepageMarket": true,
+   "isEdekaAppMarket": true,
+   "name": "EDEKA Fellenzer",
+   "name_searchable": "EDEKA Fellenzer",
+   "address_searchable": "Urbacher Str. 35 Puderbach 56305 Rheinland-Pfalz",
+   "searchable_terms": [
+    "EDEKA Fellenzer",
+    "Urbacher Str. 35",
+    "Puderbach",
+    "Rheinland-Pfalz"
+   ],
+   "zipCode_keyword": "56305",
+   "distributionChannelName": "EDEKA",
+   "distributionChannelType": "EDEKA",
+   "region_abbreviation_keyword": "rr",
+   "distributionChannel": {
+    "name": "EDEKA",
+    "type": "EDEKA"
+   },
+   "contact": {
+    "address": {
+     "city": {
+      "name": "Puderbach",
+      "zipCode": "56305"
+     },
+     "street": "Urbacher Straße 35",
+     "federalState": "Rheinland-Pfalz"
+    },
+    "phoneNumber": "+492684979201"
+   },
+   "imprint": {
+    "companyName": "Karl-Heinz Fellenzer e.K.",
+    "address": {
+     "city": {
+      "name": "Puderbach",
+      "zipCode": "56305"
+     },
+     "street": "Urbacher Str. 24"
+    }
+   },
+   "coordinates": {
+    "lat": "50.5928",
+    "lon": "7.60891"
+   },
+   "businessHours": {
+    "monday": {
+     "weekday": "MONDAY",
+     "open": true,
+     "from": "08:00",
+     "to": "21:00",
+     "timeEntries": [
+      {
+       "from": "08:00",
+       "to": "21:00"
+      }
+     ]
+    }
+   },
+   "regularBusinessHours": [
+    {
+     "day": "FRIDAY",
+     "from": "08:00",
+     "to": "21:00",
+     "open": true
+    }
+   ],
+   "specialBusinessHours": [
+    {
+     "date": "01.01.2027",
+     "reason": "Neujahrstag",
+     "open": false
+    }
+   ],
+   "merchant": {
+    "id": 10001905,
+    "name": "Karl-Heinz Fellenzer e.K.",
+    "address": {
+     "street": "Urbacher Str. 24",
+     "city": "Puderbach",
+     "zipCode": "56305"
+    }
+   },
+   "url": "https://www.edeka.de/eh/rhein-ruhr/edeka-fellenzer-urbacher-straße-35/index.jsp",
+   "nationalOffers": true,
+   "validFrom": "03.12.2022",
+   "services": [
+    {
+     "id": "AUSBILDENDER_BETRIEB",
+     "name": "Ausbildender Betrieb",
+     "abbreviation": "a",
+     "type": "service"
+    },
+    {
+     "id": "CASHBACK",
+     "name": "Bargeldauszahlung",
+     "abbreviation": "cb",
+     "type": "service"
+    }
+   ],
+   "region": {
+    "abbreviation": "RR",
+    "name": "Rhein-Ruhr",
+    "id": 900
+   },
+   "payback": true
+  }
+ ],
+ "_links": {
+  "self": {
+   "rel": "self",
+   "href": "/api/marketsearch/markets?searchstring=56593&page=0&size=10"
+  }
+ }
+}

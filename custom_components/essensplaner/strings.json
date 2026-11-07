@@ -75,7 +75,7 @@
       },
       "stores": {
         "title": "Stores & shopping",
-        "description": "How the shopping list is split across your stores, where branches are searched and whether REWE online prices are loaded. You choose your branches in the Essensplaner panel under '🏪 Läden & Preise' – the first supermarket automatically becomes your main store (a drugstore like Rossmann or dm only if you make it one). Saved branches: {branches} · main store: {main_branch}.\n\nPrivacy: the branch search sends the coordinates of your zones, rounded to about 100 m, to OpenStreetMap (overpass-api.de) only when you start it.",
+        "description": "How the shopping list is split across your stores, where branches are searched and which chain sources (REWE and ALDI SÜD online prices, EDEKA offers) are used. You choose your branches in the Essensplaner panel under '🏪 Läden & Preise' – the first supermarket automatically becomes your main store (a drugstore like Rossmann or dm only if you make it one). Saved branches: {branches} · main store: {main_branch}.\n\nPrivacy: the branch search sends the coordinates of your zones, rounded to about 100 m, to OpenStreetMap (overpass-api.de) only when you start it.",
         "data": {
           "store_split_mode": "Shopping list by store",
           "store_split_min_saving": "Cheaper elsewhere from",
@@ -86,7 +86,9 @@
           "branch_radius_km": "Radius around the zones",
           "branch_route": "Include the way to work",
           "branch_route_radius_m": "Distance to the way to work",
-          "rewe_online_prices": "REWE online prices (experimental)"
+          "rewe_online_prices": "REWE online prices (experimental)",
+          "aldi_online_prices": "ALDI SÜD online prices (experimental)",
+          "edeka_offers": "EDEKA offers of your market"
         },
         "data_description": {
           "store_split_mode": "'Main store + exceptions': everything goes to the main store, only offers and clearly cheaper items go to your other stores; drugstore and household items (toothpaste, detergent …) go to your drugstore (Rossmann, dm, Müller, Budni) if you saved one. 'Everything at the main store' only shows other stores as alternatives. Works as soon as you have a main store.",
@@ -98,7 +100,9 @@
           "branch_radius_km": "Search radius around each zone (default 3 km).",
           "branch_route": "Also find stores along the straight line from home to the other zones, e.g. on the way to work.",
           "branch_route_radius_m": "How far a store may be from the way to work at most (default 800 m).",
-          "rewe_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the REWE online shop. The market ID of your REWE branch and search terms (ingredients, shopping list items, your article search) are sent to www.rewe.de – automatically at most once a week. If REWE refuses the requests, they are paused for 7 days; learned prices stay. May stop working at any time. Needs a REWE branch with a market ID (in the panel)."
+          "rewe_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the REWE online shop. The market ID of your REWE branch and search terms (ingredients, shopping list items, your article search) are sent to www.rewe.de – automatically at most once a week. If REWE refuses the requests, they are paused for 7 days; learned prices stay. May stop working at any time. Needs a REWE branch with a market ID (in the panel).",
+          "aldi_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the ALDI SÜD web site (api.aldi-sued.de). The location of your ALDI SÜD branch (once, to find the nearest store) and search terms (ingredients, shopping list items, your article search) are sent to ALDI SÜD – automatically at most once a week. Regular prices are learned; articles reduced right now appear as offers. If ALDI SÜD refuses the requests, they are paused for 7 days; learned prices stay. Needs an ALDI SÜD branch (in the panel).",
+          "edeka_offers": "Off by default: loads the leaflet offers of your EDEKA market from www.edeka.de once a day (every EDEKA merchant has his own offers). Only the market ID of your EDEKA branch is sent. Matching offers are used for planning, budget and the shopping list. Unofficial interface: if EDEKA refuses the requests, they are paused for 7 days. Needs an EDEKA branch with a market ID (in the panel: 'Find market')."
         }
       }
     },
@@ -166,7 +170,9 @@
     "price_source": {
       "options": {
         "offers": "Supermarket offers (marktguru.de)",
-        "rewe": "REWE online shop (experimental)"
+        "rewe": "REWE online shop (experimental)",
+        "aldi": "ALDI SÜD online prices (experimental)",
+        "edeka": "EDEKA offers of your market"
       }
     },
     "split_mode": {
@@ -331,6 +337,45 @@
     },
     "rewe_postcode_required": {
       "message": "Please enter a postcode (5 digits)."
+    },
+    "aldi_disabled": {
+      "message": "ALDI SÜD online prices are not enabled (experimental, Essensplaner → Configure)."
+    },
+    "aldi_no_store": {
+      "message": "No ALDI SÜD branch – add an ALDI SÜD branch in the panel (best from the map search) or choose it with 'Find ALDI SÜD stores'."
+    },
+    "aldi_blocked": {
+      "message": "The ALDI SÜD web site does not allow automated requests right now ({error})."
+    },
+    "aldi_failed": {
+      "message": "The request to ALDI SÜD failed ({error})."
+    },
+    "aldi_location_required": {
+      "message": "To find ALDI SÜD stores I need a location: give latitude and longitude, a postcode of one of your branches or set the zone 'Home'."
+    },
+    "aldi_postcode_unknown": {
+      "message": "None of your branches has the postcode {postcode} – ALDI SÜD only searches by coordinates. Add the branch from the map search or give latitude and longitude."
+    },
+    "invalid_aldi_store": {
+      "message": "\"{value}\" is no valid ALDI SÜD store number (e.g. B402)."
+    },
+    "edeka_disabled": {
+      "message": "EDEKA offers are not enabled (Essensplaner → Configure)."
+    },
+    "edeka_no_market": {
+      "message": "No EDEKA branch with a market ID – add an EDEKA branch and choose its market (find it with 'Find EDEKA markets')."
+    },
+    "edeka_blocked": {
+      "message": "The EDEKA web site does not allow automated requests right now ({error})."
+    },
+    "edeka_failed": {
+      "message": "The request to EDEKA failed ({error})."
+    },
+    "edeka_postcode_required": {
+      "message": "Please give a postcode (5 digits)."
+    },
+    "invalid_edeka_market": {
+      "message": "\"{value}\" is no valid EDEKA market ID (digits only)."
     }
   },
   "services": {
@@ -993,6 +1038,14 @@
         "rewe_market_id": {
           "name": "REWE market ID",
           "description": "REWE only: market ID for online prices."
+        },
+        "edeka_market_id": {
+          "name": "EDEKA market ID",
+          "description": "EDEKA only: market ID for the EDEKA offers (digits, find it with 'Find EDEKA markets'; empty = none)."
+        },
+        "aldi_service_point": {
+          "name": "ALDI SÜD store number",
+          "description": "ALDI SÜD only: store for the ALDI SÜD online prices (e.g. B402, find it with 'Find ALDI SÜD stores'; empty = the nearest one automatically)."
         }
       }
     },
@@ -1106,11 +1159,11 @@
     },
     "refresh_prices": {
       "name": "Refresh prices",
-      "description": "Fetches prices from an online source now: 'offers' loads the supermarket offers (marktguru), 'rewe' the regular prices of the REWE online shop (experimental: must be enabled in the options and needs a REWE branch with market ID; paused for 7 days if REWE refuses automated requests).",
+      "description": "Fetches prices from an online source now: 'offers' loads the supermarket offers (marktguru), 'rewe' the regular prices of the REWE online shop, 'aldi' the regular prices and reduced articles of ALDI SÜD (both experimental: must be enabled in the options and need a branch of the chain; paused for 7 days if the chain refuses automated requests), 'edeka' the offers of your EDEKA market (enabled in the options, EDEKA branch with market ID).",
       "fields": {
         "source": {
           "name": "Source",
-          "description": "offers = supermarket offers (marktguru.de), rewe = REWE online shop prices (experimental)."
+          "description": "offers = supermarket offers (marktguru.de), rewe = REWE online shop prices (experimental), aldi = ALDI SÜD prices (experimental), edeka = offers of your EDEKA market."
         }
       }
     },
@@ -1121,6 +1174,34 @@
         "zip": {
           "name": "Postcode",
           "description": "Default: the postcode of your REWE branch, else the postcode from the options."
+        }
+      }
+    },
+    "find_edeka_markets": {
+      "name": "Find EDEKA markets",
+      "description": "Searches the EDEKA markets near a postcode and returns their market IDs (for the EDEKA offers: enter the ID at your EDEKA branch with 'Save branch'). The postcode is sent to edeka.de.",
+      "fields": {
+        "zip": {
+          "name": "Postcode",
+          "description": "Default: the postcode of your EDEKA branch, else the postcode from the options."
+        }
+      }
+    },
+    "find_aldi_stores": {
+      "name": "Find ALDI SÜD stores",
+      "description": "Searches the ALDI SÜD stores nearby and returns their store numbers (for the experimental ALDI SÜD online prices: enter it at your ALDI SÜD branch with 'Save branch'). ALDI SÜD only searches by coordinates; they are sent to aldi-sued.de rounded to about 10 m.",
+      "fields": {
+        "zip": {
+          "name": "Postcode",
+          "description": "Postcode of one of your branches (its location is used)."
+        },
+        "lat": {
+          "name": "Latitude",
+          "description": "Together with the longitude: search here. Without: the location of your ALDI SÜD branch, else home."
+        },
+        "lon": {
+          "name": "Longitude",
+          "description": "Together with the latitude."
         }
       }
     }

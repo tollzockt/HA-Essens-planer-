@@ -283,6 +283,8 @@ async def test_article_search_puts_the_article_first(
         ]
 
     monkeypatch.setitem(articles.LIVE_PROVIDERS, "aldi-sued", provider)
+    # 1.4 registers ALDI SÜD online prices for "aldi-sued" (off by default): ask this one
+    monkeypatch.delitem(articles.LIVE_PROVIDER_CHECKS, "aldi-sued", raising=False)
     monkeypatch.setattr(articles, "LIVE_MIN_INTERVAL", 0)
     response = await manager.async_search_articles_live("Butter", limit=10)
     live = [r["title"] for r in response["results"]]

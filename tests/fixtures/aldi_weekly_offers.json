@@ -1,0 +1,822 @@
+{
+ "meta": {
+  "spellingSuggestion": null,
+  "pinned": [],
+  "keywordRedirect": null,
+  "pagination": {
+   "offset": 0,
+   "limit": 60,
+   "totalCount": 9
+  },
+  "debug": null,
+  "facets": [
+   {
+    "name": "category-tree",
+    "localizedName": "Kategorie",
+    "docCount": 119,
+    "activeValue": [],
+    "config": {
+     "parameterName": "categoryTree",
+     "type": "value",
+     "isMultiValue": true,
+     "componentName": "category-tree",
+     "component": {
+      "name": "categoryTree",
+      "valueActive": null,
+      "valueInactive": null
+     }
+    },
+    "stats": null,
+    "values": [
+     {
+      "key": "1588161426582123",
+      "docCount": 112,
+      "label": "Wochenangebote",
+      "isSelected": false,
+      "thumbnail": null,
+      "children": [
+       {
+        "key": "1588161427299187",
+        "docCount": 11,
+        "label": "Frischeprodukte im Angebot",
+        "isSelected": false,
+        "thumbnail": null,
+        "children": []
+       },
+       {
+        "key": "1588161427299188",
+        "docCount": 43,
+        "label": "Eigenmarken im Angebot",
+        "isSelected": false,
+        "thumbnail": null,
+        "children": []
+       },
+       {
+        "key": "1588161427299189",
+        "docCount": 58,
+        "label": "Markenprodukte im Angebot",
+        "isSelected": false,
+        "thumbnail": null,
+        "children": []
+       }
+      ]
+     },
+     {
+      "key": "1588161425467260",
+      "docCount": 2,
+      "label": "Dauerhaft günstig",
+      "isSelected": false,
+      "thumbnail": null,
+      "children": []
+     },
+     {
+      "key": "1588161437677266",
+      "docCount": 10,
+      "label": "Produkte unter 1 €",
+      "isSelected": false,
+      "thumbnail": null,
+      "children": []
+     }
+    ]
+   }
+  ],
+  "sort": [
+   {
+    "parameterName": "sort",
+    "parameterValue": "relevance",
+    "localizedName": "Relevanz",
+    "isActive": true
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_asc",
+    "localizedName": "Name (A bis Z)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_desc",
+    "localizedName": "Name (Z bis A)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_asc",
+    "localizedName": "Preis (Niedrig bis Hoch)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_desc",
+    "localizedName": "Preis (Hoch bis Niedrig)",
+    "isActive": false
+   }
+  ]
+ },
+ "data": [
+  {
+   "sku": "000000000000266098",
+   "name": "Orangen 2 kg",
+   "brandName": "NATUR LIEBLINGE",
+   "urlSlugText": "natur-lieblinge-orangen-2-kg",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "pac",
+   "weightType": "0",
+   "sellingSize": "2 kg",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000266098A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 299,
+    "amountRelevant": 299,
+    "amountRelevantDisplay": "2,99 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 150,
+    "comparisonDisplay": "1,50 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161426582123",
+     "name": "Wochenangebote",
+     "urlSlugText": "wochenangebote"
+    },
+    {
+     "id": "1588161427299187",
+     "name": "Frischeprodukte im Angebot",
+     "urlSlugText": "wochenangebote/frischeprodukte-im-angebot"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/f514a25a-50e4-4667-acca-7975de2fceba/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000000230672",
+   "name": "Kleine Schätze Zitronen, Stück",
+   "brandName": null,
+   "urlSlugText": "no-brand-kleine-schaetze-zitronen-stueck",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": null,
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000230672A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": null,
+   "price": {
+    "amount": 59,
+    "amountRelevant": 59,
+    "amountRelevantDisplay": "0,59 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": null,
+    "comparisonDisplay": null,
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161426582123",
+     "name": "Wochenangebote",
+     "urlSlugText": "wochenangebote"
+    },
+    {
+     "id": "1588161427299187",
+     "name": "Frischeprodukte im Angebot",
+     "urlSlugText": "wochenangebote/frischeprodukte-im-angebot"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/5b6c82ca-fdc3-4e66-8854-325492e4f8b1/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000000550925",
+   "name": "Hackfleisch vom Rind 500 g",
+   "brandName": "MEINE METZGEREI",
+   "urlSlugText": "meine-metzgerei-hackfleisch-vom-rind-500-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "500 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000550925A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 459,
+    "amountRelevant": 459,
+    "amountRelevantDisplay": "4,59 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 918,
+    "comparisonDisplay": "9,18 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "5,79 €",
+    "additionalInfo": null,
+    "savingsDisplay": "20 %",
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467052",
+     "name": "Fleisch & Fisch",
+     "urlSlugText": "fleisch-fisch"
+    },
+    {
+     "id": "1588161425467061",
+     "name": "Hackfleisch",
+     "urlSlugText": "fleisch-fisch/hackfleisch"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/d594c2ca-ed9b-49c3-b5e2-9fafaf1cf4a0/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000767139001",
+   "name": "Schweine-Koteletts 700 g, Rücken",
+   "brandName": "MEINE METZGEREI",
+   "urlSlugText": "meine-metzgerei-schweine-koteletts-700-g-ruecken",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "700 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000767139",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 429,
+    "amountRelevant": 429,
+    "amountRelevantDisplay": "4,29 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 613,
+    "comparisonDisplay": "6,13 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "4,99 €",
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161426582123",
+     "name": "Wochenangebote",
+     "urlSlugText": "wochenangebote"
+    },
+    {
+     "id": "1588161427299187",
+     "name": "Frischeprodukte im Angebot",
+     "urlSlugText": "wochenangebote/frischeprodukte-im-angebot"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/0d356027-7431-43cf-a734-ad05b1c3e70d/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000263580",
+   "name": "Passierte Tomaten 500 g",
+   "brandName": "KING'S CROWN",
+   "urlSlugText": "king-s-crown-passierte-tomaten-500-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "500 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000263580A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 45,
+    "amountRelevant": 45,
+    "amountRelevantDisplay": "0,45 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 90,
+    "comparisonDisplay": "0,90 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "0,65 €",
+    "additionalInfo": null,
+    "savingsDisplay": "30 %",
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467133",
+     "name": "Konserven & Fertiggerichte",
+     "urlSlugText": "konserven-fertiggerichte"
+    },
+    {
+     "id": "1588161425467137",
+     "name": "Gemüsekonserven",
+     "urlSlugText": "konserven-fertiggerichte/gemuesekonserven"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/dab517c8-aad8-4d83-bc5e-8fcf8605e334/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Vegan",
+       "color": "yellow",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000202753",
+   "name": "Cola Original 1,25 l",
+   "brandName": "COCA-COLA",
+   "urlSlugText": "coca-cola-cola-original-1-25-l",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "bt",
+   "weightType": "0",
+   "sellingSize": "1,25 l",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000202753A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "l",
+   "price": {
+    "amount": 119,
+    "amountRelevant": 119,
+    "amountRelevantDisplay": "1,19 €",
+    "bottleDeposit": 25,
+    "bottleDepositDisplay": "0,25 €",
+    "comparison": 95,
+    "comparisonDisplay": "0,95 €/1 l",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "1,59 €",
+    "additionalInfo": null,
+    "savingsDisplay": "25 %",
+    "bottleDepositType": "EINWEG",
+    "feeText": ""
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467173",
+     "name": "Getränke",
+     "urlSlugText": "getraenke"
+    },
+    {
+     "id": "1588161425467175",
+     "name": "Cola",
+     "urlSlugText": "getraenke/cola"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/e77ee08f-da8b-4e0f-b1ae-7d68a5739842/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000459606001",
+   "name": "Slipeinlagen, Cotton Feel Normal 56 Stück",
+   "brandName": "CAREFREE",
+   "urlSlugText": "carefree-slipeinlagen-cotton-feel-normal-56-stueck",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": null,
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000459606",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": null,
+   "price": {
+    "amount": 222,
+    "amountRelevant": 222,
+    "amountRelevantDisplay": "2,22 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": null,
+    "comparisonDisplay": null,
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "2,95 €",
+    "additionalInfo": null,
+    "savingsDisplay": "24 %",
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467233",
+     "name": "Drogerie & Kosmetik",
+     "urlSlugText": "drogerie-kosmetik"
+    },
+    {
+     "id": "1588161425467235",
+     "name": "Hygieneartikel",
+     "urlSlugText": "drogerie-kosmetik/hygieneartikel"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/58798498-9da5-49ea-b958-6174381f1777/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000695572001",
+   "name": "Frischkäse 195 g, Original",
+   "brandName": "PHILADELPHIA",
+   "urlSlugText": "philadelphia-frischkaese-195-g-original",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "195 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000695572",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 111,
+    "amountRelevant": 111,
+    "amountRelevantDisplay": "1,11 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 569,
+    "comparisonDisplay": "5,69 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467083",
+     "name": "Käse",
+     "urlSlugText": "kaese"
+    },
+    {
+     "id": "1588161425467086",
+     "name": "Frischkäse",
+     "urlSlugText": "kaese/frischkaese"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/58e16d21-8b3e-4394-921b-1407ca263be4/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000203771001",
+   "name": "Almighurt 150 g, Erdbeere",
+   "brandName": "EHRMANN",
+   "urlSlugText": "ehrmann-almighurt-150-g-erdbeere",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "150 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000203771",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 29,
+    "amountRelevant": 29,
+    "amountRelevantDisplay": "0,29 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 193,
+    "comparisonDisplay": "1,93 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "0,89 €",
+    "additionalInfo": null,
+    "savingsDisplay": "67 %",
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    },
+    {
+     "id": "1588161425467096",
+     "name": "Fruchtjoghurt & Desserts",
+     "urlSlugText": "milchprodukte-eier/fruchtjoghurt-desserts"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/1fca8a97-29bf-4b0e-8d5c-63a721283631/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

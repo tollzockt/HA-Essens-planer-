@@ -72,8 +72,18 @@ const PRICE_SOURCE = {
   leaflet: "📰 Prospekt",
   offer_regular: "📰 Prospekt",
   rewe_online: "🛒 REWE online",
+  aldi_online: "🛒 ALDI SÜD online",
   offer: "🏷️ Angebot",
   default: "Richtwert",
+};
+// live article hits that are shop prices, not leaflet offers
+const SHOP_PROVIDERS = { rewe_online: "🛒 REWE online", aldi_online: "🛒 ALDI SÜD online" };
+// a branch linked to its store on the chain's own web site (REWE / ALDI SÜD prices, EDEKA
+// offers); the data-action names "rewe-…" come from 1.3, where only REWE had one
+const STORE_LINKS = {
+  rewe: { field: "rewe_market_id", ws: "rewe_markets", list: "markets", source: "rewe", title: "🛒 REWE-Markt-ID", name: "REWE", placeholder: "z. B. 1940178", mode: "numeric", search: "🔎 Markt suchen", none: "Keine REWE-Märkte für PLZ", saved: "🛒 REWE-Markt", removed: "REWE-Markt-ID entfernt", unlink: "Dann gibt es dort keine REWE-Onlinepreise und keine Online-Suche mehr." },
+  edeka: { field: "edeka_market_id", ws: "edeka_markets", list: "markets", source: "edeka", title: "🏷️ EDEKA-Markt-ID", name: "EDEKA", placeholder: "z. B. 2644015", mode: "numeric", search: "🔎 Markt suchen", none: "Keine EDEKA-Märkte für PLZ", saved: "🏷️ EDEKA-Markt", removed: "EDEKA-Markt-ID entfernt", unlink: "Dann gibt es dort keine EDEKA-Angebote mehr." },
+  "aldi-sued": { field: "aldi_service_point", ws: "aldi_stores", list: "stores", source: "aldi", title: "🛒 ALDI-SÜD-Filiale", name: "ALDI SÜD", placeholder: "z. B. B402", mode: "text", search: "🔎 Filiale suchen", none: "Keine ALDI-SÜD-Filialen gefunden", saved: "🛒 ALDI-SÜD-Filiale", removed: "ALDI-SÜD-Filiale entfernt – die nächste wird automatisch bestimmt", unlink: "Dann wird beim nächsten Abruf die nächste Filiale automatisch bestimmt." },
 };
 const ARTICLE_SOURCE = {
   offer: "🏷️ Angebot",
@@ -1374,7 +1384,11 @@ class EssensplanerPanel extends HTMLElement {
 
   _expectLive() {
     const eco = this._data?.economy || {};
-    return eco.offers_source === "marktguru" || (eco.price_sources?.rewe?.enabled && eco.main_retailer === "rewe");
+    return (
+      eco.offers_source === "marktguru" ||
+      (eco.price_sources?.rewe?.enabled && eco.main_retailer === "rewe") ||
+      (eco.price_sources?.aldi?.enabled && eco.main_retailer === "aldi-sued")
+    );
   }
 
   _scheduleSuggest() {
@@ -1478,11 +1492,12 @@ class EssensplanerPanel extends HTMLElement {
       : "";
     const rows = s.results
       .map((r, i) => {
-        const offer = r.offer && r.provider !== "rewe_online";
+        const shop = SHOP_PROVIDERS[r.provider];
+        const offer = r.offer && !shop;
         const sourceHint =
           r.source === "live"
-            ? r.provider === "rewe_online"
-              ? "🛒 REWE online"
+            ? shop
+              ? shop
               : "🏷️ Prospekt (online)"
             : ARTICLE_SOURCE[r.source] || "";
         const until = offer && r.offer?.valid_to ? ` bis ${shortDate(r.offer.valid_to)}` : "";
@@ -1555,7 +1570,7 @@ class EssensplanerPanel extends HTMLElement {
       if (r.pack) data.pack = r.pack;
     }
     // saved offers (a live leaflet offer has the id it is saved under by the offer refresh)
-    const leaflet = r.source === "offer" || (r.source === "live" && r.provider !== "rewe_online");
+    const leaflet = r.source === "offer" || (r.source === "live" && !SHOP_PROVIDERS[r.provider]);
     if (leaflet && r.offer?.id) data.offer_id = r.offer.id;
     const typed = this._addText;
     this._addText = "";
@@ -1634,8 +1649,10 @@ class EssensplanerPanel extends HTMLElement {
       this._manual[t.dataset.field] = t.value;
     } else if (kind === "rewe-id") {
       this._reweInput[t.dataset.id] = t.value;
+      const b = this._branch(t.dataset.id);
+      const link = STORE_LINKS[b?.retailer] || STORE_LINKS.rewe;
       const save = t.parentElement?.querySelector('[data-action="rewe-save"]');
-      if (save) save.hidden = t.value.trim() === (this._branch(t.dataset.id)?.rewe_market_id || "");
+      if (save) save.hidden = t.value.trim() === (b?.[link.field] || "");
     }
   }
 
@@ -1841,7 +1858,8 @@ class EssensplanerPanel extends HTMLElement {
       case "rewe-pick":
       case "rewe-save": {
         const b = this._branch(d.id);
-        const stored = b?.rewe_market_id || "";
+        const link = STORE_LINKS[b?.retailer] || STORE_LINKS.rewe;
+        const stored = b?.[link.field] || "";
         let value = d.market;
         if (action === "rewe-save") {
           // what the field shows (Enter in the field or the button next to it)
@@ -1855,13 +1873,13 @@ class EssensplanerPanel extends HTMLElement {
           if (save) save.hidden = true;
           break;
         }
-        if (!value && !confirm(`REWE-Markt-ID von „${b?.label || "diesem Laden"}“ entfernen? Dann gibt es dort keine REWE-Onlinepreise und keine Online-Suche mehr.`)) break;
-        const res = await this._service("save_branch", { id: d.id, rewe_market_id: value }, true);
+        if (!value && !confirm(`${link.title.replace(/^\S+ /, "")} von „${b?.label || "diesem Laden"}“ entfernen? ${link.unlink}`)) break;
+        const res = await this._service("save_branch", { id: d.id, [link.field]: value }, true);
         delete this._reweInput[d.id];
         delete this._reweMarkets[d.id];
-        this._toast(value ? `🛒 REWE-Markt ${value} gespeichert` : "REWE-Markt-ID entfernt");
+        this._toast(value ? `${link.saved} ${value} gespeichert` : link.removed);
         // show the new id at once (not the old one until the next update)
-        if (!this._applyBranch(res?.branch || { id: d.id, rewe_market_id: value })) this._renderContent();
+        if (!this._applyBranch(res?.branch || { id: d.id, [link.field]: value })) this._renderContent();
         break;
       }
       case "zone-toggle": {
@@ -2436,9 +2454,14 @@ class EssensplanerPanel extends HTMLElement {
       ? targets.map((t) => `PLZ ${esc(t.zip_code)}${targets.length > 1 || (t.stores || []).length ? ` (${esc((t.stores || []).join(", "))})` : ""}`).join(" · ")
       : `PLZ ${esc(eco.zip_code || "–")}`;
     const rewe = eco.price_sources?.rewe;
-    const reweLine = rewe?.enabled
-      ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
-      : "";
+    const edekaSource = eco.price_sources?.edeka;
+    const reweLine =
+      (rewe?.enabled
+        ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
+        : "") +
+      (edekaSource?.enabled
+        ? `<div class="meta">🏷️ EDEKA-Angebote (edeka.de): ${esc(edekaSource.message || edekaSource.status)}</div>`
+        : "");
     const info = online
       ? `<div class="meta">Quelle: marktguru.de (inoffiziell) · ${zips} · ${meta.last_update ? `aktualisiert ${new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "noch nicht geladen"}${meta.status === "error" ? ` · ⚠️ ${esc((meta.errors || [])[0] || "Fehler")}` : ""}</div>${reweLine}`
       : `<div class="card infobox"><b>Online-Angebote sind aus.</b> Unter <i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren → Budget &amp; Angebote</i> kannst du sie einschalten – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“ (oder für eine Postleitzahl). Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${reweLine}`;
@@ -2451,7 +2474,7 @@ class EssensplanerPanel extends HTMLElement {
           <div class="oimg" ${img ? `style="background-image:url('${img}')"` : ""}>${img ? "" : "🏷️"}</div>
           <div style="flex:1;min-width:0">
             <div class="ot">${esc(o.title)}</div>
-            <span class="store">${esc(o.store || "?")}</span>${o.loyalty ? ' <span class="meta">(mit App/Karte)</span>' : ""}
+            <span class="store">${esc(o.store || "?")}</span>${o.loyalty_note ? ` <span class="meta">(${esc(o.loyalty_note)})</span>` : o.loyalty ? ' <span class="meta">(mit App/Karte)</span>' : ""}
             ${tagged.length ? `<div class="branchtags">${tagged.map((b) => `<span class="bdg" title="Gilt für diesen Laden">${b.main ? "⭐" : "📍"} ${esc(b.label)}</span>`).join("")}</div>` : ""}
             <div><span class="pr">${eur(o.price)}</span>${o.old_price ? `<span class="old">${eur(o.old_price)}</span>` : ""}${o.discount ? `<span class="disc">−${o.discount}%</span>` : ""}</div>
             <div class="meta">${esc(o.description || "")}${o.valid_from || o.valid_to ? ` · ${o.valid_from ? shortDate(o.valid_from) : ""}–${o.valid_to ? shortDate(o.valid_to) : ""}` : ""}</div>
@@ -2851,22 +2874,27 @@ class EssensplanerPanel extends HTMLElement {
     if (b.retailer_guessed) badges.push('<span class="bdg warn" title="Die Kette wurde aus Name oder PLZ erraten (z. B. Aldi Süd/Nord)">Kette bitte prüfen</span>');
     const address = [b.street, [b.postcode, b.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
     const markets = this._reweMarkets[b.id];
+    const link = STORE_LINKS[b.retailer];
     let rewe = "";
-    if (b.retailer === "rewe") {
-      const value = this._reweInput[b.id] ?? b.rewe_market_id ?? "";
+    if (link) {
+      const stored = b[link.field] || "";
+      const value = this._reweInput[b.id] ?? stored;
+      const label = link.title.replace(/^\S+ /, "");
       const list = markets?.markets?.length
         ? `<div class="markets">${markets.markets
-            .map((m) => `<div class="market"><span><b>${esc(m.name || "REWE")}</b><br><span class="meta">${esc([m.street, [m.postcode, m.city].filter(Boolean).join(" ")].filter(Boolean).join(", "))} · ID ${esc(m.id)}${m.branch_id && m.branch_id !== b.id ? " · schon bei einem anderen Laden" : ""}</span></span>${m.id === b.rewe_market_id ? '<span class="bdg ok">✓ gewählt</span>' : `<button class="btn small" data-action="rewe-pick" data-id="${esc(b.id)}" data-market="${esc(m.id)}">Übernehmen</button>`}</div>`)
+            .map((m) => `<div class="market"><span><b>${esc(m.name || link.name)}</b><br><span class="meta">${esc([m.street, [m.postcode, m.city].filter(Boolean).join(" ")].filter(Boolean).join(", "))} · ID ${esc(m.id)}${m.distance_km != null ? ` · ${esc(String(m.distance_km).replace(".", ","))} km` : ""}${m.branch_id && m.branch_id !== b.id ? " · schon bei einem anderen Laden" : ""}</span></span>${m.id === stored ? '<span class="bdg ok">✓ gewählt</span>' : `<button class="btn small" data-action="rewe-pick" data-id="${esc(b.id)}" data-market="${esc(m.id)}">Übernehmen</button>`}</div>`)
             .join("")}</div>`
         : "";
+      const off = b.retailer !== "rewe" && this._data.economy?.price_sources?.[link.source]?.enabled === false;
       rewe = `<div class="rewebox">
-          <span>🛒 REWE-Markt-ID</span>
-          <input data-input="rewe-id" data-enter="rewe-save" data-id="${esc(b.id)}" data-focuskey="rewe-${esc(b.id)}" value="${esc(value)}" placeholder="z. B. 1940178" inputmode="numeric" aria-label="REWE-Markt-ID">
-          <button class="btn small primary" data-action="rewe-save" data-id="${esc(b.id)}" title="Markt-ID speichern" ${value.trim() !== (b.rewe_market_id || "") ? "" : "hidden"}>💾 Speichern</button>
-          <button class="btn small" data-action="rewe-search" data-id="${esc(b.id)}" ${markets?.loading ? "disabled" : ""}>${markets?.loading ? "⏳ Suche …" : "🔎 Markt suchen"}</button>
+          <span>${link.title}</span>
+          <input data-input="rewe-id" data-enter="rewe-save" data-id="${esc(b.id)}" data-focuskey="rewe-${esc(b.id)}" value="${esc(value)}" placeholder="${esc(link.placeholder)}" inputmode="${link.mode}" aria-label="${esc(label)}">
+          <button class="btn small primary" data-action="rewe-save" data-id="${esc(b.id)}" title="${esc(label)} speichern" ${value.trim() !== stored ? "" : "hidden"}>💾 Speichern</button>
+          <button class="btn small" data-action="rewe-search" data-id="${esc(b.id)}" ${markets?.loading ? "disabled" : ""}>${markets?.loading ? "⏳ Suche …" : link.search}</button>
         </div>
+        ${off ? `<div class="hint">Wird genutzt, sobald du ${b.retailer === "edeka" ? "„EDEKA-Angebote deines Markts“" : "„ALDI-SÜD-Onlinepreise“"} in den Optionen einschaltest.</div>` : ""}
         ${markets?.error ? `<div class="notice err">${esc(markets.error)}</div>` : ""}
-        ${markets?.markets && !markets.markets.length ? `<div class="hint">Keine REWE-Märkte für PLZ ${esc(markets.zip || "")} gefunden.</div>` : ""}
+        ${markets?.markets && !markets.markets.length ? `<div class="hint">${esc(link.none)}${link.list === "markets" ? ` ${esc(markets.zip || "")}` : ""}.</div>` : ""}
         ${list}`;
     }
     return `<div class="branch ${b.main ? "main" : ""} ${b.selected ? "" : "off"}">
@@ -2918,12 +2946,15 @@ class EssensplanerPanel extends HTMLElement {
   async _searchReweMarkets(id) {
     const b = this._branch(id);
     if (!b) return;
+    const link = STORE_LINKS[b.retailer] || STORE_LINKS.rewe;
     const zip = b.postcode || null;
     this._reweMarkets[id] = { loading: true, zip };
     this._renderContent();
     try {
-      const res = await this._hass.callWS({ type: `${DOMAIN}/rewe_markets`, zip });
-      this._reweMarkets[id] = { markets: res.markets || [], zip: res.zip_code || zip };
+      // ALDI SÜD searches by coordinates only: the branch's (else the backend uses home)
+      const msg = link.list === "stores" ? (b.lat != null && b.lon != null ? { lat: b.lat, lon: b.lon } : {}) : { zip };
+      const res = await this._hass.callWS({ type: `${DOMAIN}/${link.ws}`, ...msg });
+      this._reweMarkets[id] = { markets: res[link.list] || [], zip: res.zip_code || zip };
     } catch (err) {
       this._reweMarkets[id] = { error: errText(err), zip };
     }
@@ -3327,13 +3358,14 @@ class EssensplanerPanel extends HTMLElement {
         ${online ? `<div class="badges">${targets || '<span class="hint">Keine Postleitzahl – trage bei deinen Läden eine PLZ ein.</span>'}</div>` : ""}
         ${online ? `<div>${this._refreshButton("offers")}</div>` : `<div class="hint">Einschalten unter ${where} → Budget &amp; Angebote.</div>`}
       </div>`;
-    const reweChip = {
+    const chips = {
       ok: '<span class="bdg ok">✅ ok</span>',
       pending: '<span class="bdg">⏳ wartet</span>',
       error: '<span class="bdg bad">⚠️ Fehler</span>',
       blocked: '<span class="bdg bad">⛔ gesperrt</span>',
       off: '<span class="bdg">⏸ aus</span>',
-    }[rewe.status || "off"] || "";
+    };
+    const reweChip = chips[rewe.status || "off"] || "";
     const canRefresh = rewe.enabled && rewe.market_id && !rewe.blocked_until;
     const rw = `<div class="section">
         <h4>🛒 REWE-Onlinepreise <span class="bdg warn">experimentell</span> ${reweChip}</h4>
@@ -3342,7 +3374,32 @@ class EssensplanerPanel extends HTMLElement {
         ${rewe.enabled ? `<div class="meta">${[rewe.prices ? `${rewe.prices} REWE-Preise gespeichert` : "", rewe.last_success ? `zuletzt erfolgreich ${timeText(rewe.last_success)}` : "", rewe.blocked_until ? `Pause bis ${timeText(rewe.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
         ${canRefresh || this._refreshing.has("rewe") ? `<div>${this._refreshButton("rewe")} <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an www.rewe.de gesendet.</div>`}
       </div>`;
-    return `<div class="srcgrid">${mg}${rw}</div>`;
+    // 1.4: ALDI SÜD prices (experimental) and the offers of the EDEKA market
+    const aldi = eco.price_sources?.aldi || {};
+    const hasAldi = (this._data.branches || []).some((b) => b.retailer === "aldi-sued");
+    const aldiRefresh = aldi.enabled && hasAldi && !aldi.blocked_until;
+    const al = aldi.enabled || hasAldi
+      ? `<div class="section">
+        <h4>🛒 ALDI-SÜD-Onlinepreise <span class="bdg warn">experimentell</span> ${chips[aldi.status || "off"] || ""}</h4>
+        <div class="meta">Normalpreise von der ALDI-SÜD-Website (wöchentlich); gerade reduzierte Artikel werden zum Angebot.</div>
+        ${aldi.message ? `<div>${esc(aldi.message)}</div>` : ""}
+        ${aldi.enabled ? `<div class="meta">${[aldi.prices ? `${aldi.prices} ALDI-SÜD-Preise gespeichert` : "", aldi.store_label ? esc(aldi.store_label) : "", aldi.last_success ? `zuletzt erfolgreich ${timeText(aldi.last_success)}` : "", aldi.blocked_until ? `Pause bis ${timeText(aldi.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
+        ${aldiRefresh || this._refreshing.has("aldi") ? `<div>${this._refreshButton("aldi")} <span class="hint">dauert ein paar Minuten</span></div>` : aldi.enabled ? "" : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine ALDI-SÜD-Filiale an ALDI SÜD gesendet.</div>`}
+      </div>`
+      : "";
+    const edeka = eco.price_sources?.edeka || {};
+    const hasEdeka = (this._data.branches || []).some((b) => b.retailer === "edeka");
+    const edekaRefresh = edeka.enabled && edeka.market_id && !edeka.blocked_until;
+    const ed = edeka.enabled || hasEdeka
+      ? `<div class="section">
+        <h4>🏷️ EDEKA-Angebote ${chips[edeka.status || "off"] || ""}</h4>
+        <div class="meta">Die Prospekt-Angebote deines EDEKA-Markts von edeka.de (täglich).</div>
+        ${edeka.message ? `<div>${esc(edeka.message)}</div>` : ""}
+        ${edeka.enabled ? `<div class="meta">${[edeka.prices ? `${edeka.prices} passende Angebote gespeichert` : "", edeka.last_success ? `zuletzt erfolgreich ${timeText(edeka.last_success)}` : "", edeka.blocked_until ? `Pause bis ${timeText(edeka.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
+        ${edekaRefresh || this._refreshing.has("edeka") ? `<div>${this._refreshButton("edeka")}</div>` : edeka.enabled ? "" : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei wird die Markt-ID deines EDEKA-Markts an www.edeka.de gesendet.</div>`}
+      </div>`
+      : "";
+    return `<div class="srcgrid">${mg}${rw}${al}${ed}</div>`;
   }
 
   _refreshButton(source) {
@@ -3359,6 +3416,8 @@ class EssensplanerPanel extends HTMLElement {
     try {
       const res = await this._service("refresh_prices", { source }, true);
       if (source === "rewe") this._toast(`🛒 REWE: ${res?.message || "fertig"}`);
+      else if (source === "aldi") this._toast(`🛒 ALDI SÜD: ${res?.message || "fertig"}`);
+      else if (source === "edeka") this._toast(`🏷️ EDEKA: ${res?.message || "fertig"}`);
       else this._toast(res?.status === "ok" ? `🏷️ ${res.count} Angebote geladen${res.learned ? `, ${res.learned} Normalpreise gelernt` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
     } finally {
       this._refreshing.delete(source);

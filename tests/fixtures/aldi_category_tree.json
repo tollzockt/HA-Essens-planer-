@@ -1,0 +1,60 @@
+{
+ "data": [
+  {
+   "key": "1588161426582123",
+   "order": 77,
+   "thumbnail": null,
+   "name": "Wochenangebote",
+   "urlSlugText": "wochenangebote",
+   "urlSlugTextAlternatives": {
+    "de-DE": "wochenangebote"
+   },
+   "children": [
+    {
+     "key": "1588161427299187",
+     "order": null,
+     "thumbnail": null,
+     "name": "Frischeprodukte im Angebot",
+     "urlSlugText": "wochenangebote/frischeprodukte-im-angebot",
+     "urlSlugTextAlternatives": {
+      "de-DE": "wochenangebote/frischeprodukte-im-angebot"
+     },
+     "children": []
+    },
+    {
+     "key": "1588161427299188",
+     "order": null,
+     "thumbnail": null,
+     "name": "Eigenmarken im Angebot",
+     "urlSlugText": "wochenangebote/eigenmarken-im-angebot",
+     "urlSlugTextAlternatives": {
+      "de-DE": "wochenangebote/eigenmarken-im-angebot"
+     },
+     "children": []
+    },
+    {
+     "key": "1588161427299189",
+     "order": null,
+     "thumbnail": null,
+     "name": "Markenprodukte im Angebot",
+     "urlSlugText": "wochenangebote/markenprodukte-im-angebot",
+     "urlSlugTextAlternatives": {
+      "de-DE": "wochenangebote/markenprodukte-im-angebot"
+     },
+     "children": []
+    }
+   ]
+  },
+  {
+   "key": "1588161425467260",
+   "order": 76,
+   "thumbnail": null,
+   "name": "Dauerhaft günstig",
+   "urlSlugText": "dauerhaft-guenstig",
+   "urlSlugTextAlternatives": {
+    "de-DE": "dauerhaft-guenstig"
+   },
+   "children": []
+  }
+ ]
+}

@@ -1,0 +1,283 @@
+{
+ "meta": {
+  "spellingSuggestion": null,
+  "pinned": [],
+  "keywordRedirect": null,
+  "pagination": {
+   "offset": 0,
+   "limit": 12,
+   "totalCount": 10
+  },
+  "debug": null,
+  "facets": [
+   {
+    "name": "brand-name",
+    "localizedName": "Marken",
+    "docCount": 10,
+    "activeValue": [],
+    "config": {
+     "parameterName": "brandName",
+     "type": "value",
+     "isMultiValue": true,
+     "componentName": "multi-select",
+     "component": {
+      "name": "multiSelect",
+      "valueActive": null,
+      "valueInactive": null
+     }
+    },
+    "stats": null,
+    "values": [
+     {
+      "key": "BIO",
+      "docCount": 1,
+      "label": "BIO",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     },
+     {
+      "key": "DR. OETKER",
+      "docCount": 1,
+      "label": "DR. OETKER",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     }
+    ]
+   }
+  ],
+  "sort": [
+   {
+    "parameterName": "sort",
+    "parameterValue": "relevance",
+    "localizedName": "Relevanz",
+    "isActive": true
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_asc",
+    "localizedName": "Name (A bis Z)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_desc",
+    "localizedName": "Name (Z bis A)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_asc",
+    "localizedName": "Preis (Niedrig bis Hoch)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_desc",
+    "localizedName": "Preis (Hoch bis Niedrig)",
+    "isActive": false
+   }
+  ]
+ },
+ "data": [
+  {
+   "sku": "000000000000205265",
+   "name": "Eier aus Freilandhaltung, 10er-Packung",
+   "brandName": "LANDFREUDE",
+   "urlSlugText": "landfreude-eier-aus-freilandhaltung-10er-packung",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": null,
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000205265A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": null,
+   "price": {
+    "amount": 299,
+    "amountRelevant": 299,
+    "amountRelevantDisplay": "2,99 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": null,
+    "comparisonDisplay": null,
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/ffd0f84d-96e5-4e00-85d6-aa2bd7c0f870/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000000205137",
+   "name": "Bio-Eier, 10er-Packung",
+   "brandName": "BIO",
+   "urlSlugText": "bio-bio-eier-10er-packung",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": null,
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000205137A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": null,
+   "price": {
+    "amount": 399,
+    "amountRelevant": 399,
+    "amountRelevantDisplay": "3,99 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": null,
+    "comparisonDisplay": null,
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467036",
+     "name": "Bio-Produkte",
+     "urlSlugText": "bio-produkte"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/6fab234f-21c9-4cf3-949d-c987b5d6df01/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000752016004",
+   "name": "Weihnachts-Sticker, Xmas Feiertage",
+   "brandName": "HOME CREATION",
+   "urlSlugText": "home-creation-weihnachts-sticker-xmas-feiertage",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": null,
+   "energyClass": null,
+   "onSaleDateDisplay": "Verfügbar ab 12.11.2026",
+   "onSaleDate": "2026-11-12",
+   "isAbstract": false,
+   "abstractSku": "000000000000752016",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": null,
+   "price": {
+    "amount": 49,
+    "amountRelevant": 49,
+    "amountRelevantDisplay": "0,49 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": null,
+    "comparisonDisplay": null,
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161426582144",
+     "name": "Basteln & DIY",
+     "urlSlugText": "basteln-diy"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/1cb7b5cd-bd28-4a69-9762-719e5fd65f06/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  }
+ ]
+}

@@ -31,13 +31,19 @@ PKG = ROOT / "custom_components" / DOMAIN
 LANGUAGES = ("de", "en")
 PLACEHOLDER = re.compile(r"{(\w+)}")
 # constructors that take (translation_key, ...) as first argument; "cls" is the
-# ReweError/ReweUnexpected switch in rewe._failed
+# error/unexpected switch in rewe._failed, aldi._failed and edeka._failed
 ERROR_FACTORIES = {
     "_error",
     "BranchSearchError",
     "ReweError",
     "ReweBlocked",
     "ReweUnexpected",
+    "AldiError",
+    "AldiBlocked",
+    "AldiUnexpected",
+    "EdekaError",
+    "EdekaBlocked",
+    "EdekaUnexpected",
     "cls",
 }
 

@@ -10,9 +10,11 @@ from homeassistant.data_entry_flow import FlowResultType, InvalidData
 import pytest
 
 from custom_components.essensplaner.const import (
+    DEFAULT_ALDI_ONLINE,
     DEFAULT_BRANCH_RADIUS,
     DEFAULT_BRANCH_ROUTE,
     DEFAULT_BRANCH_ROUTE_RADIUS,
+    DEFAULT_EDEKA_OFFERS,
     DEFAULT_REWE_ONLINE,
     DEFAULT_SPLIT_MIN_PERCENT,
     DEFAULT_SPLIT_MIN_SAVING,
@@ -190,6 +192,9 @@ async def test_options_stores_defaults(hass: HomeAssistant, setup_integration) -
         "branch_route": DEFAULT_BRANCH_ROUTE,
         "branch_route_radius_m": DEFAULT_BRANCH_ROUTE_RADIUS,
         "rewe_online_prices": DEFAULT_REWE_ONLINE,
+        # 1.4: the chain sources ALDI SÜD (prices) and EDEKA (offers), off by default
+        "aldi_online_prices": DEFAULT_ALDI_ONLINE,
+        "edeka_offers": DEFAULT_EDEKA_OFFERS,
     }
     result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -204,6 +209,8 @@ async def test_options_stores_defaults(hass: HomeAssistant, setup_integration) -
     assert options["branch_route"] is True
     assert options["branch_route_radius_m"] == 800
     assert options["rewe_online_prices"] is False
+    assert options["aldi_online_prices"] is False
+    assert options["edeka_offers"] is False
     await hass.async_block_till_done()
     manager = entry.runtime_data
     assert manager.split_settings() == {

@@ -1,0 +1,301 @@
+{
+ "meta": {
+  "spellingSuggestion": null,
+  "pinned": [],
+  "keywordRedirect": null,
+  "pagination": {
+   "offset": 0,
+   "limit": 12,
+   "totalCount": 36
+  },
+  "debug": null,
+  "facets": [
+   {
+    "name": "brand-name",
+    "localizedName": "Marken",
+    "docCount": 42,
+    "activeValue": [],
+    "config": {
+     "parameterName": "brandName",
+     "type": "value",
+     "isMultiValue": true,
+     "componentName": "multi-select",
+     "component": {
+      "name": "multiSelect",
+      "valueActive": null,
+      "valueInactive": null
+     }
+    },
+    "stats": null,
+    "values": [
+     {
+      "key": "ACTIMEL",
+      "docCount": 4,
+      "label": "ACTIMEL",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     },
+     {
+      "key": "ALPRO",
+      "docCount": 1,
+      "label": "ALPRO",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     }
+    ]
+   }
+  ],
+  "sort": [
+   {
+    "parameterName": "sort",
+    "parameterValue": "relevance",
+    "localizedName": "Relevanz",
+    "isActive": true
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_asc",
+    "localizedName": "Name (A bis Z)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_desc",
+    "localizedName": "Name (Z bis A)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_asc",
+    "localizedName": "Preis (Niedrig bis Hoch)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_desc",
+    "localizedName": "Preis (Hoch bis Niedrig)",
+    "isActive": false
+   }
+  ]
+ },
+ "data": [
+  {
+   "sku": "000000000330654001",
+   "name": "Frische Vollmilch 3,5 % 1 l",
+   "brandName": "MILSANI",
+   "urlSlugText": "milsani-frische-vollmilch-3-5-1-l",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": null,
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000330654",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": null,
+   "price": {
+    "amount": 95,
+    "amountRelevant": 95,
+    "amountRelevantDisplay": "0,95 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": null,
+    "comparisonDisplay": null,
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/42d56fe5-f25c-47ec-a113-eae834b7f5b1/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000329344",
+   "name": "H-Milch 1,5 % haltbare fettarme Milch 1 l",
+   "brandName": "MILSANI",
+   "urlSlugText": "milsani-h-milch-1-5-haltbare-fettarme-milch-1-l",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "1 l",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000329344A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "l",
+   "price": {
+    "amount": 85,
+    "amountRelevant": 85,
+    "amountRelevantDisplay": "0,85 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 85,
+    "comparisonDisplay": "0,85 €/1 l",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    },
+    {
+     "id": "1588161425467094",
+     "name": "Milch",
+     "urlSlugText": "milchprodukte-eier/milch"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/77877ca1-3275-419d-a3e6-26cccbd340f7/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  },
+  {
+   "sku": "000000000000202293",
+   "name": "Kondensmilch 10 % 340 g",
+   "brandName": "MILSANI",
+   "urlSlugText": "milsani-kondensmilch-10-340-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "340 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000202293A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 89,
+    "amountRelevant": 89,
+    "amountRelevantDisplay": "0,89 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 262,
+    "comparisonDisplay": "2,62 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/26a02e40-9e50-4fbb-a9dd-6b582f1254aa/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": []
+  }
+ ]
+}

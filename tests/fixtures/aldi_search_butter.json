@@ -1,0 +1,428 @@
+{
+ "meta": {
+  "spellingSuggestion": null,
+  "pinned": [],
+  "keywordRedirect": null,
+  "pagination": {
+   "offset": 0,
+   "limit": 12,
+   "totalCount": 24
+  },
+  "debug": null,
+  "facets": [
+   {
+    "name": "brand-name",
+    "localizedName": "Marken",
+    "docCount": 24,
+    "activeValue": [],
+    "config": {
+     "parameterName": "brandName",
+     "type": "value",
+     "isMultiValue": true,
+     "componentName": "multi-select",
+     "component": {
+      "name": "multiSelect",
+      "valueActive": null,
+      "valueInactive": null
+     }
+    },
+    "stats": null,
+    "values": [
+     {
+      "key": "ASIA GREEN GARDEN",
+      "docCount": 1,
+      "label": "ASIA GREEN GARDEN",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     },
+     {
+      "key": "BELLASAN",
+      "docCount": 1,
+      "label": "BELLASAN",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     }
+    ]
+   }
+  ],
+  "sort": [
+   {
+    "parameterName": "sort",
+    "parameterValue": "relevance",
+    "localizedName": "Relevanz",
+    "isActive": true
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_asc",
+    "localizedName": "Name (A bis Z)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_desc",
+    "localizedName": "Name (Z bis A)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_asc",
+    "localizedName": "Preis (Niedrig bis Hoch)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_desc",
+    "localizedName": "Preis (Hoch bis Niedrig)",
+    "isActive": false
+   }
+  ]
+ },
+ "data": [
+  {
+   "sku": "000000000000202682",
+   "name": "Deutsche Markenbutter 250 g",
+   "brandName": "MILSANI",
+   "urlSlugText": "milsani-deutsche-markenbutter-250-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "250 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000202682A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 115,
+    "amountRelevant": 115,
+    "amountRelevantDisplay": "1,15 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 460,
+    "comparisonDisplay": "4,60 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "1,19 €",
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    },
+    {
+     "id": "1588161425467099",
+     "name": "Butter & Margarine",
+     "urlSlugText": "milchprodukte-eier/butter-margarine"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/0c2893c8-a6ef-4437-9a94-673a20ee9db9/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000202402",
+   "name": "Meersalzbutter 250 g",
+   "brandName": "PRESIDENT",
+   "urlSlugText": "president-meersalzbutter-250-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "250 g",
+   "energyClass": null,
+   "onSaleDateDisplay": "Verfügbar seit 06.11.2026",
+   "onSaleDate": "2026-11-06",
+   "isAbstract": false,
+   "abstractSku": "000000000000202402A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 249,
+    "amountRelevant": 249,
+    "amountRelevantDisplay": "2,49 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 996,
+    "comparisonDisplay": "9,96 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    },
+    {
+     "id": "1588161425467099",
+     "name": "Butter & Margarine",
+     "urlSlugText": "milchprodukte-eier/butter-margarine"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/5068f4b4-ed31-49db-9d25-52fc3e8d18fd/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      },
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Aktion",
+       "color": "red",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000202698",
+   "name": "Irische Butter 250 g",
+   "brandName": "MILSANI",
+   "urlSlugText": "milsani-irische-butter-250-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "250 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000202698A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 179,
+    "amountRelevant": 179,
+    "amountRelevantDisplay": "1,79 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 716,
+    "comparisonDisplay": "7,16 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    },
+    {
+     "id": "1588161425467099",
+     "name": "Butter & Margarine",
+     "urlSlugText": "milchprodukte-eier/butter-margarine"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/b7ee3023-835e-42f0-b912-14efc6932794/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000202970001",
+   "name": "Kräuter-/Knoblauchbutter 120 g, Knoblauch",
+   "brandName": "MILSANI",
+   "urlSlugText": "milsani-kraeuter-knoblauchbutter-120-g-knoblauch",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "120 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000202970",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 139,
+    "amountRelevant": 139,
+    "amountRelevantDisplay": "1,39 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 1158,
+    "comparisonDisplay": "11,58 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467093",
+     "name": "Milchprodukte & Eier",
+     "urlSlugText": "milchprodukte-eier"
+    },
+    {
+     "id": "1588161425467099",
+     "name": "Butter & Margarine",
+     "urlSlugText": "milchprodukte-eier/butter-margarine"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/f9fe08eb-2c47-4a03-bb49-a0ab01b2e392/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

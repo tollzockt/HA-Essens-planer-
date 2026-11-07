@@ -6,8 +6,8 @@ retailer and recently added articles (article_history). The default store is the
 branch; without one the general prices are searched.
 
 Optional live results (async_search_articles_live): providers per retailer can be
-registered in LIVE_PROVIDERS with an optional "enabled" check (rewe.py adds the
-experimental REWE online shop for "rewe", only asked while its option is on); the
+registered in LIVE_PROVIDERS with an optional "enabled" check (the experimental REWE
+online shop for "rewe" and ALDI SÜD for "aldi-sued", only asked while their option is on); the
 marktguru offer search for the branch postcode is used for every retailer when the user
 enabled marktguru (offers_source). Live requests are throttled (LIVE_MIN_INTERVAL, newest
 query wins) and cached in memory for an hour per (query, postcode / market), see
@@ -57,7 +57,7 @@ MATCH_WORD = 2
 MATCH_SUBSTRING = 3
 # result order within the same match quality
 SOURCE_RANK = {"offer": 0, "store": 1, "learned": 2, "history": 3, "default": 4, "live": 5}
-_LEARNED = {"leaflet", "rewe_online", "offer_regular"}
+_LEARNED = {"leaflet", "rewe_online", "aldi_online", "offer_regular"}
 
 # async provider(manager, query, branch or None, retailer or None) -> [offer dicts]
 # (normalized like normalize_marktguru(); may raise OfferError)
@@ -519,7 +519,8 @@ class ArticlesMixin:
                 branch.get("id") if branch else None,
             )
             result["offer"]["image"] = offer.get("image")
-            # where the hit comes from: "marktguru" (leaflet offer), "rewe_online" (shop price)
+            # where the hit comes from: "marktguru" (leaflet offer), "rewe_online" /
+            # "aldi_online" (shop price)
             result["provider"] = offer.get("source")
             results.append(result)
         results.sort(key=lambda r: (_sort_key(r), r["unit_price"] or 9e9, r["price"] or 0))

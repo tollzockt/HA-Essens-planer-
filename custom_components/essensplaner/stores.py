@@ -1,14 +1,16 @@
 """Branches, store specific prices and the price matrix (mixin for the manager).
 
 Price order for a retailer r (first match wins, see store_book()):
-own store price of r -> learned store price of r (<= 180 days, REWE online before leaflet)
+own store price of r -> learned store price of r (<= 180 days; REWE online / ALDI SÜD
+online before leaflet)
 -> own general price -> learned general price -> default estimate.
 General prices that carry a store label of another retailer are that retailer's prices
 and are skipped for r.
 
 Branches (Filialen) are the user's shops: {id ("man_<ms>" | "osm_node_123" | "osm_way_…"),
 retailer, name, label, street, postcode, city, postcode_guessed, lat, lon, source (osm|manual),
-selected, priority, near, route, rewe_market_id, retailer_guessed, added, updated}.
+selected, priority, near, route, rewe_market_id, retailer_guessed, added, updated} and,
+once linked, edeka_market_id (EDEKA offers) / aldi_service_point (ALDI SÜD prices).
 Offers are fetched per postcode of the selected branches (offer_targets()). Branches are
 added manually or from the OpenStreetMap search (branches.py, cached in branch_search).
 Drugstore branches (Rossmann, dm, Müller, Budni; retailers.retailer_kind() "drugstore") get
@@ -100,8 +102,9 @@ _LOGGER = logging.getLogger(__name__)
 DATA_VERSION = 4
 # learned store prices older than this are ignored for lookups (kept in storage)
 STALE_DAYS = 180
-# learned store price sources, most trusted first
-LEARNED_SOURCES = ("rewe_online", "leaflet")
+# learned store price sources, most trusted first (each online source only learns prices of
+# its own chain: rewe_online for REWE, aldi_online for ALDI SÜD)
+LEARNED_SOURCES = ("rewe_online", "aldi_online", "leaflet")
 SOURCE_USER = "user"
 SOURCE_LEAFLET = "leaflet"
 
@@ -119,7 +122,17 @@ PLAUSIBLE_MAX = 3.0
 BRANCH_SOURCES = ("osm", "manual")
 _OSM_ID_RE = re.compile(r"^osm_(node|way|relation)_\d+$")
 _POSTCODE_RE = re.compile(r"^\d{5}$")
-_BRANCH_TEXT_FIELDS = ("name", "street", "city", "rewe_market_id")
+_BRANCH_TEXT_FIELDS = (
+    "name",
+    "street",
+    "city",
+    "rewe_market_id",
+    "edeka_market_id",
+    "aldi_service_point",
+)
+# ids of the chain sources (checked when saving a branch; empty = not linked)
+_EDEKA_MARKET_RE = re.compile(r"^\d{1,12}$")
+_ALDI_SERVICE_POINT_RE = re.compile(r"^[A-Za-z0-9_-]{2,16}$")
 # words for "the main branch" (after fold(), filler words removed)
 _MAIN_WORDS = {
     "main",
@@ -880,8 +893,9 @@ class StoresMixin:
 
         data: id (update; OpenStreetMap ids like "osm_node_123" are created as given),
         store or retailer (required for new branches), name, label, street, postcode, city,
-        lat, lon, selected, main, priority, rewe_market_id, and from the map search
-        source, near, route, postcode_guessed, retailer_guessed.
+        lat, lon, selected, main, priority, rewe_market_id, edeka_market_id (digits),
+        aldi_service_point ("B402"), and from the map search source, near, route,
+        postcode_guessed, retailer_guessed.
 
         A new OpenStreetMap id from the last branch search (find_branches) takes the
         missing fields from that search result (address, coordinates, near/route).
@@ -907,6 +921,12 @@ class StoresMixin:
             postcode = valid_postcode(raw) or ""
             if raw and not postcode:
                 raise _error("invalid_postcode", postcode=raw)
+        edeka_market = str(data.get("edeka_market_id") or "").strip()
+        if edeka_market and not _EDEKA_MARKET_RE.fullmatch(edeka_market):
+            raise _error("invalid_edeka_market", value=edeka_market)
+        aldi_store = str(data.get("aldi_service_point") or "").strip()
+        if aldi_store and not _ALDI_SERVICE_POINT_RE.fullmatch(aldi_store):
+            raise _error("invalid_aldi_store", value=aldi_store)
         store = str(data.get("retailer") or data.get("store") or "").strip()
         retailer = None
         if store:
@@ -1341,7 +1361,8 @@ class StoresMixin:
 
         An offer found for certain postcodes ("zip_codes") applies to the branches searched
         at these postcodes; offers without postcode info (manual ones) to all branches of
-        the retailer, a manual offer for one branch ("branch_id") only to that one.
+        the retailer, a manual offer for one branch ("branch_id") only to that one, an
+        offer of the linked markets ("branch_ids", EDEKA) only to those.
         """
         branch_zip = self._offer_plan()[1]
         by_retailer: dict[str, list[tuple[str, str | None]]] = {}
@@ -1354,11 +1375,13 @@ class StoresMixin:
             candidates = by_retailer.get(self.offer_retailer(offer) or "", [])
             zips = offer.get("zip_codes")
             # an offer entered for one branch ("Hauptladen", "Lidl Arbeit") applies there only
-            pinned = offer.get("branch_id")
+            pinned = offer.get("branch_ids") or (
+                [offer["branch_id"]] if offer.get("branch_id") else None
+            )
             offer["branches"] = [
                 bid
                 for bid, zip_code in candidates
-                if (bid == pinned if pinned else not zips or zip_code in zips)
+                if (bid in pinned if pinned else not zips or zip_code in zips)
             ]
 
     # ------------------------------------------------------------------

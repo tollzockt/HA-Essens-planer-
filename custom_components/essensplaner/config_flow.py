@@ -26,6 +26,7 @@ import voluptuous as vol
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE
 from .const import (
     ALL_MEALS,
+    CONF_ALDI_ONLINE,
     CONF_AUTO_COOKED,
     CONF_BRANCH_RADIUS,
     CONF_BRANCH_ROUTE,
@@ -34,6 +35,7 @@ from .const import (
     CONF_BUDGET,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
+    CONF_EDEKA_OFFERS,
     CONF_ENABLED_MEALS,
     CONF_EXCLUDED,
     CONF_IMPORT_STARTER,
@@ -53,9 +55,11 @@ from .const import (
     CONF_SYNC_TODO,
     CONF_WATCHLIST,
     CONF_ZIP,
+    DEFAULT_ALDI_ONLINE,
     DEFAULT_BRANCH_RADIUS,
     DEFAULT_BRANCH_ROUTE,
     DEFAULT_BRANCH_ROUTE_RADIUS,
+    DEFAULT_EDEKA_OFFERS,
     DEFAULT_ENABLED_MEALS,
     DEFAULT_MEAL,
     DEFAULT_MEAL_TIMES,
@@ -317,7 +321,8 @@ class EssensplanerOptionsFlow(OptionsFlow):
         )
 
     async def async_step_stores(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Stores & shopping: store split, branch search, REWE online prices."""
+        """Stores & shopping: store split, branch search, chain sources (REWE / ALDI SÜD
+        online prices, EDEKA offers)."""
         if user_input is not None:
             data = {
                 **self.config_entry.options,
@@ -419,6 +424,14 @@ class EssensplanerOptionsFlow(OptionsFlow):
             vol.Required(
                 CONF_REWE_ONLINE,
                 default=bool(options.get(CONF_REWE_ONLINE, DEFAULT_REWE_ONLINE)),
+            ): BooleanSelector(),
+            vol.Required(
+                CONF_ALDI_ONLINE,
+                default=bool(options.get(CONF_ALDI_ONLINE, DEFAULT_ALDI_ONLINE)),
+            ): BooleanSelector(),
+            vol.Required(
+                CONF_EDEKA_OFFERS,
+                default=bool(options.get(CONF_EDEKA_OFFERS, DEFAULT_EDEKA_OFFERS)),
             ): BooleanSelector(),
         }
         return self.async_show_form(

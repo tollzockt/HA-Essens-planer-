@@ -16,6 +16,25 @@
 - Eine Drogerie, die in 1.3 als andere Kette gespeichert wurde (z. B. „ROSSMANN
   Drogeriemarkt“ als Marktkauf), wird beim Update auf die richtige Kette umgestellt.
 
+### Preise und Angebote direkt von den Ketten
+- **ALDI-SÜD-Onlinepreise** (experimentell, Option „ALDI-SÜD-Onlinepreise“, standardmäßig aus):
+  einmal pro Woche Normalpreise von der ALDI-SÜD-Website für deine ALDI-SÜD-Filiale (die
+  nächste ALDI-Filiale wird über die Lage deiner Filiale bzw. Zuhause bestimmt; „Filiale
+  suchen“ / `find_aldi_stores`). Reduzierte Artikel: der Streichpreis wird als Normalpreis
+  gelernt, der reduzierte Preis ist bis Samstag ein Angebot. Auch „Artikel hinzufügen“ sucht
+  bei ALDI SÜD live. Die ALDI-SÜD-Wochenangebote („Wochenangebote“) sind abrufbar und kommen in
+  die Angebotsübersicht.
+- **EDEKA-Angebote deines Markts** (Option „EDEKA-Angebote deines Markts“, standardmäßig aus):
+  täglich die Prospekt-Angebote deines EDEKA-Markts von edeka.de – mit Packung, Grundpreis,
+  Gültigkeit, PAYBACK-/App-Hinweis und Pfand als Hinweis. Passende Angebote zählen für
+  Planung, Budget und Einkaufsliste dieser Filiale. Markt verknüpfen: „Markt suchen“ /
+  `find_edeka_markets`, dann `save_branch` mit `edeka_market_id`.
+- `refresh_prices` kennt die Quellen `aldi` und `edeka`; neue Aktionen `find_aldi_stores` und
+  `find_edeka_markets`. Beide Ketten pausieren 7 Tage, wenn sie automatische Abfragen ablehnen;
+  es wird nichts umgangen.
+- Eine öffentliche Liste aller Angebote eines REWE-Markts gibt es nicht (Bot-Prüfung) –
+  REWE-Angebote kommen weiter über marktguru oder von dir.
+
 ### Korrekturen
 - Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.4` (marktguru und der
   Rezept-Import gaben sich bisher als Browser aus).

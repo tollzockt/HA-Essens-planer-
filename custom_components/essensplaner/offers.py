@@ -57,8 +57,11 @@ _WEIGHT_CLASS_RE = re.compile(
     re.IGNORECASE,
 )
 # drugstore / household packs (1.4): detergent by washing loads ("39 WL", "20
-# Waschladungen"), paper by rolls ("8 Rollen", "3 x 100 Blatt" = 3 rolls)
-_LOADS_RE = re.compile(r"(\d+)\s*-?\s*(?:wl|waschladung(?:en)?)\b", re.IGNORECASE)
+# Waschladungen", EDEKA's "38 WA" Waschanwendungen), paper by rolls ("8 Rollen",
+# "3 x 100 Blatt" = 3 rolls)
+_LOADS_RE = re.compile(
+    r"(\d+)\s*-?\s*(?:wl|wa|waschladung(?:en)?|waschanwendung(?:en)?)\b", re.IGNORECASE
+)
 _ROLLS_RE = re.compile(r"(\d+)\s*-?\s*rollen?\b|(\d+)\s*[x×]\s*\d+\s*blatt\b", re.IGNORECASE)
 
 
@@ -71,7 +74,7 @@ def parse_pack(text: str | None) -> tuple[float, str] | None:
 
     Ranges and weight classes are skipped: 'Eier Größe M (53-63 g), 10 Stück' or 'Größe L
     (ab 63 g)' has no size in grams. Detergents are sized by washing loads ('1,1 l = 20 WL'
-    -> (20, 'WL')), toilet paper and kitchen rolls by rolls ('8 Rollen', '3 x 100 Blatt'
+    -> (20, 'WL'), EDEKA's '38 WA' too), toilet paper and kitchen rolls by rolls ('8 Rollen', '3 x 100 Blatt'
     -> (3, 'Rolle')) when no weight or volume is given.
     """
     if not text:
@@ -196,6 +199,33 @@ def offer_matches(offer_text: str, key: str) -> bool:
     tokens = [_singular(w) for w in fold(offer_text).split()]
     words = [w for w in key.split() if len(w) >= 3]
     return all(any(_token_match(t, w) for t in tokens) for w in words)
+
+
+def key_only_as_modifier(text: str, key: str) -> bool:
+    """True if every mention of a key word in a product name is the first part of a
+    hyphenated compound naming another product: 'Butter-Spekulatius' or
+    'Butter-Mandel-Spekulatius' for "butter", 'Kartoffel-Gratin' for "kartoffel" (fold()
+    splits them into words that offer_matches() accepts), also a shortened compound
+    ('Butter-, Krusten- oder Kochschinken'). Not 'Bio-Butter', 'Kräuter-/Knoblauchbutter'
+    or 'H-Milch' (the key is the head)."""
+    words = [w for w in key.split() if len(w) >= 3]
+    for word in words:
+        head_found = modifier_found = False
+        for raw in re.split(r"[\s,;()]+", text or ""):
+            parts = [fold(p).replace(" ", "") for p in re.split(r"[-/]+", raw) if p.strip()]
+            parts = [p for p in parts if p]
+            if not parts:
+                continue
+            if raw.endswith("-"):
+                # "Butter-" of "Butter-, Krusten- oder Kochschinken": only a first part
+                modifier_found = modifier_found or any(word in part for part in parts)
+            elif _token_match(_singular(parts[-1]), word):
+                head_found = True
+            elif any(word in part for part in parts[:-1]):
+                modifier_found = True
+        if modifier_found and not head_found:
+            return True
+    return False
 
 
 # what may follow an ingredient word inside a compound ("Hähnchenbrust|filet")

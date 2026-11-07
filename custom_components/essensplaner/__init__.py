@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -14,6 +16,13 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
+from .aldi import (
+    RETAILER as ALDI_SUED,
+    SOURCE_ALDI,
+    aldi_enabled,
+    async_aldi_live,
+    async_refresh_aldi_prices,
+)
 from .articles import register_live_provider
 from .const import (
     CONF_IMPORT_STARTER,
@@ -24,9 +33,11 @@ from .const import (
     STORAGE_KEY,
     STORAGE_VERSION,
 )
+from .edeka import SOURCE_EDEKA, async_refresh_edeka_offers, edeka_enabled
 from .intents import async_register_intents, async_remove_intents
 from .manager import EssensplanerManager
 from .offers import async_refresh_offers
+from .online_prices import STATUS_BLOCKED, STATUS_ERROR, OnlinePriceSource
 from .panel import (
     async_register_card,
     async_register_panel,
@@ -35,8 +46,7 @@ from .panel import (
 )
 from .rewe import (
     RETAILER as REWE,
-    STATUS_BLOCKED,
-    STATUS_ERROR,
+    SOURCE_REWE,
     async_refresh_rewe_prices,
     async_rewe_live,
     rewe_enabled,
@@ -56,8 +66,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up services and websocket commands."""
     async_setup_services(hass)
     async_setup_websocket(hass)
-    # article search: REWE online shop (experimental, only while its option is on)
+    # article search: REWE online shop and ALDI SÜD (experimental, only while their option
+    # is on)
     register_live_provider(REWE, async_rewe_live, rewe_enabled)
+    register_live_provider(ALDI_SUED, async_aldi_live, aldi_enabled)
     return True
 
 
@@ -116,12 +128,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     if rewe_enabled(manager):
         # experimental REWE online prices (opt-in; options changes reload the entry)
         _setup_rewe_refresh(hass, entry, manager)
+    if aldi_enabled(manager):
+        # experimental ALDI SÜD prices: weekly like REWE, half an hour later
+        _setup_source_refresh(
+            hass,
+            entry,
+            manager,
+            SOURCE_ALDI,
+            async_refresh_aldi_prices,
+            ALDI_START_DELAY,
+            4,
+            (_daily_minute(entry) + 30) % 60,
+        )
+    if edeka_enabled(manager):
+        # offers of the linked EDEKA market: daily at 06:xx (after the marktguru offers)
+        _setup_source_refresh(
+            hass,
+            entry,
+            manager,
+            SOURCE_EDEKA,
+            async_refresh_edeka_offers,
+            EDEKA_START_DELAY,
+            6,
+            (_daily_minute(entry) + 5) % 60,
+        )
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
-# seconds after start until the first REWE price check
+# seconds after start until the first REWE / ALDI SÜD / EDEKA check
 REWE_START_DELAY = 150
+ALDI_START_DELAY = 180
+EDEKA_START_DELAY = 120
 
 
 def _daily_minute(entry: EssensplanerConfigEntry) -> int:
@@ -173,32 +211,59 @@ def _setup_rewe_refresh(
 ) -> None:
     """Check shortly after start and daily at 04:xx; prices are only fetched when the last
     success is a week old (or there was none)."""
+    _setup_source_refresh(
+        hass,
+        entry,
+        manager,
+        SOURCE_REWE,
+        async_refresh_rewe_prices,
+        REWE_START_DELAY,
+        4,
+        _daily_minute(entry),
+    )
+
+
+def _setup_source_refresh(
+    hass: HomeAssistant,
+    entry: EssensplanerConfigEntry,
+    manager: EssensplanerManager,
+    source: OnlinePriceSource,
+    refresh: Callable[[HomeAssistant, EssensplanerManager], Awaitable[dict[str, Any]]],
+    start_delay: float,
+    hour: int,
+    minute: int,
+) -> None:
+    """Check an online source shortly after start and daily at hour:minute; the source
+    only sends requests when its data is stale (REWE / ALDI SÜD: a week, EDEKA: a day or a
+    new leaflet week) and never while it is paused."""
 
     async def _async_check() -> None:
-        if not rewe_enabled(manager):
+        if not source.enabled(manager):
             return
-        before = (manager.price_sources_meta.get("rewe") or {}).get("last_run")
+        before = source.meta(manager).get("last_run")
         try:
-            status = await async_refresh_rewe_prices(hass, manager)
+            status = await refresh(hass, manager)
         except Exception:
-            _LOGGER.exception("Refreshing REWE online prices failed")
+            _LOGGER.exception("Refreshing %s failed", source.log_name)
             return
         if status.get("last_run") != before and status["status"] in (STATUS_ERROR, STATUS_BLOCKED):
             _LOGGER.warning(
-                "Essensplaner REWE online prices (experimental): %s",
+                "Essensplaner %s%s: %s",
+                source.log_name,
+                " (experimental)" if source.experimental else "",
                 "; ".join(status.get("errors") or []) or status["message"],
             )
 
     @callback
     def _check(_now: datetime | None = None) -> None:
-        entry.async_create_background_task(hass, _async_check(), "essensplaner_rewe_prices")
+        entry.async_create_background_task(
+            hass, _async_check(), f"essensplaner_{source.key}_refresh"
+        )
 
-    # shortly after start too: prices that were never fetched (or a week old) do not wait
-    # for the night (the check sends nothing while the prices are fresh or paused)
-    entry.async_on_unload(async_call_later(hass, REWE_START_DELAY, _check))
-    entry.async_on_unload(
-        async_track_time_change(hass, _check, hour=4, minute=_daily_minute(entry), second=0)
-    )
+    # shortly after start too: data that was never fetched (or is stale) does not wait
+    # for the next day (the check sends nothing while the data is fresh or paused)
+    entry.async_on_unload(async_call_later(hass, start_delay, _check))
+    entry.async_on_unload(async_track_time_change(hass, _check, hour=hour, minute=minute, second=0))
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: EssensplanerConfigEntry) -> None:

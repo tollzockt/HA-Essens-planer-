@@ -181,6 +181,35 @@ ERROR_MESSAGES_DE = {
     "rewe_blocked": "Der REWE-Onlineshop lässt gerade keine automatischen Abfragen zu ({error}).",
     "rewe_failed": "Die Abfrage beim REWE-Onlineshop ist fehlgeschlagen ({error}).",
     "rewe_postcode_required": "Bitte gib eine Postleitzahl an (5 Ziffern).",
+    "aldi_disabled": (
+        "ALDI-SÜD-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+    ),
+    "aldi_no_store": (
+        "Keine ALDI-SÜD-Filiale – füge im Panel eine ALDI-SÜD-Filiale hinzu (am besten aus "
+        "der Kartensuche) oder wähle sie mit „ALDI-SÜD-Filiale suchen“."
+    ),
+    "aldi_blocked": "Die ALDI-SÜD-Website lässt gerade keine automatischen Abfragen zu ({error}).",
+    "aldi_failed": "Die Abfrage bei ALDI SÜD ist fehlgeschlagen ({error}).",
+    "aldi_location_required": (
+        "Für die Suche nach ALDI-SÜD-Filialen brauche ich einen Ort: gib Breiten- und "
+        "Längengrad an, eine Postleitzahl einer deiner Filialen oder lege die Zone "
+        "„Zuhause“ fest."
+    ),
+    "aldi_postcode_unknown": (
+        "Die Postleitzahl {postcode} kenne ich von keiner deiner Filialen – ALDI SÜD sucht "
+        "nur nach Koordinaten. Füge die Filiale aus der Kartensuche hinzu oder gib Breiten- "
+        "und Längengrad an."
+    ),
+    "invalid_aldi_store": "„{value}“ ist keine gültige ALDI-SÜD-Filialnummer (z. B. B402).",
+    "edeka_disabled": "EDEKA-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren).",
+    "edeka_no_market": (
+        "Keine EDEKA-Filiale mit Markt-ID – füge eine EDEKA-Filiale hinzu und wähle ihren "
+        "Markt (zu finden mit „EDEKA-Märkte suchen“)."
+    ),
+    "edeka_blocked": "Die EDEKA-Website lässt gerade keine automatischen Abfragen zu ({error}).",
+    "edeka_failed": "Die Abfrage bei EDEKA ist fehlgeschlagen ({error}).",
+    "edeka_postcode_required": "Bitte gib eine Postleitzahl an (5 Ziffern).",
+    "invalid_edeka_market": "„{value}“ ist keine gültige EDEKA-Markt-ID (nur Ziffern).",
 }
 
 

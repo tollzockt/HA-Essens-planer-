@@ -557,6 +557,14 @@ save_branch:
       example: "1940156"
       selector:
         text:
+    edeka_market_id:
+      example: "2644015"
+      selector:
+        text:
+    aldi_service_point:
+      example: "B402"
+      selector:
+        text:
 
 remove_branch:
   fields:
@@ -696,6 +704,8 @@ refresh_prices:
           options:
             - offers
             - rewe
+            - aldi
+            - edeka
 
 find_rewe_markets:
   fields:
@@ -703,3 +713,33 @@ find_rewe_markets:
       example: "80331"
       selector:
         text:
+
+find_edeka_markets:
+  fields:
+    zip:
+      example: "56593"
+      selector:
+        text:
+
+find_aldi_stores:
+  fields:
+    zip:
+      example: "57632"
+      selector:
+        text:
+    lat:
+      example: 50.62
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+          mode: box
+    lon:
+      example: 7.43
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+          mode: box

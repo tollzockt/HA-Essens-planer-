@@ -435,6 +435,69 @@ async def ws_rewe_markets(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/edeka_markets", vol.Optional("zip"): vol.Any(str, None)}
+)
+@websocket_api.async_response
+async def ws_edeka_markets(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """EDEKA markets near a postcode ("Markt suchen" of an EDEKA branch).
+
+    Same result as the find_edeka_markets service: {zip_code, markets: [{id, name, channel,
+    street, postcode, city, label, lat, lon, branch_id}]}. Error codes are the translation
+    keys (invalid_postcode, edeka_postcode_required, edeka_blocked, edeka_failed) with a
+    German message.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .edeka import async_find_edeka_markets
+    from .manager import error_message
+
+    try:
+        result = await async_find_edeka_markets(hass, manager, msg.get("zip"))
+    except HomeAssistantError as err:
+        code = getattr(err, "translation_key", None) or "search_failed"
+        connection.send_error(msg["id"], code, error_message(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/aldi_stores",
+        vol.Optional("zip"): vol.Any(str, None),
+        vol.Inclusive("lat", "location"): vol.All(vol.Coerce(float), vol.Range(min=-90, max=90)),
+        vol.Inclusive("lon", "location"): vol.All(vol.Coerce(float), vol.Range(min=-180, max=180)),
+    }
+)
+@websocket_api.async_response
+async def ws_aldi_stores(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ALDI SÜD stores near a location ("Filiale suchen" of an ALDI SÜD branch).
+
+    Same result as the find_aldi_stores service: {location: {lat, lon, source, zip_code},
+    stores: [{id, name, street, postcode, city, label, lat, lon, distance_km, branch_id}]}.
+    Error codes are the translation keys (invalid_postcode, aldi_postcode_unknown,
+    aldi_location_required, aldi_blocked, aldi_failed) with a German message.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .aldi import async_find_aldi_stores
+    from .manager import error_message
+
+    try:
+        result = await async_find_aldi_stores(
+            hass, manager, msg.get("zip"), msg.get("lat"), msg.get("lon")
+        )
+    except HomeAssistantError as err:
+        code = getattr(err, "translation_key", None) or "search_failed"
+        connection.send_error(msg["id"], code, error_message(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -449,3 +512,5 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_compare_prices)
     websocket_api.async_register_command(hass, ws_find_branches)
     websocket_api.async_register_command(hass, ws_rewe_markets)
+    websocket_api.async_register_command(hass, ws_edeka_markets)
+    websocket_api.async_register_command(hass, ws_aldi_stores)

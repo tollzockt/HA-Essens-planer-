@@ -20,6 +20,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 import voluptuous as vol
 
+from .aldi import SOURCE_ALDI, async_find_aldi_stores, async_refresh_aldi_prices
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE, async_find_branches
 from .const import (
     ATTR_COOK_TIME,
@@ -52,6 +53,8 @@ from .const import (
     ATTR_URL,
     DOMAIN,
     OFFERS_MARKTGURU,
+    PRICE_SOURCE_ALDI,
+    PRICE_SOURCE_EDEKA,
     PRICE_SOURCE_REWE,
     PRICE_SOURCES,
     SERVICE_ADD_OFFER,
@@ -64,8 +67,10 @@ from .const import (
     SERVICE_COPY_PLAN,
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
+    SERVICE_FIND_ALDI_STORES,
     SERVICE_FIND_BRANCHES,
     SERVICE_FIND_BY_INGREDIENTS,
+    SERVICE_FIND_EDEKA_MARKETS,
     SERVICE_FIND_REWE_MARKETS,
     SERVICE_GET_BRANCHES,
     SERVICE_GET_COSTS,
@@ -96,6 +101,7 @@ from .const import (
     STRATEGIES,
 )
 from .dates import DateParseError, parse_date, parse_meal, week_start
+from .edeka import SOURCE_EDEKA, async_find_edeka_markets, async_refresh_edeka_offers
 from .ingredients import fold
 from .offers import async_refresh_offers, async_search_target_offers
 from .recipe_import import async_fetch_recipe
@@ -280,6 +286,8 @@ SAVE_BRANCH_SCHEMA = vol.Schema(
         vol.Optional("main"): cv.boolean,
         vol.Optional("priority"): vol.All(vol.Coerce(float), vol.Range(min=0, max=1000)),
         vol.Optional("rewe_market_id"): cv.string,
+        vol.Optional("edeka_market_id"): cv.string,
+        vol.Optional("aldi_service_point"): cv.string,
     }
 )
 REMOVE_BRANCH_SCHEMA = vol.Schema({vol.Required("branch"): cv.string})
@@ -299,6 +307,14 @@ FIND_BRANCHES_SCHEMA = vol.Schema(
 )
 REFRESH_PRICES_SCHEMA = vol.Schema({vol.Required("source"): vol.In(PRICE_SOURCES)})
 FIND_REWE_MARKETS_SCHEMA = vol.Schema({vol.Optional("zip"): cv.string})
+FIND_EDEKA_MARKETS_SCHEMA = vol.Schema({vol.Optional("zip"): cv.string})
+FIND_ALDI_STORES_SCHEMA = vol.Schema(
+    {
+        vol.Optional("zip"): cv.string,
+        vol.Inclusive("lat", "location"): vol.All(vol.Coerce(float), vol.Range(min=-90, max=90)),
+        vol.Inclusive("lon", "location"): vol.All(vol.Coerce(float), vol.Range(min=-180, max=180)),
+    }
+)
 GET_SHOPPING_LIST_SCHEMA = vol.Schema({vol.Optional("store"): cv.string})
 SET_SHOPPING_STORE_SCHEMA = vol.Schema(
     {
@@ -872,7 +888,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     async def refresh_prices(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
-        if call.data["source"] != PRICE_SOURCE_REWE:
+        source = call.data["source"]
+        if source == PRICE_SOURCE_ALDI:
+            if not SOURCE_ALDI.enabled(manager):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="aldi_disabled"
+                )
+            if not SOURCE_ALDI.has_target(manager):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="aldi_no_store"
+                )
+            return await async_refresh_aldi_prices(hass, manager, force=True)
+        if source == PRICE_SOURCE_EDEKA:
+            if not SOURCE_EDEKA.enabled(manager):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="edeka_disabled"
+                )
+            if not SOURCE_EDEKA.has_target(manager):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="edeka_no_market"
+                )
+            return await async_refresh_edeka_offers(hass, manager, force=True)
+        if source != PRICE_SOURCE_REWE:
             require_offer_source(manager)
             return await async_refresh_offers(hass, manager)
         if not rewe_enabled(manager):
@@ -885,6 +922,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     async def find_rewe_markets(call: ServiceCall) -> ServiceResponse:
         return await async_find_rewe_markets(hass, get_manager(hass), call.data.get("zip"))
+
+    async def find_edeka_markets(call: ServiceCall) -> ServiceResponse:
+        return await async_find_edeka_markets(hass, get_manager(hass), call.data.get("zip"))
+
+    async def find_aldi_stores(call: ServiceCall) -> ServiceResponse:
+        return await async_find_aldi_stores(
+            hass,
+            get_manager(hass),
+            call.data.get("zip"),
+            call.data.get("lat"),
+            call.data.get("lon"),
+        )
 
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -935,6 +984,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_ADD_SHOPPING_ITEM, add_shopping_item, ADD_SHOPPING_ITEM_SCHEMA),
         (SERVICE_REFRESH_PRICES, refresh_prices, REFRESH_PRICES_SCHEMA),
         (SERVICE_FIND_REWE_MARKETS, find_rewe_markets, FIND_REWE_MARKETS_SCHEMA),
+        (SERVICE_FIND_EDEKA_MARKETS, find_edeka_markets, FIND_EDEKA_MARKETS_SCHEMA),
+        (SERVICE_FIND_ALDI_STORES, find_aldi_stores, FIND_ALDI_STORES_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

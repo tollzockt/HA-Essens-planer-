@@ -1,0 +1,337 @@
+{
+ "meta": {
+  "spellingSuggestion": null,
+  "pinned": [],
+  "keywordRedirect": null,
+  "pagination": {
+   "offset": 0,
+   "limit": 12,
+   "totalCount": 17
+  },
+  "debug": null,
+  "facets": [
+   {
+    "name": "brand-name",
+    "localizedName": "Marken",
+    "docCount": 17,
+    "activeValue": [],
+    "config": {
+     "parameterName": "brandName",
+     "type": "value",
+     "isMultiValue": true,
+     "componentName": "multi-select",
+     "component": {
+      "name": "multiSelect",
+      "valueActive": null,
+      "valueInactive": null
+     }
+    },
+    "stats": null,
+    "values": [
+     {
+      "key": "BBQ",
+      "docCount": 1,
+      "label": "BBQ",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     },
+     {
+      "key": "BIO",
+      "docCount": 2,
+      "label": "BIO",
+      "isSelected": null,
+      "thumbnail": null,
+      "children": []
+     }
+    ]
+   }
+  ],
+  "sort": [
+   {
+    "parameterName": "sort",
+    "parameterValue": "relevance",
+    "localizedName": "Relevanz",
+    "isActive": true
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_asc",
+    "localizedName": "Name (A bis Z)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "name_desc",
+    "localizedName": "Name (Z bis A)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_asc",
+    "localizedName": "Preis (Niedrig bis Hoch)",
+    "isActive": false
+   },
+   {
+    "parameterName": "sort",
+    "parameterValue": "price_desc",
+    "localizedName": "Preis (Hoch bis Niedrig)",
+    "isActive": false
+   }
+  ]
+ },
+ "data": [
+  {
+   "sku": "000000000000550925",
+   "name": "Hackfleisch vom Rind 500 g",
+   "brandName": "MEINE METZGEREI",
+   "urlSlugText": "meine-metzgerei-hackfleisch-vom-rind-500-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "500 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000550925A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 459,
+    "amountRelevant": 459,
+    "amountRelevantDisplay": "4,59 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 918,
+    "comparisonDisplay": "9,18 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": "5,79 €",
+    "additionalInfo": null,
+    "savingsDisplay": "20 %",
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467052",
+     "name": "Fleisch & Fisch",
+     "urlSlugText": "fleisch-fisch"
+    },
+    {
+     "id": "1588161425467061",
+     "name": "Hackfleisch",
+     "urlSlugText": "fleisch-fisch/hackfleisch"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/d594c2ca-ed9b-49c3-b5e2-9fafaf1cf4a0/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000626362",
+   "name": "Hackfleisch gemischt 800 g",
+   "brandName": "· FAIR&GUT ·",
+   "urlSlugText": "-fair-gut-hackfleisch-gemischt-800-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "800 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000626362A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 729,
+    "amountRelevant": 729,
+    "amountRelevantDisplay": "7,29 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 911,
+    "comparisonDisplay": "9,11 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467052",
+     "name": "Fleisch & Fisch",
+     "urlSlugText": "fleisch-fisch"
+    },
+    {
+     "id": "1588161425467061",
+     "name": "Hackfleisch",
+     "urlSlugText": "fleisch-fisch/hackfleisch"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/ecc7a575-2e90-45fa-8571-1d3d63abdc1b/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sku": "000000000000757350",
+   "name": "Hackfleisch gemischt XXL 800 g",
+   "brandName": "MEINE METZGEREI",
+   "urlSlugText": "meine-metzgerei-hackfleisch-gemischt-xxl-800-g",
+   "urlSlugTextAlternatives": [],
+   "ageRestriction": null,
+   "alcohol": null,
+   "discontinued": false,
+   "discontinuedNote": null,
+   "notForSale": true,
+   "notForSaleReason": null,
+   "quantityMin": 1,
+   "quantityMax": 99,
+   "quantityInterval": 1,
+   "quantityDefault": 1,
+   "quantityUnit": "ea",
+   "weightType": "0",
+   "sellingSize": "800 g",
+   "energyClass": null,
+   "onSaleDateDisplay": null,
+   "onSaleDate": null,
+   "isAbstract": false,
+   "abstractSku": "000000000000757350A",
+   "isDropship": false,
+   "sellingUnitDisplay": null,
+   "contentUnit": "kg",
+   "price": {
+    "amount": 529,
+    "amountRelevant": 529,
+    "amountRelevantDisplay": "5,29 €",
+    "bottleDeposit": 0,
+    "bottleDepositDisplay": "0,00 €",
+    "comparison": 661,
+    "comparisonDisplay": "6,61 €/1 kg",
+    "currencyCode": "EUR",
+    "currencySymbol": "€",
+    "perUnit": null,
+    "perUnitDisplay": null,
+    "wasPriceDisplay": null,
+    "additionalInfo": null,
+    "savingsDisplay": null,
+    "bottleDepositType": null,
+    "feeText": null
+   },
+   "countryExtensions": null,
+   "categories": [
+    {
+     "id": "1588161425467052",
+     "name": "Fleisch & Fisch",
+     "urlSlugText": "fleisch-fisch"
+    },
+    {
+     "id": "1588161425467061",
+     "name": "Hackfleisch",
+     "urlSlugText": "fleisch-fisch/hackfleisch"
+    }
+   ],
+   "assets": [
+    {
+     "url": "https://dm.emea.cms.aldi.cx/is/image/aldiprodeu/product/jpg/scaleWidth/{width}/8ff798b8-47e6-4600-bc55-5418f72a9a1d/{slug}",
+     "maxWidth": 1500,
+     "maxHeight": 1500,
+     "mimeType": "image/*",
+     "assetType": "FR01",
+     "alt": null,
+     "displayName": null
+    }
+   ],
+   "badges": [
+    {
+     "position": "4",
+     "items": [
+      {
+       "url": null,
+       "alt": null,
+       "displayText": "Kühlung",
+       "color": "cyan",
+       "mimeType": "text/plain"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
