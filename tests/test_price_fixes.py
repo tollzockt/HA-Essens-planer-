@@ -347,7 +347,7 @@ async def test_upgrade_guessed_aldi_follows_branch(
     assert set(manager.store_prices_user) == {"aldi-sued"}
     assert manager.regular_book().lookup("Gouda").price == 1.49
     assert manager.store_price_matrix("Gouda")["retailers"] == [
-        {"id": "aldi-sued", "name": "Aldi Süd"}
+        {"id": "aldi-sued", "name": "Aldi Süd", "kind": "grocery"}
     ]
 
 

@@ -1,4 +1,4 @@
-"""Supermarket offers (Aldi, Lidl, Rewe, Edeka, Penny, Netto, Kaufland …).
+"""Supermarket and drugstore offers (Aldi, Lidl, Rewe, Edeka, Penny, Netto, Kaufland, Rossmann …).
 
 Sources:
 - manual offers (panel, service, voice)
@@ -21,6 +21,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
+from .const import HTTP_USER_AGENT
 from .ingredients import _singular, fold, ingredient_key, to_base
 
 # STORES / DEFAULT_STORES moved to retailers.py in 1.3, re-exported here
@@ -37,10 +38,10 @@ REQUEST_DELAY = 0.4
 MAX_QUERIES = 40
 EXTRA_TARGET_QUERIES = 25
 
-_USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0 Safari/537.36"
-)
+# the integration's honest User-Agent (1.4; no browser impersonation)
+_USER_AGENT = HTTP_USER_AGENT
+# marktguru's placeholder brand of unbranded offers
+_NO_BRAND = "thisisnobrand123"
 _CONFIG_RE = re.compile(r'<script[^>]*type="application/json"[^>]*>(.*?)</script>', re.DOTALL)
 _PACK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l|liter)\b", re.IGNORECASE)
 _MULTI_RE = re.compile(r"(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l)\b", re.IGNORECASE)
@@ -55,6 +56,10 @@ _WEIGHT_CLASS_RE = re.compile(
     r"|\b(?:ab|über|ueber|unter|bis(?:\s+unter)?)\s+\d+(?:[.,]\d+)?\s*g\b",
     re.IGNORECASE,
 )
+# drugstore / household packs (1.4): detergent by washing loads ("39 WL", "20
+# Waschladungen"), paper by rolls ("8 Rollen", "3 x 100 Blatt" = 3 rolls)
+_LOADS_RE = re.compile(r"(\d+)\s*-?\s*(?:wl|waschladung(?:en)?)\b", re.IGNORECASE)
+_ROLLS_RE = re.compile(r"(\d+)\s*-?\s*rollen?\b|(\d+)\s*[x×]\s*\d+\s*blatt\b", re.IGNORECASE)
 
 
 class OfferError(Exception):
@@ -65,11 +70,15 @@ def parse_pack(text: str | None) -> tuple[float, str] | None:
     """Package size from texts like 'je 500-g-Packung', '2 x 125 g', '1,5-l-Flasche'.
 
     Ranges and weight classes are skipped: 'Eier Größe M (53-63 g), 10 Stück' or 'Größe L
-    (ab 63 g)' has no size in grams.
+    (ab 63 g)' has no size in grams. Detergents are sized by washing loads ('1,1 l = 20 WL'
+    -> (20, 'WL')), toilet paper and kitchen rolls by rolls ('8 Rollen', '3 x 100 Blatt'
+    -> (3, 'Rolle')) when no weight or volume is given.
     """
     if not text:
         return None
     text = _WEIGHT_CLASS_RE.sub(" ", _RANGE_RE.sub(" ", text))
+    if (match := _LOADS_RE.search(text)) and (loads := float(match.group(1))) > 0:
+        return loads, "WL"
     if match := _MULTI_RE.search(text):
         count = float(match.group(1))
         value = float(match.group(2).replace(",", "."))
@@ -80,10 +89,12 @@ def parse_pack(text: str | None) -> tuple[float, str] | None:
         unit = match.group(2).lower().replace("liter", "l")
         amount, base = to_base(value, unit)
         return (amount or 0, base) if amount else None
+    if (match := _ROLLS_RE.search(text)) and (rolls := float(match.group(1) or match.group(2))):
+        return rolls, "Rolle"
     return None
 
 
-_STUECK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:stück|stueck|stk\.?|st\.)", re.IGNORECASE)
+_STUECK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:stück|stueck|stk\b|st\b)", re.IGNORECASE)
 
 
 def parse_pack_text(text: str | None) -> tuple[float, str] | None:
@@ -99,13 +110,18 @@ def parse_pack_text(text: str | None) -> tuple[float, str] | None:
 
 
 def _date(value: Any) -> str | None:
+    """Local date of a timestamp: marktguru's '2026-11-08T23:00:00Z' starts on 09.11. in
+    Germany (UTC timestamps become the local date; a plain date stays as it is)."""
     if not value:
         return None
-    text = str(value)
+    text = str(value).strip()
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+        parsed = dt_util.parse_datetime(text)
     except ValueError:
-        return text[:10] if re.match(r"\d{4}-\d{2}-\d{2}", text) else None
+        parsed = None
+    if parsed is not None:
+        return dt_util.as_local(parsed).date().isoformat()
+    return text[:10] if re.match(r"\d{4}-\d{2}-\d{2}", text) else None
 
 
 def short_key(key: str) -> bool:
@@ -141,7 +157,7 @@ _SHORT_KEY_OTHER = (
     "keks",
     "plaetzchen",
 )
-_COUNT_RE = re.compile(r"(\d+)\s*(?:stück|stueck|stk\b|st\.|er\b)", re.IGNORECASE)
+_COUNT_RE = re.compile(r"(\d+)\s*(?:stück|stueck|stk\b|st\.|st\b|er\b)", re.IGNORECASE)
 
 
 def _parse_count(text: str | None) -> tuple[float, str] | None:
@@ -305,7 +321,10 @@ def normalize_marktguru(raw: dict[str, Any], query: str = "") -> dict[str, Any] 
     try:
         offer_id = raw.get("id")
         product = (raw.get("product") or {}).get("name") or ""
-        brand = (raw.get("brand") or {}).get("name") or ""
+        brand_info = raw.get("brand") or {}
+        brand = brand_info.get("name") or ""
+        if _NO_BRAND in (brand.strip().lower(), str(brand_info.get("uniqueName") or "")):
+            brand = ""  # marktguru's placeholder of unbranded offers
         advertisers = raw.get("advertisers") or []
         advertiser = advertisers[0] if advertisers else {}
         price = raw.get("price")

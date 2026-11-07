@@ -706,7 +706,7 @@ async def test_alternatives_and_summary(hass: HomeAssistant, setup_integration) 
     ):
         manager.set_store_price(store, "Butter", price, 250, "g")
     manager.shopping_add("250 g Butter")
-    manager.shopping_add("Klopapier")
+    manager.shopping_add("Blumenerde")  # no estimate (Klopapier has one since 1.4)
     butter = next(i for i in manager.shopping if i["summary"] == "250 g Butter")
     assert (butter["retailer"], butter["store_reason"], butter["saving"]) == (
         "penny",
@@ -739,7 +739,7 @@ async def test_alternatives_and_summary(hass: HomeAssistant, setup_integration) 
     assert overview["split_active"] is True
     assert overview["selection"]["items"] == ["250 g Butter"]
     assert (overview["selection"]["subtotal"], overview["selection"]["saving"]) == (1.39, 0.6)
-    assert manager.shopping_overview("Hauptladen")["selection"]["items"] == ["Klopapier"]
+    assert manager.shopping_overview("Hauptladen")["selection"]["items"] == ["Blumenerde"]
     assert manager.shopping_overview("REWE Arbeit")["selection"]["open"] == 0
     with pytest.raises(ServiceValidationError):
         manager.shopping_overview("Netto")
@@ -886,8 +886,12 @@ async def test_store_split_intents(hass: HomeAssistant, setup_integration) -> No
         "Am günstigsten gibt es Milch bei REWE Arbeit: 0,69 € (1 l) im Angebot. "
         "Bei Aldi Süd 0,99 € (1 l) und bei Lidl 0,99 € (1 l)."
     )
+    assert await _speech(hass, "essensplaner_compare_prices", item="Blumenerde") == (
+        "Für Blumenerde habe ich keinen Preis."
+    )
+    # 1.4: drugstore / household estimates (pack in rolls)
     assert await _speech(hass, "essensplaner_compare_prices", item="Klopapier") == (
-        "Für Klopapier habe ich keinen Preis."
+        "Klopapier gibt es überall für etwa 3,95 € (10 Rollen, Richtwert)."
     )
 
     assert await _speech(

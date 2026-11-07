@@ -353,6 +353,11 @@ lists:
       - "norma"
       - "globus"
       - "marktkauf"
+      - "rossmann"
+      - "dm"
+      - "müller"
+      - "budni"
+      - "budnikowsky"
       - "hauptladen"
   store_name:
     wildcard: true

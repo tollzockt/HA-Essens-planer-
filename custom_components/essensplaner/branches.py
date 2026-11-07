@@ -1,5 +1,8 @@
 """Branch search with OpenStreetMap (Overpass API), incl. the commute corridor.
 
+Finds supermarkets and discounters (shop=supermarket|discount) and, since 1.4, the
+drugstores Rossmann, dm, Müller and Budni (shop=chemist; other chemists are skipped).
+
 Only runs when the user starts a search (service find_branches / panel button). The
 coordinates of the chosen Home Assistant zones are sent to overpass-api.de, rounded to
 three decimals (about 100 m). Results are cached in the store file (manager.branch_search)
@@ -42,7 +45,14 @@ from .const import (
 )
 from .ingredients import fold
 from .netio import BodyTooLarge, async_read_body
-from .retailers import ALDI_NORD, ALDI_SUED, resolve_retailer, retailer_for_osm, retailer_name
+from .retailers import (
+    ALDI_NORD,
+    ALDI_SUED,
+    is_drugstore,
+    resolve_retailer,
+    retailer_for_osm,
+    retailer_name,
+)
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
@@ -67,7 +77,7 @@ QUERY_MAXSIZE = 128 * 1024 * 1024
 REQUEST_TIMEOUT = 90
 RETRY_DELAYS: tuple[float, ...] = (5, 15)
 TOTAL_TIMEOUT = 240
-MAX_ELEMENTS = 500
+MAX_ELEMENTS = 800
 _MAX_BYTES = 4 * 1024 * 1024
 # coordinates sent to Overpass are rounded to this many decimals (~100 m)
 COORD_DECIMALS = 3
@@ -89,10 +99,13 @@ _TOLERANCE_M = 150
 HOME_ZONE = "zone.home"
 WORK_WORDS = ("arbeit", "work")
 _HOME_WORDS = {"home", "zuhause", "daheim", "heim", "zu hause"}
-# shops tagged like supermarkets, prefiltered by chain name or brand on the server
-SHOP_PATTERN = "^(supermarket|discount)$"
+# shops tagged like supermarkets or drugstores (the chains are recognized locally)
+SHOP_PATTERN = "^(supermarket|discount|chemist)$"
+# OpenStreetMap shop type of drugstores: only shops of a known drugstore chain are kept
+CHEMIST = "chemist"
 CHAIN_PATTERN = (
     "aldi|lidl|rewe|edeka|e.?center|e aktiv|neukauf|penny|netto|kaufland|norma|globus|marktkauf"
+    "|rossmann|dm|m(ue|ü)ller|budni"
 )
 _POSTCODE_IN_TEXT = re.compile(r"(?<!\d)(\d{5})(?!\d)")
 _CLOSED = {"closed", "off"}
@@ -272,7 +285,8 @@ def _coord_text(value: float) -> str:
 def build_query(
     areas: list[dict[str, Any]], radius_m: int, route: bool, route_radius_m: int
 ) -> str:
-    """Overpass QL: supermarket chains around each area and along the commute corridors."""
+    """Overpass QL: supermarkets and drugstores around each area and along the commute
+    corridors."""
     # one cheap statement per area: the public server rejects or drops costly queries
     # (case-insensitive name/brand regexes, a big memory limit) when it is busy; the chains
     # are recognized locally (retailer_for_osm)
@@ -346,7 +360,8 @@ def parse_elements(
     zones if not given; the nearest zone if none). A shop without addr:postcode gets the
     postcode of the nearest shop or known branch (dicts with lat/lon/postcode) within
     POSTCODE_GUESS_M (postcode_guessed True), else None. A plain "Aldi" is decided by
-    brand:wikidata, else by its (guessed) postcode; without one it is skipped. The same chain
+    brand:wikidata, else by its (guessed) postcode; without one it is skipped. A shop=chemist
+    is only kept for a drugstore chain (Rossmann, dm, Müller, Budni). The same chain
     within DUPLICATE_M is one shop (the better tagged element wins). stats (if given)
     receives counts: elements, unknown, aldi_undecided, duplicates.
     """
@@ -394,6 +409,9 @@ def parse_elements(
         retailer, guessed = retailer_for_osm(tags, postcode)
         if retailer is None:
             counts["aldi_undecided" if guessed else "unknown"] += 1
+            continue
+        if str(tags.get("shop") or "").strip().lower() == CHEMIST and not is_drugstore(retailer):
+            counts["unknown"] += 1  # a chemist with a grocery's brand:wikidata
             continue
         lat, lon = item["lat"], item["lon"]
         all_near = {a["zone"]: haversine(lat, lon, a["lat"], a["lon"]) for a in areas}
@@ -463,7 +481,8 @@ def search_key(
 ) -> str:
     """Cache key of a search (hash, so the coordinates are not readable from it)."""
     payload = {
-        "v": 2,
+        "v": 3,
+        "shops": SHOP_PATTERN,
         "areas": sorted([a["zone"], round(a["lat"], 4), round(a["lon"], 4)] for a in areas),
         "radius": int(radius_m),
         "route": sorted([home["zone"], other["zone"]] for home, other in pairs),
@@ -709,7 +728,7 @@ async def async_find_branches(
     refresh: bool = False,
     cached_only: bool = False,
 ) -> dict[str, Any]:
-    """Find supermarkets near the zones and along the way to work (OpenStreetMap).
+    """Find supermarkets and drugstores near the zones and along the way to work (OSM).
 
     Defaults come from the options branch_zones (None = zone.home + work zones),
     branch_radius_km, branch_route and branch_route_radius_m. A search with the same areas

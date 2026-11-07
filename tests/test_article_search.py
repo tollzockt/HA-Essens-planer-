@@ -139,7 +139,8 @@ async def test_history(hass: HomeAssistant, setup_integration) -> None:
     results = manager.search_articles("klo")
     assert _titles(results)[:2] == [("Klopapier", "history"), ("Klöße", "history")]
     assert results[0]["count"] == 2
-    assert results[0]["price"] is None
+    # 1.4: Klopapier has an estimate (Toilettenpapier, 10 Rollen)
+    assert results[0]["price"] == 3.95
 
     for number in range(ARTICLE_HISTORY_MAX + 5):
         manager.remember_article(f"Artikel {number}", f"artikel {number}", None)

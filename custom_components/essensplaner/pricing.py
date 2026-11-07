@@ -34,7 +34,18 @@ _SMALL_UNITS: dict[str, tuple[str, float]] = {
     "Dose": ("g", 400.0),
     "Zehe": ("g", 5.0),
 }
-_PACKAGE_UNITS = {"Dose", "Glas", "Becher", "Pck.", "Flasche", "Tüte", "Schale", "Netz", "Tafel"}
+_PACKAGE_UNITS = {
+    "Dose",
+    "Glas",
+    "Becher",
+    "Pck.",
+    "Flasche",
+    "Tüte",
+    "Schale",
+    "Netz",
+    "Tafel",
+    "Rolle",  # "1 Rolle Blätterteig (275 g)"; toilet paper is priced per Rolle
+}
 COUNT_UNITS = {"", "Stück", "Stange", "Kopf", "Knolle"}
 
 # average weight of one piece (g), keyed by the last word of the ingredient key
@@ -656,7 +667,7 @@ def item_cost(
 
 
 def pack_text(amount: float | None, unit: str | None) -> str:
-    """'250 g', '1 l', '10 Stück' (empty without a size)."""
+    """'250 g', '1 l', '10 Stück', '8 Rollen', '20 WL' (empty without a size)."""
     if not amount or not unit:
         return ""
     if unit in ("g", "ml") and amount >= 1000 and amount % 100 == 0:
@@ -664,6 +675,8 @@ def pack_text(amount: float | None, unit: str | None) -> str:
     else:
         value = amount
     number = f"{value:g}".replace(".", ",")
+    if unit == "Rolle" and value != 1:
+        unit = "Rollen"
     return f"{number} {unit}"
 
 

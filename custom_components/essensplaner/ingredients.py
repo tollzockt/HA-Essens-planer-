@@ -5,6 +5,7 @@ Pure Python, no Home Assistant imports, so it can be unit tested easily.
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 from typing import Any
@@ -49,6 +50,9 @@ _UNIT_ALIASES: dict[str, tuple[str, ...]] = {
     "Tüte": ("tüte", "tüten", "beutel"),
     "Schale": ("schale", "schalen"),
     "Netz": ("netz",),
+    # drugstore / household packs (1.4): "8 Rollen", "20 WL" (Waschladungen)
+    "Rolle": ("rolle", "rollen"),
+    "WL": ("wl", "waschladung", "waschladungen"),
     "oz": ("oz", "ounce", "ounces"),
     "lb": ("lb", "lbs", "pound", "pounds"),
 }
@@ -89,6 +93,8 @@ _WHOLE_UNITS = {
     "Tüte",
     "Schale",
     "Netz",
+    "Rolle",
+    "WL",
 }
 
 _FRACTIONS = {
@@ -280,6 +286,7 @@ _UNIT_PLURALS = {
     "Kopf": "Köpfe",
     "Glas": "Gläser",
     "Blatt": "Blätter",
+    "Rolle": "Rollen",
 }
 
 _IRREGULAR_PLURALS = {"apfel": "Äpfel", "ei": "Eier"}
@@ -651,6 +658,11 @@ def is_pantry_item(name: str, pantry: list[str]) -> bool:
 # Categories (aisles)
 # --------------------------------------------------------------------------
 
+# non-food aisles (1.4): bought at a drugstore branch (Rossmann, dm …) when there is one
+CATEGORY_DRUGSTORE = "Drogerie & Körperpflege"
+CATEGORY_HOUSEHOLD = "Haushalt & Reinigung"
+NONFOOD_CATEGORIES = frozenset({CATEGORY_DRUGSTORE, CATEGORY_HOUSEHOLD})
+
 CATEGORY_ORDER = [
     "Obst & Gemüse",
     "Brot & Backwaren",
@@ -664,6 +676,8 @@ CATEGORY_ORDER = [
     "Nüsse & Trockenobst",
     "Tiefkühl",
     "Getränke",
+    CATEGORY_DRUGSTORE,
+    CATEGORY_HOUSEHOLD,
     "Sonstiges",
 ]
 
@@ -753,6 +767,7 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "mangold",
         "pak choi",
         "edamame",
+        "schwammerl",  # mushrooms, not a sponge
     ),
     "Brot & Backwaren": (
         "brot",
@@ -1116,6 +1131,156 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# drugstore and household products. No bare "creme" (Crème fraîche, Kokoscreme), "tuch",
+# "papier" (Reispapier), "spray" (Bratspray), "beutel" (Teebeutel), "watte" (Zuckerwatte),
+# "binde" (Saucenbinder) or "tab" (Tabasco): only words that name no food.
+_CATEGORY_KEYWORDS[CATEGORY_DRUGSTORE] = (
+    "zahnpasta",
+    "zahncreme",
+    "zahnbuerste",
+    "zahnseide",
+    "zahnpflege",
+    "mundspuelung",
+    "mundwasser",
+    "duschgel",
+    "duschbad",
+    "duschcreme",
+    "duschoel",
+    "schaumbad",
+    "badesalz",
+    "badezusatz",
+    "shampoo",
+    "spuelung",
+    "haarspuelung",
+    "conditioner",
+    "haarkur",
+    "haarmaske",
+    "haargel",
+    "haarspray",
+    "haarfarbe",
+    "haaroel",
+    "haarwasser",
+    "haarbuerste",
+    "deo",
+    "deos",
+    "deospray",
+    "deoroller",
+    "deodorant",
+    "antitranspirant",
+    "rasier",
+    "rasierer",
+    "rasierschaum",
+    "rasierklinge",
+    "aftershave",
+    "seife",
+    "handseife",
+    "fluessigseife",
+    "handcreme",
+    "sonnencreme",
+    "sonnenmilch",
+    "sonnenspray",
+    "sonnenschutz",
+    "gesichtscreme",
+    "tagescreme",
+    "nachtcreme",
+    "koerpercreme",
+    "fusscreme",
+    "gesichtswasser",
+    "mizellenwasser",
+    "bodylotion",
+    "koerperlotion",
+    "lotion",
+    "lippenpflege",
+    "lippenbalsam",
+    "labello",
+    "lippenstift",
+    "nagellack",
+    "mascara",
+    "wimperntusche",
+    "parfum",
+    "parfuem",
+    "peeling",
+    "babyoel",
+    "koerperoel",
+    "massageoel",
+    "pflegeoel",
+    "taschentuch",
+    "taschentuecher",
+    "feuchttuch",
+    "feuchttuecher",
+    "kosmetiktuch",
+    "kosmetiktuecher",
+    "abschminktuch",
+    "abschminktuecher",
+    "windel",
+    "wattepad",
+    "abschminkpad",
+    "wattestaebchen",
+    "wattebausch",
+    "damenbinde",
+    "slipeinlage",
+    "tampon",
+    "pflaster",
+    "kondom",
+)
+_CATEGORY_KEYWORDS[CATEGORY_HOUSEHOLD] = (
+    "waschmittel",
+    "waschpulver",
+    "weichspueler",
+    "fleckentferner",
+    "spuelmittel",
+    "spuelmaschinentab",
+    "spuelmaschinentabs",
+    "geschirrspueltab",
+    "geschirrspueltabs",
+    "spuelmaschinensalz",
+    "regeneriersalz",
+    "klarspueler",
+    "reiniger",
+    "putzmittel",
+    "scheuermilch",
+    "entkalker",
+    "desinfektionsmittel",
+    "wc ente",
+    "schwamm",
+    "schwaemme",
+    "schwammtuch",
+    "spueltuch",
+    "putztuch",
+    "mikrofasertuch",
+    "geschirrtuch",
+    "spuelbuerste",
+    "muellbeutel",
+    "muellsack",
+    "muellsaecke",
+    "muelltuete",
+    "gefrierbeutel",
+    "frischhaltebeutel",
+    "kuechenrolle",
+    "kuechenpapier",
+    "kuechentuch",
+    "kuechentuecher",
+    "haushaltsrolle",
+    "toilettenpapier",
+    "klopapier",
+    "alufolie",
+    "aluminiumfolie",
+    "frischhaltefolie",
+    "backpapier",
+    "batterie",
+    "gluehbirne",
+    "leuchtmittel",
+    "teelicht",
+    "teelichter",
+    "kerze",
+    "streichholz",
+    "streichhoelzer",
+    "feuerzeug",
+    "raumduft",
+    "raumspray",
+    "zahnstocher",
+)
+
 # (keyword, category) sorted by keyword length, longest first
 _KEYWORDS: list[tuple[str, str]] = sorted(
     ((kw, category) for category, keywords in _CATEGORY_KEYWORDS.items() for kw in keywords),
@@ -1124,8 +1289,9 @@ _KEYWORDS: list[tuple[str, str]] = sorted(
 )
 
 
+@functools.lru_cache(maxsize=8192)
 def guess_category(name: str) -> str:
-    """Guess the supermarket aisle for an ingredient."""
+    """Guess the supermarket aisle for an ingredient (cached: offers ask it often)."""
     folded = fold(name)
     if not folded:
         return "Sonstiges"
@@ -1139,6 +1305,8 @@ def guess_category(name: str) -> str:
             if text == keyword or text.endswith(keyword) or f"{keyword} " in f"{text} ":
                 if keyword in ("ei",) and not re.search(r"(^| )ei(er)?( |$)", folded):
                     continue
+                if keyword == "deo" and not re.search(r"(^| )deo", text):
+                    continue  # "Deo", "Deo-Roller", not "Video"
                 if (
                     keyword in ("tk", "eis", "hack", "tee", "oel")
                     and not re.search(rf"(^| ){keyword}", text)
@@ -1154,6 +1322,11 @@ def guess_category(name: str) -> str:
             if keyword in text:
                 return category
     return "Sonstiges"
+
+
+def is_nonfood_category(category: str | None) -> bool:
+    """True for the drugstore and household aisles (no food)."""
+    return category in NONFOOD_CATEGORIES
 
 
 def category_rank(category: str) -> int:

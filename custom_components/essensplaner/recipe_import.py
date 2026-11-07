@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from .const import DOMAIN, HTTP_USER_AGENT
 from .netio import async_read_body
 
 _LOGGER = logging.getLogger(__name__)
@@ -210,10 +210,7 @@ async def async_fetch_recipe(hass: HomeAssistant, url: str) -> dict[str, Any]:
         )
     session = async_get_clientsession(hass)
     headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 HomeAssistant-Essensplaner"
-        ),
+        "User-Agent": HTTP_USER_AGENT,  # honest, no browser impersonation (1.4)
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
     }

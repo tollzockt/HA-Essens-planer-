@@ -55,7 +55,7 @@
       },
       "economy": {
         "title": "Budget & offers",
-        "description": "Weekly budget, planning style and supermarket offers. Online offers use the unofficial marktguru.de interface (leaflets of Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); it can change at any time – for private use only. With online offers the shopping list field 'Artikel hinzufügen' also searches marktguru live (what you type, from 3 characters, with the postcode of your branch).",
+        "description": "Weekly budget, planning style and supermarket offers. Online offers use the unofficial marktguru.de interface (leaflets of Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Rossmann, dm, Müller, Budni …); it can change at any time – for private use only. With online offers the shopping list field 'Artikel hinzufügen' also searches marktguru live (what you type, from 3 characters, with the postcode of your branch).",
         "data": {
           "weekly_budget": "Weekly budget",
           "plan_strategy": "Planning style",
@@ -69,13 +69,13 @@
           "plan_strategy": "Used for automatic planning and suggestions.",
           "offers_source": "Where current and upcoming offers come from. marktguru: daily search for the postcodes of your branches, plus a live search while you type in 'Artikel hinzufügen'.",
           "zip_code": "For the offers of the shops near you. Can stay empty if your branches (in the panel) have a postcode – then their postcodes are searched.",
-          "offer_stores": "Only offers of these shops (without branches). With branches their stores count.",
+          "offer_stores": "Only offers of these shops (without branches). With branches their stores count – drugstores like Rossmann or dm too.",
           "offers_watchlist": "Additional products to look for, comma separated (e.g. 'Kaffee, Butter')."
         }
       },
       "stores": {
         "title": "Stores & shopping",
-        "description": "How the shopping list is split across your stores, where branches are searched and whether REWE online prices are loaded. You choose your branches in the Essensplaner panel under '🏪 Läden & Preise' – the first one automatically becomes your main store. Saved branches: {branches} · main store: {main_branch}.\n\nPrivacy: the branch search sends the coordinates of your zones, rounded to about 100 m, to OpenStreetMap (overpass-api.de) only when you start it.",
+        "description": "How the shopping list is split across your stores, where branches are searched and whether REWE online prices are loaded. You choose your branches in the Essensplaner panel under '🏪 Läden & Preise' – the first supermarket automatically becomes your main store (a drugstore like Rossmann or dm only if you make it one). Saved branches: {branches} · main store: {main_branch}.\n\nPrivacy: the branch search sends the coordinates of your zones, rounded to about 100 m, to OpenStreetMap (overpass-api.de) only when you start it.",
         "data": {
           "store_split_mode": "Shopping list by store",
           "store_split_min_saving": "Cheaper elsewhere from",
@@ -89,7 +89,7 @@
           "rewe_online_prices": "REWE online prices (experimental)"
         },
         "data_description": {
-          "store_split_mode": "'Main store + exceptions': everything goes to the main store, only offers and clearly cheaper items go to your other stores. 'Everything at the main store' only shows other stores as alternatives. Works as soon as you have a main store.",
+          "store_split_mode": "'Main store + exceptions': everything goes to the main store, only offers and clearly cheaper items go to your other stores; drugstore and household items (toothpaste, detergent …) go to your drugstore (Rossmann, dm, Müller, Budni) if you saved one. 'Everything at the main store' only shows other stores as alternatives. Works as soon as you have a main store.",
           "store_split_min_saving": "An item moves to another store if it is at least this much cheaper there (default 1.00 EUR). Only real store prices count, not estimates.",
           "store_split_min_percent": "… or if it is at least this many percent cheaper there (default 20 %). One of the two conditions is enough; items are never moved for less than 0.20 EUR.",
           "store_split_offer_min": "An offer in another store counts from this saving (default 0.30 EUR).",
@@ -156,7 +156,11 @@
         "kaufland": "Kaufland",
         "norma": "Norma",
         "globus": "Globus",
-        "marktkauf": "Marktkauf"
+        "marktkauf": "Marktkauf",
+        "rossmann": "Rossmann",
+        "dm-drogerie-markt": "dm",
+        "mueller-drogeriemarkt": "Müller",
+        "budnikowsky": "Budni"
       }
     },
     "price_source": {
@@ -1072,7 +1076,7 @@
     },
     "find_branches": {
       "name": "Find branches (OpenStreetMap)",
-      "description": "Searches OpenStreetMap for supermarkets (Aldi, Lidl, REWE, EDEKA …) around your zones and along the way to work. The coordinates of the zones (rounded to about 100 m) are sent to overpass-api.de. Results are kept for 30 days; add one with 'Save branch' and the result's ID. Data © OpenStreetMap contributors (ODbL).",
+      "description": "Searches OpenStreetMap for supermarkets (Aldi, Lidl, REWE, EDEKA …) and drugstores (Rossmann, dm, Müller, Budni) around your zones and along the way to work. The coordinates of the zones (rounded to about 100 m) are sent to overpass-api.de. Results are kept for 30 days; add one with 'Save branch' and the result's ID. Data © OpenStreetMap contributors (ODbL).",
       "fields": {
         "zones": {
           "name": "Zones",
@@ -1092,7 +1096,7 @@
         },
         "retailers": {
           "name": "Stores",
-          "description": "Optional: only show these supermarket chains."
+          "description": "Optional: only show these chains (supermarkets and drugstores)."
         },
         "refresh": {
           "name": "Search again",

@@ -55,7 +55,7 @@
       },
       "economy": {
         "title": "Budget & Angebote",
-        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Online-Angebote nutzen die inoffizielle Schnittstelle von marktguru.de (Prospekte von Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland …); sie kann sich jederzeit ändern – nur für private Nutzung. Mit Online-Angeboten sucht auch das Feld „Artikel hinzufügen“ der Einkaufsliste live bei marktguru (was du tippst, ab 3 Zeichen, mit der Postleitzahl deiner Filiale).",
+        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Online-Angebote nutzen die inoffizielle Schnittstelle von marktguru.de (Prospekte von Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Rossmann, dm, Müller, Budni …); sie kann sich jederzeit ändern – nur für private Nutzung. Mit Online-Angeboten sucht auch das Feld „Artikel hinzufügen“ der Einkaufsliste live bei marktguru (was du tippst, ab 3 Zeichen, mit der Postleitzahl deiner Filiale).",
         "data": {
           "weekly_budget": "Wochenbudget",
           "plan_strategy": "Planungsart",
@@ -69,13 +69,13 @@
           "plan_strategy": "Für automatische Planung und Vorschläge.",
           "offers_source": "Woher aktuelle und kommende Angebote kommen. marktguru: täglicher Abruf für die Postleitzahlen deiner Filialen, außerdem Live-Suche beim Tippen in „Artikel hinzufügen“.",
           "zip_code": "Für die Angebote der Märkte in deiner Nähe. Kann leer bleiben, wenn deine Filialen (im Panel) eine Postleitzahl haben – dann wird für deren Postleitzahlen gesucht.",
-          "offer_stores": "Nur Angebote dieser Märkte (ohne Filialen). Mit Filialen zählen deren Läden.",
+          "offer_stores": "Nur Angebote dieser Märkte (ohne Filialen). Mit Filialen zählen deren Läden – auch Drogerien wie Rossmann oder dm.",
           "offers_watchlist": "Zusätzliche Produkte, nach denen gesucht wird, kommagetrennt (z. B. „Kaffee, Butter“)."
         }
       },
       "stores": {
         "title": "Läden & Einkauf",
-        "description": "Wie die Einkaufsliste auf deine Läden verteilt wird, wo Filialen gesucht werden und ob REWE-Onlinepreise geladen werden. Deine Filialen wählst du im Essensplaner-Panel unter „🏪 Läden & Preise“ – die erste wird automatisch dein Hauptladen. Filialen gespeichert: {branches} · Hauptladen: {main_branch}.\n\nDatenschutz: Die Filialsuche sendet nur auf Knopfdruck die auf ca. 100 m gerundeten Koordinaten deiner Zonen an OpenStreetMap (overpass-api.de).",
+        "description": "Wie die Einkaufsliste auf deine Läden verteilt wird, wo Filialen gesucht werden und ob REWE-Onlinepreise geladen werden. Deine Filialen wählst du im Essensplaner-Panel unter „🏪 Läden & Preise“ – der erste Supermarkt wird automatisch dein Hauptladen (eine Drogerie wie Rossmann oder dm nur, wenn du sie selbst dazu machst). Filialen gespeichert: {branches} · Hauptladen: {main_branch}.\n\nDatenschutz: Die Filialsuche sendet nur auf Knopfdruck die auf ca. 100 m gerundeten Koordinaten deiner Zonen an OpenStreetMap (overpass-api.de).",
         "data": {
           "store_split_mode": "Einkaufsliste nach Läden",
           "store_split_min_saving": "Woanders günstiger ab",
@@ -89,7 +89,7 @@
           "rewe_online_prices": "REWE-Onlinepreise (experimentell)"
         },
         "data_description": {
-          "store_split_mode": "„Hauptladen + Ausnahmen“: Alles kommt in den Hauptladen, nur Angebote und deutlich günstigere Artikel in deine anderen Läden. „Alles im Hauptladen“ zeigt andere Läden nur als Alternative. Wirkt, sobald du einen Hauptladen hast.",
+          "store_split_mode": "„Hauptladen + Ausnahmen“: Alles kommt in den Hauptladen, nur Angebote und deutlich günstigere Artikel in deine anderen Läden; Drogerie- und Haushaltsartikel (Zahnpasta, Waschmittel …) in deine Drogerie (Rossmann, dm, Müller, Budni), wenn du eine gespeichert hast. „Alles im Hauptladen“ zeigt andere Läden nur als Alternative. Wirkt, sobald du einen Hauptladen hast.",
           "store_split_min_saving": "Ein Artikel wandert in einen anderen Laden, wenn er dort mindestens so viel günstiger ist (Standard 1,00 €). Es zählen nur echte Ladenpreise, keine Richtwerte.",
           "store_split_min_percent": "… oder wenn er dort mindestens so viel Prozent günstiger ist (Standard 20 %). Eine der beiden Bedingungen reicht; unter 0,20 € Ersparnis wird nie verschoben.",
           "store_split_offer_min": "Ein Angebot in einem anderen Laden zählt ab dieser Ersparnis (Standard 0,30 €).",
@@ -156,7 +156,11 @@
         "kaufland": "Kaufland",
         "norma": "Norma",
         "globus": "Globus",
-        "marktkauf": "Marktkauf"
+        "marktkauf": "Marktkauf",
+        "rossmann": "Rossmann",
+        "dm-drogerie-markt": "dm",
+        "mueller-drogeriemarkt": "Müller",
+        "budnikowsky": "Budni"
       }
     },
     "price_source": {
@@ -1072,7 +1076,7 @@
     },
     "find_branches": {
       "name": "Filialen suchen (OpenStreetMap)",
-      "description": "Sucht Supermärkte (Aldi, Lidl, REWE, EDEKA …) im Umkreis deiner Zonen und auf dem Arbeitsweg bei OpenStreetMap. Dazu werden die Koordinaten der Zonen (auf ca. 100 m gerundet) an overpass-api.de gesendet. Ergebnisse werden 30 Tage gespeichert; hinzufügen mit „Filiale speichern“ und der ID des Treffers. Daten © OpenStreetMap-Mitwirkende (ODbL).",
+      "description": "Sucht Supermärkte (Aldi, Lidl, REWE, EDEKA …) und Drogerien (Rossmann, dm, Müller, Budni) im Umkreis deiner Zonen und auf dem Arbeitsweg bei OpenStreetMap. Dazu werden die Koordinaten der Zonen (auf ca. 100 m gerundet) an overpass-api.de gesendet. Ergebnisse werden 30 Tage gespeichert; hinzufügen mit „Filiale speichern“ und der ID des Treffers. Daten © OpenStreetMap-Mitwirkende (ODbL).",
       "fields": {
         "zones": {
           "name": "Zonen",
@@ -1092,7 +1096,7 @@
         },
         "retailers": {
           "name": "Läden",
-          "description": "Optional: nur diese Supermarktketten anzeigen."
+          "description": "Optional: nur diese Ketten anzeigen (Supermärkte und Drogerien)."
         },
         "refresh": {
           "name": "Neu suchen",

@@ -27,6 +27,8 @@ export const CATEGORY_ORDER = [
   "Nüsse & Trockenobst",
   "Tiefkühl",
   "Getränke",
+  "Drogerie & Körperpflege",
+  "Haushalt & Reinigung",
   "Sonstiges",
 ];
 
@@ -43,8 +45,13 @@ export const CATEGORY_ICONS = {
   "Nüsse & Trockenobst": "🥜",
   "Tiefkühl": "🧊",
   "Getränke": "🧃",
+  "Drogerie & Körperpflege": "🧴",
+  "Haushalt & Reinigung": "🧽",
   "Sonstiges": "🛒",
 };
+
+// 1.4: aisles bought at a drugstore branch (Rossmann, dm, Müller, Budni) when there is one
+export const NONFOOD_CATEGORIES = ["Drogerie & Körperpflege", "Haushalt & Reinigung"];
 
 const DISH_EMOJIS = [
   [/pizza/, "🍕"],

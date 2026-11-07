@@ -124,7 +124,8 @@ def test_retailer_for_store_id_and_names() -> None:
     assert offers_module.STORES is STORES
     assert offers_module.DEFAULT_STORES is DEFAULT_STORES
     assert STORES["aldi-sued"] == "Aldi Süd"
-    assert len(STORES) == 11
+    assert len(STORES) == 15  # 11 groceries + 4 drugstores (1.4)
+    assert "rossmann" not in DEFAULT_STORES
 
 
 def test_retailer_for_osm() -> None:
@@ -504,7 +505,7 @@ async def test_store_price_matrix(hass: HomeAssistant, setup_integration, hass_w
     assert len(manager.store_price_matrix(limit=5)["rows"]) == 5
 
     result = await _call(hass, "get_store_prices", store="Lidl", query="Butter")
-    assert result["retailers"] == [{"id": "lidl", "name": "Lidl"}]
+    assert result["retailers"] == [{"id": "lidl", "name": "Lidl", "kind": "grocery"}]
     row = next(r for r in result["rows"] if r["key"] == "butter")
     assert list(row["stores"]) == ["lidl"]
     assert row["cheapest"] is None
@@ -517,4 +518,4 @@ async def test_store_price_matrix(hass: HomeAssistant, setup_integration, hass_w
     assert msg["success"]
     rows = {r["key"]: r for r in msg["result"]["rows"]}
     assert rows["butter"]["stores"]["lidl"]["price"] == 1.79
-    assert {"id": "aldi-sued", "name": "Aldi Süd"} in msg["result"]["retailers"]
+    assert {"id": "aldi-sued", "name": "Aldi Süd", "kind": "grocery"} in msg["result"]["retailers"]

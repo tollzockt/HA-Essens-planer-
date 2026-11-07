@@ -33,6 +33,7 @@ from .ingredients import (
     format_ingredient,
     guess_category,
     ingredient_key,
+    is_nonfood_category,
     is_pantry_item,
     scale_ingredient,
 )
@@ -239,6 +240,9 @@ class EconomyMixin:
                             and not self.names_other_product(name, other_key)
                         ):
                             found.extend(offers)
+                if not is_nonfood_category(guess_category(name)):
+                    # a drugstore / household product never prices food ("Babyöl" for Öl)
+                    found = [o for o in found if not _nonfood_offer(o)]
                 cache[(name, "*")] = found
             active = self.active_retailers()
             cache[cache_key] = [o for o in found if self._offer_in_scope(o, retailer, active)]
@@ -935,7 +939,10 @@ class EconomyMixin:
             "stores": [{"id": s, "name": STORES.get(s, s)} for s in self.offer_stores],
             "strategy": self.strategy,
             "user_prices": self.prices_user,
-            "retailers": [{"id": r, "name": retailer_name(r)} for r in RETAILERS],
+            "retailers": [
+                {"id": r, "name": retailer_name(r), "kind": info["kind"]}
+                for r, info in RETAILERS.items()
+            ],
             "active_retailers": self.active_retailers(),
             "main_branch": self.main_branch,
             "main_retailer": self.main_retailer,
@@ -953,6 +960,12 @@ class EconomyMixin:
     ) -> list[dict[str, Any]]:
         """Aggregate + price (helper used by generate_shopping_list)."""
         return aggregate(entries, self.pantry)
+
+
+def _nonfood_offer(offer: dict[str, Any]) -> bool:
+    """True for an offer of a drugstore / household product (1.4 aisles)."""
+    product = str(offer.get("product") or offer.get("title") or "")
+    return bool(product) and is_nonfood_category(guess_category(product))
 
 
 def _key_by_name(items: dict[str, Any], name: str) -> str | None:

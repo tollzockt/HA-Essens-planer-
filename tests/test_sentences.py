@@ -104,6 +104,15 @@ def test_all_intents_exist(intents: Intents) -> None:
             {"store": "aldi süd"},
         ),
         ("was kaufe ich bei lidl", "essensplaner_get_shopping_list", {"store": "lidl"}),
+        # 1.4: drugstores
+        ("was kaufe ich bei rossmann", "essensplaner_get_shopping_list", {"store": "rossmann"}),
+        ("was muss ich beim dm kaufen", "essensplaner_get_shopping_list", {"store": "dm"}),
+        ("was hat müller im angebot", "essensplaner_get_offers", {"store": "müller"}),
+        (
+            "kauf zahnpasta immer bei budni",
+            "essensplaner_set_shopping_store",
+            {"item": "zahnpasta", "store": "budni", "always": True},
+        ),
         (
             "was muss ich im hauptladen kaufen",
             "essensplaner_get_shopping_list",

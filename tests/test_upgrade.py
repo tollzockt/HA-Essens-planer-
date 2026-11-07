@@ -137,7 +137,7 @@ async def test_upgrade_1_2_to_1_3(
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
 
-    assert manager.data_version == 3
+    assert manager.data_version == 4  # 1.4: drugstore branches (v4)
     assert manager.branches == []  # no legacy branches
     assert manager.main_branch is None
     assert manager.store_prices_user["lidl"]["butter"]["price"] == 1.79
@@ -159,7 +159,7 @@ async def test_upgrade_1_2_to_1_3(
     assert manager.best_price("Butter")[1].price == 1.79
     # migrated data was written right away
     stored = hass_storage[key]["data"]
-    assert stored["data_version"] == 3
+    assert stored["data_version"] == 4
     assert stored["store_prices_user"]["lidl"]["butter"]["price"] == 1.79
 
     # idempotent: a second run changes nothing, a reload neither

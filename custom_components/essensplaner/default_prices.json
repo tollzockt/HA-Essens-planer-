@@ -2044,5 +2044,331 @@
   "unit": "Pck.",
   "price": 0.15,
   "aliases": []
+ },
+ {
+  "name": "Zahnpasta",
+  "amount": 75,
+  "unit": "ml",
+  "price": 0.75,
+  "aliases": [
+   "Zahncreme"
+  ]
+ },
+ {
+  "name": "Zahnbürste",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.25,
+  "aliases": [
+   "Zahnbürsten",
+   "Handzahnbürste"
+  ]
+ },
+ {
+  "name": "Zahnseide",
+  "amount": 1,
+  "unit": "Stück",
+  "price": 1.45,
+  "aliases": []
+ },
+ {
+  "name": "Mundspülung",
+  "amount": 500,
+  "unit": "ml",
+  "price": 1.45,
+  "aliases": [
+   "Mundwasser"
+  ]
+ },
+ {
+  "name": "Duschgel",
+  "amount": 300,
+  "unit": "ml",
+  "price": 0.85,
+  "aliases": [
+   "Duschbad",
+   "Duschcreme"
+  ]
+ },
+ {
+  "name": "Shampoo",
+  "amount": 300,
+  "unit": "ml",
+  "price": 1.15,
+  "aliases": []
+ },
+ {
+  "name": "Spülung",
+  "amount": 300,
+  "unit": "ml",
+  "price": 1.15,
+  "aliases": [
+   "Haarspülung",
+   "Conditioner"
+  ]
+ },
+ {
+  "name": "Deo",
+  "amount": 200,
+  "unit": "ml",
+  "price": 1.45,
+  "aliases": [
+   "Deospray",
+   "Deoroller",
+   "Deodorant"
+  ]
+ },
+ {
+  "name": "Rasierschaum",
+  "amount": 300,
+  "unit": "ml",
+  "price": 0.95,
+  "aliases": [
+   "Rasiergel"
+  ]
+ },
+ {
+  "name": "Flüssigseife",
+  "amount": 500,
+  "unit": "ml",
+  "price": 0.75,
+  "aliases": [
+   "Seife",
+   "Handseife"
+  ]
+ },
+ {
+  "name": "Handcreme",
+  "amount": 100,
+  "unit": "ml",
+  "price": 1.25,
+  "aliases": []
+ },
+ {
+  "name": "Sonnencreme",
+  "amount": 200,
+  "unit": "ml",
+  "price": 3.95,
+  "aliases": [
+   "Sonnenmilch",
+   "Sonnenspray"
+  ]
+ },
+ {
+  "name": "Bodylotion",
+  "amount": 400,
+  "unit": "ml",
+  "price": 1.75,
+  "aliases": [
+   "Körperlotion"
+  ]
+ },
+ {
+  "name": "Taschentücher",
+  "amount": 300,
+  "unit": "Stück",
+  "price": 2.25,
+  "aliases": [
+   "Papiertaschentücher"
+  ]
+ },
+ {
+  "name": "Feuchttücher",
+  "amount": 80,
+  "unit": "Stück",
+  "price": 0.95,
+  "aliases": []
+ },
+ {
+  "name": "Windeln",
+  "amount": 40,
+  "unit": "Stück",
+  "price": 6.95,
+  "aliases": []
+ },
+ {
+  "name": "Wattepads",
+  "amount": 120,
+  "unit": "Stück",
+  "price": 0.85,
+  "aliases": []
+ },
+ {
+  "name": "Wattestäbchen",
+  "amount": 200,
+  "unit": "Stück",
+  "price": 0.65,
+  "aliases": []
+ },
+ {
+  "name": "Damenbinden",
+  "amount": 16,
+  "unit": "Stück",
+  "price": 1.25,
+  "aliases": []
+ },
+ {
+  "name": "Pflaster",
+  "amount": 20,
+  "unit": "Stück",
+  "price": 1.95,
+  "aliases": []
+ },
+ {
+  "name": "Toilettenpapier",
+  "amount": 10,
+  "unit": "Rolle",
+  "price": 3.95,
+  "aliases": [
+   "Klopapier"
+  ]
+ },
+ {
+  "name": "Küchenrolle",
+  "amount": 4,
+  "unit": "Rolle",
+  "price": 2.45,
+  "aliases": [
+   "Küchenpapier",
+   "Küchentücher",
+   "Haushaltsrolle"
+  ]
+ },
+ {
+  "name": "Waschmittel",
+  "amount": 20,
+  "unit": "WL",
+  "price": 3.45,
+  "aliases": [
+   "Vollwaschmittel",
+   "Colorwaschmittel",
+   "Flüssigwaschmittel",
+   "Waschpulver"
+  ]
+ },
+ {
+  "name": "Weichspüler",
+  "amount": 40,
+  "unit": "WL",
+  "price": 1.35,
+  "aliases": []
+ },
+ {
+  "name": "Spülmittel",
+  "amount": 500,
+  "unit": "ml",
+  "price": 0.85,
+  "aliases": [
+   "Geschirrspülmittel",
+   "Handspülmittel"
+  ]
+ },
+ {
+  "name": "Spülmaschinentabs",
+  "amount": 40,
+  "unit": "Stück",
+  "price": 3.95,
+  "aliases": [
+   "Geschirrspültabs",
+   "Spülmaschinentabletten"
+  ]
+ },
+ {
+  "name": "Spülmaschinensalz",
+  "amount": 2000,
+  "unit": "g",
+  "price": 1.25,
+  "aliases": [
+   "Regeneriersalz"
+  ]
+ },
+ {
+  "name": "Klarspüler",
+  "amount": 500,
+  "unit": "ml",
+  "price": 1.25,
+  "aliases": []
+ },
+ {
+  "name": "Allzweckreiniger",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 0.95,
+  "aliases": [
+   "Reiniger",
+   "Putzmittel",
+   "Universalreiniger",
+   "Scheuermilch"
+  ]
+ },
+ {
+  "name": "WC-Reiniger",
+  "amount": 750,
+  "unit": "ml",
+  "price": 0.95,
+  "aliases": [
+   "WC-Ente",
+   "Toilettenreiniger"
+  ]
+ },
+ {
+  "name": "Müllbeutel",
+  "amount": 25,
+  "unit": "Stück",
+  "price": 1.75,
+  "aliases": [
+   "Müllsäcke",
+   "Mülltüten"
+  ]
+ },
+ {
+  "name": "Alufolie",
+  "amount": 1,
+  "unit": "Rolle",
+  "price": 1.75,
+  "aliases": [
+   "Aluminiumfolie"
+  ]
+ },
+ {
+  "name": "Frischhaltefolie",
+  "amount": 1,
+  "unit": "Rolle",
+  "price": 1.25,
+  "aliases": []
+ },
+ {
+  "name": "Backpapier",
+  "amount": 1,
+  "unit": "Rolle",
+  "price": 1.29,
+  "aliases": [
+   "Backpapierrolle"
+  ]
+ },
+ {
+  "name": "Gefrierbeutel",
+  "amount": 50,
+  "unit": "Stück",
+  "price": 1.25,
+  "aliases": []
+ },
+ {
+  "name": "Spülschwämme",
+  "amount": 10,
+  "unit": "Stück",
+  "price": 1.25,
+  "aliases": [
+   "Spülschwamm",
+   "Schwämme",
+   "Putzschwamm"
+  ]
+ },
+ {
+  "name": "Batterien",
+  "amount": 4,
+  "unit": "Stück",
+  "price": 2.95,
+  "aliases": []
  }
 ]

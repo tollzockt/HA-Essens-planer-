@@ -676,6 +676,10 @@ find_branches:
             - norma
             - globus
             - marktkauf
+            - rossmann
+            - dm-drogerie-markt
+            - mueller-drogeriemarkt
+            - budnikowsky
     refresh:
       default: false
       selector:

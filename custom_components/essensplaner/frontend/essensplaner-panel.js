@@ -61,6 +61,10 @@ const RETAILER_STYLE = {
   norma: ["#d6001c", "No"],
   globus: ["#00664f", "G"],
   marktkauf: ["#00519e", "M"],
+  rossmann: ["#c8102e", "R"],
+  "dm-drogerie-markt": ["#002e6e", "dm"],
+  "mueller-drogeriemarkt": ["#f39200", "M"],
+  budnikowsky: ["#e2001a", "B"],
 };
 const LIGHT_RETAILERS = new Set(["edeka", "netto-marken-discount"]);
 const PRICE_SOURCE = {
@@ -86,13 +90,15 @@ const REASON_CHIP = {
   cheaper: ["💶 günstiger", "cheap", "Hier deutlich günstiger als im Hauptladen"],
   manual: ["📌 manuell", "", "Von dir hier einsortiert"],
   preferred: ["⭐ immer hier", "", "Kaufst du immer in diesem Laden"],
+  // "drugstore" (1.4: Drogerie / Haushalt at the drugstore) needs no chip: like the main
+  // store's items, the store card says it
 };
-const PRICE_UNITS = ["g", "ml", "Stück", "kg", "l", "Bund", "Pck.", "Dose", "Kopf"];
+const PRICE_UNITS = ["g", "ml", "Stück", "kg", "l", "Bund", "Pck.", "Dose", "Kopf", "Rolle", "WL"];
 const RADIUS_CHOICES = [1, 2, 3, 5, 10, 15];
 const STALE_CHANGES = new Set(["prices", "offers", "branches", "price_sources"]);
 // leading amount of a typed article ("2 Liter Milch", "500 g Hack") – kept when a hit is added
 const QTY_RE =
-  /^\s*(\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)?\s*(?:(?:kg|g|mg|ml|cl|l|liter|stück|stk|st|pck|packungen|packung|pkg|dosen|dose|bund|flaschen|flasche|becher|gläser|glas|tüten|tüte|beutel|netz|el|tl|prise|zehen|zehe|scheiben|scheibe)(?![a-zäöüß])\.?)?\s+)(?=\S)/i;
+  /^\s*(\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)?\s*(?:(?:kg|g|mg|ml|cl|l|liter|stück|stk|st|pck|packungen|packung|pkg|dosen|dose|bund|flaschen|flasche|becher|gläser|glas|tüten|tüte|beutel|netz|el|tl|prise|zehen|zehe|scheiben|scheibe|rollen|rolle|wl)(?![a-zäöüß])\.?)?\s+)(?=\S)/i;
 
 const distText = (m) => {
   const n = Number(m);
@@ -111,6 +117,7 @@ const packText = (amount, unit) => {
   const fmt = (v) => String(Math.round(v * 100) / 100).replace(".", ",");
   if (unit === "g" && n >= 1000) return `${fmt(n / 1000)} kg`;
   if (unit === "ml" && n >= 1000) return `${fmt(n / 1000)} l`;
+  if (unit === "Rolle" && n !== 1) return `${fmt(n)} Rollen`;
   return `${fmt(n)} ${unit}`;
 };
 const dayText = (iso) => {
@@ -122,6 +129,14 @@ const timeText = (iso) => {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+};
+// chain <option>s, supermarkets and drugstores (1.4: kind) in two groups
+const chainOptions = (retailers, selected) => {
+  const option = (r) => `<option value="${esc(r.id)}" ${r.id === selected ? "selected" : ""}>${esc(r.name)}</option>`;
+  const drug = retailers.filter((r) => r.kind === "drugstore");
+  if (!drug.length) return retailers.map(option).join("");
+  const food = retailers.filter((r) => r.kind !== "drugstore");
+  return `<optgroup label="Supermärkte">${food.map(option).join("")}</optgroup><optgroup label="Drogerien">${drug.map(option).join("")}</optgroup>`;
 };
 const retailerDot = (retailer, name = "") => {
   const [color, short] = RETAILER_STYLE[retailer] || ["#757575", (name || "?").slice(0, 1).toUpperCase()];
@@ -3044,7 +3059,7 @@ class EssensplanerPanel extends HTMLElement {
     return `
       <div class="hint">Für Läden, die die Suche nicht findet (oder ohne Zonen). Mit Postleitzahl werden auch Angebote für diesen Laden gesucht.</div>
       <div class="formgrid">
-        <label class="field">Kette<select data-change="manual" data-field="store"><option value="">– bitte wählen –</option>${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === m.store ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label>
+        <label class="field">Kette<select data-change="manual" data-field="store"><option value="">– bitte wählen –</option>${chainOptions(retailers, m.store)}</select></label>
         ${field("label", "Name (optional)", 'placeholder="z. B. Lidl am Bahnhof"')}
         ${field("street", "Straße (optional)", 'placeholder="Hauptstraße 5"')}
         ${field("postcode", "PLZ", 'inputmode="numeric" maxlength="5" placeholder="80331"')}
@@ -3083,7 +3098,7 @@ class EssensplanerPanel extends HTMLElement {
     const body = `
       <div class="hint">${b.source === "osm" ? "Aus OpenStreetMap übernommen – du kannst alles anpassen." : "Manuell angelegter Laden."}</div>
       <label class="field">Name<input class="blabel" value="${esc(b.label)}" placeholder="${esc(`${b.retailer_name || ""} ${b.street || b.city || ""}`.trim())}"></label>
-      <label class="field">Kette${b.retailer_guessed ? ' <span class="bdg warn">bitte prüfen</span>' : ""}<select class="bstore">${retailers.map((r) => `<option value="${esc(r.id)}" ${r.id === b.retailer ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label>
+      <label class="field">Kette${b.retailer_guessed ? ' <span class="bdg warn">bitte prüfen</span>' : ""}<select class="bstore">${chainOptions(retailers, b.retailer)}</select></label>
       <div class="grid2">
         <label class="field">Straße<input class="bstreet" value="${esc(b.street || "")}"></label>
         <label class="field">PLZ${b.postcode_guessed ? ' <span class="bdg warn">geschätzt</span>' : ""}<input class="bpostcode" value="${esc(b.postcode || "")}" inputmode="numeric" maxlength="5"></label>

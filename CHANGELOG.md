@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.4.0 (in Arbeit)
+
+### Drogerien als Läden
+- **Rossmann, dm, Müller und Budni** gibt es als Ketten: in der Filialsuche (OpenStreetMap,
+  Drogerien sind dort `shop=chemist`), beim Speichern von Hand, in den Optionen, per Sprache
+  („Was kaufe ich bei Rossmann?“) und bei Angeboten. Ein „Müller“-Leuchtengeschäft oder
+  -Optiker wird nicht als Drogerie erkannt.
+- Neue Abteilungen **„Drogerie & Körperpflege“** und **„Haushalt & Reinigung“** mit gut 30
+  Richtwerten (Zahnpasta, Duschgel, Waschmittel in Waschladungen, Toilettenpapier in Rollen …).
+  „Crème fraîche“ bleibt ein Milchprodukt.
+- Bei „Hauptladen + Ausnahmen“ kommen diese Artikel in deine Drogerie; Lebensmittel nur für
+  ein echtes Angebot. Eine Drogerie wird nie automatisch Hauptladen, Drogerie-Angebote
+  („Babyöl“) zählen nie für Lebensmittel.
+- Eine Drogerie, die in 1.3 als andere Kette gespeichert wurde (z. B. „ROSSMANN
+  Drogeriemarkt“ als Marktkauf), wird beim Update auf die richtige Kette umgestellt.
+
+### Korrekturen
+- Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.4` (marktguru und der
+  Rezept-Import gaben sich bisher als Browser aus).
+- marktguru-Angebote beginnen und enden am richtigen Tag (die Zeitstempel sind UTC: ein
+  Angebot „ab Montag“ begann bisher schon am Sonntag); der Platzhalter „thisisnobrand123“
+  erscheint nicht mehr als Marke.
+
 ## 1.3.2
 
 Die Preisquellen funktionieren wieder – deine Daten bleiben erhalten, es gibt keine neuen Optionen.

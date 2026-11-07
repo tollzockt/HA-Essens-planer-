@@ -69,7 +69,8 @@ _INT_1_14 = vol.All(vol.Coerce(int), vol.Range(min=1, max=14))
 _INT_1_30 = vol.All(vol.Coerce(int), vol.Range(min=1, max=30))
 _INT_MIN = vol.All(vol.Coerce(int), vol.Range(min=1, max=1440))
 _STORE_DESC = (
-    "Laden/Filiale/store: Supermarkt wie 'Aldi Süd', 'Lidl', 'REWE', eine eigene "
+    "Laden/Filiale/store: Supermarkt wie 'Aldi Süd', 'Lidl', 'REWE', Drogerie wie "
+    "'Rossmann' oder 'dm', eine eigene "
     "Filial-Bezeichnung wie 'Lidl Arbeit' oder 'Hauptladen'."
 )
 

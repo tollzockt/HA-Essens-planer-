@@ -11,6 +11,9 @@ retailer, name, label, street, postcode, city, postcode_guessed, lat, lon, sourc
 selected, priority, near, route, rewe_market_id, retailer_guessed, added, updated}.
 Offers are fetched per postcode of the selected branches (offer_targets()). Branches are
 added manually or from the OpenStreetMap search (branches.py, cached in branch_search).
+Drugstore branches (Rossmann, dm, Müller, Budni; retailers.retailer_kind() "drugstore") get
+the drugstore and household items of the list; they never become the main branch by
+themselves.
 """
 
 from __future__ import annotations
@@ -49,6 +52,7 @@ from .ingredients import (
     fold,
     guess_category,
     ingredient_key,
+    is_nonfood_category,
     normalize_spoken_quantity,
     parse_ingredient,
     to_base,
@@ -80,9 +84,12 @@ from .retailers import (
     RETAILERS,
     aldi_for_postcode,
     is_chain_name,
+    is_drugstore,
     resolve_retailer,
     retailer_for_store_id,
+    retailer_kind,
     retailer_name,
+    retailers_named,
 )
 
 if TYPE_CHECKING:
@@ -90,7 +97,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_VERSION = 3
+DATA_VERSION = 4
 # learned store prices older than this are ignored for lookups (kept in storage)
 STALE_DAYS = 180
 # learned store price sources, most trusted first
@@ -197,6 +204,8 @@ REASON_OFFER = "offer"
 REASON_CHEAPER = "cheaper"
 REASON_MANUAL = "manual"
 REASON_PREFERRED = "preferred"
+# drugstore / household item at the drugstore branch (1.4)
+REASON_DRUGSTORE = "drugstore"
 MAX_ALTERNATIVES = 4
 NO_STORE_LABEL = "Ohne Laden"
 # store texts that reset a manual store choice
@@ -463,6 +472,9 @@ class StoresMixin:
           store price is marked "guessed" (moved to the Aldi of your branch later).
         - v3: prices and plan items stored under the 1.2 key of another product
           ("Gehackte Tomaten" under "tomate") get that product's key.
+        - v4 (1.4): a branch saved with a grocery chain whose own name or label names a
+          drugstore chain ("ROSSMANN Drogeriemarkt" saved as Marktkauf, because 1.3 had no
+          drugstores) becomes that drugstore (see _migrate_drugstore_branches()).
         - every load: offers of a known retailer get a "retailer"; offer keys that name
           another product are corrected (canned tomato offers never price fresh ones);
           offers entered without an end (1.2 / 1.3.0) end with the current leaflet week.
@@ -495,6 +507,8 @@ class StoresMixin:
                         bucket[key]["guessed"] = True
         if self.data_version < 3:
             self._rekey_variants()
+        if self.data_version < 4:
+            self._migrate_drugstore_branches()
         if self.data_version < DATA_VERSION:
             self.data_version = DATA_VERSION
             changed = True
@@ -513,6 +527,80 @@ class StoresMixin:
         if changed:
             self._invalidate_prices()
         return changed
+
+    def _drugstore_named(self: EssensplanerManager, branch: dict[str, Any]) -> str | None:
+        """The drugstore chain a grocery branch's own name / label clearly names, else None.
+
+        Only texts the user wrote count (not the automatic name / label of the saved
+        chain). They must name exactly one chain, a drugstore ("ROSSMANN Drogeriemarkt",
+        "dm"; not "REWE neben Rossmann"); "Müller" (a common surname) needs "Drogerie".
+        """
+        retailer = branch.get("retailer")
+        if not retailer or is_drugstore(retailer):
+            return None
+        texts = []
+        name = str(branch.get("name") or "").strip()
+        if name and fold(name) != fold(retailer_name(retailer)):
+            texts.append(name)
+        label = str(branch.get("label") or "").strip()
+        if label and label != self._default_label(branch):
+            texts.append(label)
+        named: set[str] = set()
+        for text in texts:
+            named |= retailers_named(text)
+        if len(named) != 1:
+            return None
+        drugstore = next(iter(named))
+        if not is_drugstore(drugstore):
+            return None
+        if drugstore == "mueller-drogeriemarkt" and not any("drogerie" in fold(t) for t in texts):
+            return None
+        return drugstore
+
+    def _migrate_drugstore_branches(self: EssensplanerManager) -> list[str]:
+        """v4: grocery branches that are drugstores by their own name get that chain.
+
+        Keeps id, address, coordinates and the own label; an automatic name / label
+        follows the new chain, retailer_guessed is cleared. Manual offers entered for the
+        branch follow it. Own store prices and "immer hier" of the old chain move along
+        when no other branch has that chain (they were entered for this shop). Other
+        branches are never touched. Returns the ids of the switched branches.
+        """
+        switched: list[str] = []
+        for branch in self.branches:
+            drugstore = self._drugstore_named(branch)
+            if drugstore is None:
+                continue
+            old = branch["retailer"]
+            auto_label = branch.get("label") in (None, "", self._default_label(branch))
+            auto_name = fold(str(branch.get("name") or "")) in ("", fold(retailer_name(old)))
+            branch["retailer"] = drugstore
+            branch["retailer_guessed"] = False
+            if auto_name:
+                branch["name"] = retailer_name(drugstore)
+            if auto_label:
+                branch["label"] = self._default_label(branch)
+            switched.append(str(branch.get("id")))
+            for offer in self.offers:
+                if offer.get("branch_id") and offer.get("branch_id") == branch.get("id"):
+                    offer["retailer"] = drugstore
+                    offer["store_id"] = drugstore
+                    offer["store"] = retailer_name(drugstore)
+            if any(b.get("retailer") == old for b in self.branches):
+                continue  # a real branch of the old chain: its prices stay
+            moved = self.store_prices_user.pop(old, None) or {}
+            bucket = self.store_prices_user.setdefault(drugstore, {})
+            for key, entry in moved.items():
+                bucket.setdefault(key, entry)
+            if not bucket:
+                del self.store_prices_user[drugstore]
+            for key, value in list(self.store_preferences.items()):
+                if value == old:
+                    self.store_preferences[key] = drugstore
+        if switched:
+            self._selected_memo = None
+            _LOGGER.info("Branches switched to their drugstore chain: %s", ", ".join(switched))
+        return switched
 
     def _rekey_variants(self: EssensplanerManager) -> None:
         """Move prices / plan items stored under the key of another product (1.2 keys)."""
@@ -546,11 +634,17 @@ class StoresMixin:
         A canned-tomato offer found for "Tomaten" ("Oro di Parma Gehackte Tomaten", key
         "tomate") gets the key of its own product ("gehackte tomate") instead. Short keys
         ("ei") need an offer sold by count: a 100-g bag of "Schoko-Eier" is no egg offer.
+        A drugstore / household product (1.4 aisles) keeps no food keys.
         """
         product = str(offer.get("product") or offer.get("title") or "")
         pack = offer_pack(offer)
+        # a drugstore / household product is no food: "Penaten Babyöl" found for "Öl",
+        # "W5 Spülmittel Zitrone" for "Zitrone"
+        nonfood = bool(product) and is_nonfood_category(guess_category(product))
         keys: list[str] = []
         for key in offer.get("keys") or []:
+            if nonfood and not is_nonfood_category(guess_category(key)):
+                continue
             if self.names_other_product(product, key):
                 key = self.variant_key(product)
             if short_key(key) and pack is not None and pack[1] != "Stück":
@@ -955,11 +1049,16 @@ class StoresMixin:
         return {**found, **data}
 
     def _auto_main(self: EssensplanerManager) -> None:
-        """Without a (valid) main branch the only selected branch becomes the main branch."""
+        """Without a (valid) main branch the only selected grocery branch becomes the main
+        branch (a drugstore only by the user's choice: main=True / set_main_branch)."""
         if self.get_main_branch() is not None:
             return
         self.main_branch = None
-        selected = [b for b in self.branches if b.get("selected", True)]
+        selected = [
+            b
+            for b in self.branches
+            if b.get("selected", True) and not is_drugstore(b.get("retailer"))
+        ]
         if len(selected) == 1:
             self.main_branch = selected[0].get("id")
 
@@ -1823,7 +1922,9 @@ class StoresMixin:
             result.append(row)
         result.sort(key=lambda r: (not r["stores"], fold(r["name"])))
         return {
-            "retailers": [{"id": r, "name": retailer_name(r)} for r in columns],
+            "retailers": [
+                {"id": r, "name": retailer_name(r), "kind": retailer_kind(r)} for r in columns
+            ],
             "main_retailer": self.main_retailer,
             "stale_days": STALE_DAYS,
             "total": len(result),
@@ -2041,8 +2142,16 @@ class StoresMixin:
         own choice or "immer hier"). main_only: all at the main branch, alternatives are
         still computed.
 
+        Drugstores (1.4, main_exceptions): items of the aisles "Drogerie & Körperpflege" and
+        "Haushalt & Reinigung" go to the first selected drugstore branch (reason drugstore)
+        instead of the main branch – it is their "Hauptladen" for offers and cheaper prices
+        elsewhere (saving counted against it). Food moves to a drugstore only for an offer
+        of the product itself that saves >= offer_min (Rossmann sells coffee), never for a
+        regular price.
+
         Sets branch_id, retailer, store_label, store_reason (main|offer|cheaper|manual|
-        preferred), saving, price/packs/offer at that store and up to 4 alternatives.
+        preferred|drugstore), saving, price/packs/offer at that store and up to 4
+        alternatives.
         Without an active split the assignment fields are removed (1.2 behaviour).
         Descriptions are not touched (see update_shopping_description()).
         """
@@ -2068,13 +2177,21 @@ class StoresMixin:
             if b.get("id") not in first_ids and b.get("retailer") in by_retailer
         ]
         selected_ids = first_ids | {b["id"] for b in extras}
-        moved: dict[str, list[tuple[dict[str, Any], dict[str, Any] | None]]] = {}
+        # the drugstore branch for drugstore / household items (never picked as main)
+        drugstore = next((c for c in candidates if is_drugstore(c.get("retailer"))), None)
+        moved: dict[
+            str,
+            list[tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any], str]],
+        ] = {}
         for item in items:
+            nonfood = is_nonfood_category(
+                item.get("category") or guess_category(self._item_name(item))
+            )
             costs: dict[str, dict[str, Any] | None] = {
-                c["id"]: self.price_at(item, c["retailer"], c["id"], day) for c in candidates
+                c["id"]: self._branch_cost(item, c, day, nonfood) for c in candidates
             }
             for extra in extras:
-                cost = self.price_at(item, extra["retailer"], extra["id"], day)
+                cost = self._branch_cost(item, extra, day, nonfood)
                 first = costs.get(by_retailer[extra["retailer"]]["id"])
                 if (
                     cost
@@ -2082,8 +2199,14 @@ class StoresMixin:
                     and (first is None or cost["price"] < first["price"] - 1e-9)
                 ):
                     costs[extra["id"]] = cost
-            main_cost = costs[main["id"]]
-            target, reason = main, REASON_MAIN
+            # where the item goes without a better offer: the main branch, drugstore items
+            # to the drugstore
+            base, base_reason = main, REASON_MAIN
+            if nonfood and drugstore is not None and settings["mode"] == SPLIT_MAIN_EXCEPTIONS:
+                base = drugstore
+                base_reason = REASON_MAIN if drugstore["id"] == main["id"] else REASON_DRUGSTORE
+            base_cost = costs[base["id"]]
+            target, reason = base, base_reason
             chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
             if (
                 chosen.get("pins_store")
@@ -2111,12 +2234,13 @@ class StoresMixin:
                         item, preferred["retailer"], preferred["id"], day
                     )
             elif settings["mode"] == SPLIT_MAIN_EXCEPTIONS:
+                others = [b for b in [*candidates, *extras] if b["id"] != base["id"]]
                 best: tuple[dict[str, Any], dict[str, Any]] | None = None
-                if main_cost is None:
+                if base_cost is None:
                     # no price at the main store (e.g. Kaffee): an offer of the product
                     # itself elsewhere wins ("Eiskaffee" is no Kaffee), lowest price per
                     # kg / l / piece first (the packs differ)
-                    for branch in [*candidates[1:], *extras]:
+                    for branch in others:
                         cost = self.price_at(
                             item,
                             branch["retailer"],
@@ -2132,32 +2256,38 @@ class StoresMixin:
                     if best is not None:
                         costs[best[0]["id"]] = best[1]
                 else:
-                    movable = candidates[1:] + [b for b in extras if b["id"] in costs]
-                    for branch in movable:
+                    for branch in [b for b in others if b["id"] in costs]:
                         cost = costs[branch["id"]]
-                        if cost is None or not self._worth_moving(main_cost, cost, settings):
+                        if cost is None:
+                            continue
+                        if not nonfood and is_drugstore(branch.get("retailer")):
+                            worth = self._offer_worth(base_cost, cost, settings)
+                        else:
+                            worth = self._worth_moving(base_cost, cost, settings)
+                        if not worth:
                             continue
                         if best is None or cost["price"] < best[1]["price"]:
                             best = (branch, cost)
                 if best is not None:
                     target = best[0]
                     reason = REASON_OFFER if best[1]["offer"] else REASON_CHEAPER
-            self._set_store(item, target, reason, costs, main_cost)
+            self._set_store(item, target, reason, costs, base_cost)
             if reason in (REASON_OFFER, REASON_CHEAPER):
-                moved.setdefault(target["id"], []).append((item, main_cost))
+                moved.setdefault(target["id"], []).append((item, base_cost, base, base_reason))
         if settings["trip_min"] > 0:
             batch = {id(i) for i in items}
-            # a store the user goes to anyway (own store choice, "immer hier") is no extra trip
+            # a store the user goes to anyway (own store choice, "immer hier", the drugstore
+            # for its items) is no extra trip
             visited = {
                 i.get("branch_id")
                 for i in [*items, *self.shopping]
                 if i.get("status") != "completed"
-                and i.get("store_reason") in (REASON_MANUAL, REASON_PREFERRED)
+                and i.get("store_reason") in (REASON_MANUAL, REASON_PREFERRED, REASON_DRUGSTORE)
             }
             for branch_id, entries in moved.items():
                 if branch_id in visited:
                     continue
-                total = sum(i.get("saving") or 0 for i, _ in entries) + sum(
+                total = sum(i.get("saving") or 0 for i, *_ in entries) + sum(
                     i.get("saving") or 0
                     for i in self.shopping
                     if id(i) not in batch
@@ -2167,8 +2297,8 @@ class StoresMixin:
                 )
                 if round(total, 2) >= settings["trip_min"]:
                     continue
-                for item, main_cost in entries:
-                    self._set_store(item, main, REASON_MAIN, None, main_cost)
+                for item, base_cost, base, base_reason in entries:
+                    self._set_store(item, base, base_reason, None, base_cost)
         return True
 
     def _preferred_target(
@@ -2217,6 +2347,28 @@ class StoresMixin:
         self.store_preferences.pop(key, None)
         self.store_preference_aliases.pop(key, None)
         self.store_preference_branches.pop(key, None)
+
+    def _branch_cost(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        branch: dict[str, Any],
+        day: date,
+        nonfood: bool,
+    ) -> dict[str, Any] | None:
+        """price_at() of a branch; food at a drugstore only with offers of the product
+        itself (Rossmann's coffee, not "Babyöl" for Öl)."""
+        strict = not nonfood and is_drugstore(branch.get("retailer"))
+        return self.price_at(item, branch["retailer"], branch["id"], day, same_product=strict)
+
+    @staticmethod
+    def _offer_worth(
+        base_cost: dict[str, Any], cost: dict[str, Any], settings: dict[str, Any]
+    ) -> bool:
+        """An offer that saves >= offer_min (the only reason for food at a drugstore)."""
+        if not cost["offer"]:
+            return False
+        saving = round(base_cost["price"] - cost["price"], 2)
+        return saving > 0 and saving >= settings["offer_min"]
 
     @staticmethod
     def _worth_moving(
@@ -2679,7 +2831,8 @@ class StoresMixin:
         Without branches the active retailers (offer_stores option) are compared. With an
         amount ('500 g Hackfleisch') the cost in whole packs is compared, else the price
         per unit (pack prices differ in size). cheapest: the best result (None with less
-        than two stores or when all cost the same).
+        than two stores or when all cost the same). A drugstore only counts for food with
+        an own price or an offer of the product (no estimate of butter at Rossmann).
         """
         from .manager import _error  # avoid an import cycle
 
@@ -2708,12 +2861,20 @@ class StoresMixin:
             (b, b["retailer"]) for b in self.store_candidates()
         ] or [(None, r) for r in self.active_retailers()]
         today = self.today()
+        food = not is_nonfood_category(item["category"])
         results: list[dict[str, Any]] = []
         for branch, retailer in targets:
+            drugstore_food = food and is_drugstore(retailer)
             cost = self.price_at(
-                item, retailer, branch["id"] if branch else None, today, 0, by_unit=not amounts
+                item,
+                retailer,
+                branch["id"] if branch else None,
+                today,
+                0,
+                by_unit=not amounts,
+                same_product=drugstore_food,
             )
-            if cost is None:
+            if cost is None or (drugstore_food and not cost["specific"]):
                 continue
             entry: PriceEntry = cost["entry"]
             per = unit_price(entry)

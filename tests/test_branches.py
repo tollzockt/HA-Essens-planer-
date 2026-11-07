@@ -262,21 +262,22 @@ async def test_search_areas_from_zones(hass: HomeAssistant) -> None:
 
 
 def test_build_query() -> None:
-    """Around every area, the commute corridor as polyline, out center tags 500 (one cheap
-    statement each: small timeout and memory limit, chains are recognized locally)."""
+    """Around every area, the commute corridor as polyline, out center tags 800 (one cheap
+    statement each: small timeout and memory limit, chains are recognized locally; 1.4:
+    drugstores are shop=chemist)."""
     areas = [
         {"zone": "zone.home", "name": "Zuhause", "lat": HOME[0], "lon": HOME[1], "home": True},
         {"zone": "zone.arbeit", "name": "Arbeit", "lat": WORK[0], "lon": WORK[1], "home": False},
     ]
     query = build_query(areas, 3000, True, 800)
     assert query.startswith("[out:json][timeout:25][maxsize:134217728];")
-    assert query.rstrip().endswith("out center tags 500;")
+    assert query.rstrip().endswith("out center tags 800;")
     # coordinates rounded to ~100 m
     assert "(around:3000,48.137,11.576);" in query
     assert "(around:3000,48.177,11.592);" in query
     assert "(around:800,48.137,11.576,48.177,11.592);" in query
     assert "48.137154" not in query
-    assert 'nwr["shop"~"^(supermarket|discount)$"](around:3000,48.137,11.576);' in query
+    assert 'nwr["shop"~"^(supermarket|discount|chemist)$"](around:3000,48.137,11.576);' in query
     assert ",i]" not in query  # no costly case-insensitive regex on the server
     assert query.count("nwr[") == 3  # 2 areas + 1 corridor
 
