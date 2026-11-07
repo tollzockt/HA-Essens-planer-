@@ -16,7 +16,7 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 | 🗓️ **Wochenplan** | Frühstück, Mittag, Snack und Abendessen, mit Rezept oder Freitext („Pizza bestellen“), Kosten je Mahlzeit. **Drag & Drop** (belegte Plätze werden getauscht), **„Letzte Woche übernehmen“**, Woche **automatisch planen** – *ausgewogen*, *günstig* (Budget), *Angebote nutzen* oder *Abwechslung*: Favoriten und lange nicht Gekochtes werden bevorzugt, ähnliche Gerichte an aufeinanderfolgenden Tagen und „Nie vorschlagen“-Zutaten vermieden. |
 | 💶 **Preise & Budget** | Richtpreise für über 200 Zutaten, eigene Preise – auch **je Laden** (Preisliste Aldi, Lidl, REWE … nebeneinander), **gelernte Normalpreise** aus Prospekten mit Verlauf, optional REWE- und ALDI-SÜD-Onlinepreise (experimentell). Kosten pro Rezept/Portion/Woche, **Wochenbudget** mit Restbudget. |
 | 🏪 **Läden & Filialen** | Deine Filialen per **OpenStreetMap-Suche** rund um Zuhause und Arbeit, **auf dem Arbeitsweg** oder von Hand. **Hauptladen + Ausnahmen**: alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden. Angebote für die Postleitzahlen deiner Filialen. |
-| 🏷️ **Angebote** | **Aktuelle und kommende Angebote** von Aldi Süd/Nord, Lidl, REWE, EDEKA, Penny, Netto, Kaufland … (optional über marktguru.de nach Postleitzahl, täglich automatisch; die Angebote deines EDEKA-Markts direkt von edeka.de) oder selbst eingetragen. Angebote fließen in Rezeptkosten, Planung und Einkaufsliste ein; Normalpreise werden aus den Prospekten gelernt. Live-Preissuche im Panel. |
+| 🏷️ **Angebote** | **Alle aktuellen und kommenden Angebote deiner Läden** – EDEKA (dein Markt) und ALDI SÜD direkt von den Ketten, Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm … optional über marktguru.de (auf eigenes Risiko) – oder selbst eingetragen. Passende Angebote fließen in Rezeptkosten, Planung und Einkaufsliste ein; Normalpreise werden aus den Prospekten gelernt. Live-Preissuche im Panel. |
 | 👩‍🍳 **Kochmodus** | Vollbild Schritt für Schritt mit großer Schrift, Zutaten zum Abhaken, **Timer aus dem Rezepttext** („15 Minuten köcheln“ → ⏱ mit Signalton). Der Bildschirm bleibt an. Blättern per Wischen oder Pfeiltasten. |
 | 🧊 **Was kann ich kochen?** | Rezepte zu den Zutaten, die du da hast, mit Angabe, was noch fehlt. |
 | 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **nach Laden** mit Zwischensumme oder nach Abteilung, **Ladenwahl je Artikel**, **Artikelsuche beim Tippen** (Preis, Packung, Angebot), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
@@ -129,12 +129,12 @@ Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dash
 
 - **Wochenbudget** in Euro (0 = aus) – Panel, Sensoren und Jarvis zeigen Kosten und Restbudget; „günstig“ planen hält die Woche im Rahmen.
 - **Planungsart**: ausgewogen · günstig · Angebote nutzen · Abwechslung.
-- **Online-Angebote**: *marktguru.de* + **Postleitzahl** + Auswahl der **Supermärkte**. Die Integration fragt einmal täglich (morgens) die Angebote zu den Zutaten deiner Rezepte ab – aktuelle **und kommende** (ab nächster Woche) –, zu bis zu 10 offenen Artikeln, die du selbst auf die Einkaufsliste gesetzt hast, und optional zu einer **Merkliste** (z. B. „Kaffee, Butter“). Hast du [Filialen](#-läden-filialen--preise) gespeichert, wird für deren Postleitzahlen und Ketten gesucht (bis zu 4 Postleitzahlen); die Postleitzahl in den Optionen darf dann leer bleiben.
+- **Online-Angebote**: *marktguru.de* + **Postleitzahl** + Auswahl der **Supermärkte** (standardmäßig aus, auf eigenes Risiko – siehe Hinweis unten). Eingeschaltet lädt der Essensplaner **alle Angebote deiner Läden** – aktuelle **und kommende** (ab nächster Woche) –, je Kette und Postleitzahl ein Prospekt (für sechs Läden etwa 10–15 Anfragen), alle 3 Tage und zum neuen Prospekt (Samstag/Sonntag bzw. Montag), morgens um 06:xx. Abgeglichen wird lokal mit den Zutaten deiner Rezepte, den offenen Artikeln der Einkaufsliste, deinen eigenen Preisen und einer optionalen **Merkliste** (z. B. „Kaffee, Butter“). Hast du [Filialen](#-läden-filialen--preise) gespeichert, zählen deren Postleitzahlen und Ketten (bis zu 4 Postleitzahlen); die Postleitzahl in den Optionen darf dann leer bleiben. „Angebote aktualisieren“ fragt höchstens einmal pro Stunde.
 - Ohne Online-Quelle: Angebote im Panel oder per Sprache eintragen („Bei Lidl gibt es …“). Ohne „Gültig bis“ bzw. „bis …“ gilt ein Angebot bis zum kommenden Samstag (Ende der Prospektwoche).
 
 **Wie genau sind die Preise?** Die Richtpreise sind typische Discounter-Preise (Schätzwerte). Sie werden ersetzt durch deine eigenen Preise (Panel → 🏪 Läden & Preise → Preisliste) und durch Normalpreise, die aus Prospekt-Angeboten gelernt werden – mit Hauptladen gelten die Preise dieses Ladens (siehe unten). Rezeptkosten rechnen anteilig (was verbraucht wird), die Einkaufsliste mit ganzen Packungen.
 
-> ⚠️ **Hinweis zu marktguru.de:** Es gibt keine offizielle Schnittstelle der Supermärkte. Die Integration nutzt die inoffizielle Web-Schnittstelle von marktguru.de, die sich jederzeit ändern kann – bitte nur für private Zwecke. Home Assistant braucht dafür Internetzugriff auf `www.marktguru.de` und `api.marktguru.de`. Ist die Quelle nicht erreichbar, bleiben die zuletzt geladenen Angebote erhalten und der Fehler wird angezeigt.
+> ⚠️ **Hinweis zu marktguru.de – nur auf eigenes Risiko:** Es gibt keine offizielle Schnittstelle. Die Integration nutzt die inoffizielle Web-Schnittstelle von marktguru.de, die sich jederzeit ändern kann. Die **AGB von marktguru** (info.marktguru.de/agb, Stand Februar 2026) untersagen ausdrücklich „den Einsatz von Computerprogrammen zum automatischen Auslesen von Daten“ und erlauben nur die private Nutzung ohne Weitergabe. Wenn du marktguru einschaltest, tust du das auf eigenes Risiko; der Essensplaner hält die Abfragen klein (ehrliche Kennung, 1,5 s Abstand, wenige Prospekte pro Woche, nur deine Läden) und pausiert 7 Tage, wenn marktguru ablehnt. Home Assistant braucht dafür Internetzugriff auf `www.marktguru.de` und `api.marktguru.de`; Bilder lädt dein Browser von `cdn.marktguru.de`. Ist die Quelle nicht erreichbar, bleiben die zuletzt geladenen Angebote erhalten und der Fehler wird angezeigt. EDEKA- und ALDI-SÜD-Angebote gibt es auch ohne marktguru direkt von den Ketten (siehe unten).
 
 ## 🏪 Läden, Filialen & Preise
 
@@ -183,7 +183,19 @@ Mit Hauptladen (Filialen) gilt ein Preis in einer Ladenzelle nur für diesen Lad
 ![Preisliste je Laden](docs/images/preisliste-je-laden.png)
 
 ### Gelernte Normalpreise aus Prospekten
-Viele Angebote nennen den Normalpreis („statt 2,49 €“). Daraus lernt der Essensplaner den Preis **je Laden**, mit **Verlauf** (bis zu 12 Einträge) und einer Plausibilitätsprüfung gegen den Richtwert. Quelle ist die inoffizielle marktguru.de-Suche (siehe oben) – nur wenn Online-Angebote eingeschaltet sind.
+Viele Angebote nennen den Normalpreis – als Streichpreis („statt 2,49 €“), bei Lidl als „Normalpreis: 1.35“, bei ALDI SÜD als alter Preis. Daraus lernt der Essensplaner nach jedem Abruf für **alle Artikel der Preisliste** den Preis **je Laden**, mit **Verlauf** (bis zu 12 Einträge) und einer Plausibilitätsprüfung gegen den Richtwert. Angebote „nur online“ zählen nicht. Quelle sind die Prospekte deiner Läden (marktguru nur, wenn eingeschaltet; ALDI SÜD mit seiner Option).
+
+### Alle Angebote deiner Läden
+Der Essensplaner hält alle aktuellen und kommenden Angebote deiner gespeicherten Läden bereit (Angebotskatalog), getrennt nach Laden:
+
+| Kette | Quelle | Was |
+|---|---|---|
+| EDEKA | edeka.de (Option „EDEKA-Angebote deines Markts“) | alle Angebote deines verknüpften Markts |
+| ALDI SÜD | aldi-sued.de (Option „ALDI-SÜD-Onlinepreise“) | die Wochenangebote |
+| Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm … | marktguru (nur eingeschaltet, eigenes Risiko) | der ganze Prospekt der Kette an der Postleitzahl deiner Filiale |
+| NORMA, EDEKA ohne Markt-Verknüpfung | marktguru | oft nur die Prospektseiten als Bilder (mit Link zum Prospekt) |
+
+Angebote, die zu deinen Rezepten, der Merkliste, der Einkaufsliste oder deinen eigenen Preisen passen, zählen für Planung, Budget und die Laden-Aufteilung der Einkaufsliste. In der Preisliste steht in jeder Zelle zusätzlich das aktuelle Angebot dieses Ladens (nur zur Anzeige). App-Preise („mit Lidl Plus App 1,59 €“, Rossmann-Coupons), REWE-Bonus und „nur online“ werden als Hinweis erkannt; jedes Angebot hat eine Art (Lebensmittel, Getränk, Drogerie, Haushalt, Non-Food), damit Jacken und Akkuschrauber nicht zwischen den Lebensmitteln stehen. Gespeichert wird der Katalog in einer eigenen Datei (`/config/.storage/essensplaner.catalog.<entry_id>`); für das Panel gibt es den Websocket `essensplaner/store_offers` (Filter nach Laden, aktuell/kommend, Art, Suche, „nur meine Zutaten“, Sortierung, Seiten).
 
 ### REWE-Onlinepreise (experimentell)
 Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) holt der Essensplaner einmal pro Woche Normalpreise aus dem REWE-Onlineshop für deine REWE-Filiale. Der Knopf „Preise aktualisieren“ fragt nach einem erfolgreichen Abruf frühestens 6 Stunden später erneut. Dafür braucht die Filiale eine **Markt-ID** (Knopf „Markt suchen“ an der REWE-Filiale bzw. Aktion `essensplaner.find_rewe_markets`).
@@ -195,7 +207,7 @@ Eine öffentliche Liste **aller Angebote eines REWE-Markts** gibt es nicht (die 
 ### ALDI-SÜD-Onlinepreise (experimentell)
 Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) holt der Essensplaner einmal pro Woche Normalpreise von der ALDI-SÜD-Website für deine **ALDI-SÜD-Filiale** – wie bei REWE für die geplanten und häufigen Zutaten und die offenen Artikel der Einkaufsliste. Ist ein Artikel gerade **reduziert** (Streichpreis), wird der Streichpreis als Normalpreis gelernt und der reduzierte Preis erscheint bis Samstag als **Angebot** (🏷️). Die ALDI-Filiale wird beim ersten Abruf automatisch über die Lage deiner Filiale bestimmt (sonst über die Zone „Zuhause“) – oder du wählst sie mit „Filiale suchen“ bzw. der Aktion `essensplaner.find_aldi_stores` (ALDI SÜD sucht nur nach Koordinaten). Die Preise sind regional gleich, eine Filiale genügt. Mit eingeschalteter Option sucht auch „Artikel hinzufügen“ bei einem ALDI-SÜD-Laden live.
 
-> ⚠️ Auch das ist eine **inoffizielle Schnittstelle** (`api.aldi-sued.de`): Suchbegriffe und die Filialnummer gehen an ALDI SÜD, für die Filialsuche einmal die auf ca. 10 m gerundeten Koordinaten. Lehnt ALDI SÜD ab (oder antwortet unerwartet), wird **7 Tage pausiert**; gelernte Preise bleiben. Die Wochenangebote von ALDI SÜD lassen sich so ebenfalls abrufen (für die Angebotsübersicht der nächsten Version).
+> ⚠️ Auch das ist eine **inoffizielle Schnittstelle** (`api.aldi-sued.de`): Suchbegriffe und die Filialnummer gehen an ALDI SÜD, für die Filialsuche einmal die auf ca. 10 m gerundeten Koordinaten. Lehnt ALDI SÜD ab (oder antwortet unerwartet), wird **7 Tage pausiert**; gelernte Preise bleiben. Mit der Option kommen auch die **Wochenangebote** von ALDI SÜD in die Angebote deiner Läden (1–2 Anfragen je Angebotsabruf); marktguru wird für ALDI SÜD dann nicht gefragt.
 
 ### EDEKA-Angebote deines Markts
 Standardmäßig **aus**. Jeder EDEKA-Kaufmann hat eigene Angebote – eingeschaltet (Optionen → „Läden & Einkauf“) lädt der Essensplaner einmal am Tag (06:xx, sobald die Angebote einen Tag alt sind oder die Prospektwoche vorbei ist) die **Prospekt-Angebote deines EDEKA-Markts von www.edeka.de**: Preis, Packung, Grundpreis, gültig bis, PAYBACK-/App-Hinweise, Pfand als Hinweis (nie im Preis). Angebote, die zu deinen Rezepten, der Merkliste oder der Einkaufsliste passen, fließen wie andere Angebote in Planung, Budget und Einkaufsliste ein – nur für diese EDEKA-Filiale. Dafür braucht die Filiale eine **EDEKA-Markt-ID** („Markt suchen“ bzw. Aktion `essensplaner.find_edeka_markets`, dann mit `essensplaner.save_branch` als `edeka_market_id` speichern). Lehnt EDEKA ab, wird 7 Tage pausiert; die Angebote bleiben bis zu ihrem Ende.
@@ -211,7 +223,7 @@ Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Ge
 | Dienst | Wann | Was |
 |---|---|---|
 | OpenStreetMap (`overpass-api.de`, ist er ausgelastet: `overpass.kumi.systems`) | nur wenn du die Filialsuche startest | Koordinaten deiner Zonen, auf ca. 100 m gerundet |
-| marktguru.de | nur mit Online-Angeboten (täglich, Live-Suche, Artikelsuche) | Postleitzahlen (Filialen bzw. Optionen) und Suchbegriffe – auch, was du in „Artikel hinzufügen“ tippst (ab 3 Zeichen) |
+| marktguru.de | nur mit Online-Angeboten (Prospekte deiner Läden etwa 2–3× pro Woche, Live-Suche, Artikelsuche) | Postleitzahlen (Filialen bzw. Optionen), Ketten und Suchbegriffe – auch, was du in „Artikel hinzufügen“ tippst (ab 3 Zeichen); dein Browser lädt die Angebotsbilder von `cdn.marktguru.de` |
 | REWE (`www.rewe.de`) | nur mit REWE-Onlinepreisen (wöchentlich, Knopf „Preise aktualisieren“, Artikelsuche) | Markt-ID und Suchbegriffe |
 | REWE (`www.rewe.de`) | nur bei „Markt suchen“ | Postleitzahl |
 | ALDI SÜD (`api.aldi-sued.de`) | nur mit ALDI-SÜD-Onlinepreisen (wöchentlich, Knopf „Preise aktualisieren“, Artikelsuche) | Filialnummer und Suchbegriffe; einmal die gerundeten Koordinaten deiner ALDI-Filiale (bzw. von Zuhause), um die nächste Filiale zu finden |
@@ -275,7 +287,7 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.find_rewe_markets` | REWE-Märkte und ihre Markt-IDs zu einer Postleitzahl finden |
 | `essensplaner.find_edeka_markets` | EDEKA-Märkte und ihre Markt-IDs zu einer Postleitzahl finden |
 | `essensplaner.find_aldi_stores` | ALDI-SÜD-Filialen und ihre Filialnummern in der Nähe finden (Koordinaten, Postleitzahl einer deiner Filialen oder die ALDI-Filiale) |
-| `essensplaner.refresh_offers` / `get_offers` / `search_offers` | Angebote laden, abrufen, live suchen |
+| `essensplaner.refresh_offers` / `get_offers` / `search_offers` | Angebote deiner Läden laden (höchstens einmal pro Stunde), abrufen, live suchen |
 | `essensplaner.add_offer` / `remove_offer` | Angebot eintragen / löschen |
 
 ```yaml
@@ -317,7 +329,7 @@ Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 - Intents an/aus, Panel an/aus
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Optionen ist geschwärzt.
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Optionen ist geschwärzt.
 
 ## Entwicklung
 

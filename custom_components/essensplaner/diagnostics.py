@@ -77,8 +77,45 @@ async def async_get_config_entry_diagnostics(
             for g in manager.stores_summary()
         ],
         "price_sources_meta": async_redact_data(manager.price_sources_meta, BRANCH_REDACT),
+        # the offer catalog: counts only (no offers, postcodes or store ids)
+        "offer_catalog": _catalog_counts(manager),
         "branch_search": async_redact_data(
             {k: v for k, v in manager.branch_search.items() if k not in ("results", "key")},
             BRANCH_REDACT,
         ),
+    }
+
+
+def _catalog_counts(manager: EssensplanerManager) -> dict[str, Any]:
+    """Status and counts of the offer catalog (per source / retailer / kind)."""
+    catalog = manager.catalog
+    today = manager.today()
+    offers = catalog.current_offers(today)
+
+    def count(field: str) -> dict[str, int]:
+        result: dict[str, int] = {}
+        for offer in offers:
+            value = str(offer.get(field) or "?")
+            result[value] = result.get(value, 0) + 1
+        return dict(sorted(result.items()))
+
+    summary = catalog.summary(manager)
+    return {
+        "status": summary["status"],
+        "updated": summary["updated"],
+        "last_run": summary["last_run"],
+        "errors": len(summary["errors"]),
+        "requests_last_run": summary["requests"],
+        "offers": len(offers),
+        "with_keys": sum(1 for o in offers if o.get("keys")),
+        "online_only": sum(1 for o in offers if o.get("online_only")),
+        "by_source": count("source"),
+        "by_retailer": count("retailer"),
+        "by_kind": count("kind"),
+        "leaflets": len(catalog.leaflets(today)),
+        "discovery_postcodes": len(catalog.data.get("publishers") or {}),
+        "buckets": len(catalog.buckets),
+        "matched": summary["matched"],
+        "learned": summary["learned"],
+        "blocked": summary["blocked_until"] is not None,
     }

@@ -3345,16 +3345,18 @@ class EssensplanerPanel extends HTMLElement {
     const targets = (this._data.offer_targets || []).map((t) => `<span class="bdg">PLZ ${esc(t.zip_code)} · ${esc((t.stores || []).join(", "))}</span>`).join("");
     const mgStatus = !online
       ? '<span class="bdg">⏸ aus</span>'
-      : meta.status === "error"
+      : meta.status === "blocked"
+        ? '<span class="bdg bad">⛔ pausiert</span>'
+        : meta.status === "error"
         ? '<span class="bdg bad">⚠️ Fehler</span>'
         : meta.last_update
           ? '<span class="bdg ok">✅ aktiv</span>'
           : '<span class="bdg">⏳ noch nicht geladen</span>';
     const mg = `<div class="section">
         <h4>🏷️ Prospekt-Angebote ${mgStatus}</h4>
-        <div class="meta">marktguru.de (inoffiziell) · aus den Prospekten werden auch Normalpreise je Laden gelernt.</div>
+        <div class="meta">marktguru.de (inoffiziell, auf eigenes Risiko – die AGB von marktguru untersagen das automatische Auslesen) · die Prospekte deiner Läden etwa 2–3× pro Woche · aus den Prospekten werden auch Normalpreise je Laden gelernt.</div>
         ${online && meta.last_update ? `<div>Zuletzt ${esc(timeText(meta.last_update))}: <b>${esc(meta.count ?? 0)}</b> Angebote${meta.learned ? ` · ${esc(meta.learned)} Normalpreise gelernt` : ""}</div>` : ""}
-        ${online && meta.status === "error" && meta.errors?.length ? `<div class="notice err">${esc(meta.errors[0])}</div>` : ""}
+        ${online && ["error", "blocked"].includes(meta.status) && meta.errors?.length ? `<div class="notice err">${esc(meta.errors[0])}</div>` : ""}
         ${online ? `<div class="badges">${targets || '<span class="hint">Keine Postleitzahl – trage bei deinen Läden eine PLZ ein.</span>'}</div>` : ""}
         ${online ? `<div>${this._refreshButton("offers")}</div>` : `<div class="hint">Einschalten unter ${where} → Budget &amp; Angebote.</div>`}
       </div>`;

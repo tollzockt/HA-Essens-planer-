@@ -21,13 +21,9 @@ from custom_components.essensplaner.const import (
     SPLIT_OFF,
 )
 from custom_components.essensplaner.ingredients import normalize_spoken_quantity
-from custom_components.essensplaner.offers import (
-    MARKTGURU_API,
-    MARKTGURU_HOME,
-    normalize_marktguru,
-    offer_matches,
-)
+from custom_components.essensplaner.offers import MARKTGURU_HOME, normalize_marktguru, offer_matches
 
+from .mg_catalog import mock_offer_answers
 from .test_economy import HOME_HTML, _mg_offer
 
 
@@ -98,8 +94,8 @@ async def test_chocolate_eggs_teach_nothing(
     """Leaflet sweets found for "Eier" get no egg key, price and store (regression)."""
     monkeypatch.setattr("custom_components.essensplaner.offers.REQUEST_DELAY", 0)
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        f"{MARKTGURU_API}/offers/search",
+    mock_offer_answers(
+        aioclient_mock,
         json={
             "results": [
                 _mg_offer(

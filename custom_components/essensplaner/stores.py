@@ -1762,10 +1762,12 @@ class StoresMixin:
         return True
 
     def learn_from_offers(self: EssensplanerManager, offers: list[dict[str, Any]]) -> int:
-        """Learn the regular store prices (old prices) of leaflet offers. Returns the count.
+        """Learn the regular store prices of leaflet offers. Returns the count.
 
-        Several offers for the same retailer and ingredient: the lowest regular price per
-        unit wins (the store brand is what most people buy).
+        The regular price is the struck old price, else the regular price printed in the
+        leaflet ("Normalpreis: 1.35", 1.4: regular_price). Several offers for the same
+        retailer and ingredient: the lowest regular price per unit wins (the store brand is
+        what most people buy). Online-only offers are no store prices.
         """
         best: dict[
             tuple[str, str], tuple[float | None, str | None, dict[str, Any], float, str]
@@ -1773,9 +1775,9 @@ class StoresMixin:
         for offer in offers:
             retailer = offer.get("retailer") or self.offer_retailer(offer)
             pack = offer_pack(offer)
-            old_price = offer.get("old_price")
+            old_price = offer.get("old_price") or offer.get("regular_price")
             keys = offer.get("keys") or []
-            if not (old_price and pack and retailer and keys):
+            if not (old_price and pack and retailer and keys) or offer.get("online_only"):
                 continue
             entry = make_entry(
                 {
@@ -1812,7 +1814,7 @@ class StoresMixin:
                 retailer,
                 key,
                 offer.get("product") or offer.get("title") or key,
-                offer["old_price"],
+                offer.get("old_price") or offer["regular_price"],
                 amount,
                 unit,
                 SOURCE_LEAFLET,
@@ -1931,6 +1933,8 @@ class StoresMixin:
                 ranks[(row["key"], column)] = (rank, exact)
                 row["stores"][column] = cell
 
+        # current offers of the catalog (display only, never stored as a regular price)
+        overlay = self.catalog.best_offers(self.today()) if self.catalog is not None else {}
         folded = fold(query or "")
         result = []
         for row in rows.values():
@@ -1942,8 +1946,14 @@ class StoresMixin:
             ):
                 continue
             row["cheapest"] = _cheapest(row)
+            offers = self._row_offers(row, overlay, columns)
+            if offers:
+                row["offers"] = offers
+                for column, info in offers.items():
+                    if column in row["stores"]:
+                        row["stores"][column]["offer"] = info
             result.append(row)
-        result.sort(key=lambda r: (not r["stores"], fold(r["name"])))
+        result.sort(key=lambda r: (not (r["stores"] or r.get("offers")), fold(r["name"])))
         return {
             "retailers": [
                 {"id": r, "name": retailer_name(r), "kind": retailer_kind(r)} for r in columns
@@ -1953,6 +1963,24 @@ class StoresMixin:
             "total": len(result),
             "rows": result[: max(1, int(limit))],
         }
+
+    @staticmethod
+    def _row_offers(
+        row: dict[str, Any],
+        overlay: dict[str, dict[str, dict[str, Any]]],
+        columns: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        """{retailer: best current catalog offer} of a price list row (its key, else the
+        keys of its aliases)."""
+        if not overlay:
+            return {}
+        keys = [row["key"], *(ingredient_key(a) for a in row.get("aliases") or [])]
+        found: dict[str, dict[str, Any]] = {}
+        for key in keys:
+            for retailer, info in (overlay.get(key) or {}).items():
+                if retailer in columns and retailer not in found:
+                    found[retailer] = info
+        return found
 
     # ------------------------------------------------------------------
     # Shopping list per store ("Hauptladen + Ausnahmen")

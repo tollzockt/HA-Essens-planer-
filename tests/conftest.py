@@ -37,6 +37,14 @@ def no_overpass_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(branches, "OVERPASS_MIRRORS", ())
 
 
+@pytest.fixture(autouse=True)
+def no_catalog_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No politeness delay between the offer catalog requests (the clock is frozen)."""
+    from custom_components.essensplaner import catalog
+
+    monkeypatch.setattr(catalog, "REQUEST_DELAY", 0)
+
+
 @pytest.fixture
 def config_entry() -> MockConfigEntry:
     """A config entry with starter recipes."""

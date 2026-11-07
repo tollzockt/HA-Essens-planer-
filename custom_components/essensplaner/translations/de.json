@@ -55,7 +55,7 @@
       },
       "economy": {
         "title": "Budget & Angebote",
-        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Online-Angebote nutzen die inoffizielle Schnittstelle von marktguru.de (Prospekte von Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Rossmann, dm, Müller, Budni …); sie kann sich jederzeit ändern – nur für private Nutzung. Mit Online-Angeboten sucht auch das Feld „Artikel hinzufügen“ der Einkaufsliste live bei marktguru (was du tippst, ab 3 Zeichen, mit der Postleitzahl deiner Filiale).",
+        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Die Angebote von EDEKA und ALDI SÜD kommen direkt von den Ketten (nächster Schritt „Läden & Einkauf“). marktguru.de ist eine optionale Ergänzung **auf eigenes Risiko**: Laut den AGB von marktguru (Stand Februar 2026) ist das automatische Auslesen von Daten untersagt und nur die private Nutzung erlaubt; die Schnittstelle ist inoffiziell und kann sich jederzeit ändern. Eingeschaltet lädt der Essensplaner etwa zwei- bis dreimal pro Woche alle Angebote deiner gespeicherten Läden (je Kette und Postleitzahl ein Abruf, insgesamt etwa 10–15 Anfragen; Aldi, Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm …; bei NORMA oder EDEKA oft nur Prospektbilder) und gleicht sie lokal mit Rezepten und Einkaufsliste ab. Außerdem sucht das Feld „Artikel hinzufügen“ live bei marktguru (was du tippst, ab 3 Zeichen, mit der Postleitzahl deiner Filiale).",
         "data": {
           "weekly_budget": "Wochenbudget",
           "plan_strategy": "Planungsart",
@@ -67,7 +67,7 @@
         "data_description": {
           "weekly_budget": "Euro pro Woche fürs Essen, 0 = kein Budget.",
           "plan_strategy": "Für automatische Planung und Vorschläge.",
-          "offers_source": "Woher aktuelle und kommende Angebote kommen. marktguru: täglicher Abruf für die Postleitzahlen deiner Filialen, außerdem Live-Suche beim Tippen in „Artikel hinzufügen“.",
+          "offers_source": "Woher aktuelle und kommende Angebote kommen. marktguru (auf eigenes Risiko, siehe oben): alle Angebote deiner Läden – Abruf alle 3 Tage und zum neuen Prospekt (Samstag/Montag), „Angebote aktualisieren“ höchstens einmal pro Stunde –, außerdem Live-Suche beim Tippen in „Artikel hinzufügen“.",
           "zip_code": "Für die Angebote der Märkte in deiner Nähe. Kann leer bleiben, wenn deine Filialen (im Panel) eine Postleitzahl haben – dann wird für deren Postleitzahlen gesucht.",
           "offer_stores": "Nur Angebote dieser Märkte (ohne Filialen). Mit Filialen zählen deren Läden – auch Drogerien wie Rossmann oder dm.",
           "offers_watchlist": "Zusätzliche Produkte, nach denen gesucht wird, kommagetrennt (z. B. „Kaffee, Butter“)."
@@ -131,7 +131,7 @@
     "offers_source": {
       "options": {
         "off": "Aus (nur eigene Angebote)",
-        "marktguru": "marktguru.de (inoffiziell)"
+        "marktguru": "marktguru.de (inoffiziell, eigenes Risiko)"
       }
     },
     "clear_mode": {
@@ -376,6 +376,12 @@
     },
     "invalid_edeka_market": {
       "message": "„{value}“ ist keine gültige EDEKA-Markt-ID (nur Ziffern)."
+    },
+    "marktguru_blocked": {
+      "message": "marktguru.de lässt gerade keine automatischen Abfragen zu ({error})."
+    },
+    "marktguru_failed": {
+      "message": "Die Abfrage bei marktguru ist fehlgeschlagen ({error})."
     }
   },
   "services": {
@@ -846,12 +852,12 @@
     },
     "refresh_offers": {
       "name": "Angebote aktualisieren",
-      "description": "Lädt aktuelle und kommende Supermarkt-Angebote (marktguru) für die Postleitzahlen deiner Filialen bzw. die Postleitzahl aus den Optionen.",
+      "description": "Lädt alle aktuellen und kommenden Angebote deiner gespeicherten Läden (EDEKA und ALDI SÜD direkt, marktguru falls eingeschaltet) und gleicht sie mit Rezepten, Merkliste und Einkaufsliste ab. Höchstens einmal pro Stunde, außer deine Läden haben sich geändert.",
       "fields": {}
     },
     "search_offers": {
       "name": "Angebote suchen",
-      "description": "Sucht Angebote für ein Produkt (live für die Postleitzahlen deiner Filialen und gespeichert).",
+      "description": "Sucht Angebote für ein Produkt (live bei marktguru für die Postleitzahlen und Ketten deiner Filialen, dazu die gespeicherten).",
       "fields": {
         "query": {
           "name": "Suche",

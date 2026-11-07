@@ -1,0 +1,2252 @@
+{
+ "_note": "Trimmed marktguru answers of 2026-11-07 (short catalog format, discovery, leaflet lists). No API keys.",
+ "publishers": {
+  "57610": {
+   "totalResults": 16,
+   "skippedResults": 0,
+   "results": [
+    {
+     "id": "retailers/128150",
+     "uniqueName": "rewe-petz",
+     "name": "REWE Petz"
+    },
+    {
+     "id": "retailers/126679",
+     "uniqueName": "lidl",
+     "name": "Lidl"
+    },
+    {
+     "id": "retailers/126765",
+     "uniqueName": "penny",
+     "name": "PENNY"
+    },
+    {
+     "id": "retailers/126641",
+     "uniqueName": "kabs-polsterwelt",
+     "name": "Kabs PolsterWelt"
+    },
+    {
+     "id": "retailers/126924",
+     "uniqueName": "woolworth",
+     "name": "Woolworth"
+    },
+    {
+     "id": "retailers/126814",
+     "uniqueName": "bosch-car-service",
+     "name": "Bosch Car Service"
+    },
+    {
+     "id": "retailers/126660",
+     "uniqueName": "kik",
+     "name": "KiK"
+    },
+    {
+     "id": "retailers/126753",
+     "uniqueName": "opti-wohnwelt",
+     "name": "Opti Wohnwelt"
+    },
+    {
+     "id": "retailers/136786",
+     "uniqueName": "opti-megastore",
+     "name": "Opti-MegaStore"
+    },
+    {
+     "id": "retailers/127153",
+     "uniqueName": "aldi-sued",
+     "name": "ALDI SÜD"
+    },
+    {
+     "id": "retailers/126811",
+     "uniqueName": "rossmann",
+     "name": "ROSSMANN"
+    },
+    {
+     "id": "retailers/136512",
+     "uniqueName": "xxxl-express",
+     "name": "XXXL Express"
+    },
+    {
+     "id": "retailers/126927",
+     "uniqueName": "xxxl",
+     "name": "XXXLutz"
+    },
+    {
+     "id": "retailers/126879",
+     "uniqueName": "toom-baumarkt",
+     "name": "toom Baumarkt"
+    },
+    {
+     "id": "retailers/126708",
+     "uniqueName": "moebel-inhofer",
+     "name": "Möbel Inhofer"
+    },
+    {
+     "id": "retailers/126735",
+     "uniqueName": "netto-marken-discount",
+     "name": "Netto Marken-Discount"
+    }
+   ]
+  },
+  "57632": {
+   "totalResults": 17,
+   "skippedResults": 0,
+   "results": [
+    {
+     "id": "retailers/126802",
+     "uniqueName": "rewe",
+     "name": "REWE"
+    },
+    {
+     "id": "retailers/127057",
+     "uniqueName": "dm-drogerie-markt",
+     "name": "dm-drogerie markt"
+    },
+    {
+     "id": "retailers/126679",
+     "uniqueName": "lidl",
+     "name": "Lidl"
+    },
+    {
+     "id": "retailers/126765",
+     "uniqueName": "penny",
+     "name": "PENNY"
+    },
+    {
+     "id": "retailers/126641",
+     "uniqueName": "kabs-polsterwelt",
+     "name": "Kabs PolsterWelt"
+    },
+    {
+     "id": "retailers/126814",
+     "uniqueName": "bosch-car-service",
+     "name": "Bosch Car Service"
+    },
+    {
+     "id": "retailers/126660",
+     "uniqueName": "kik",
+     "name": "KiK"
+    },
+    {
+     "id": "retailers/126753",
+     "uniqueName": "opti-wohnwelt",
+     "name": "Opti Wohnwelt"
+    },
+    {
+     "id": "retailers/136786",
+     "uniqueName": "opti-megastore",
+     "name": "Opti-MegaStore"
+    },
+    {
+     "id": "retailers/127153",
+     "uniqueName": "aldi-sued",
+     "name": "ALDI SÜD"
+    },
+    {
+     "id": "retailers/126750",
+     "uniqueName": "obi",
+     "name": "OBI"
+    },
+    {
+     "id": "retailers/126811",
+     "uniqueName": "rossmann",
+     "name": "ROSSMANN"
+    },
+    {
+     "id": "retailers/136512",
+     "uniqueName": "xxxl-express",
+     "name": "XXXL Express"
+    },
+    {
+     "id": "retailers/126927",
+     "uniqueName": "xxxl",
+     "name": "XXXLutz"
+    },
+    {
+     "id": "retailers/126879",
+     "uniqueName": "toom-baumarkt",
+     "name": "toom Baumarkt"
+    },
+    {
+     "id": "retailers/126708",
+     "uniqueName": "moebel-inhofer",
+     "name": "Möbel Inhofer"
+    },
+    {
+     "id": "retailers/126735",
+     "uniqueName": "netto-marken-discount",
+     "name": "Netto Marken-Discount"
+    }
+   ]
+  },
+  "56593": {
+   "totalResults": 16,
+   "skippedResults": 0,
+   "results": [
+    {
+     "id": "retailers/126679",
+     "uniqueName": "lidl",
+     "name": "Lidl"
+    },
+    {
+     "id": "retailers/126765",
+     "uniqueName": "penny",
+     "name": "PENNY"
+    },
+    {
+     "id": "retailers/126641",
+     "uniqueName": "kabs-polsterwelt",
+     "name": "Kabs PolsterWelt"
+    },
+    {
+     "id": "retailers/126814",
+     "uniqueName": "bosch-car-service",
+     "name": "Bosch Car Service"
+    },
+    {
+     "id": "retailers/126660",
+     "uniqueName": "kik",
+     "name": "KiK"
+    },
+    {
+     "id": "retailers/126753",
+     "uniqueName": "opti-wohnwelt",
+     "name": "Opti Wohnwelt"
+    },
+    {
+     "id": "retailers/136786",
+     "uniqueName": "opti-megastore",
+     "name": "Opti-MegaStore"
+    },
+    {
+     "id": "retailers/126783",
+     "uniqueName": "porta",
+     "name": "porta"
+    },
+    {
+     "id": "retailers/127153",
+     "uniqueName": "aldi-sued",
+     "name": "ALDI SÜD"
+    },
+    {
+     "id": "retailers/126750",
+     "uniqueName": "obi",
+     "name": "OBI"
+    },
+    {
+     "id": "retailers/126811",
+     "uniqueName": "rossmann",
+     "name": "ROSSMANN"
+    },
+    {
+     "id": "retailers/136512",
+     "uniqueName": "xxxl-express",
+     "name": "XXXL Express"
+    },
+    {
+     "id": "retailers/126927",
+     "uniqueName": "xxxl",
+     "name": "XXXLutz"
+    },
+    {
+     "id": "retailers/126879",
+     "uniqueName": "toom-baumarkt",
+     "name": "toom Baumarkt"
+    },
+    {
+     "id": "retailers/126708",
+     "uniqueName": "moebel-inhofer",
+     "name": "Möbel Inhofer"
+    },
+    {
+     "id": "retailers/126735",
+     "uniqueName": "netto-marken-discount",
+     "name": "Netto Marken-Discount"
+    }
+   ]
+  }
+ },
+ "catalogs": {
+  "rewe-petz@57610": [
+   {
+    "id": 25624937,
+    "description": "mild gesäuert, je 250-g-Pckg.",
+    "product": {
+     "id": 374241,
+     "name": "Markenbutter"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 126297,
+     "name": "ja!",
+     "uniqueName": "ja"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.15,
+    "oldPrice": 0.0,
+    "referencePrice": 4.6,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25523577,
+    "description": "3,8% Fett, je 1-l-Pckg.",
+    "product": {
+     "id": 630387,
+     "name": "Bio Weidemilch"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 135744,
+     "name": "Die faire Milch",
+     "uniqueName": "die-faire-milch"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 1.59,
+    "oldPrice": 0.0,
+    "referencePrice": 1.59,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25519152,
+    "description": "vom Rind und Schwein, je 100 g",
+    "product": {
+     "id": 972137,
+     "name": "Hackfleisch gemischt"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 125322,
+     "name": "thisisnobrand123",
+     "uniqueName": "thisisnobrand123"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.11,
+    "oldPrice": 0.0,
+    "referencePrice": 11.1,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25520887,
+    "description": "HINWEIS: MIT APP 0,10 € REWE BONUS  je 200-g-Becher",
+    "product": {
+     "id": 1321038,
+     "name": "Quäse Körniger Frischkäse"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 126217,
+     "name": "Loose",
+     "uniqueName": "loose"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.69,
+    "oldPrice": 0.0,
+    "referencePrice": 8.45,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25520867,
+    "description": "HINWEIS: MIT APP 0,10 € REWE BONUS frz. Schnittkäse, je 150-g-Pckg.",
+    "product": {
+     "id": 331290,
+     "name": "Classic"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 109893,
+     "name": "Fol Epi",
+     "uniqueName": "fol-epi"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.49,
+    "oldPrice": 0.0,
+    "referencePrice": 9.93,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25518997,
+    "description": "HINWEIS: MIT APP 0,20 € REWE BONUS und Duschcreme versch. Sorten, je 250-ml-Fl.",
+    "product": {
+     "id": 42764,
+     "name": "Duschgel"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 108466,
+     "name": "Fa",
+     "uniqueName": "fa"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 1.19,
+    "oldPrice": 0.0,
+    "referencePrice": 4.76,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25519027,
+    "description": "Edition »Aurora«, 3-lagig, je 16 x 150-Blatt-Pckg.",
+    "product": {
+     "id": 809049,
+     "name": "Toilettenpapier"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 140383,
+     "name": "The Papermakers",
+     "uniqueName": "the-papermakers"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 5.49,
+    "oldPrice": 0.0,
+    "referencePrice": 0.34,
+    "volume": 1,
+    "quantity": 16,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25520462,
+    "description": "je 250-g-Becher",
+    "product": {
+     "id": 503468,
+     "name": "Feines Butter-Schmalz"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 118049,
+     "name": "Meggle",
+     "uniqueName": "meggle"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 3.33,
+    "oldPrice": 0.0,
+    "referencePrice": 13.32,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25516992,
+    "description": "Kl. I, je 1-kg-Btl., Naturland",
+    "product": {
+     "id": 199458,
+     "name": "Bio-Speisemöhren"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 121227,
+     "name": "Rewe Bio",
+     "uniqueName": "rewe-bio"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.29,
+    "oldPrice": 0.0,
+    "referencePrice": 1.29,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25519587,
+    "description": "versch. Sorten, je 1-l-Pckg.",
+    "product": {
+     "id": 320932,
+     "name": "H-Milch"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 100564,
+     "name": "Schwälbchen",
+     "uniqueName": "schwaelbchen"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 0.99,
+    "oldPrice": 0.0,
+    "referencePrice": 0.99,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25521847,
+    "description": "Details im Prospekt",
+    "product": {
+     "id": 1359857,
+     "name": "LED Tischleuchte"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 152752,
+     "name": "Best Sellers",
+     "uniqueName": "best-sellers"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 9.99,
+    "oldPrice": 0.0,
+    "referencePrice": 9.99,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 24976118,
+    "description": "je 140-g-Pckg. oder Schafskäse Natur je 180-g-Pckg.",
+    "product": {
+     "id": 1266923,
+     "name": "Marinierte Würfel"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 121772,
+     "name": "Salakis",
+     "uniqueName": "salakis"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 2.22,
+    "oldPrice": 0.0,
+    "referencePrice": 15.86,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-09-20T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   },
+   {
+    "id": 24976138,
+    "description": "versch. Sorten, je 12 x 1-l-Fl.-Kasten zzgl. 3.30 Pfand",
+    "product": {
+     "id": 161317,
+     "name": "Limonade"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 105823,
+     "name": "Deit",
+     "uniqueName": "deit"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 10.49,
+    "oldPrice": 0.0,
+    "referencePrice": 0.87,
+    "volume": 1,
+    "quantity": 12,
+    "validFrom": "2026-09-20T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   },
+   {
+    "id": 24976158,
+    "description": "oder Export je 20 x 0,5-l-Fl.- Kasten zzgl. 3.10 Pfand",
+    "product": {
+     "id": 204247,
+     "name": "Sachsenschlösser Pils"
+    },
+    "retailer": {
+     "id": 128150,
+     "name": "REWE Petz",
+     "uniqueName": "rewe-petz"
+    },
+    "brand": {
+     "id": 126022,
+     "name": "Einsiedler",
+     "uniqueName": "einsiedler"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 8.49,
+    "oldPrice": 0.0,
+    "referencePrice": 0.85,
+    "volume": 0,
+    "quantity": 20,
+    "validFrom": "2026-09-20T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   }
+  ],
+  "netto-marken-discount@57632": [
+   {
+    "id": 25536612,
+    "description": "oder Extra gekühlt, versch. Sorten 250 g, ab einem Einkaufswert von 30 Euro 0.99",
+    "product": {
+     "id": 321769,
+     "name": "Original Irische Butter"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 114952,
+     "name": "Kerrygold",
+     "uniqueName": "kerrygold"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.79,
+    "oldPrice": 0.0,
+    "referencePrice": 7.16,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25536552,
+    "description": "HINWEIS: MIT NETTO PLUS APP 2.29 € Deutschland, Unsere Besten versch. Kocheigenschaften 2,5 kg Netz",
+    "product": {
+     "id": 465457,
+     "name": "Speisekartoffeln"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 120197,
+     "name": "Pfanni",
+     "uniqueName": "pfanni"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 2.49,
+    "oldPrice": 0.0,
+    "referencePrice": 1.0,
+    "volume": 2,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25535217,
+    "description": "aus 50 % Schwein und 50 % Rind 800 g",
+    "product": {
+     "id": 662328,
+     "name": "XXL Hackfleisch gemischt"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 108848,
+     "name": "Gut Ponholz",
+     "uniqueName": "gut-ponholz"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 5.49,
+    "oldPrice": 0.0,
+    "referencePrice": 6.86,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25540342,
+    "description": "1 kg Netz Deutschland, Kl. II",
+    "product": {
+     "id": 708514,
+     "name": "Zwiebeln"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 138013,
+     "name": "Heimat",
+     "uniqueName": "heimat"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.19,
+    "oldPrice": 0.0,
+    "referencePrice": 1.19,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25537622,
+    "description": "gekühlt, 3,5% Fett 1 Liter",
+    "product": {
+     "id": 217967,
+     "name": "Frische Vollmilch"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 109546,
+     "name": "Gutes Land",
+     "uniqueName": "gutes-land"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 0.95,
+    "oldPrice": 0.0,
+    "referencePrice": 0.95,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25538117,
+    "description": "3,5% Fett 12 x 1 Liter. Einzelpreis: 0.95",
+    "product": {
+     "id": 483127,
+     "name": "H-Vollmilch"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 109546,
+     "name": "Gutes Land",
+     "uniqueName": "gutes-land"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 8.88,
+    "oldPrice": 0.0,
+    "referencePrice": 0.74,
+    "volume": 1,
+    "quantity": 12,
+    "validFrom": "2026-11-06T23:00:00Z",
+    "validTo": "2026-11-07T22:59:00Z"
+   },
+   {
+    "id": 25536497,
+    "description": "versch. Sorten 76 WL – 100 WL",
+    "product": {
+     "id": 69067,
+     "name": "Waschmittel"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 120136,
+     "name": "Persil",
+     "uniqueName": "persil"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 16.99,
+    "oldPrice": 0.0,
+    "referencePrice": 0.22,
+    "volume": 1,
+    "quantity": 76,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25541912,
+    "description": "2 Stück Spanien/Türkei, Kl. I Einzelpreis: 1.29",
+    "product": {
+     "id": 80137,
+     "name": "Granatapfel"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 125322,
+     "name": "thisisnobrand123",
+     "uniqueName": "thisisnobrand123"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 1.9,
+    "oldPrice": 0.0,
+    "referencePrice": 0.95,
+    "volume": 1,
+    "quantity": 2,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25536487,
+    "description": "Kaffee gemahlen oder ganze Bohnen, versch. Sorten 500 g",
+    "product": {
+     "id": 366438,
+     "name": "Prodomo Kaffee"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 105457,
+     "name": "Dallmayr",
+     "uniqueName": "dallmayr"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 6.49,
+    "oldPrice": 0.0,
+    "referencePrice": 12.98,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25535107,
+    "description": "2 kg Beutel Deutschland, Kl. I",
+    "product": {
+     "id": 708185,
+     "name": "Möhren"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 138013,
+     "name": "Heimat",
+     "uniqueName": "heimat"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.19,
+    "oldPrice": 0.0,
+    "referencePrice": 0.59,
+    "volume": 2,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25029363,
+    "description": "0,5 Liter zzgl. Pfand 0.25",
+    "product": {
+     "id": 1326308,
+     "name": "5,0 Original Alkoholfrei"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 126259,
+     "name": "Oettinger",
+     "uniqueName": "oettinger"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 0.59,
+    "oldPrice": 0.0,
+    "referencePrice": 1.18,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-09-20T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   },
+   {
+    "id": 25029403,
+    "description": "oder Landschinken 60 g - 70 g über Buchenholz geräuchert",
+    "product": {
+     "id": 165411,
+     "name": "Lachsschinken"
+    },
+    "retailer": {
+     "id": 126735,
+     "name": "Netto Marken-Discount",
+     "uniqueName": "netto-marken-discount"
+    },
+    "brand": {
+     "id": 101312,
+     "name": "Radeberger Fleischwaren",
+     "uniqueName": "radeberger-fleischwaren"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.19,
+    "oldPrice": 0.0,
+    "referencePrice": 19.83,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-09-20T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   }
+  ],
+  "lidl@56593": [
+   {
+    "id": 25545977,
+    "description": "HINWEIS: MIT LIDL PLUS APP 3,8% Fett. Gekühlt. Je 1l. Normalpreis: 1.35. Bioland",
+    "product": {
+     "id": 34983,
+     "name": "Frische Bio-Vollmilch"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118332,
+     "name": "Milbona",
+     "uniqueName": "milbona"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 1.19,
+    "oldPrice": 0.0,
+    "referencePrice": 1.19,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:00Z"
+   },
+   {
+    "id": 25581307,
+    "description": "HINWEIS: MIT LIDL PLUS APP 1kg, Normalpreis 5.59",
+    "product": {
+     "id": 650097,
+     "name": "Hähnchen Unterkeulen"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118268,
+     "name": "Metzgerfrisch",
+     "uniqueName": "Metzgerfrisch"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 4.39,
+    "oldPrice": 0.0,
+    "referencePrice": 4.39,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25496007,
+    "description": "Bioalnd. Gekühlt. Je 250 g. Normalpreis: 2.69",
+    "product": {
+     "id": 1082495,
+     "name": "Süßrahmbutter"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118332,
+     "name": "Milbona",
+     "uniqueName": "milbona"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 2.42,
+    "oldPrice": 0.0,
+    "referencePrice": 9.68,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25495982,
+    "description": "Mind. 30 % Fett. Gekühlt. Je 200 g. Normalpreis: 0.89",
+    "product": {
+     "id": 77245,
+     "name": "Schlagsahne"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118332,
+     "name": "Milbona",
+     "uniqueName": "milbona"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 0.69,
+    "oldPrice": 0.0,
+    "referencePrice": 3.45,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25478762,
+    "description": "Je 250 g",
+    "product": {
+     "id": 568826,
+     "name": "Butter-Spekulatius"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 108833,
+     "name": "Favorina",
+     "uniqueName": "favorina"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.99,
+    "oldPrice": 0.0,
+    "referencePrice": 7.96,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25482637,
+    "description": "250g",
+    "product": {
+     "id": 164114,
+     "name": "Kaergarden Butter"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 114401,
+     "name": "Arla",
+     "uniqueName": "arla"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.39,
+    "oldPrice": 0.0,
+    "referencePrice": 5.56,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25479172,
+    "description": "HINWEIS: MIT LIDL PLUS APP 1.29 € 390g",
+    "product": {
+     "id": 1276931,
+     "name": "Tomatensauce"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 150138,
+     "name": "Tomato al Gusto",
+     "uniqueName": "tomato-al-gusto"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.49,
+    "oldPrice": 0.0,
+    "referencePrice": 3.82,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25478687,
+    "description": "Versch. Sorten. Je 500 g",
+    "product": {
+     "id": 831362,
+     "name": "Bio Spaghetti"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 104626,
+     "name": "Combino",
+     "uniqueName": "Combino"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 0.85,
+    "oldPrice": 0.0,
+    "referencePrice": 1.7,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-04T23:00:00Z",
+    "validTo": "2026-11-07T22:59:00Z"
+   },
+   {
+    "id": 25581292,
+    "description": "500g",
+    "product": {
+     "id": 640183,
+     "name": "Rinderhackfleisch"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118268,
+     "name": "Metzgerfrisch",
+     "uniqueName": "Metzgerfrisch"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 4.49,
+    "oldPrice": 0.0,
+    "referencePrice": 8.98,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25495967,
+    "description": "3,5% Fett. Je 1 l. Normalpreis: 1.19",
+    "product": {
+     "id": 1069033,
+     "name": "Laktosefrei H-­Vollmilch"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118332,
+     "name": "Milbona",
+     "uniqueName": "milbona"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 0.89,
+    "oldPrice": 0.0,
+    "referencePrice": 0.89,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25654412,
+    "description": "Details im Prospekt",
+    "product": {
+     "id": 360628,
+     "name": "Damen-Funktionsshirt"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 105205,
+     "name": "Crivit",
+     "uniqueName": "crivit"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 3.99,
+    "oldPrice": 0.0,
+    "referencePrice": 3.99,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-04T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25477702,
+    "description": "Details im Prospekt",
+    "product": {
+     "id": 1338303,
+     "name": "Kaffeevollautomat Sensation EA910A"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 115735,
+     "name": "Krups",
+     "uniqueName": "krups"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 299.0,
+    "oldPrice": 0.0,
+    "referencePrice": 299.0,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-01T23:00:00Z",
+    "validTo": "2026-11-07T22:59:59Z"
+   },
+   {
+    "id": 25477587,
+    "description": "HINWEIS: NUR ONLINE VERFÜGBAR DOC, Rotwein, halbtrocken Apulien/Italien Je 0,75 l",
+    "product": {
+     "id": 685343,
+     "name": "Identità Primitivo di Manduria"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 125322,
+     "name": "thisisnobrand123",
+     "uniqueName": "thisisnobrand123"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 6.99,
+    "oldPrice": 0.0,
+    "referencePrice": 9.32,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-10-24T22:00:00Z",
+    "validTo": "2026-11-07T22:59:00Z"
+   },
+   {
+    "id": 25478862,
+    "description": "HINWEIS: MIT LIDL PLUS APP 1.59 € 190g/185g",
+    "product": {
+     "id": 441764,
+     "name": "Intermezzo"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 106999,
+     "name": "Dr. Oetker",
+     "uniqueName": "dr-oetker"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.79,
+    "oldPrice": 0.0,
+    "referencePrice": 9.42,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-04T23:00:00Z",
+    "validTo": "2026-11-07T22:59:00Z"
+   },
+   {
+    "id": 25588082,
+    "description": "Streichzart Streichzart in versch. Sorten. Gekühlt. Je 250 g",
+    "product": {
+     "id": 64482,
+     "name": "Feine Butter"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 118049,
+     "name": "Meggle",
+     "uniqueName": "meggle"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.49,
+    "oldPrice": 0.0,
+    "referencePrice": 5.96,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-14T22:59:59Z"
+   },
+   {
+    "id": 25582642,
+    "description": "4-lagig. Je 20x 180 Blatt Standardpackung: 10 Rollen",
+    "product": {
+     "id": 336278,
+     "name": "Toilettenpapier XXL"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 109856,
+     "name": "Floralys",
+     "uniqueName": "floralys"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 7.39,
+    "oldPrice": 0.0,
+    "referencePrice": 0.37,
+    "volume": 1,
+    "quantity": 20,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-14T22:59:59Z"
+   },
+   {
+    "id": 25482732,
+    "description": "Gel oder Pulver. Je 100 Waschladungen",
+    "product": {
+     "id": 323240,
+     "name": "Waschmittel"
+    },
+    "retailer": {
+     "id": 126679,
+     "name": "Lidl",
+     "uniqueName": "lidl"
+    },
+    "brand": {
+     "id": 105701,
+     "name": "Dash",
+     "uniqueName": "dash"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 8.49,
+    "oldPrice": 0.0,
+    "referencePrice": 0.08,
+    "volume": 1,
+    "quantity": 100,
+    "validFrom": "2026-11-04T23:00:00Z",
+    "validTo": "2026-11-07T22:59:00Z"
+   }
+  ],
+  "rossmann@56593": [
+   {
+    "id": 25650832,
+    "description": "HINWEIS: MIT ROSSMANN APP COUPON  0.80 € 500 ml",
+    "product": {
+     "id": 165214,
+     "name": "Spülmittel"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 106775,
+     "name": "Domol",
+     "uniqueName": "domol"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 0.99,
+    "oldPrice": 0.0,
+    "referencePrice": 1.98,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25644702,
+    "description": "20 WL oder Pods 15 WL",
+    "product": {
+     "id": 83582,
+     "name": "Waschmittel Flüssig"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 116708,
+     "name": "Lenor",
+     "uniqueName": "lenor"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 4.99,
+    "oldPrice": 0.0,
+    "referencePrice": 0.25,
+    "volume": 1,
+    "quantity": 20,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25653012,
+    "description": "200 g",
+    "product": {
+     "id": 8971,
+     "name": "Leibniz Butterkeks"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 119811,
+     "name": "Bahlsen",
+     "uniqueName": "bahlsen"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 1.29,
+    "oldPrice": 0.0,
+    "referencePrice": 6.45,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25653582,
+    "description": "oder Spülung je 200 ml",
+    "product": {
+     "id": 139354,
+     "name": "Shampoo"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 108424,
+     "name": "Alterra",
+     "uniqueName": "alterra"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 1.29,
+    "oldPrice": 0.0,
+    "referencePrice": 6.45,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25653282,
+    "description": "150 ml",
+    "product": {
+     "id": 101608,
+     "name": "Deospray"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 100820,
+     "name": "Bruno Banani",
+     "uniqueName": "bruno-banani"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 3.29,
+    "oldPrice": 0.0,
+    "referencePrice": 21.93,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25653127,
+    "description": "500 g",
+    "product": {
+     "id": 37275,
+     "name": "Cappuccino"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 115725,
+     "name": "Krüger",
+     "uniqueName": "krueger"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 2.79,
+    "oldPrice": 4.99,
+    "referencePrice": 5.58,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25648342,
+    "description": "20 Beutel/30 - 60 g",
+    "product": {
+     "id": 71800,
+     "name": "Beuteltee"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 100416,
+     "name": "King's Crown",
+     "uniqueName": "kings-crown"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 0.99,
+    "oldPrice": 1.19,
+    "referencePrice": 0.05,
+    "volume": 1,
+    "quantity": 20,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25645072,
+    "description": "Details im Prospekt",
+    "product": {
+     "id": 1369022,
+     "name": "Weihnachts Diamant-Sticker-Malbuch"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 113627,
+     "name": "Rossmann Ideenwelt",
+     "uniqueName": "ideen-welt"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 3.99,
+    "oldPrice": 0.0,
+    "referencePrice": 3.99,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25654697,
+    "description": "HINWEIS: MIT ROSSMANN APP COUPON  6.80 € oder Nachtcreme je 50 ml",
+    "product": {
+     "id": 622755,
+     "name": "Hydro Boost Aqua Creme"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 119116,
+     "name": "Neutrogena",
+     "uniqueName": "neutrogena"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 8.49,
+    "oldPrice": 0.0,
+    "referencePrice": 169.8,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 25650997,
+    "description": "oder Latex je 60 Stück",
+    "product": {
+     "id": 71414,
+     "name": "Einmal-Handschuhe Nitril"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 109824,
+     "name": "Flink & Sauber",
+     "uniqueName": "flink-sauber"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 4.49,
+    "oldPrice": 4.99,
+    "referencePrice": 0.07,
+    "volume": 1,
+    "quantity": 60,
+    "validFrom": "2026-11-08T23:00:00Z",
+    "validTo": "2026-11-13T22:59:59Z"
+   },
+   {
+    "id": 24964303,
+    "description": "HINWEIS: MIT ROSSMANN APP COUPON  2.64 € Bio 30,6 - 37,4 g",
+    "product": {
+     "id": 395001,
+     "name": "Basische Kräutertees"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 126418,
+     "name": "Yogi Tea",
+     "uniqueName": "yogi-tea"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 3.29,
+    "oldPrice": 0.0,
+    "referencePrice": 106.13,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-09-20T22:00:00Z",
+    "validTo": "2026-09-25T21:59:00Z"
+   },
+   {
+    "id": 24964383,
+    "description": "HINWEIS: MIT ROSSMANN APP COUPON  0.72 €  Naturland 1 Liter",
+    "product": {
+     "id": 874674,
+     "name": "Haferdrink Natur"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 101310,
+     "name": "enerBiO",
+     "uniqueName": "enerbio"
+    },
+    "unit": {
+     "shortName": "l",
+     "id": 1,
+     "name": "Liter"
+    },
+    "price": 0.89,
+    "oldPrice": 0.0,
+    "referencePrice": 0.89,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2026-08-30T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   },
+   {
+    "id": 24964403,
+    "description": "HINWEIS: MIT ROSSMANN APP COUPON  2.40 € 500 g",
+    "product": {
+     "id": 1310383,
+     "name": "Bio Rosinen"
+    },
+    "retailer": {
+     "id": 126811,
+     "name": "ROSSMANN",
+     "uniqueName": "rossmann"
+    },
+    "brand": {
+     "id": 101310,
+     "name": "enerBiO",
+     "uniqueName": "enerbio"
+    },
+    "unit": {
+     "shortName": "kg",
+     "id": 2,
+     "name": "Kilogramm"
+    },
+    "price": 2.99,
+    "oldPrice": 0.0,
+    "referencePrice": 5.98,
+    "volume": 0,
+    "quantity": 1,
+    "validFrom": "2026-08-30T22:00:00Z",
+    "validTo": "2026-09-26T21:59:00Z"
+   }
+  ],
+  "norma@57632": [
+   {
+    "id": 13140383,
+    "description": "Ø 26x23cm//12 Liter mit Glasdeckel Thermo-Energiesparboden Edelstahlgriffe mit Fingerschutz Ideal für Gastro, Großküchen und Vereine Inkl. Glasdeckel mit Dampfloch",
+    "product": {
+     "id": 245046,
+     "name": "XXL-Edelstahl Jumbotopf"
+    },
+    "retailer": {
+     "id": 126745,
+     "name": "NORMA",
+     "uniqueName": "norma"
+    },
+    "brand": {
+     "id": 104699,
+     "name": "Casa Royale",
+     "uniqueName": "casa-royale"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 19.99,
+    "oldPrice": 0.0,
+    "referencePrice": 19.98,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2024-10-13T22:00:00Z",
+    "validTo": "2024-10-19T21:59:00Z"
+   },
+   {
+    "id": 13139760,
+    "description": "ca. 45 x 36 x 3,3 cm Extra hoch 5 cm",
+    "product": {
+     "id": 132407,
+     "name": "Tranchierbrett"
+    },
+    "retailer": {
+     "id": 126745,
+     "name": "NORMA",
+     "uniqueName": "norma"
+    },
+    "brand": {
+     "id": 114964,
+     "name": "Kesper",
+     "uniqueName": "kesper"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 19.99,
+    "oldPrice": 0.0,
+    "referencePrice": 19.98,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2024-10-13T22:00:00Z",
+    "validTo": "2024-10-19T21:59:00Z"
+   },
+   {
+    "id": 13139892,
+    "description": "ab 4.99 mit Bambus-Deckel „Quadratisch“ Aus robustem Borosilikatglas Luftdichter Deckel durch Silikonring ca. 600ml/ ca. 10 x 10 x 8,5 cm oder ca. 800ml/ ca. 10 x 10 x 11 cm 4.99, ca. 1100ml/ ca. 10 x 10 x 14,5 cm oder ca. 1500ml/ ca. 10 x 10 x 19,5 cm 5.99",
+    "product": {
+     "id": 360692,
+     "name": "Aufbewahrungsglas"
+    },
+    "retailer": {
+     "id": 126745,
+     "name": "NORMA",
+     "uniqueName": "norma"
+    },
+    "brand": {
+     "id": 126526,
+     "name": "Casa Nova",
+     "uniqueName": "casa-nova"
+    },
+    "unit": {
+     "shortName": "Stk",
+     "id": 3,
+     "name": "Stück"
+    },
+    "price": 4.99,
+    "oldPrice": 0.0,
+    "referencePrice": 4.99,
+    "volume": 1,
+    "quantity": 1,
+    "validFrom": "2024-10-13T22:00:00Z",
+    "validTo": "2024-10-19T21:59:00Z"
+   }
+  ]
+ },
+ "leaflets": {
+  "discounter@57632": {
+   "totalResults": 11,
+   "skippedResults": 0,
+   "results": [
+    {
+     "id": 301077,
+     "advertiser": {
+      "id": "retailers/126679",
+      "name": "Lidl",
+      "uniqueName": "lidl"
+     },
+     "mainLeafletId": 6558987,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-01T23:00:00Z",
+     "validTo": "2026-11-07T22:59:59Z",
+     "pageCount": 75,
+     "offerCount": 662
+    },
+    {
+     "id": 300842,
+     "advertiser": {
+      "id": "retailers/126679",
+      "name": "Lidl",
+      "uniqueName": "lidl"
+     },
+     "mainLeafletId": 6551877,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-08T23:00:00Z",
+     "validTo": "2026-11-14T22:59:59Z",
+     "pageCount": 73,
+     "offerCount": 619
+    },
+    {
+     "id": 300707,
+     "advertiser": {
+      "id": "retailers/126765",
+      "name": "PENNY",
+      "uniqueName": "penny"
+     },
+     "mainLeafletId": 6531552,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-01T23:00:00Z",
+     "validTo": "2026-11-07T22:59:59Z",
+     "pageCount": 54,
+     "offerCount": 347
+    },
+    {
+     "id": 300997,
+     "advertiser": {
+      "id": "retailers/127153",
+      "name": "ALDI SÜD",
+      "uniqueName": "aldi-sued"
+     },
+     "mainLeafletId": 6557897,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-08T23:00:00Z",
+     "validTo": "2026-11-14T22:59:59Z",
+     "pageCount": 32,
+     "offerCount": 240
+    },
+    {
+     "id": 300142,
+     "advertiser": {
+      "id": "retailers/127153",
+      "name": "ALDI SÜD",
+      "uniqueName": "aldi-sued"
+     },
+     "mainLeafletId": 6487827,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-01T23:00:00Z",
+     "validTo": "2026-11-07T22:59:00Z",
+     "pageCount": 32,
+     "offerCount": 236
+    },
+    {
+     "id": 301097,
+     "advertiser": {
+      "id": "retailers/127153",
+      "name": "ALDI SÜD",
+      "uniqueName": "aldi-sued"
+     },
+     "mainLeafletId": 6559187,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-15T23:00:00Z",
+     "validTo": "2026-11-21T22:59:59Z",
+     "pageCount": 25,
+     "offerCount": 143
+    },
+    {
+     "id": 301017,
+     "advertiser": {
+      "id": "retailers/127153",
+      "name": "ALDI SÜD",
+      "uniqueName": "aldi-sued"
+     },
+     "mainLeafletId": 6557922,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-22T23:00:00Z",
+     "validTo": "2026-11-28T22:59:59Z",
+     "pageCount": 24,
+     "offerCount": 131
+    },
+    {
+     "id": 300452,
+     "advertiser": {
+      "id": "retailers/126745",
+      "name": "NORMA",
+      "uniqueName": "norma"
+     },
+     "mainLeafletId": 6500922,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-08T23:00:00Z",
+     "validTo": "2026-11-14T22:59:00Z",
+     "pageCount": 30,
+     "offerCount": 0
+    },
+    {
+     "id": 299422,
+     "advertiser": {
+      "id": "retailers/126745",
+      "name": "NORMA",
+      "uniqueName": "norma"
+     },
+     "mainLeafletId": 6453737,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-01T23:00:00Z",
+     "validTo": "2026-11-07T22:59:00Z",
+     "pageCount": 29,
+     "offerCount": 0
+    },
+    {
+     "id": 299427,
+     "advertiser": {
+      "id": "retailers/126735",
+      "name": "Netto Marken-Discount",
+      "uniqueName": "netto-marken-discount"
+     },
+     "mainLeafletId": 6453747,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-10-31T23:00:00Z",
+     "validTo": "2026-11-30T22:59:00Z",
+     "pageCount": 20,
+     "offerCount": 68
+    },
+    {
+     "id": 299647,
+     "advertiser": {
+      "id": "retailers/126735",
+      "name": "Netto Marken-Discount",
+      "uniqueName": "netto-marken-discount"
+     },
+     "mainLeafletId": 6479927,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-01T23:00:00Z",
+     "validTo": "2026-11-07T22:59:59Z",
+     "pageCount": 70,
+     "offerCount": 377
+    }
+   ]
+  },
+  "supermaerkte@56593": {
+   "totalResults": 1,
+   "skippedResults": 0,
+   "results": [
+    {
+     "id": 300442,
+     "advertiser": {
+      "id": "retailers/127093",
+      "name": "EDEKA",
+      "uniqueName": "edeka"
+     },
+     "mainLeafletId": 6498662,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-01T23:00:00Z",
+     "validTo": "2026-11-07T22:59:00Z",
+     "pageCount": 28,
+     "offerCount": 0
+    }
+   ]
+  },
+  "drogerie-gesundheit@56593": {
+   "totalResults": 1,
+   "skippedResults": 0,
+   "results": [
+    {
+     "id": 300807,
+     "advertiser": {
+      "id": "retailers/126811",
+      "name": "ROSSMANN",
+      "uniqueName": "rossmann"
+     },
+     "mainLeafletId": 6545292,
+     "mainLeafletPageIndex": 0,
+     "validFrom": "2026-11-08T23:00:00Z",
+     "validTo": "2026-11-13T22:59:59Z",
+     "pageCount": 26,
+     "offerCount": 331
+    }
+   ]
+  }
+ }
+}

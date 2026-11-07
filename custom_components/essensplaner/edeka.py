@@ -679,6 +679,13 @@ class EdekaSource(OnlinePriceSource):
                 }
             )
             manager.price_sources_meta[self.key] = meta
+            # the whole leaflet for "Alle Angebote meiner Läden" (offer catalog, 1.4); a
+            # market that failed this time keeps its offers there too
+            catalog = getattr(manager, "catalog", None)
+            if catalog is not None:
+                previous_offers = (catalog.bucket(SOURCE, RETAILER, None) or {}).get("offers")
+                kept_all = [o for o in previous_offers or [] if o.get("market_id") in failed]
+                catalog.put_source(manager, SOURCE, RETAILER, [*current, *kept_all])
             manager.replace_source_offers(SOURCE, [*matched, *kept], None)
             return True
         manager.price_sources_meta[self.key] = meta

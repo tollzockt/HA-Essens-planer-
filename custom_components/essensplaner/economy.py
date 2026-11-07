@@ -954,6 +954,8 @@ class EconomyMixin:
             "main_branch": self.main_branch,
             "main_retailer": self.main_retailer,
             "price_sources": self.price_sources_view(),
+            # all offers of the saved stores (1.4; the offers come via essensplaner/store_offers)
+            "catalog": self.catalog.summary(self),
         }
 
     def price_sources_view(self: EssensplanerManager) -> dict[str, Any]:

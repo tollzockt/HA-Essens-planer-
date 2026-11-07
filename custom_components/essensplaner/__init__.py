@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -14,7 +14,6 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later, async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.util import dt as dt_util
 
 from .aldi import (
     RETAILER as ALDI_SUED,
@@ -24,19 +23,18 @@ from .aldi import (
     async_refresh_aldi_prices,
 )
 from .articles import register_live_provider
+from .catalog import OfferCatalog, async_refresh_catalog, marktguru_enabled
 from .const import (
     CONF_IMPORT_STARTER,
     CONF_REGISTER_INTENTS,
     CONF_SHOW_PANEL,
     DOMAIN,
-    OFFERS_MARKTGURU,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
 from .edeka import SOURCE_EDEKA, async_refresh_edeka_offers, edeka_enabled
 from .intents import async_register_intents, async_remove_intents
 from .manager import EssensplanerManager
-from .offers import async_refresh_offers
 from .online_prices import STATUS_BLOCKED, STATUS_ERROR, OnlinePriceSource
 from .panel import (
     async_register_card,
@@ -122,8 +120,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
 
     entry.async_on_unload(async_track_time_change(hass, _new_day, hour=0, minute=1, second=0))
 
-    if manager.offers_source == OFFERS_MARKTGURU:
-        # postcodes come from the options or the branches (can change without a reload)
+    if marktguru_enabled(manager) or aldi_enabled(manager):
+        # the offer catalog of the saved stores (marktguru, ALDI SÜD weekly offers; EDEKA
+        # stores its own refresh there); postcodes come from the options or the branches
         _setup_offer_refresh(hass, entry, manager)
     if rewe_enabled(manager):
         # experimental REWE online prices (opt-in; options changes reload the entry)
@@ -156,7 +155,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     return True
 
 
-# seconds after start until the first REWE / ALDI SÜD / EDEKA check
+# seconds after start until the first offers / REWE / ALDI SÜD / EDEKA check
+OFFERS_START_DELAY = 90
 REWE_START_DELAY = 150
 ALDI_START_DELAY = 180
 EDEKA_START_DELAY = 120
@@ -170,18 +170,21 @@ def _daily_minute(entry: EssensplanerConfigEntry) -> int:
 def _setup_offer_refresh(
     hass: HomeAssistant, entry: EssensplanerConfigEntry, manager: EssensplanerManager
 ) -> None:
-    """Refresh offers once a day, shortly after start if they are stale and a minute after
-    a branch change that needs a postcode or chain not searched yet."""
+    """Check the offer catalog shortly after start and daily at 06:xx (it only fetches when
+    stale: 3 days, a new leaflet week, other stores) and a minute after a branch change
+    that needs a postcode or chain not fetched yet."""
 
     async def _async_refresh() -> None:
-        if not manager.offer_targets():
+        if marktguru_enabled(manager) and not manager.offer_targets() and not aldi_enabled(manager):
             return  # no zip code and no branch with a postcode yet
+        before = manager.catalog.data.get("last_run")
         try:
-            meta = await async_refresh_offers(hass, manager)
+            meta = await async_refresh_catalog(hass, manager, force=False)
         except Exception:
             _LOGGER.exception("Refreshing offers failed")
             return
-        if meta.get("status") == "error":
+        ran = manager.catalog.data.get("last_run") != before
+        if ran and meta.get("status") in ("error", "blocked"):
             _LOGGER.warning("Essensplaner offers: %s", "; ".join(meta.get("errors") or []))
         # a branch saved while this (or the joined) refresh ran: its postcode was not
         # searched yet (the run's targets are in offers_meta, so this ends)
@@ -192,12 +195,8 @@ def _setup_offer_refresh(
         # tied to the entry: cancelled on unload / reload, does not delay a restart
         entry.async_create_background_task(hass, _async_refresh(), "essensplaner_offers")
 
-    last = manager.offers_meta.get("last_update")
-    stale = True
-    if last and (parsed := dt_util.parse_datetime(last)):
-        stale = dt_util.utcnow() - parsed > timedelta(hours=20)
-    if stale:
-        entry.async_on_unload(async_call_later(hass, 90, _refresh))
+    # shortly after start (sends nothing while the catalog is fresh)
+    entry.async_on_unload(async_call_later(hass, OFFERS_START_DELAY, _refresh))
     # a new branch at a postcode (or of a chain) not searched yet: search shortly after
     entry.async_on_unload(manager.enable_offer_refresh(_refresh))
     # spread the daily request over the morning (stable per installation)
@@ -277,11 +276,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry
     if unload_ok:
         manager = entry.runtime_data
         await manager.async_save_now()
+        await manager.catalog.async_save()
         # refreshes still running (services, panel) must not write over the new manager's data
         manager.unloaded = True
+        manager.catalog.unloaded = True
     return unload_ok
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove stored data when the integration is deleted."""
+    """Remove stored data when the integration is deleted (also the offer catalog)."""
     await Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}.{entry.entry_id}").async_remove()
+    await OfferCatalog(hass, entry.entry_id).async_remove()

@@ -21,6 +21,8 @@ from custom_components.essensplaner.const import (
 )
 from custom_components.essensplaner.offers import MARKTGURU_API, MARKTGURU_HOME
 
+from .mg_catalog import PUBLISHERS_URL, catalog_calls, mock_catalog
+
 TODO = "todo.essensplaner_shopping_list"
 
 
@@ -242,48 +244,50 @@ def _mg_offer(offer_id, product, store_id, store, price, old=None, ref=None, uni
 async def test_marktguru_refresh(
     hass: HomeAssistant, config_entry: MockConfigEntry, freezer, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """Offers are fetched, filtered by store, matched to ingredients and prices learned."""
+    """Offers are fetched, filtered by store, matched to ingredients and prices learned.
+
+    1.4: the catalogs of the selected chains are fetched (one per chain) and matched
+    locally; the live search still uses the search."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        f"{MARKTGURU_API}/offers/search",
-        json={
-            "results": [
-                _mg_offer(
-                    1,
-                    "Hähnchenbrustfilet",
-                    "lidl",
-                    "Lidl",
-                    4.99,
-                    7.49,
-                    4.99,
-                    "kg",
-                    "je 1-kg-Packung",
-                ),
-                _mg_offer(
-                    2,
-                    "Hähnchenbrustfilet",
-                    "metro",
-                    "Metro",
-                    3.99,
-                    None,
-                    3.99,
-                    "kg",
-                    "je 1-kg-Packung",
-                ),
-                _mg_offer(
-                    3,
-                    "Milchschokolade",
-                    "aldi-sued",
-                    "Aldi Süd",
-                    0.79,
-                    None,
-                    7.90,
-                    "kg",
-                    "100-g-Tafel",
-                ),
-            ]
-        },
-    )
+    results = {
+        "results": [
+            _mg_offer(
+                1,
+                "Hähnchenbrustfilet",
+                "lidl",
+                "Lidl",
+                4.99,
+                7.49,
+                4.99,
+                "kg",
+                "je 1-kg-Packung",
+            ),
+            _mg_offer(
+                2,
+                "Hähnchenbrustfilet",
+                "metro",
+                "Metro",
+                3.99,
+                None,
+                3.99,
+                "kg",
+                "je 1-kg-Packung",
+            ),
+            _mg_offer(
+                3,
+                "Milchschokolade",
+                "aldi-sued",
+                "Aldi Süd",
+                0.79,
+                None,
+                7.90,
+                "kg",
+                "100-g-Tafel",
+            ),
+        ]
+    }
+    mock_catalog(aioclient_mock, results["results"])
+    aioclient_mock.get(f"{MARKTGURU_API}/offers/search", json=results)
     await _setup(
         hass,
         config_entry,
@@ -299,14 +303,15 @@ async def test_marktguru_refresh(
     assert all(o["title"] != "Milchschokolade" for o in offers)  # does not match an ingredient
     lidl = next(o for o in offers if o["store"] == "Lidl")
     assert lidl["discount"] == 33
-    assert lidl["image"].endswith("/1/images/default/0/medium.jpg")
+    assert lidl["image"] == "https://cdn.marktguru.de/api/v1/offers/1/images/default/0/small.webp"
     # regular price learned from the old price
     manager = config_entry.runtime_data
     assert manager.prices_learned["haehnchenbrust"]["price"] == 7.49
-    # request carried the scraped keys and zip code
-    request = next(c for c in aioclient_mock.mock_calls if "offers/search" in str(c[1]))
-    assert request[3]["x-apikey"] == "test-api"
-    assert "zipCode=10115" in str(request[1]) or request[2] is None or True
+    # requests carried the scraped keys and zip code; only the selected chains' catalogs
+    requests = catalog_calls(aioclient_mock)
+    assert all(c[3]["x-apikey"] == "test-api" for c in requests)
+    assert all(c[1].query["zipCode"] == "10115" for c in requests)
+    assert not [c for c in requests if "metro" in str(c[1])]
 
     search = await _call(hass, "search_offers", query="Hähnchenbrust")
     assert search["live"][0]["store"] == "Lidl"
@@ -388,7 +393,8 @@ def _searches(aioclient_mock: AiohttpClientMocker) -> list:
 async def test_marktguru_multi_postcode(
     hass: HomeAssistant, config_entry: MockConfigEntry, freezer, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """Offers per branch postcode: term limits, dedupe, retailer/branch tags, learned prices."""
+    """Offers per branch postcode: one catalog per chain and postcode (1.4), dedupe,
+    retailer/branch tags, learned prices."""
     chicken = _mg_offer(1, "Hähnchenbrustfilet", "lidl", "Lidl", 4.99, 7.49, 4.99, "kg", "1-kg")
     aldi_butter = _mg_offer(5, "Butter", "aldi-sued", "Aldi Süd", 1.69, 2.29, 6.76, "kg", "250 g")
     aldi_chicken = _mg_offer(6, "Hähnchenbrust", "aldi-sued", "Aldi Süd", 0.49, 0.99, 0.49, "kg")
@@ -398,16 +404,11 @@ async def test_marktguru_multi_postcode(
         9, "Butter", "edeka-suedwest", "EDEKA Südwest", 1.99, None, 7.96, "kg", "250 g"
     )
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        SEARCH_URL,
-        params={"zipCode": "80331"},
-        json={"results": [chicken, aldi_butter, aldi_chicken, rewe_butter, edeka_butter]},
-    )
-    aioclient_mock.get(
-        SEARCH_URL,
-        params={"zipCode": "85748"},
-        json={"results": [chicken, rewe_butter, penny_butter]},
-    )
+    first = [chicken, aldi_butter, aldi_chicken, rewe_butter, edeka_butter]
+    second = [chicken, rewe_butter, penny_butter]
+    mock_catalog(aioclient_mock, {"80331": first, "85748": second})
+    aioclient_mock.get(SEARCH_URL, params={"zipCode": "80331"}, json={"results": first})
+    aioclient_mock.get(SEARCH_URL, params={"zipCode": "85748"}, json={"results": second})
     await _setup(
         hass,
         config_entry,
@@ -431,9 +432,20 @@ async def test_marktguru_multi_postcode(
         {"zip_code": "80331", "retailers": ["aldi-sued", "lidl", "edeka"]},
         {"zip_code": "85748", "retailers": ["lidl", "rewe"]},
     ]
-    # main postcode: all 40 terms, further postcodes: 25 terms
-    zips = [c[1].query["zipCode"] for c in _searches(aioclient_mock)]
-    assert (zips.count("80331"), zips.count("85748")) == (40, 25)
+    # one catalog per selected chain and postcode (no search per term any more)
+    assert _searches(aioclient_mock) == []
+    fetched = sorted(
+        (c[1].path.split("/")[-2], c[1].query["zipCode"])
+        for c in catalog_calls(aioclient_mock)
+        if c[1].path.endswith("/offers") and "/retailer/" in c[1].path
+    )
+    assert fetched == [
+        ("aldi-sued", "80331"),
+        ("edeka-suedwest", "80331"),
+        ("lidl", "80331"),
+        ("lidl", "85748"),
+        ("rewe", "85748"),
+    ]
 
     offers = {o["id"]: o for o in manager.offers}
     assert set(offers) == {"mg_1", "mg_5", "mg_6", "mg_7", "mg_9"}  # no Penny (not selected)
@@ -486,8 +498,8 @@ async def test_marktguru_postcode_errors(
     """A failing further postcode keeps the others; an unavailable source stops early."""
     chicken = _mg_offer(1, "Hähnchenbrustfilet", "lidl", "Lidl", 4.99, 7.49, 4.99, "kg", "1-kg")
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(SEARCH_URL, params={"zipCode": "80331"}, json={"results": [chicken]})
-    aioclient_mock.get(SEARCH_URL, params={"zipCode": "85748"}, status=500)
+    aioclient_mock.get(f"{PUBLISHERS_URL}", params={"zipCode": "85748"}, status=500)
+    mock_catalog(aioclient_mock, {"80331": [chicken]})
     await _setup(hass, config_entry, freezer, **{CONF_OFFERS_SOURCE: "marktguru"})
     manager = config_entry.runtime_data
     with pytest.raises(ServiceValidationError) as err:
@@ -498,15 +510,18 @@ async def test_marktguru_postcode_errors(
     manager.save_branch({"store": "Lidl", "postcode": "85748"})
     meta = await _call(hass, "refresh_offers")
     assert meta["status"] == "ok"
-    assert meta["errors"][0].endswith("(85748): Angebotssuche: HTTP 500")
-    assert len(meta["errors"]) == 1  # the postcode is skipped after its first error
+    assert meta["errors"] == [
+        "85748: Die Abfrage bei marktguru ist fehlgeschlagen (HTTP 500)."
+    ]  # the postcode is skipped after its error
     assert [o["id"] for o in manager.offers] == ["mg_1"]
     assert manager.offers[0]["zip_codes"] == ["80331"]
     assert manager.offers[0]["branches"] == [manager.branches[0]["id"]]
 
-    # source unavailable: one error, no requests for the other postcode
+    # source unavailable: one error, no requests for the other postcode (1.4: a manual
+    # refresh at most once an hour)
     aioclient_mock.clear_requests()
     aioclient_mock.get(MARKTGURU_HOME, status=503)
+    freezer.tick(timedelta(hours=1, minutes=1))
     meta = await _call(hass, "refresh_offers")
     assert meta["status"] == "error"
     assert len(meta["errors"]) == 1

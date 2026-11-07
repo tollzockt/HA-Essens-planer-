@@ -30,6 +30,7 @@ from custom_components.essensplaner.offers import (
     parse_pack,
 )
 
+from .mg_catalog import mock_offer_answers
 from .test_economy import HOME_HTML, _mg_offer
 
 SEARCH_URL = f"{MARKTGURU_API}/offers/search"
@@ -108,8 +109,8 @@ async def test_unpriced_item_ignores_compound_offers(
 ) -> None:
     """ "Kaffee" (no estimate) is not sent to Lidl for an iced coffee (regression)."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        SEARCH_URL,
+    mock_offer_answers(
+        aioclient_mock,
         json={
             "results": [
                 _mg_offer(1, "Eiskaffee", "lidl", "Lidl", 0.79, 1.19, 1.58, "l", "500-ml-Becher"),
@@ -141,8 +142,8 @@ async def test_unpriced_item_moves_by_unit_price(
 ) -> None:
     """Among real coffee offers the lowest price per kg wins, not the smallest pack."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        SEARCH_URL,
+    mock_offer_answers(
+        aioclient_mock,
         json={
             "results": [
                 _mg_offer(1, "Eiskaffee", "lidl", "Lidl", 0.79, 1.19, 1.58, "l", "500-ml-Becher"),
@@ -241,8 +242,8 @@ async def test_per_piece_estimates_learn_weight_prices(
 ) -> None:
     """Baguette 250 g, Weißkohl 1 kg: learned although the estimate is per piece."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        SEARCH_URL,
+    mock_offer_answers(
+        aioclient_mock,
         json={
             "results": [
                 _mg_offer(1, "Baguette", "lidl", "Lidl", 0.49, 0.79, 1.96, "kg", "250-g-Stück"),
@@ -361,8 +362,8 @@ async def test_egg_offer_with_weight_class(
 ) -> None:
     """A real egg offer with its weight class is used and teaches the egg price."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(
-        SEARCH_URL,
+    mock_offer_answers(
+        aioclient_mock,
         json={
             "results": [
                 _mg_offer(
@@ -448,7 +449,7 @@ async def test_new_branch_postcode_refreshes_offers(
 ) -> None:
     """Saving "Lidl Arbeit" at 80807 searches offers there a minute later."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(SEARCH_URL, json={"results": []})
+    mock_offer_answers(aioclient_mock, json={"results": []})
     manager = await _setup(
         hass, config_entry, freezer, **{CONF_OFFERS_SOURCE: "marktguru", CONF_ZIP: "80331"}
     )
@@ -457,10 +458,11 @@ async def test_new_branch_postcode_refreshes_offers(
     await hass.async_block_till_done()
 
     def zips() -> set[str]:
+        # 1.4: the offer catalog asks per postcode (discovery / catalogs / leaflets)
         return {
             str(call[1].query.get("zipCode"))
             for call in aioclient_mock.mock_calls
-            if "offers/search" in str(call[1])
+            if "/publishers" in str(call[1]) or "/leaflets" in str(call[1])
         }
 
     assert zips() == {"80331"}

@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.essensplaner import offers, rewe
+from custom_components.essensplaner import catalog, offers, rewe
 from custom_components.essensplaner.const import (
     CONF_OFFERS_SOURCE,
     CONF_REWE_ONLINE,
@@ -118,7 +118,8 @@ async def test_scheduled_refresh_is_cancelled_on_unload(
             cancelled.set()
             raise
 
-    with patch.object(offers, "async_fetch_target_offers", fetch):
+    # 1.4: the offer catalog (catalog.py) fetches the marktguru catalogs
+    with patch.object(catalog, "_async_marktguru", fetch):
         freezer.tick(timedelta(seconds=91))  # stale offers: refresh 90 s after the start
         async_fire_time_changed(hass)
         await started.wait()
@@ -139,13 +140,21 @@ async def test_one_offer_refresh_at_a_time(
     gate = asyncio.Event()
     calls = 0
 
-    async def fetch(*args, **kwargs):
+    async def fetch(hass, manager, store, targets, served, now):
         nonlocal calls
         calls += 1
         await gate.wait()
-        return [], []
+        return {
+            "source": "marktguru",
+            "last_update": now.isoformat(),
+            "status": "ok",
+            "errors": [],
+            "targets": [{"zip_code": z, "retailers": r} for z, r in targets],
+            "requests": 0,
+            "_keep": set(),
+        }
 
-    with patch.object(offers, "async_fetch_target_offers", fetch):
+    with patch.object(catalog, "_async_marktguru", fetch):
         first = hass.async_create_task(offers.async_refresh_offers(hass, manager))
         second = hass.async_create_task(
             hass.services.async_call(
@@ -160,7 +169,10 @@ async def test_one_offer_refresh_at_a_time(
     assert calls == 1
     assert meta["status"] == "ok"
     assert response["last_update"] == meta["last_update"] == dt_util.utcnow().isoformat()
-    # afterwards a new refresh runs again
-    with patch.object(offers, "async_fetch_target_offers", fetch):
+    # afterwards a new refresh runs again (1.4: a manual one at most once an hour)
+    with patch.object(catalog, "_async_marktguru", fetch):
+        await offers.async_refresh_offers(hass, manager)
+        assert calls == 1
+        freezer.tick(timedelta(hours=1, minutes=1))
         await offers.async_refresh_offers(hass, manager)
     assert calls == 2

@@ -35,12 +35,46 @@
 - Eine öffentliche Liste aller Angebote eines REWE-Markts gibt es nicht (Bot-Prüfung) –
   REWE-Angebote kommen weiter über marktguru oder von dir.
 
+### Alle Angebote deiner Läden (Angebotskatalog)
+- Der Essensplaner kennt jetzt **alle aktuellen und kommenden Angebote deiner gespeicherten
+  Läden**, nicht nur die zu deinen Rezepten: EDEKA (dein Markt) und ALDI SÜD
+  (Wochenangebote) direkt von den Ketten, die übrigen Ketten über marktguru – nur wenn du
+  marktguru eingeschaltet hast. Ketten, für die marktguru nur Prospektbilder hat (oft NORMA
+  oder EDEKA), bekommen die Prospektseiten als Bilder mit Link zum Prospekt.
+- **Viel weniger Abfragen bei marktguru:** statt einer Suche je Zutat (bis zu ~90 am Tag) wird
+  je Kette und Postleitzahl der ganze Prospekt geladen – für sechs Läden etwa 10–15 Anfragen,
+  alle 3 Tage und zum neuen Prospekt (Samstag/Sonntag bzw. Montag). Der Abgleich mit Rezepten,
+  Merkliste, Einkaufsliste und Preisliste passiert lokal. „Angebote aktualisieren“ fragt
+  höchstens einmal pro Stunde (außer deine Läden haben sich geändert). Lehnt marktguru ab,
+  wird 7 Tage pausiert.
+- **Normalpreise aus dem ganzen Prospekt:** Streichpreise, Lidls „Normalpreis: 1.35“ und die
+  Streichpreise von ALDI SÜD werden für alle Artikel der Preisliste gelernt (mit
+  Plausibilitätsprüfung), nicht nur für gesuchte Zutaten.
+- App-Preise („mit Lidl Plus App 1,59 €“, Rossmann-Coupons, Preise nur mit App), REWE-Bonus
+  und „nur online“ werden erkannt und als Hinweis gezeigt; nur-online-Angebote zählen nicht
+  für Planung und Preise. Jedes Angebot hat eine Art (Lebensmittel, Getränk, Drogerie,
+  Haushalt, Non-Food).
+- **Preisliste:** in jeder Zelle steht zusätzlich das aktuelle Angebot dieses Ladens (nur
+  Anzeige, es wird nie als Normalpreis gespeichert); jeder gespeicherte Laden ist eine
+  Spalte – auch Drogerien ohne Preise.
+- Ein Angebot aus der Gesamtübersicht kann direkt auf die Einkaufsliste (mit Laden, Preis und
+  Packung des Angebots).
+- Die Live-Suche fragt marktguru nur noch nach deinen Ketten.
+- Für die Angebotsseite: neuer Websocket `essensplaner/store_offers` (Filter nach Laden,
+  aktuell/kommend, Lebensmittel/Drogerie/Haushalt, Suche, „nur meine Zutaten“, Sortierung,
+  Seiten). Der Katalog liegt in einer eigenen Datei (`.storage/essensplaner.catalog.<id>`)
+  und wird mit der Integration gelöscht; in den Diagnose-Daten stehen nur Anzahlen.
+- **marktguru nur auf eigenes Risiko:** die AGB von marktguru (Stand Februar 2026) untersagen
+  das automatische Auslesen; das steht jetzt deutlich in den Optionen. Neue Installationen:
+  aus. Wer marktguru schon nutzt, behält seine Einstellung.
+
 ### Korrekturen
 - Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.4` (marktguru und der
   Rezept-Import gaben sich bisher als Browser aus).
 - marktguru-Angebote beginnen und enden am richtigen Tag (die Zeitstempel sind UTC: ein
   Angebot „ab Montag“ begann bisher schon am Sonntag); der Platzhalter „thisisnobrand123“
-  erscheint nicht mehr als Marke.
+  erscheint nicht mehr als Marke. Angebotsbilder kommen von `cdn.marktguru.de`.
+- Mehrfachpackungen in Litern („12 x 1 Liter“) werden als 12 l erkannt.
 
 ## 1.3.2
 

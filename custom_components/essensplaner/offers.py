@@ -23,6 +23,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import HTTP_USER_AGENT
 from .ingredients import _singular, fold, ingredient_key, to_base
+from .pricing import format_eur, plausible_pack
 
 # STORES / DEFAULT_STORES moved to retailers.py in 1.3, re-exported here
 from .retailers import DEFAULT_STORES as DEFAULT_STORES, STORES as STORES, retailer_for_store_id
@@ -31,7 +32,12 @@ _LOGGER = logging.getLogger(__name__)
 
 MARKTGURU_HOME = "https://www.marktguru.de/"
 MARKTGURU_API = "https://api.marktguru.de/api/v1"
-IMAGE_URL = "https://mg2de.b-cdn.net/api/v1/offers/{id}/images/default/0/medium.jpg"
+# marktguru's media host (config.mediaHostAddress of the web site, checked 11/2026); the
+# browser loads the images directly (no keys needed)
+MEDIA_HOST = "https://cdn.marktguru.de"
+IMAGE_URL = f"{MEDIA_HOST}/api/v1/offers/{{id}}/images/default/0/small.webp"
+LEAFLET_PAGE_URL = f"{MEDIA_HOST}/api/v1/leaflets/{{id}}/images/pages/{{page}}/small.webp"
+LEAFLET_LINK = "https://www.marktguru.de/leaflets/{id}/page/0"
 
 REQUEST_DELAY = 0.4
 # search terms per refresh: main postcode / each further postcode
@@ -44,7 +50,9 @@ _USER_AGENT = HTTP_USER_AGENT
 _NO_BRAND = "thisisnobrand123"
 _CONFIG_RE = re.compile(r'<script[^>]*type="application/json"[^>]*>(.*?)</script>', re.DOTALL)
 _PACK_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l|liter)\b", re.IGNORECASE)
-_MULTI_RE = re.compile(r"(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l)\b", re.IGNORECASE)
+_MULTI_RE = re.compile(
+    r"(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*-?\s*(kg|g|ml|l|liter)\b", re.IGNORECASE
+)
 # a weight class or range ("Größe M (53-63 g)", "500-600 g") is no package size
 _RANGE_RE = re.compile(
     r"\d+(?:[.,]\d+)?\s*(?:kg|g|ml|l)?\s*[-–]\s*\d+(?:[.,]\d+)?\s*-?\s*(?:kg|g|ml|l|liter)\b",
@@ -85,7 +93,7 @@ def parse_pack(text: str | None) -> tuple[float, str] | None:
     if match := _MULTI_RE.search(text):
         count = float(match.group(1))
         value = float(match.group(2).replace(",", "."))
-        amount, unit = to_base(count * value, match.group(3).lower())
+        amount, unit = to_base(count * value, match.group(3).lower().replace("liter", "l"))
         return (amount or 0, unit) if amount else None
     if match := _PACK_RE.search(text):
         value = float(match.group(1).replace(",", "."))
@@ -346,15 +354,45 @@ def names_key_product(product: str, key: str, description: str = "") -> bool:
     return False
 
 
+def _brand_name(raw: dict[str, Any]) -> str:
+    """The offer's brand; marktguru's placeholder of unbranded offers becomes ''."""
+    brand_info = raw.get("brand") or {}
+    brand = str(brand_info.get("name") or "")
+    if _NO_BRAND in (brand.strip().lower(), str(brand_info.get("uniqueName") or "")):
+        return ""
+    return brand
+
+
+def _reference_price(raw: dict[str, Any]) -> tuple[float | None, str | None]:
+    """(price per g / ml / Stück, base unit) from referencePrice and unit.shortName."""
+    unit = ((raw.get("unit") or {}).get("shortName") or "").lower()
+    reference = raw.get("referencePrice")
+    if not reference:
+        return None, None
+    value = float(reference)
+    if unit in ("kg", "kilogramm"):
+        return value / 1000, "g"
+    if unit in ("l", "liter"):
+        return value / 1000, "ml"
+    if unit in ("100g", "100 g"):
+        return value / 100, "g"
+    if unit in ("stück", "stk", "st", "stk."):
+        return value, "Stück"
+    return None, None
+
+
+def _title(brand: str, product: str) -> str:
+    return (
+        f"{brand} {product}".strip() if brand and brand.lower() not in product.lower() else product
+    )
+
+
 def normalize_marktguru(raw: dict[str, Any], query: str = "") -> dict[str, Any] | None:
-    """Convert a marktguru offer into the internal format."""
+    """Convert a marktguru offer of the search (detailed format) into the internal format."""
     try:
         offer_id = raw.get("id")
         product = (raw.get("product") or {}).get("name") or ""
-        brand_info = raw.get("brand") or {}
-        brand = brand_info.get("name") or ""
-        if _NO_BRAND in (brand.strip().lower(), str(brand_info.get("uniqueName") or "")):
-            brand = ""  # marktguru's placeholder of unbranded offers
+        brand = _brand_name(raw)
         advertisers = raw.get("advertisers") or []
         advertiser = advertisers[0] if advertisers else {}
         price = raw.get("price")
@@ -362,28 +400,12 @@ def normalize_marktguru(raw: dict[str, Any], query: str = "") -> dict[str, Any] 
             return None
         validity = (raw.get("validityDates") or [{}])[0]
         description = raw.get("description") or ""
-        unit = ((raw.get("unit") or {}).get("shortName") or "").lower()
-        reference = raw.get("referencePrice")
-        unit_price = None
-        base_unit = None
-        if reference:
-            if unit in ("kg", "kilogramm"):
-                unit_price, base_unit = float(reference) / 1000, "g"
-            elif unit in ("l", "liter"):
-                unit_price, base_unit = float(reference) / 1000, "ml"
-            elif unit in ("100g", "100 g"):
-                unit_price, base_unit = float(reference) / 100, "g"
-            elif unit in ("stück", "stk", "st", "stk."):
-                unit_price, base_unit = float(reference), "Stück"
+        unit_price, base_unit = _reference_price(raw)
         pack = parse_pack(description) or parse_pack(product)
         if pack is None and base_unit in (None, "Stück"):
             # sold by count ("Eier Größe M (53-63 g), 10 Stück", "10er-Packung")
             pack = _parse_count(description) or _parse_count(product)
-        title = (
-            f"{brand} {product}".strip()
-            if brand and brand.lower() not in product.lower()
-            else product
-        )
+        title = _title(brand, product)
         return {
             "id": f"mg_{offer_id}",
             "title": title,
@@ -408,6 +430,199 @@ def normalize_marktguru(raw: dict[str, Any], query: str = "") -> dict[str, Any] 
         }
     except (TypeError, ValueError, AttributeError, IndexError) as err:
         _LOGGER.debug("Could not parse offer %s: %s", raw, err)
+        return None
+
+
+# notes of the catalog descriptions (11/2026): "HINWEIS: MIT LIDL PLUS APP 1.59 € 190g",
+# "MIT ROSSMANN APP COUPON 1.- €", "MIT APP 0,10 € REWE BONUS", "NUR ONLINE VERFÜGBAR",
+# "Normalpreis: 1.35", "Ohne Penny App 1.79", "Einzelpreis: 0.25", "zzgl. 3.10 Pfand"
+_PRICE = r"(\d+[.,](?:\d{1,2}|-))"
+_HINT_RE = re.compile(r"\bhinweis\s*:\s*", re.IGNORECASE)
+_BONUS_RE = re.compile(
+    rf"\bmit\s+app\s+{_PRICE}\s*€\s*((?:[a-zäöü]+\s+){{0,2}}?)bonus\b", re.IGNORECASE
+)
+_APP_PRICE_RE = re.compile(
+    rf"\bmit\s+((?:[a-zäöü]+\s+){{0,2}}?)app(?:[\s-]+coupon)?\s*:?\s*{_PRICE}\s*€", re.IGNORECASE
+)
+_APP_HINT_RE = re.compile(r"\bmit\s+((?:[a-zäöü]+\s+){0,2}?)app(?:[\s-]+coupon)?\b", re.IGNORECASE)
+_WITHOUT_APP_RE = re.compile(
+    rf"\bohne\s+(?:[a-zäöü]+\s+){{0,2}}?app\s*:?\s*{_PRICE}\s*€?", re.IGNORECASE
+)
+_NORMAL_PRICE_RE = re.compile(rf"\bnormalpreis\s*:?\s*{_PRICE}\s*€?", re.IGNORECASE)
+_SINGLE_PRICE_RE = re.compile(rf"[,;]?\s*\beinzelpreis\s*:?\s*{_PRICE}\s*€?", re.IGNORECASE)
+_ONLINE_RE = re.compile(r"\bnur\s+online\s+verf(?:ü|ue)gbar\b", re.IGNORECASE)
+_DEPOSIT_RE = re.compile(rf"(?:\bzzgl\.?|\+)\s*(?:€\s*)?{_PRICE}\s*(?:€\s*)?pfand\b", re.IGNORECASE)
+_PROSPEKT_RE = re.compile(r"\bdetails\s+im\s+prospekt\b", re.IGNORECASE)
+
+
+def _price_value(text: str) -> float | None:
+    """'1.59' / '1,59' / '1.-' -> 1.59 / 1.0 (None outside 0,01–1000 €)."""
+    try:
+        value = float(text.replace(",", ".").replace(".-", ".0").rstrip("-"))
+    except ValueError:
+        return None
+    return round(value, 2) if 0.01 <= value <= 1000 else None
+
+
+def parse_offer_notes(description: str | None) -> dict[str, Any]:
+    """The notes in a catalog description and the description without them.
+
+    {text (description without the notes), regular_price ("Normalpreis: 1.35"; never a
+    "UVP" or Netto's "Einzelpreis" of one piece of a multipack), app_price ("MIT LIDL PLUS
+    APP 1.59 €": the main price applies to everyone), app_only (an app hint without an
+    amount, or "Ohne Penny App 1.79": the main price needs the app), without_app (the
+    price without the app), bonus ("MIT APP 0,10 € REWE BONUS"), online_only ("NUR
+    ONLINE VERFÜGBAR"), deposit (EUR)}.
+    """
+    text = str(description or "")
+    notes: dict[str, Any] = {
+        "regular_price": None,
+        "app_price": None,
+        "app_only": False,
+        "without_app": None,
+        "bonus": None,
+        "online_only": False,
+        "deposit": None,
+    }
+
+    if match := _BONUS_RE.search(text):
+        notes["bonus"] = _price_value(match.group(1))
+        text = _BONUS_RE.sub(" ", text, count=1)
+    if match := _APP_PRICE_RE.search(text):
+        notes["app_price"] = _price_value(match.group(2))
+        text = _APP_PRICE_RE.sub(" ", text, count=1)
+    if match := _WITHOUT_APP_RE.search(text):
+        notes["without_app"] = _price_value(match.group(1))
+        notes["app_only"] = True
+        text = _WITHOUT_APP_RE.sub(" ", text, count=1)
+    if _APP_HINT_RE.search(text):
+        notes["app_only"] = notes["app_only"] or notes["app_price"] is None
+        text = _APP_HINT_RE.sub(" ", text)
+    if match := _NORMAL_PRICE_RE.search(text):
+        notes["regular_price"] = _price_value(match.group(1))
+        text = _NORMAL_PRICE_RE.sub(" ", text)
+    if match := _DEPOSIT_RE.search(text):
+        notes["deposit"] = _price_value(match.group(1))
+        text = _DEPOSIT_RE.sub(" ", text)
+    if _ONLINE_RE.search(text):
+        notes["online_only"] = True
+        text = _ONLINE_RE.sub(" ", text)
+    text = _SINGLE_PRICE_RE.sub(" ", text)
+    text = _PROSPEKT_RE.sub(" ", _HINT_RE.sub(" ", text))
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"\s*([.,;])(?:\s*[.,;])+", r"\1", text).strip(" ,.;")
+    notes["text"] = text
+    return notes
+
+
+def _loyalty_note(notes: dict[str, Any]) -> str | None:
+    """German note of the app price / bonus ('mit App 1,59 €')."""
+    parts: list[str] = []
+    if notes.get("app_price"):
+        parts.append(f"mit App {format_eur(notes['app_price'])}")
+    if notes.get("app_only"):
+        text = "Preis nur mit App"
+        if notes.get("without_app"):
+            text += f", ohne App {format_eur(notes['without_app'])}"
+        parts.append(text)
+    if notes.get("bonus"):
+        parts.append(f"mit App {format_eur(notes['bonus'])} Bonus")
+    return " · ".join(parts) or None
+
+
+_SHORT_UNITS = {"kg": (1000.0, "g"), "l": (1000.0, "ml"), "stk": (1.0, "Stück")}
+
+
+def _short_pack(
+    raw: dict[str, Any], price: float, text: str, product: str
+) -> tuple[float, str] | None:
+    """Pack size of a catalog offer: the description ('Je 500 g'), the product name, the
+    stated volume x quantity when it fits price / referencePrice (marktguru stores whole
+    numbers only: 1.5 kg is volume 1), else price / referencePrice, else a count."""
+    pack = parse_pack(text) or parse_pack(product)
+    if pack is not None:
+        return pack
+    unit = str((raw.get("unit") or {}).get("shortName") or "").lower()
+    factor, base = _SHORT_UNITS.get(unit, (0.0, ""))
+    try:
+        reference = float(raw.get("referencePrice") or 0)
+        volume = float(raw.get("volume") or 0) * float(raw.get("quantity") or 1)
+    except (TypeError, ValueError):
+        reference, volume = 0.0, 0.0
+    derived = price / reference if reference > 0 else None
+    if factor and volume > 0 and (derived is None or abs(volume - derived) <= 0.08 * volume):
+        pack = (round(volume * factor, 3), base)
+    elif factor and derived and (base != "Stück" or reference >= 0.1):
+        amount = derived * factor
+        pack = (float(max(1, round(amount))) if base == "Stück" else float(round(amount)), base)
+    if pack is None:
+        pack = _parse_count(text) or _parse_count(product)
+    if pack is not None and pack[1] in ("g", "ml", "Stück") and not plausible_pack(*pack):
+        return None
+    return pack
+
+
+def normalize_marktguru_short(raw: dict[str, Any], query: str = "") -> dict[str, Any] | None:
+    """Convert an offer of a marktguru chain catalog (short format) into the offer format.
+
+    Short format: {id, description, product: {name}, retailer: {id, name, uniqueName},
+    brand: {name, uniqueName}, unit: {shortName}, price, oldPrice (0.0 = none),
+    referencePrice, volume, quantity, validFrom, validTo}. The description notes become
+    regular_price ("Normalpreis"), app_price / loyalty / loyalty_note (app prices, REWE
+    Bonus), online_only and deposit; valid_from / valid_to are local dates. The detailed
+    format of the search (advertisers, validityDates) is read as well.
+    """
+    try:
+        offer_id = raw.get("id")
+        product = re.sub(r"\s+", " ", str((raw.get("product") or {}).get("name") or "")).strip()
+        price = raw.get("price")
+        if price is None or not product or offer_id is None:
+            return None
+        price = round(float(price), 2)
+        if price <= 0:
+            return None
+        retailer_info = raw.get("retailer") or ((raw.get("advertisers") or [{}])[0]) or {}
+        unique = str(retailer_info.get("uniqueName") or "")
+        brand = _brand_name(raw)
+        notes = parse_offer_notes(raw.get("description"))
+        text = notes["text"]
+        unit_price, base_unit = _reference_price(raw)
+        pack = _short_pack(raw, price, text, product)
+        validity = (raw.get("validityDates") or [{}])[0] if "validFrom" not in raw else {}
+        old_price = raw.get("oldPrice")
+        old = round(float(old_price), 2) if old_price else None
+        regular = notes["regular_price"]
+        return {
+            "id": f"mg_{offer_id}",
+            "title": _title(brand, product),
+            "product": product,
+            "brand": brand,
+            "description": text[:200],
+            "store": str(retailer_info.get("name") or ""),
+            "store_id": unique,
+            "retailer": retailer_for_store_id(unique),
+            "price": price,
+            "old_price": old if old and old > price else None,
+            "regular_price": regular if regular and regular > price else None,
+            "app_price": notes["app_price"]
+            if notes["app_price"] and notes["app_price"] < price
+            else None,
+            "loyalty": bool(notes["app_only"] or raw.get("requiresLoyalityMembership")),
+            "loyalty_note": _loyalty_note(notes),
+            "online_only": notes["online_only"],
+            "deposit": notes["deposit"],
+            "unit_price": unit_price,
+            "base_unit": base_unit,
+            "pack_amount": pack[0] if pack else None,
+            "pack_unit": pack[1] if pack else None,
+            "valid_from": _date(raw.get("validFrom") or validity.get("from")),
+            "valid_to": _date(raw.get("validTo") or validity.get("to")),
+            "image": IMAGE_URL.format(id=offer_id),
+            "source": "marktguru",
+            "query": query,
+        }
+    except (TypeError, ValueError, AttributeError, IndexError) as err:
+        _LOGGER.debug("Could not parse catalog offer %s: %s", raw, err)
         return None
 
 
@@ -452,21 +667,25 @@ class MarktguruClient:
         raise OfferError("Zugangsdaten auf marktguru.de nicht gefunden (Seite geändert?)")
 
     async def async_search(
-        self, query: str, zip_code: str, limit: int = 60
+        self, query: str, zip_code: str, limit: int = 60, retailers: list[int] | None = None
     ) -> list[dict[str, Any]]:
-        """Search offers near a zip code."""
+        """Search offers near a zip code (retailers: numeric marktguru ids of the chain
+        variants to search, from the catalog's discovery; None = all)."""
+        params: dict[str, Any] = {
+            "as": "web",
+            "q": query,
+            "zipCode": zip_code,
+            "limit": limit,
+            "offset": 0,
+        }
+        if retailers:
+            params["retailers"] = ",".join(str(r) for r in retailers)
         for attempt in range(2):
             api_key, client_key = await self._async_keys(force=attempt > 0)
             try:
                 async with self._session.get(
                     f"{MARKTGURU_API}/offers/search",
-                    params={
-                        "as": "web",
-                        "q": query,
-                        "zipCode": zip_code,
-                        "limit": limit,
-                        "offset": 0,
-                    },
+                    params=params,
                     headers={
                         "x-apikey": api_key,
                         "x-clientkey": client_key,
@@ -567,8 +786,13 @@ async def async_search_target_offers(
     query: str,
     targets: list[tuple[str, list[str]]],
     delay: float | None = None,
+    retailer_ids: dict[str, list[int]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Live search of one product at every target (no ingredient matching)."""
+    """Live search of one product at every target (no ingredient matching).
+
+    retailer_ids: {zip code: numeric marktguru ids of the chain variants there} (only these
+    chains are searched; a postcode without ids searches all and filters afterwards).
+    """
     client = MarktguruClient(hass)
     offers: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
@@ -577,7 +801,9 @@ async def async_search_target_offers(
         if position and delay > 0:
             await asyncio.sleep(delay)
         try:
-            raw_offers = await client.async_search(query, zip_code)
+            raw_offers = await client.async_search(
+                query, zip_code, retailers=(retailer_ids or {}).get(zip_code) or None
+            )
         except OfferError as err:
             errors.append(str(err))
             if not offers:
@@ -638,43 +864,18 @@ def manual_offer(
     }
 
 
-async def async_refresh_offers(hass: HomeAssistant, manager: Any) -> dict[str, Any]:
-    """Fetch offers from marktguru for the manager's ingredients and store them.
+async def async_refresh_offers(
+    hass: HomeAssistant, manager: Any, force: bool = True
+) -> dict[str, Any]:
+    """Refresh the offers (1.4: the offer catalog of the saved stores, catalog.py).
 
-    Searched at every postcode of manager.offer_targets() (branches, else the zip option).
-    Only one refresh runs at a time (start-up / daily run, button, services): a second
-    call waits for the running one and returns its result. The run is tied to the config
-    entry (cancelled on unload).
+    The 1.3 search per ingredient is replaced by the catalog of every saved store (EDEKA /
+    ALDI SÜD directly, marktguru when enabled) matched locally with the ingredients.
+    force=True (service, button) at most once per hour unless the stores changed;
+    force=False only when the catalog is stale. Only one refresh runs at a time (tied to
+    the config entry). Returns the offers meta (status, errors, count, targets, learned,
+    catalog).
     """
-    task = getattr(manager, "_offers_task", None)
-    if task is None or task.done():
-        task = manager.entry.async_create_background_task(
-            hass, _async_refresh_offers(hass, manager), "essensplaner_refresh_offers"
-        )
-        manager._offers_task = task
-    return await asyncio.shield(task)
+    from .catalog import async_refresh_catalog  # the catalog imports this module
 
-
-async def _async_refresh_offers(hass: HomeAssistant, manager: Any) -> dict[str, Any]:
-    targets = manager.offer_targets()
-    terms = manager.offer_search_terms(limit=MAX_QUERIES)
-    if targets:
-        offers, errors = await async_fetch_target_offers(hass, terms, targets)
-    else:
-        offers, errors = [], ["Keine gültige Postleitzahl (Optionen oder Filialen)"]
-    meta = {
-        "source": "marktguru",
-        "last_update": dt_util.utcnow().isoformat(),
-        "searched": len(terms),
-        "count": len(offers),
-        "errors": errors[:5],
-        "status": "error" if errors and not offers else "ok",
-        "targets": [{"zip_code": z, "retailers": list(r)} for z, r in targets],
-    }
-    if meta["status"] == "error":
-        # keep the previous offers, only report the problem
-        manager.offers_meta = {**manager.offers_meta, **meta}
-        manager.async_refresh_listeners()
-    else:
-        manager.replace_source_offers("marktguru", offers, meta)
-    return meta
+    return await async_refresh_catalog(hass, manager, force=force)

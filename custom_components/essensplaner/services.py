@@ -22,6 +22,7 @@ import voluptuous as vol
 
 from .aldi import SOURCE_ALDI, async_find_aldi_stores, async_refresh_aldi_prices
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE, async_find_branches
+from .catalog import catalog_plan
 from .const import (
     ATTR_COOK_TIME,
     ATTR_COUNT,
@@ -403,7 +404,11 @@ def split_list(value: Any) -> list[str]:
 
 
 def require_offer_source(manager: EssensplanerManager) -> None:
-    """Raise unless online offers are configured (zip code option or branches with postcode)."""
+    """Raise unless an offer source is on: marktguru (with a zip code option or branches
+    with postcode), or the EDEKA / ALDI SÜD offers (1.4 offer catalog)."""
+    plan = catalog_plan(manager)
+    if plan["edeka"] or plan["aldi"]:
+        return
     if manager.offers_source != OFFERS_MARKTGURU:
         raise ServiceValidationError(translation_domain=DOMAIN, translation_key="offers_disabled")
     if not manager.offer_targets():
@@ -793,7 +798,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
         error = None
         targets = manager.offer_targets() if manager.offers_source == OFFERS_MARKTGURU else []
         if targets:
-            live, errors = await async_search_target_offers(hass, query, targets)
+            # only the user's chains (numeric ids from the catalog's discovery)
+            ids = {z: manager.catalog.publisher_ids(z, r) for z, r in targets}
+            live, errors = await async_search_target_offers(hass, query, targets, retailer_ids=ids)
             error = "; ".join(errors) if errors else None
         live.sort(key=lambda o: (o.get("unit_price") or 9e9, o["price"]))
         return {

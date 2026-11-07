@@ -498,6 +498,61 @@ async def ws_aldi_stores(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/store_offers",
+        vol.Optional("branch_ids"): vol.Any(None, [str]),
+        vol.Optional("when", default="current"): vol.In(["current", "upcoming", "all"]),
+        vol.Optional("kind", default="all"): vol.In(["food", "drugstore", "household", "all"]),
+        vol.Optional("query"): vol.Any(None, str),
+        vol.Optional("mine", default=False): bool,
+        vol.Optional("sort", default="saving"): vol.In(
+            ["saving", "price", "unit_price", "name", "store"]
+        ),
+        vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("limit", default=60): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+        vol.Optional("include_online", default=False): bool,
+    }
+)
+@callback
+def ws_store_offers(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """All current offers of the saved stores (offer catalog), per store selectable.
+
+    branch_ids: only these branches (default all selected ones); when: current | upcoming |
+    all; kind: food | drugstore | household | all; query: text or ingredient; mine: only
+    offers of planned / favourite / listed ingredients; sort: saving | price | unit_price |
+    name | store; offset / limit (≤ 100) page the offers. Result {total, offset, limit,
+    offers: [{id, title, brand, description, price, old_price, regular_price, app_price,
+    loyalty, loyalty_note, online_only, unit_price, base_unit, pack_amount, pack_unit,
+    valid_from, valid_to, current, image, kind, retailer, store, branch_ids, keys, source,
+    saving, discount}], stores: [{branch_id, label, retailer, store, main, count_current,
+    count_upcoming, sources, leaflet_only, leaflets, status, error}], meta: {updated,
+    last_run, status, errors, marktguru, sources, count, blocked_until}}. Nothing is
+    fetched (refresh_offers fetches).
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .catalog import store_offers_view
+
+    connection.send_result(
+        msg["id"],
+        store_offers_view(
+            manager,
+            branch_ids=msg.get("branch_ids") or None,
+            when=msg["when"],
+            kind=msg["kind"],
+            query=msg.get("query"),
+            mine=msg["mine"],
+            sort=msg["sort"],
+            offset=msg["offset"],
+            limit=msg["limit"],
+            include_online=msg["include_online"],
+        ),
+    )
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -514,3 +569,4 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_rewe_markets)
     websocket_api.async_register_command(hass, ws_edeka_markets)
     websocket_api.async_register_command(hass, ws_aldi_stores)
+    websocket_api.async_register_command(hass, ws_store_offers)

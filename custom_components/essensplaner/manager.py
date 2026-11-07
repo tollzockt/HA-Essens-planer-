@@ -210,6 +210,8 @@ ERROR_MESSAGES_DE = {
     "edeka_failed": "Die Abfrage bei EDEKA ist fehlgeschlagen ({error}).",
     "edeka_postcode_required": "Bitte gib eine Postleitzahl an (5 Ziffern).",
     "invalid_edeka_market": "„{value}“ ist keine gültige EDEKA-Markt-ID (nur Ziffern).",
+    "marktguru_blocked": "marktguru.de lässt gerade keine automatischen Abfragen zu ({error}).",
+    "marktguru_failed": "Die Abfrage bei marktguru ist fehlgeschlagen ({error}).",
 }
 
 
@@ -290,6 +292,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         # instead of overwriting the data of the new manager (options change = reload)
         self.unloaded = False
         self._offers_task: asyncio.Task[dict[str, Any]] | None = None  # running offer refresh
+        from .catalog import OfferCatalog  # the catalog imports the mixins
+
+        # all current offers of the saved stores (own file, 1.4)
+        self.catalog = OfferCatalog(hass, entry.entry_id)
         self._init_store_data()
         self._init_article_data()
 
@@ -384,6 +390,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self.offers = data.get("offers", [])
         self.offers_meta = data.get("offers_meta", {})
         self._load_store_data(data)
+        await self.catalog.async_load()
+        self.catalog.prune(self.today())
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
         migrated = self._migrate_v2()
         expired = self.cleanup_offers()
@@ -1392,16 +1400,29 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self.update_shopping_description(item)
 
     def _picked_offer(self, offer_id: str) -> dict[str, Any] | None:
-        """A saved offer, or a leaflet offer of the live article search (still in its cache)."""
+        """A saved offer, an offer of the offer catalog (all offers of the saved stores) or
+        a leaflet offer of the live article search (still in its cache)."""
         offer = next((o for o in self.offers if o.get("id") == offer_id), None)
         if offer is not None:
             return offer
+        if (found := self.catalog_offer(offer_id)) is not None:
+            return found
         for _, results in self._live_cache.values():
             for found in results:
                 if found.get("id") == offer_id and found.get("source") == "marktguru":
                     return found
         _LOGGER.debug("Offer %s not found (not saved?)", offer_id)
         return None
+
+    def catalog_offer(self, offer_id: str) -> dict[str, Any] | None:
+        """A current offer of the catalog as a copy with "branches" (the selected branches
+        it applies to), e.g. picked in "Alle Angebote meiner Läden"."""
+        from .catalog import offer_branches  # avoid an import cycle
+
+        offer = self.catalog.get_offer(offer_id, self.today())
+        if offer is None:
+            return None
+        return {**offer, "branches": offer_branches(self, offer)}
 
     def _chosen_pick(
         self,

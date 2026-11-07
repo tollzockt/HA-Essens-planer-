@@ -583,16 +583,27 @@ async def _marktguru_live(
     if postcode is None:
         return []
 
+    # only the user's chains when the offer catalog knows their marktguru ids there
+    catalog = getattr(manager, "catalog", None)
+    ids = (
+        catalog.publisher_ids(postcode, [retailer] if retailer else manager.active_retailers())
+        if catalog is not None
+        else []
+    )
+
     async def fetch() -> list[dict[str, Any]]:
         if manager._live_client is None:
             manager._live_client = MarktguruClient(manager.hass)
-        raw = await manager._live_client.async_search(query, postcode, LIVE_RESULTS)
+        raw = await manager._live_client.async_search(
+            query, postcode, LIVE_RESULTS, retailers=ids or None
+        )
         offers = [o for o in (normalize_marktguru(r, query) for r in raw) if o]
         for offer in offers:
             offer["zip_codes"] = [postcode]
         return offers
 
-    offers = await cached_live_fetch(manager, (fold(query).strip(), postcode), fetch)
+    cache_key = (fold(query).strip(), postcode, *([tuple(ids)] if ids else []))
+    offers = await cached_live_fetch(manager, cache_key, fetch)
     if retailer is not None:
         return [
             o

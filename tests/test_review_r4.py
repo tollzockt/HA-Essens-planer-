@@ -33,6 +33,7 @@ from custom_components.essensplaner.offers import (
 )
 from custom_components.essensplaner.rewe import best_product
 
+from .mg_catalog import mock_offer_answers
 from .test_economy import HOME_HTML, _mg_offer
 
 SEARCH_URL = f"{MARKTGURU_API}/offers/search"
@@ -81,7 +82,7 @@ def _item(manager, summary: str) -> dict:
 async def _coffee(hass, config_entry, freezer, aioclient_mock, results, stores):
     """Kaffee (no estimate) on the list, the offers found by marktguru."""
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(SEARCH_URL, json={"results": results})
+    mock_offer_answers(aioclient_mock, json={"results": results})
     manager = await _setup(
         hass,
         config_entry,
@@ -287,15 +288,22 @@ async def test_branch_saved_during_refresh_is_searched(
     calls: list[list[str]] = []
     gate = asyncio.Event()
 
-    async def fake_fetch(hass_, terms, targets):
+    async def fake_fetch(hass_, manager_, store, targets, served, now):
         calls.append([zip_code for zip_code, _ in targets])
         if len(calls) == 1:
             await gate.wait()
-        return [], []
+        return {
+            "source": "marktguru",
+            "last_update": now.isoformat(),
+            "status": "ok",
+            "errors": [],
+            "targets": [{"zip_code": z, "retailers": r} for z, r in targets],
+            "requests": 0,
+            "_keep": set(),
+        }
 
-    monkeypatch.setattr(
-        "custom_components.essensplaner.offers.async_fetch_target_offers", fake_fetch
-    )
+    # 1.4: the offer catalog fetches the marktguru catalogs
+    monkeypatch.setattr("custom_components.essensplaner.catalog._async_marktguru", fake_fetch)
     manager = await _setup(
         hass, config_entry, freezer, **{CONF_OFFERS_SOURCE: "marktguru", CONF_ZIP: "80331"}
     )

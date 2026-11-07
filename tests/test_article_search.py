@@ -269,7 +269,9 @@ async def test_live_marktguru(
     assert [(r["title"], r["price"], r["pack"]) for r in live] == [("Weidebutter", 1.79, "250 g")]
     assert live[0]["offer"]["id"] == "mg_11"
     assert live[0]["branch_id"] == aldi["id"]
-    assert live[0]["offer"]["image"].endswith("/11/images/default/0/medium.jpg")
+    assert live[0]["offer"]["image"].endswith(
+        "/11/images/default/0/small.webp"
+    )  # cdn.marktguru.de (1.4)
     searches = [c for c in aioclient_mock.mock_calls if "offers/search" in str(c[1])]
     assert len(searches) == 1
     assert "80331" in str(searches[0][1])  # the branch postcode, not the zip option
