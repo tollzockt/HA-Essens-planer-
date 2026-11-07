@@ -28,6 +28,15 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Enable custom integrations in all tests."""
 
 
+@pytest.fixture(autouse=True)
+def no_overpass_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One Overpass attempt per query (the clock is frozen; retries have their own tests)."""
+    from custom_components.essensplaner import branches
+
+    monkeypatch.setattr(branches, "RETRY_DELAYS", ())
+    monkeypatch.setattr(branches, "OVERPASS_MIRRORS", ())
+
+
 @pytest.fixture
 def config_entry() -> MockConfigEntry:
     """A config entry with starter recipes."""

@@ -2978,10 +2978,10 @@ class EssensplanerPanel extends HTMLElement {
         <label class="switch"><input type="checkbox" data-change="search-route" ${route ? "checked" : ""}> 💼 Arbeitsweg einbeziehen</label>
         <label class="switch">Umkreis <select data-change="search-radius" aria-label="Umkreis">${radiusOptions.map((km) => `<option value="${km}" ${Number(km) === Number(radius) ? "selected" : ""}>${String(km).replace(".", ",")} km</option>`).join("")}</select></label>
         <span class="spacer"></span>
-        <button class="btn primary" data-action="osm-search" ${busy || !chosen.size ? "disabled" : ""}>${busy ? "⏳ Suche läuft …" : "🔍 Suchen"}</button>
+        <button class="btn primary" data-action="osm-search" ${busy || !chosen.size ? "disabled" : ""}>${busy ? "⏳ Suche läuft … (bis zu 3 Min.)" : "🔍 Suchen"}</button>
         ${s?.time && !busy ? `<button class="btn" data-action="osm-search" data-refresh="1" title="Neu bei OpenStreetMap abfragen">🔄 Neu suchen</button>` : ""}
       </div>
-      <div class="hint">🔒 Die Koordinaten deiner Zonen werden – auf ca. 100 m gerundet – an overpass-api.de gesendet. Das passiert nur, wenn du auf „Suchen“ tippst.</div>
+      <div class="hint">🔒 Die Koordinaten deiner Zonen werden – auf ca. 100 m gerundet – an overpass-api.de gesendet (ist der Server voll: an den Ersatzserver overpass.kumi.systems). Das passiert nur, wenn du auf „Suchen“ tippst.</div>
       ${error ? `<div class="notice err">⚠️ ${esc(error)}</div>` : ""}
       ${warnings.map((w) => `<div class="notice warn">${esc(w)}</div>`).join("")}
       ${s?.time ? `<div class="meta">Letzte Suche: ${esc(timeText(s.time))} · ${shown.length < results.length ? `${shown.length} von ${results.length}` : results.length} Läden${s.areas?.length ? ` um ${esc(s.areas.map((a) => a.name).join(", "))}` : ""}${s.cached ? " · gespeichert" : ""}</div>` : ""}
@@ -3325,7 +3325,7 @@ class EssensplanerPanel extends HTMLElement {
         <div class="meta">Normalpreise aus dem REWE-Onlineshop für deinen REWE-Markt (wöchentlich).</div>
         ${rewe.message ? `<div>${esc(rewe.message)}</div>` : ""}
         ${rewe.enabled ? `<div class="meta">${[rewe.prices ? `${rewe.prices} REWE-Preise gespeichert` : "", rewe.last_success ? `zuletzt erfolgreich ${timeText(rewe.last_success)}` : "", rewe.blocked_until ? `Pause bis ${timeText(rewe.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
-        ${canRefresh || this._refreshing.has("rewe") ? `<div>${this._refreshButton("rewe")} <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an shop.rewe.de gesendet.</div>`}
+        ${canRefresh || this._refreshing.has("rewe") ? `<div>${this._refreshButton("rewe")} <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an www.rewe.de gesendet.</div>`}
       </div>`;
     return `<div class="srcgrid">${mg}${rw}</div>`;
   }

@@ -50,15 +50,24 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# tried when the main server stays busy (public instances listed on the OSM wiki)
+OVERPASS_MIRRORS: tuple[str, ...] = ("https://overpass.kumi.systems/api/interpreter",)
 ATTRIBUTION = "© OpenStreetMap-Mitwirkende (ODbL)"
 
 # cache lifetime of a search, minimum seconds between two live queries
 CACHE_DAYS = 30
 MIN_INTERVAL = 120
-# Overpass: server side timeout (s), HTTP timeout (s), maximum number of elements
+# Overpass: server side timeout (s) and memory (small values are admitted first when the
+# server is busy), HTTP timeout per attempt (s), maximum number of elements.
+# The public server queues requests when it is full ("at capacity") and often answers only
+# after a minute; a busy answer is retried after RETRY_DELAYS seconds (then the mirrors),
+# all attempts together take at most TOTAL_TIMEOUT seconds.
 QUERY_TIMEOUT = 25
-REQUEST_TIMEOUT = 40
-MAX_ELEMENTS = 300
+QUERY_MAXSIZE = 128 * 1024 * 1024
+REQUEST_TIMEOUT = 90
+RETRY_DELAYS: tuple[float, ...] = (5, 15)
+TOTAL_TIMEOUT = 240
+MAX_ELEMENTS = 500
 _MAX_BYTES = 4 * 1024 * 1024
 # coordinates sent to Overpass are rounded to this many decimals (~100 m)
 COORD_DECIMALS = 3
@@ -81,7 +90,7 @@ HOME_ZONE = "zone.home"
 WORK_WORDS = ("arbeit", "work")
 _HOME_WORDS = {"home", "zuhause", "daheim", "heim", "zu hause"}
 # shops tagged like supermarkets, prefiltered by chain name or brand on the server
-SHOP_PATTERN = "^(supermarket|discount|department_store)$"
+SHOP_PATTERN = "^(supermarket|discount)$"
 CHAIN_PATTERN = (
     "aldi|lidl|rewe|edeka|e.?center|e aktiv|neukauf|penny|netto|kaufland|norma|globus|marktkauf"
 )
@@ -264,9 +273,10 @@ def build_query(
     areas: list[dict[str, Any]], radius_m: int, route: bool, route_radius_m: int
 ) -> str:
     """Overpass QL: supermarket chains around each area and along the commute corridors."""
-    filters = [
-        f'["shop"~"{SHOP_PATTERN}"]["{key}"~"{CHAIN_PATTERN}",i]' for key in ("name", "brand")
-    ]
+    # one cheap statement per area: the public server rejects or drops costly queries
+    # (case-insensitive name/brand regexes, a big memory limit) when it is busy; the chains
+    # are recognized locally (retailer_for_osm)
+    filters = [f'["shop"~"{SHOP_PATTERN}"]']
     spatial = [
         f"(around:{int(radius_m)},{_coord_text(a['lat'])},{_coord_text(a['lon'])})" for a in areas
     ]
@@ -278,7 +288,7 @@ def build_query(
         ]
     lines = [f"  nwr{tag_filter}{around};" for around in spatial for tag_filter in filters]
     return (
-        f"[out:json][timeout:{QUERY_TIMEOUT}];\n(\n"
+        f"[out:json][timeout:{QUERY_TIMEOUT}][maxsize:{QUERY_MAXSIZE}];\n(\n"
         + "\n".join(lines)
         + f"\n);\nout center tags {MAX_ELEMENTS};"
     )
@@ -453,7 +463,7 @@ def search_key(
 ) -> str:
     """Cache key of a search (hash, so the coordinates are not readable from it)."""
     payload = {
-        "v": 1,
+        "v": 2,
         "areas": sorted([a["zone"], round(a["lat"], 4), round(a["lon"], 4)] for a in areas),
         "radius": int(radius_m),
         "route": sorted([home["zone"], other["zone"]] for home, other in pairs),
@@ -469,16 +479,46 @@ def search_key(
 
 
 async def async_overpass_query(hass: HomeAssistant, query: str) -> dict[str, Any]:
-    """POST a query to the Overpass API. Raises BranchSearchError."""
+    """POST a query to the Overpass API, retrying a busy / slow server and then the mirrors.
+
+    Raises BranchSearchError (the last error when every attempt failed).
+    """
     session = async_get_clientsession(hass)
+    attempts = [(OVERPASS_URL, 0.0)]
+    attempts += [(OVERPASS_URL, float(delay)) for delay in RETRY_DELAYS]
+    attempts += [(url, 0.0) for url in OVERPASS_MIRRORS]
+    loop_time = asyncio.get_running_loop().time
+    started = loop_time()
+    last: BranchSearchError | None = None
+    for url, delay in attempts:
+        left = TOTAL_TIMEOUT - (loop_time() - started) - delay
+        if last is not None and left < 10:
+            break
+        if delay > 0:
+            await asyncio.sleep(delay)
+        try:
+            return await _async_post(session, url, query, min(REQUEST_TIMEOUT, max(left, 10)))
+        except BranchSearchError as err:
+            if err.translation_key not in ("overpass_busy", "overpass_timeout"):
+                raise
+            _LOGGER.debug("Overpass %s: %s – retrying", url, err.message)
+            last = err
+    raise last or _failed("keine Antwort")
+
+
+async def _async_post(
+    session: aiohttp.ClientSession, url: str, query: str, timeout: float
+) -> dict[str, Any]:
+    """One Overpass request. Raises BranchSearchError."""
     try:
         async with session.post(
-            OVERPASS_URL,
+            url,
             data={"data": query},
             headers={"User-Agent": HTTP_USER_AGENT, "Accept": "application/json"},
-            timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
+            timeout=aiohttp.ClientTimeout(total=timeout),
         ) as resp:
-            if resp.status in (429, 503):
+            # 502/503 "at capacity" / 429 "too many requests": busy, try again later
+            if resp.status in (429, 502, 503):
                 raise BranchSearchError("overpass_busy", MSG_BUSY)
             if resp.status == 504:
                 raise BranchSearchError("overpass_timeout", MSG_TIMEOUT)
@@ -490,6 +530,9 @@ async def async_overpass_query(hass: HomeAssistant, query: str) -> dict[str, Any
     except TimeoutError as err:
         raise BranchSearchError("overpass_timeout", MSG_TIMEOUT) from err
     except aiohttp.ClientError as err:
+        if isinstance(err, aiohttp.ClientConnectionError):
+            # connection reset / refused: an overloaded server, worth another attempt
+            raise BranchSearchError("overpass_busy", MSG_BUSY) from err
         raise _failed(str(err) or type(err).__name__) from err
     try:
         data = json.loads(body.decode("utf-8", errors="replace"))

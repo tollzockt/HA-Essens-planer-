@@ -120,6 +120,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     return True
 
 
+# seconds after start until the first REWE price check
+REWE_START_DELAY = 150
+
+
 def _daily_minute(entry: EssensplanerConfigEntry) -> int:
     """Minute of the daily requests (stable per installation, spread over the hour)."""
     return sum(ord(c) for c in entry.entry_id) % 50 + 5
@@ -167,7 +171,8 @@ def _setup_offer_refresh(
 def _setup_rewe_refresh(
     hass: HomeAssistant, entry: EssensplanerConfigEntry, manager: EssensplanerManager
 ) -> None:
-    """Check daily at 04:xx; prices are only fetched when the last success is a week old."""
+    """Check shortly after start and daily at 04:xx; prices are only fetched when the last
+    success is a week old (or there was none)."""
 
     async def _async_check() -> None:
         if not rewe_enabled(manager):
@@ -188,6 +193,9 @@ def _setup_rewe_refresh(
     def _check(_now: datetime | None = None) -> None:
         entry.async_create_background_task(hass, _async_check(), "essensplaner_rewe_prices")
 
+    # shortly after start too: prices that were never fetched (or a week old) do not wait
+    # for the night (the check sends nothing while the prices are fresh or paused)
+    entry.async_on_unload(async_call_later(hass, REWE_START_DELAY, _check))
     entry.async_on_unload(
         async_track_time_change(hass, _check, hour=4, minute=_daily_minute(entry), second=0)
     )

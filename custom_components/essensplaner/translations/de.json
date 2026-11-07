@@ -98,7 +98,7 @@
           "branch_radius_km": "Suchradius um jede Zone (Standard 3 km).",
           "branch_route": "Auch Läden entlang der Strecke (Luftlinie) von Zuhause zu den anderen Zonen finden, z. B. auf dem Weg zur Arbeit.",
           "branch_route_radius_m": "So weit darf ein Laden höchstens neben dem Arbeitsweg liegen (Standard 800 m).",
-          "rewe_online_prices": "⚠️ Experimentell, standardmäßig aus: nutzt die inoffizielle Schnittstelle des REWE-Onlineshops. Dabei werden die Markt-ID deiner REWE-Filiale und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) an shop.rewe.de gesendet – automatisch höchstens einmal pro Woche. Lehnt REWE die Abfragen ab, wird 7 Tage pausiert; gelernte Preise bleiben. Kann jederzeit aufhören zu funktionieren. Braucht eine REWE-Filiale mit Markt-ID (im Panel)."
+          "rewe_online_prices": "⚠️ Experimentell, standardmäßig aus: nutzt die inoffizielle Schnittstelle des REWE-Onlineshops. Dabei werden die Markt-ID deiner REWE-Filiale und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) an www.rewe.de gesendet – automatisch höchstens einmal pro Woche. Lehnt REWE die Abfragen ab, wird 7 Tage pausiert; gelernte Preise bleiben. Kann jederzeit aufhören zu funktionieren. Braucht eine REWE-Filiale mit Markt-ID (im Panel)."
         }
       }
     },

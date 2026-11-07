@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.2
+
+Die Preisquellen funktionieren wieder – deine Daten bleiben erhalten, es gibt keine neuen Optionen.
+
+### REWE-Onlinepreise (experimentell)
+- REWE hat seinen Onlineshop umgebaut: Preise kommen jetzt von `www.rewe.de/shop` und nur, wenn
+  neben der Markt-ID der **Abholservice** mitgeschickt wird – ohne ihn lieferte REWE keine
+  Treffer. Getestet mit echten Märkten (z. B. Butter, Milch, Eier, Hackfleisch, Spaghetti).
+- **„Markt suchen“** nutzt die neue REWE-Marktsuche (die alte Adresse gibt es nicht mehr), zur
+  Not die Liste der Abholmärkte.
+- Eine **Pause aus 1.3.0/1.3.1** („Unerwartete Antwort … nächster Versuch ab …“) zählt nicht mehr:
+  die Preise werden etwa 2½ Minuten nach dem Neustart abgerufen (danach wie bisher höchstens
+  einmal pro Woche) – oder sofort mit „🔄 Preise aktualisieren“.
+- Liefert ein Markt gar keine Artikel (falsche Markt-ID), heißt es jetzt klar „Der REWE-Markt …
+  liefert keine Artikel – bitte … Markt suchen“, und es wird nur einen Tag pausiert.
+
+### Filialsuche (OpenStreetMap)
+- Die Suche ist **deutlich schlanker** (eine einfache Abfrage je Gebiet, die Ketten werden in
+  Home Assistant erkannt) und wird vom öffentlichen Server auch zu Stoßzeiten angenommen.
+- Ist der Server ausgelastet („at capacity“, 429/502/503/504, Verbindungsabbruch), wird nach
+  5 und 15 Sekunden erneut gefragt, zuletzt ein Ersatzserver; jede Anfrage darf bis zu
+  90 Sekunden dauern (vorher 40) – die Suche kann daher 1–3 Minuten brauchen.
+
 ## 1.3.1
 
 Fehlerbehebungen zu 1.3.0 – deine Daten bleiben erhalten, es gibt keine neuen Optionen.

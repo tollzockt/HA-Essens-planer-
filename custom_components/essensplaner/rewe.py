@@ -48,8 +48,14 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-SEARCH_URL = "https://shop.rewe.de/api/products"
-MARKETS_URL = "https://www.rewe.de/api/marketsearch"
+# the web shop's own JSON interfaces (checked 11/2026: shop.rewe.de/api redirects here,
+# prices only come with a market *and* a service type; the old marketsearch is gone)
+SEARCH_URL = "https://www.rewe.de/shop/api/products"
+SERVICE_TYPE = "PICKUP"
+MARKETS_URL = "https://www.rewe.de/api/wksmarketsearch"
+PICKUP_MARKETS_URL = "https://www.rewe.de/shop/api/marketselection/zipcodes/{zip}/services/pickup"
+# a stored error / pause of an older client version does not count (the interface moved)
+CLIENT_VERSION = 2
 
 RETAILER = "rewe"
 SOURCE = "rewe_online"
@@ -72,6 +78,10 @@ MAX_SHOPPING_TERMS = 20
 REFRESH_DAYS = 7
 # no requests for this long after the shop refused them / answered unexpectedly
 BLOCK_DAYS = 7
+# a market that returns no articles at all (wrong market id): try again after a day
+NO_ARTICLES_DAYS = 1
+# searches without any article in a row after which the market id is considered wrong
+NO_ARTICLE_SEARCHES = 5
 # a manual refresh (button, service) runs at most once in this many hours after a success
 MANUAL_MIN_HOURS = 6
 MAX_ERRORS = 5
@@ -405,7 +415,7 @@ def parse_market(raw: Any) -> dict[str, Any] | None:
     street = _text(raw, "contactStreet", "street")
     postcode = _text(raw, "contactZipCode", "zipCode", "postalCode", "zip")
     city = _text(raw, "contactCity", "city")
-    location = _dict(raw.get("location")) or _dict(raw.get("geoLocation"))
+    location = _dict(raw.get("location")) or _dict(raw.get("geoLocation")) or raw
     lat = _number(location.get("latitude", location.get("lat")))
     lon = _number(location.get("longitude", location.get("lon")))
     place = " ".join(p for p in (postcode, city) if p)
@@ -552,6 +562,7 @@ class ReweClient:
             {
                 "search": term,
                 "market": market_id,
+                "serviceTypes": SERVICE_TYPE,
                 "objectsPerPage": OBJECTS_PER_PAGE,
                 "page": 1,
             },
@@ -559,8 +570,19 @@ class ReweClient:
         return parse_products(data, term)
 
     async def async_search_markets(self, zip_code: str) -> list[dict[str, Any]]:
-        """REWE markets near a postcode."""
-        return parse_markets(await self.async_get_json(MARKETS_URL, {"searchTerm": zip_code}))
+        """REWE markets near a postcode (market search, else the pickup market list)."""
+        try:
+            markets = parse_markets(
+                await self.async_get_json(MARKETS_URL, {"searchTerm": zip_code})
+            )
+        except ReweBlocked:
+            raise
+        except ReweError as err:
+            _LOGGER.debug("REWE market search failed (%s), trying the pickup list", err.message)
+            markets = []
+        if markets:
+            return markets
+        return parse_markets(await self.async_get_json(PICKUP_MARKETS_URL.format(zip=zip_code), {}))
 
 
 # ----------------------------------------------------------------------
@@ -594,14 +616,21 @@ def _meta(manager: EssensplanerManager) -> dict[str, Any]:
     return meta if isinstance(meta, dict) else {}
 
 
+def _current_client(meta: dict[str, Any]) -> bool:
+    """True if the stored status comes from this client version (older errors and pauses
+    were caused by the moved shop interface and do not count)."""
+    return meta.get("client") == CLIENT_VERSION
+
+
 def _parse_time(value: Any) -> datetime | None:
     return dt_util.parse_datetime(value) if isinstance(value, str) and value else None
 
 
 def blocked_until(manager: EssensplanerManager, now: datetime | None = None) -> datetime | None:
     """End of the current backoff (None if requests are allowed)."""
-    until = _parse_time(_meta(manager).get("blocked_until"))
-    if until is None or until <= (now or dt_util.utcnow()):
+    meta = _meta(manager)
+    until = _parse_time(meta.get("blocked_until"))
+    if until is None or until <= (now or dt_util.utcnow()) or not _current_client(meta):
         return None
     return until
 
@@ -629,6 +658,8 @@ def rewe_status(manager: EssensplanerManager) -> dict[str, Any]:
     until = blocked_until(manager)
     status = str(meta.get("status") or STATUS_PENDING) if enabled else STATUS_OFF
     errors = [str(e) for e in meta.get("errors") or []][:MAX_ERRORS]
+    if status in (STATUS_ERROR, STATUS_BLOCKED) and not _current_client(meta):
+        status, errors = STATUS_PENDING, []  # failed with the old shop interface
     last_success = _parse_time(meta.get("last_success"))
     prices = _rewe_price_count(manager)
     if not enabled:
@@ -639,14 +670,18 @@ def rewe_status(manager: EssensplanerManager) -> dict[str, Any]:
         reason = (
             "Der REWE-Onlineshop hat automatische Abfragen abgelehnt"
             if status == STATUS_BLOCKED
-            else "Unerwartete Antwort vom REWE-Onlineshop"
+            else (errors[0] if meta.get("no_articles") and errors else None)
+            or "Unerwartete Antwort vom REWE-Onlineshop"
         )
         message = (
             f"{reason} – nächster Versuch ab {_date_text(until)}. "
             "Bisherige Preise bleiben erhalten."
         )
     elif status == STATUS_PENDING:
-        message = "Noch nicht abgerufen – das passiert automatisch nachts."
+        message = (
+            "Noch nicht abgerufen – das passiert automatisch kurz nach dem Start bzw. nachts "
+            "(oder jetzt mit „Preise aktualisieren“)."
+        )
     elif status != STATUS_OK:
         message = f"Letzter Abruf fehlgeschlagen: {errors[0] if errors else 'unbekannt'}"
     else:
@@ -694,22 +729,30 @@ def _time_text(value: datetime, now: datetime) -> str:
     return local.strftime("%d.%m. %H:%M Uhr")
 
 
-def _record_block(manager: EssensplanerManager, err: ReweError, now: datetime) -> None:
-    """Remember a refusal / unexpected answer: no requests for BLOCK_DAYS days."""
+def _record_block(
+    manager: EssensplanerManager,
+    err: ReweError,
+    now: datetime,
+    days: int = BLOCK_DAYS,
+    no_articles: bool = False,
+) -> None:
+    """Remember a refusal / unexpected answer: no requests for `days` days."""
     meta = dict(_meta(manager))
     errors = [err.message, *[e for e in meta.get("errors") or [] if e != err.message]]
+    if not _current_client(meta):
+        errors = [err.message]
     meta.update(
         {
             "status": STATUS_BLOCKED if isinstance(err, ReweBlocked) else STATUS_ERROR,
             "last_run": now.isoformat(),
             "errors": errors[:MAX_ERRORS],
-            "blocked_until": (now + timedelta(days=BLOCK_DAYS)).isoformat(),
+            "blocked_until": (now + timedelta(days=days)).isoformat(),
+            "client": CLIENT_VERSION,
+            "no_articles": no_articles,
         }
     )
     manager.price_sources_meta[META_KEY] = meta
-    _LOGGER.warning(
-        "REWE online prices (experimental) paused for %d days: %s", BLOCK_DAYS, err.message
-    )
+    _LOGGER.warning("REWE online prices (experimental) paused for %d day(s): %s", days, err.message)
 
 
 # ----------------------------------------------------------------------
@@ -793,7 +836,7 @@ async def _async_run(
     previous = dict(_meta(manager))
     client = ReweClient(hass)
     errors: list[str] = []
-    requests = succeeded = found = learned = failures = 0
+    requests = succeeded = found = learned = failures = articles = 0
     stop: ReweError | None = None
     for term, key in refresh_terms(manager):
         if requests and REQUEST_DELAY > 0:
@@ -812,6 +855,9 @@ async def _async_run(
             continue
         succeeded += 1
         failures = 0
+        articles += len(products)
+        if not articles and succeeded >= NO_ARTICLE_SEARCHES:
+            break  # nothing priced at all: the market id is wrong (see below)
         product = best_product(products, key, _default_base(manager, key))
         if product is None:
             continue
@@ -837,11 +883,31 @@ async def _async_run(
         "blocked_until": None,
         "market_id": market_id,
         "branch_id": branch.get("id") if branch else None,
+        "client": CLIENT_VERSION,
+        "no_articles": False,
     }
-    if succeeded and stop is None:
+    if not _current_client(previous):
+        meta["errors"] = errors[:MAX_ERRORS]
+    no_articles = stop is None and succeeded >= min(NO_ARTICLE_SEARCHES, requests) and not articles
+    if succeeded and stop is None and not no_articles:
         meta.update({"last_success": now.isoformat(), "count": found, "learned": learned})
     manager.price_sources_meta[META_KEY] = meta
-    if stop is not None:
+    if no_articles and requests >= 2:
+        # every search came back without a single article: wrong / unknown market id
+        detail = f"Markt {market_id} liefert keine Artikel"
+        _record_block(
+            manager,
+            ReweUnexpected(
+                "rewe_failed",
+                f"Der REWE-Markt {market_id} liefert keine Artikel – bitte bei der "
+                "REWE-Filiale „Markt suchen“ und den Markt neu wählen",
+                error=detail,
+            ),
+            now,
+            days=NO_ARTICLES_DAYS,
+            no_articles=True,
+        )
+    elif stop is not None:
         _record_block(manager, stop, now)  # prices learned before the refusal are kept
     elif errors and not succeeded:
         _LOGGER.debug("REWE online prices: %s", "; ".join(errors))

@@ -48,7 +48,7 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 Ordner `custom_components/essensplaner` nach `/config/custom_components/essensplaner` kopieren, neu starten, Integration hinzufügen.
 
 ### Updates
-HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repositorys. Für jede neue Version wird deshalb ein Release mit dem Tag `vX.Y.Z` erstellt – für diese Version **`v1.3.1`**. Dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS (falls es nicht von selbst auftaucht: in HACS beim Essensplaner über ⋮ die Informationen aktualisieren). Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
+HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repositorys. Für jede neue Version wird deshalb ein Release mit dem Tag `vX.Y.Z` erstellt – für diese Version **`v1.3.2`**. Dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS (falls es nicht von selbst auftaucht: in HACS beim Essensplaner über ⋮ die Informationen aktualisieren). Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
 
 **Update auf 1.3:** Deine Daten werden beim ersten Start automatisch übernommen (eigene Preise mit Laden landen zusätzlich in der Preisliste dieses Ladens). Bis du Filialen anlegst, verhält sich alles wie in 1.2. Neu in den Optionen ist der Schritt **„Läden & Einkauf“**. Nutzt du den eingebauten Sprachagenten ohne LLM, kopiere [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) erneut (neue Sätze) – **Achtung:** Mit der neuen Datei landet „Setz Milch auf die Einkaufsliste“ (und jede andere Formulierung von Home Assistants eingebauter Einkaufsliste) auf der Essensplaner-Liste statt auf der eingebauten Einkaufsliste bzw. einer damit synchronisierten Liste (z. B. Bring!), siehe [Eingebauter Sprachagent](#eingebauter-sprachagent-ohne-llm). Zurück auf 1.2 geht, aber Filialen, Ladenpreise und Preisverlauf gehen dabei verloren – vorher ein Backup machen.
 
@@ -157,7 +157,7 @@ In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Art
 | ![Einkauf nach Laden](docs/images/einkauf-nach-laden.png) | ![Ladenwahl](docs/images/ladenwahl.png) | ![Einkauf nach Laden auf dem Handy](docs/images/handy-einkauf-nach-laden.png) |
 
 ### Filialen finden
-- **In der Nähe suchen (OpenStreetMap):** sucht Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus und Marktkauf im **Umkreis deiner Zonen** (Standard 3 km). Ohne Auswahl sind das *Zuhause* und alle Zonen mit „Arbeit“ bzw. „Work“ im Namen (z. B. `zone.home`, `zone.arbeit`, `zone.arbeit_2`). Mit **Arbeitsweg** werden auch Läden entlang der Strecke von Zuhause zu diesen Zonen gefunden (Luftlinie, Standard bis 800 m daneben). Treffer zeigen die Entfernung zu Zuhause bzw. zum Arbeitsweg; „＋ Hinzufügen“ übernimmt sie in deine Läden. Ergebnisse werden 30 Tage gemerkt, neu gesucht wird höchstens alle 2 Minuten.
+- **In der Nähe suchen (OpenStreetMap):** sucht Aldi, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus und Marktkauf im **Umkreis deiner Zonen** (Standard 3 km). Ohne Auswahl sind das *Zuhause* und alle Zonen mit „Arbeit“ bzw. „Work“ im Namen (z. B. `zone.home`, `zone.arbeit`, `zone.arbeit_2`). Mit **Arbeitsweg** werden auch Läden entlang der Strecke von Zuhause zu diesen Zonen gefunden (Luftlinie, Standard bis 800 m daneben). Treffer zeigen die Entfernung zu Zuhause bzw. zum Arbeitsweg; „＋ Hinzufügen“ übernimmt sie in deine Läden. Ergebnisse werden 30 Tage gemerkt, neu gesucht wird höchstens alle 2 Minuten. Der öffentliche OpenStreetMap-Server ist oft ausgelastet – dann fragt der Essensplaner automatisch noch einmal nach (zuletzt bei einem Ersatzserver), eine Suche kann deshalb 1–3 Minuten dauern.
 - **Manuell hinzufügen:** Kette, Straße, Postleitzahl und Ort – z. B. wenn ein Laden bei OpenStreetMap fehlt oder bei „Aldi“ unklar ist, ob Süd oder Nord.
 - Die **Postleitzahl** einer Filiale ist wichtig: Für sie werden die Angebote gesucht. Mit Online-Angeboten wird eine neue Postleitzahl (oder Kette) etwa eine Minute nach dem Speichern abgefragt, danach täglich.
 - Zonen, Umkreis und Arbeitsweg stellst du in den Optionen ein (Schritt „Läden & Einkauf“).
@@ -185,7 +185,7 @@ Viele Angebote nennen den Normalpreis („statt 2,49 €“). Daraus lernt der E
 ### REWE-Onlinepreise (experimentell)
 Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) holt der Essensplaner einmal pro Woche Normalpreise aus dem REWE-Onlineshop für deine REWE-Filiale. Der Knopf „Preise aktualisieren“ fragt nach einem erfolgreichen Abruf frühestens 6 Stunden später erneut. Dafür braucht die Filiale eine **Markt-ID** (Knopf „Markt suchen“ an der REWE-Filiale bzw. Aktion `essensplaner.find_rewe_markets`).
 
-> ⚠️ Das ist eine **inoffizielle Schnittstelle** des REWE-Onlineshops: Markt-ID und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) gehen an `shop.rewe.de`. Lehnt REWE automatische Abfragen ab, wird **7 Tage pausiert**; gelernte Preise bleiben. Es kann jederzeit aufhören zu funktionieren – Schutzmechanismen werden bewusst nicht umgangen.
+> ⚠️ Das ist eine **inoffizielle Schnittstelle** des REWE-Onlineshops: Markt-ID und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) gehen an `www.rewe.de`. Lehnt REWE automatische Abfragen ab, wird **7 Tage pausiert**; gelernte Preise bleiben. Es kann jederzeit aufhören zu funktionieren – Schutzmechanismen werden bewusst nicht umgangen.
 
 ### Artikelsuche beim Hinzufügen
 Tippst du im Feld **„Artikel hinzufügen“**, erscheinen passende Artikel deines Hauptladens mit Preis, Packung und 🏷️ Angebot – aus der Preisliste, den Richtwerten, gültigen Angeboten und deinen zuletzt gekauften Artikeln. Mit Online-Angeboten (bzw. REWE-Onlinepreisen bei einem REWE-Hauptladen) wird zusätzlich live gesucht. Antippen fügt den Artikel **mit Preis und Laden** hinzu; Enter ohne Auswahl übernimmt den Text wie bisher.
@@ -197,9 +197,9 @@ Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Ge
 
 | Dienst | Wann | Was |
 |---|---|---|
-| OpenStreetMap (`overpass-api.de`) | nur wenn du die Filialsuche startest | Koordinaten deiner Zonen, auf ca. 100 m gerundet |
+| OpenStreetMap (`overpass-api.de`, ist er ausgelastet: `overpass.kumi.systems`) | nur wenn du die Filialsuche startest | Koordinaten deiner Zonen, auf ca. 100 m gerundet |
 | marktguru.de | nur mit Online-Angeboten (täglich, Live-Suche, Artikelsuche) | Postleitzahlen (Filialen bzw. Optionen) und Suchbegriffe – auch, was du in „Artikel hinzufügen“ tippst (ab 3 Zeichen) |
-| REWE (`shop.rewe.de`) | nur mit REWE-Onlinepreisen (wöchentlich, Knopf „Preise aktualisieren“, Artikelsuche) | Markt-ID und Suchbegriffe |
+| REWE (`www.rewe.de`) | nur mit REWE-Onlinepreisen (wöchentlich, Knopf „Preise aktualisieren“, Artikelsuche) | Markt-ID und Suchbegriffe |
 | REWE (`www.rewe.de`) | nur bei „Markt suchen“ | Postleitzahl |
 
 Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Postleitzahlen, Orte, Namen, Bezeichnungen, Entfernungen, Zonen-Namen, Filial- und Markt-IDs geschwärzt; übrig bleiben Kette, Hauptladen-Markierung und Anzahlen.

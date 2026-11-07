@@ -98,7 +98,7 @@
           "branch_radius_km": "Search radius around each zone (default 3 km).",
           "branch_route": "Also find stores along the straight line from home to the other zones, e.g. on the way to work.",
           "branch_route_radius_m": "How far a store may be from the way to work at most (default 800 m).",
-          "rewe_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the REWE online shop. The market ID of your REWE branch and search terms (ingredients, shopping list items, your article search) are sent to shop.rewe.de – automatically at most once a week. If REWE refuses the requests, they are paused for 7 days; learned prices stay. May stop working at any time. Needs a REWE branch with a market ID (in the panel)."
+          "rewe_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the REWE online shop. The market ID of your REWE branch and search terms (ingredients, shopping list items, your article search) are sent to www.rewe.de – automatically at most once a week. If REWE refuses the requests, they are paused for 7 days; learned prices stay. May stop working at any time. Needs a REWE branch with a market ID (in the panel)."
         }
       }
     },
