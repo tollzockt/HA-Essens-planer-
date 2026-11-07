@@ -553,6 +553,151 @@ def ws_store_offers(
     )
 
 
+def _receipt_signer(hass: HomeAssistant, connection: websocket_api.ActiveConnection) -> Any:
+    """Signed image links for this connection (an <img> cannot send the token)."""
+    from .receipts import image_link
+
+    def sign(receipt_id: str) -> str:
+        return image_link(hass, receipt_id, connection.refresh_token_id)
+
+    return sign
+
+
+def _receipt_error(
+    connection: websocket_api.ActiveConnection, msg: dict[str, Any], err: HomeAssistantError
+) -> None:
+    from .manager import error_message
+
+    code = getattr(err, "translation_key", None) or "receipt_failed"
+    connection.send_error(msg["id"], code, error_message(err))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/receipts",
+        vol.Optional("limit", default=50): vol.All(vol.Coerce(int), vol.Range(min=1, max=200)),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_receipts(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Stored receipts, newest first (admins).
+
+    Result {count, last_date, prices, ai_entity, ai_available, receipts: [{id, branch_id,
+    retailer, retailer_name, store_label, date, total, sum, items, source, image,
+    media_content_id, image_url (signed, 24 h), prices, created, updated}]}.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .receipts import receipts_view
+
+    connection.send_result(
+        msg["id"], receipts_view(manager, msg["limit"], _receipt_signer(hass, connection))
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/receipt_parse",
+        vol.Exclusive("text", "receipt"): str,
+        vol.Exclusive("upload_id", "receipt"): str,
+        vol.Optional("branch"): vol.Any(None, str),
+        vol.Optional("ai", default=True): bool,
+        vol.Optional("entity_id"): vol.Any(None, str),
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipt_parse(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Proposal of a receipt: pasted text (parsed locally) or an uploaded photo / PDF
+    (upload_id from /api/essensplaner/receipt_upload, read by the AI Task entity; ai=False
+    refuses to send it). Same result as the receipt_parse_text / receipt_scan services plus
+    image_url. Error codes are the translation keys (receipt_no_items,
+    receipt_ai_not_configured, receipt_ai_unavailable, receipt_ai_failed,
+    receipt_ai_invalid, receipt_upload_not_found, branch_not_found) with a German message.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .manager import _error
+    from .receipts import async_parse_receipt_text, async_scan_receipt
+
+    try:
+        if msg.get("text") is not None:
+            result = await async_parse_receipt_text(manager, msg["text"], msg.get("branch"))
+        elif msg.get("upload_id"):
+            if not msg["ai"]:
+                raise _error("receipt_ai_not_configured")
+            result = await async_scan_receipt(
+                hass,
+                manager,
+                upload_id=msg["upload_id"],
+                entity_id=msg.get("entity_id") or None,
+                branch=msg.get("branch"),
+            )
+        else:
+            raise _error("receipt_no_items")
+    except HomeAssistantError as err:
+        _receipt_error(connection, msg, err)
+        return
+    sign = _receipt_signer(hass, connection)
+    result["image_url"] = sign(result["upload_id"]) if result.get("upload_id") else None
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/receipt_save", vol.Required("receipt"): dict}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipt_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Store a reviewed receipt and set its prices (as the receipt_save service)."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .receipts import async_save_receipt, receipt_view
+
+    try:
+        result = await async_save_receipt(manager, dict(msg["receipt"]))
+    except HomeAssistantError as err:
+        _receipt_error(connection, msg, err)
+        return
+    stored = manager.receipts.get(result["receipt"]["id"])
+    if stored is not None:
+        result["receipt"] = receipt_view(manager, stored, _receipt_signer(hass, connection))
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/receipt_delete",
+        # "id" is the websocket message id
+        vol.Required("receipt_id"): str,
+        vol.Optional("remove_prices", default=False): bool,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_receipt_delete(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Delete a receipt and its image (as the delete_receipt service with id = receipt_id)."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .receipts import async_delete_receipt
+
+    try:
+        result = await async_delete_receipt(manager, msg["receipt_id"], msg["remove_prices"])
+    except HomeAssistantError as err:
+        _receipt_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -570,3 +715,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_edeka_markets)
     websocket_api.async_register_command(hass, ws_aldi_stores)
     websocket_api.async_register_command(hass, ws_store_offers)
+    websocket_api.async_register_command(hass, ws_receipts)
+    websocket_api.async_register_command(hass, ws_receipt_parse)
+    websocket_api.async_register_command(hass, ws_receipt_save)
+    websocket_api.async_register_command(hass, ws_receipt_delete)

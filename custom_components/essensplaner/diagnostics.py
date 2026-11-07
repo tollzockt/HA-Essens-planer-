@@ -79,10 +79,38 @@ async def async_get_config_entry_diagnostics(
         "price_sources_meta": async_redact_data(manager.price_sources_meta, BRANCH_REDACT),
         # the offer catalog: counts only (no offers, postcodes or store ids)
         "offer_catalog": _catalog_counts(manager),
+        # receipts: counts only (no articles, prices, stores or images)
+        "receipts": _receipt_counts(manager),
         "branch_search": async_redact_data(
             {k: v for k, v in manager.branch_search.items() if k not in ("results", "key")},
             BRANCH_REDACT,
         ),
+    }
+
+
+def _receipt_counts(manager: EssensplanerManager) -> dict[str, Any]:
+    """How many receipts / uploads / learned names and receipt prices exist."""
+    from .receipts import ai_available, ai_entity
+
+    receipts = manager.receipts.receipts
+    by_source: dict[str, int] = {}
+    for receipt in receipts:
+        source = str(receipt.get("source") or "?")
+        by_source[source] = by_source.get(source, 0) + 1
+    return {
+        "receipts": len(receipts),
+        "by_source": dict(sorted(by_source.items())),
+        "with_image": sum(1 for r in receipts if r.get("image")),
+        "pending_uploads": len(manager.receipts.data.get("uploads") or {}),
+        "learned_names": len(manager.receipts.data.get("aliases") or {}),
+        "receipt_prices": sum(
+            1
+            for bucket in manager.store_prices_user.values()
+            for item in bucket.values()
+            if isinstance(item, dict) and item.get("source") == "receipt"
+        ),
+        "ai_configured": ai_entity(manager) is not None,
+        "ai_available": ai_available(manager.hass, ai_entity(manager)),
     }
 
 

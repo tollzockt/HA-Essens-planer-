@@ -195,6 +195,8 @@ async def test_options_stores_defaults(hass: HomeAssistant, setup_integration) -
         # 1.4: the chain sources ALDI SÜD (prices) and EDEKA (offers), off by default
         "aldi_online_prices": DEFAULT_ALDI_ONLINE,
         "edeka_offers": DEFAULT_EDEKA_OFFERS,
+        # 1.4: no AI Task entity for receipt photos (pasted receipt text works without)
+        "receipt_ai_task_entity": None,
     }
     result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -211,6 +213,7 @@ async def test_options_stores_defaults(hass: HomeAssistant, setup_integration) -
     assert options["rewe_online_prices"] is False
     assert options["aldi_online_prices"] is False
     assert options["edeka_offers"] is False
+    assert "receipt_ai_task_entity" not in options
     await hass.async_block_till_done()
     manager = entry.runtime_data
     assert manager.split_settings() == {
@@ -287,7 +290,8 @@ async def test_options_existing_values_kept(hass: HomeAssistant, setup_integrati
     assert defaults["branch_route"] is False
     assert defaults["rewe_online_prices"] is True
     # the zones were cleared in the form: the key is missing -> automatic
-    stores = {k: v for k, v in defaults.items() if k != "branch_zones"}
+    # (1.4: the empty receipt AI Task selector is not sent either, like in the frontend)
+    stores = {k: v for k, v in defaults.items() if k != "branch_zones" and v is not None}
     result = await hass.config_entries.options.async_configure(result["flow_id"], stores)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     options = entry.options

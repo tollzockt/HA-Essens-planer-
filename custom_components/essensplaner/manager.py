@@ -212,6 +212,29 @@ ERROR_MESSAGES_DE = {
     "invalid_edeka_market": "„{value}“ ist keine gültige EDEKA-Markt-ID (nur Ziffern).",
     "marktguru_blocked": "marktguru.de lässt gerade keine automatischen Abfragen zu ({error}).",
     "marktguru_failed": "Die Abfrage bei marktguru ist fehlgeschlagen ({error}).",
+    "receipt_not_found": "Den Kassenzettel „{id}“ habe ich nicht gefunden.",
+    "receipt_upload_not_found": (
+        "Das hochgeladene Foto „{upload_id}“ gibt es nicht mehr – bitte den Kassenzettel "
+        "nochmal hochladen."
+    ),
+    "receipt_no_items": "Auf dem Kassenzettel habe ich keine Artikel mit Preis gefunden.",
+    "receipt_ai_not_configured": (
+        "Für Fotos von Kassenzetteln brauche ich eine KI-Aufgabe (AI Task): wähle sie in den "
+        "Optionen (Essensplaner → Konfigurieren → Läden & Einkauf) – oder füge den Text des "
+        "Kassenzettels ein."
+    ),
+    "receipt_ai_unavailable": (
+        "Die KI-Aufgabe {entity} ist gerade nicht verfügbar – bitte später erneut versuchen "
+        "oder den Text des Kassenzettels einfügen."
+    ),
+    "receipt_ai_failed": "Die KI-Aufgabe konnte den Kassenzettel nicht lesen ({error}).",
+    "receipt_ai_invalid": (
+        "Die KI hat keinen lesbaren Kassenzettel zurückgegeben – bitte ein schärferes Foto "
+        "versuchen oder den Text des Kassenzettels einfügen."
+    ),
+    "receipt_media_invalid": (
+        "„{media}“ ist kein Kassenzettel-Bild aus dem Medienordner (JPG, PNG, WebP oder PDF)."
+    ),
 }
 
 
@@ -296,6 +319,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
         # all current offers of the saved stores (own file, 1.4)
         self.catalog = OfferCatalog(hass, entry.entry_id)
+        from .receipts import ReceiptStore
+
+        # stored receipts (Kassenzettel) and their images (own file, 1.4)
+        self.receipts = ReceiptStore(hass, entry.entry_id)
         self._init_store_data()
         self._init_article_data()
 
@@ -392,6 +419,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._load_store_data(data)
         await self.catalog.async_load()
         self.catalog.prune(self.today())
+        await self.receipts.async_load()
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
         migrated = self._migrate_v2()
         expired = self.cleanup_offers()

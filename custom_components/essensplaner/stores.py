@@ -1,7 +1,8 @@
 """Branches, store specific prices and the price matrix (mixin for the manager).
 
 Price order for a retailer r (first match wins, see store_book()):
-own store price of r -> learned store price of r (<= 180 days; REWE online / ALDI SÜD
+own store price of r (typed, or taken from a receipt: source "receipt", receipts.py)
+-> learned store price of r (<= 180 days; REWE online / ALDI SÜD
 online before leaflet)
 -> own general price -> learned general price -> default estimate.
 General prices that carry a store label of another retailer are that retailer's prices
@@ -107,6 +108,10 @@ STALE_DAYS = 180
 LEARNED_SOURCES = ("rewe_online", "aldi_online", "leaflet")
 SOURCE_USER = "user"
 SOURCE_LEAFLET = "leaflet"
+# own store prices taken from a receipt (1.4): {name, price, amount, unit, source "receipt",
+# receipt_id, receipt_date, updated, history}; they are own prices like typed ones
+SOURCE_RECEIPT = "receipt"
+OWN_SOURCES = (SOURCE_USER, SOURCE_RECEIPT)
 
 # offers are searched for at most this many postcodes (main branch first)
 MAX_OFFER_TARGETS = 4
@@ -1587,8 +1592,96 @@ class StoresMixin:
             "source": SOURCE_USER,
             "updated": dt_util.utcnow().isoformat(),
         }
-        self.store_prices_user.setdefault(retailer, {})[key] = entry
+        bucket = self.store_prices_user.setdefault(retailer, {})
+        history = _list((bucket.get(key) or {}).get("history"))
+        if history:
+            # a typed price after receipt prices: their history stays
+            entry["history"] = [
+                *history,
+                {"date": self.today().isoformat(), "price": value, "source": SOURCE_USER},
+            ][-HISTORY_MAX:]
+        bucket[key] = entry
         return entry
+
+    @staticmethod
+    def own_price_day(item: dict[str, Any]) -> date | None:
+        """Day an own store price is from: the receipt's date, else when it was typed."""
+        if item.get("receipt_date"):
+            try:
+                return date.fromisoformat(str(item["receipt_date"])[:10])
+            except ValueError:
+                return None
+        stamp = dt_util.parse_datetime(str(item.get("updated") or ""))
+        return dt_util.as_local(stamp).date() if stamp else None
+
+    def put_receipt_price(
+        self: EssensplanerManager,
+        retailer: str,
+        key: str,
+        name: str,
+        price: float,
+        amount: float,
+        unit: str,
+        *,
+        receipt_id: str,
+        day: date,
+    ) -> str:
+        """Set the own price of a retailer from a receipt line. Returns "saved", or "kept"
+        when the current own price (typed or from a receipt) is from a later day than the
+        receipt; the receipt's price then only goes into the price history. The caller
+        invalidates the prices and saves."""
+        bucket = self.store_prices_user.setdefault(retailer, {})
+        current = bucket.get(key) or {}
+        value = round(float(price), 2)
+        mark = {"date": day.isoformat(), "price": value, "source": SOURCE_RECEIPT}
+        history = [
+            h
+            for h in _list(current.get("history"))
+            if isinstance(h, dict) and h.get("receipt") != receipt_id  # saved again: replaced
+        ]
+        history = sorted(
+            [*history, {**mark, "receipt": receipt_id}], key=lambda h: str(h.get("date") or "")
+        )
+        current_day = self.own_price_day(current) if current else None
+        if current and current_day is not None and current_day > day:
+            current["history"] = history[-HISTORY_MAX:]
+            return "kept"
+        bucket[key] = {
+            "name": str(name or key).strip(),
+            "price": value,
+            "amount": float(amount) if amount and amount > 0 else 1.0,
+            "unit": unit or "Stück",
+            "source": SOURCE_RECEIPT,
+            "receipt_id": receipt_id,
+            "receipt_date": day.isoformat(),
+            "updated": dt_util.utcnow().isoformat(),
+            "history": history[-HISTORY_MAX:],
+        }
+        return "saved"
+
+    def remove_receipt_prices(
+        self: EssensplanerManager,
+        receipt_id: str,
+        keep: set[tuple[str, str]] | None = None,
+    ) -> int:
+        """Remove the own store prices a receipt set (except the (retailer, key) pairs in
+        keep). Returns the count; the caller invalidates the prices and saves."""
+        removed = 0
+        for retailer in list(self.store_prices_user):
+            bucket = self.store_prices_user[retailer]
+            for key in [
+                k
+                for k, item in bucket.items()
+                if isinstance(item, dict)
+                and item.get("source") == SOURCE_RECEIPT
+                and item.get("receipt_id") == receipt_id
+                and (retailer, k) not in (keep or set())
+            ]:
+                del bucket[key]
+                removed += 1
+            if not bucket:
+                del self.store_prices_user[retailer]
+        return removed
 
     def remove_store_price(self: EssensplanerManager, retailer: str, name: str) -> bool:
         """Remove an own store price (and the general own price labelled with that store)."""
@@ -1849,7 +1942,7 @@ class StoresMixin:
         cutoff = self.today() - timedelta(days=STALE_DAYS)
         cells: dict[str, tuple[int, dict[str, Any], dict[str, Any]]] = {}
         candidates: list[tuple[int, str, dict[str, Any], str]] = [
-            (0, key, item, SOURCE_USER)
+            (0, key, item, SOURCE_RECEIPT if item.get("source") == SOURCE_RECEIPT else SOURCE_USER)
             for key, item in self.store_prices_user.get(retailer, {}).items()
         ]
         for key, item in self.store_prices_learned.get(retailer, {}).items():
@@ -1867,8 +1960,10 @@ class StoresMixin:
                 **_price_info(entry),
                 "name": entry.name,
                 "source": source,
-                "updated": item.get("seen") or item.get("updated"),
+                "updated": item.get("receipt_date") or item.get("seen") or item.get("updated"),
             }
+            if source == SOURCE_RECEIPT:
+                cell["receipt_id"] = item.get("receipt_id")
             if item.get("history"):
                 cell["history"] = list(item["history"])
             if rank >= 10:
@@ -1925,7 +2020,7 @@ class StoresMixin:
                     }
         for column in columns:
             for key, (rank, item, cell) in self._store_cells(column).items():
-                row = row_for(key, str(item.get("name") or key), cell["source"] != SOURCE_USER)
+                row = row_for(key, str(item.get("name") or key), cell["source"] not in OWN_SOURCES)
                 exact = key == row["key"]
                 previous = ranks.get((row["key"], column))
                 if previous is not None and (previous[0], not previous[1]) <= (rank, not exact):

@@ -68,6 +68,26 @@
   das automatische Auslesen; das steht jetzt deutlich in den Optionen. Neue Installationen:
   aus. Wer marktguru schon nutzt, behält seine Einstellung.
 
+### Kassenzettel
+- **Kassenzettel speichern und die echten Preise übernehmen** (statt geschätzter Preise):
+  eingefügten Text liest der Essensplaner lokal (REWE, EDEKA, Lidl, ALDI, Netto, Norma,
+  Penny, Kaufland, Rossmann, dm – Mengen-, Gewichts-, Pfand-, Rabatt- und Stornozeilen),
+  Fotos und PDFs optional eine **KI-Aufgabe** (AI Task) – neue Option „KI-Aufgabe für
+  Kassenzettel-Fotos“, standardmäßig keine. Der KI wird nur das Bild geschickt.
+- Laden und Filiale kommen aus dem Kopf des Kassenzettels (Kette, Postleitzahl, Straße),
+  Abkürzungen wie „H-MILCH 1,5%“, „HACKFL.GEM.“ oder „BIO EIER 10ER“ werden den Artikeln
+  zugeordnet, die Packung aus der Zeile oder dem Ladenpreis. Unbekanntes ordnest du zu oder
+  ignorierst es; die Zuordnung wird für die nächsten Kassenzettel gemerkt.
+- Nach dem Prüfen werden die Preise **eigene Preise des Ladens** (Quelle „Kassenzettel“
+  mit Datum und Verlauf, in der Preisliste „🧾 Kassenzettel 07.11.“). Ein neuerer
+  Kassenzettel ersetzt einen älteren Preis, ein später eingetippter Preis bleibt.
+- Neue Aktionen `receipt_parse_text`, `receipt_scan`, `receipt_save`, `get_receipts` und
+  `delete_receipt`; für das Panel die Websockets `essensplaner/receipts`, `receipt_parse`,
+  `receipt_save`, `receipt_delete` und der Foto-Upload `/api/essensplaner/receipt_upload`
+  (nur Administratoren, höchstens 10 MB, JPG/PNG/WebP/PDF). Bis zu 200 Kassenzettel in
+  `.storage/essensplaner.receipts.<id>`, Fotos in `/media/essensplaner/receipts/`; beides
+  wird mit der Integration gelöscht (andere Dateien im Medienordner nicht).
+
 ### Korrekturen
 - Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.4` (marktguru und der
   Rezept-Import gaben sich bisher als Browser aus).

@@ -69,6 +69,7 @@ const RETAILER_STYLE = {
 const LIGHT_RETAILERS = new Set(["edeka", "netto-marken-discount"]);
 const PRICE_SOURCE = {
   user: "✏️ eigener Preis",
+  receipt: "🧾 Kassenzettel",
   leaflet: "📰 Prospekt",
   offer_regular: "📰 Prospekt",
   rewe_online: "🛒 REWE online",
@@ -3271,7 +3272,8 @@ class EssensplanerPanel extends HTMLElement {
     const history = (cell?.history || []).slice(-6).reverse();
     const num = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
     const parse = (v) => Number(String(v).trim().replace(/\s*€$/, "").replace(",", "."));
-    const own = retailer ? cell?.source === "user" : Boolean(row.general);
+    // own prices: typed ones and those taken from a receipt (1.4)
+    const own = retailer ? ["user", "receipt"].includes(cell?.source) : Boolean(row.general);
     const info = cell
       ? `${PRICE_SOURCE[cell.source] || (retailer ? cell.source : "✏️ eigener Preis")}${cell.updated ? ` · ${dayText(cell.updated)}` : ""}${cell.stale ? " · ⏳ älter als ein halbes Jahr" : ""}${cell.name && cell.name !== row.name ? ` · „${cell.name}“` : ""}`
       : row.default

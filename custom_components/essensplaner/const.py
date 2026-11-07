@@ -94,6 +94,10 @@ DEFAULT_ALDI_ONLINE: Final = False
 # offers of the linked EDEKA market from edeka.de (opt-in, 1.4)
 CONF_EDEKA_OFFERS: Final = "edeka_offers"
 DEFAULT_EDEKA_OFFERS: Final = False
+# receipts (Kassenzettel, 1.4): AI Task entity that reads receipt photos (None = only
+# pasted receipt text, parsed locally)
+CONF_RECEIPT_AI: Final = "receipt_ai_task_entity"
+DEFAULT_RECEIPT_AI: Final = None
 # honest User-Agent of all HTTP clients (OpenStreetMap, REWE, ALDI SÜD, EDEKA, marktguru)
 HTTP_USER_AGENT: Final = "HA-Essensplaner/1.4 (+https://github.com/tollzockt/HA-Essens-planer-)"
 
@@ -150,6 +154,11 @@ SERVICE_REFRESH_PRICES: Final = "refresh_prices"
 SERVICE_FIND_REWE_MARKETS: Final = "find_rewe_markets"
 SERVICE_FIND_ALDI_STORES: Final = "find_aldi_stores"
 SERVICE_FIND_EDEKA_MARKETS: Final = "find_edeka_markets"
+SERVICE_RECEIPT_PARSE_TEXT: Final = "receipt_parse_text"
+SERVICE_RECEIPT_SCAN: Final = "receipt_scan"
+SERVICE_RECEIPT_SAVE: Final = "receipt_save"
+SERVICE_GET_RECEIPTS: Final = "get_receipts"
+SERVICE_DELETE_RECEIPT: Final = "delete_receipt"
 # sources of refresh_prices
 PRICE_SOURCE_OFFERS: Final = "offers"
 PRICE_SOURCE_REWE: Final = "rewe"

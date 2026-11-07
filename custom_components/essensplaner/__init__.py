@@ -42,6 +42,7 @@ from .panel import (
     async_remove_panel,
     async_setup_websocket,
 )
+from .receipts import ReceiptStore, async_register_views
 from .rewe import (
     RETAILER as REWE,
     SOURCE_REWE,
@@ -64,6 +65,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up services and websocket commands."""
     async_setup_services(hass)
     async_setup_websocket(hass)
+    # receipt photos: upload and (signed) image links of the panel
+    async_register_views(hass)
     # article search: REWE online shop and ALDI SÜD (experimental, only while their option
     # is on)
     register_live_provider(REWE, async_rewe_live, rewe_enabled)
@@ -277,13 +280,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry
         manager = entry.runtime_data
         await manager.async_save_now()
         await manager.catalog.async_save()
+        await manager.receipts.async_save()
         # refreshes still running (services, panel) must not write over the new manager's data
         manager.unloaded = True
         manager.catalog.unloaded = True
+        manager.receipts.unloaded = True
     return unload_ok
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove stored data when the integration is deleted (also the offer catalog)."""
+    """Remove stored data when the integration is deleted (also the offer catalog, the
+    receipts and their image files – nothing else of the media folder)."""
     await Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}.{entry.entry_id}").async_remove()
     await OfferCatalog(hass, entry.entry_id).async_remove()
+    await ReceiptStore(hass, entry.entry_id).async_remove()

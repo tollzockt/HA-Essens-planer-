@@ -936,6 +936,8 @@ class EconomyMixin:
 
     def economy_export(self: EssensplanerManager) -> dict[str, Any]:
         """Data for the panel."""
+        from .receipts import receipts_summary  # the receipts module imports the mixins
+
         return {
             "budget": self.weekly_budget,
             "week": self.week_overview(),
@@ -956,6 +958,8 @@ class EconomyMixin:
             "price_sources": self.price_sources_view(),
             # all offers of the saved stores (1.4; the offers come via essensplaner/store_offers)
             "catalog": self.catalog.summary(self),
+            # stored receipts and whether photos can be read (1.4; list: essensplaner/receipts)
+            "receipts": receipts_summary(self),
         }
 
     def price_sources_view(self: EssensplanerManager) -> dict[str, Any]:

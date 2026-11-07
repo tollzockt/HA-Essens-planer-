@@ -42,6 +42,7 @@ from .const import (
     CONF_MEAL_TIME_PREFIX,
     CONF_OFFERS_SOURCE,
     CONF_PANTRY,
+    CONF_RECEIPT_AI,
     CONF_REGISTER_INTENTS,
     CONF_REWE_ONLINE,
     CONF_SHOW_PANEL,
@@ -322,7 +323,7 @@ class EssensplanerOptionsFlow(OptionsFlow):
 
     async def async_step_stores(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Stores & shopping: store split, branch search, chain sources (REWE / ALDI SÜD
-        online prices, EDEKA offers)."""
+        online prices, EDEKA offers) and the AI Task entity for receipt photos."""
         if user_input is not None:
             data = {
                 **self.config_entry.options,
@@ -334,6 +335,8 @@ class EssensplanerOptionsFlow(OptionsFlow):
             general = getattr(self, "_general", None)
             if general is not None and CONF_SYNC_TODO not in general:
                 data.pop(CONF_SYNC_TODO, None)
+            if not user_input.get(CONF_RECEIPT_AI):
+                data.pop(CONF_RECEIPT_AI, None)  # receipts as pasted text only
             data[CONF_SPLIT_MIN_SAVING] = _whole(user_input[CONF_SPLIT_MIN_SAVING])
             data[CONF_SPLIT_MIN_PERCENT] = round(user_input[CONF_SPLIT_MIN_PERCENT])
             data[CONF_SPLIT_OFFER_MIN] = _whole(user_input[CONF_SPLIT_OFFER_MIN])
@@ -433,6 +436,10 @@ class EssensplanerOptionsFlow(OptionsFlow):
                 CONF_EDEKA_OFFERS,
                 default=bool(options.get(CONF_EDEKA_OFFERS, DEFAULT_EDEKA_OFFERS)),
             ): BooleanSelector(),
+            # receipt photos are read by this AI Task entity (none: pasted receipt text only)
+            vol.Optional(
+                CONF_RECEIPT_AI, description={"suggested_value": options.get(CONF_RECEIPT_AI)}
+            ): EntitySelector(EntitySelectorConfig(domain="ai_task")),
         }
         return self.async_show_form(
             step_id="stores",

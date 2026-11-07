@@ -170,7 +170,7 @@ In der Einkaufsliste schaltest du um zwischen **„Nach Laden“** (je Laden Art
 ### Preisliste je Laden
 Die Preisliste zeigt je Zutat den Richtwert und die Preise deiner Läden nebeneinander, der günstigste ist markiert; jede Zelle lässt sich bearbeiten (auf dem Handy ein Laden + „Günstigster“, der Richtwert steht unter dem Artikel). Welcher Preis gilt, wird je Laden in dieser Reihenfolge entschieden:
 
-1. dein **eigener Ladenpreis** (z. B. „Butter bei Aldi Süd 1,79 €“)
+1. dein **eigener Ladenpreis** (z. B. „Butter bei Aldi Süd 1,79 €“ – getippt oder von einem [Kassenzettel](#kassenzettel))
 2. **gelernter Ladenpreis** (höchstens 180 Tage alt; REWE- bzw. ALDI-SÜD-Onlinepreis vor Prospekt-Normalpreis)
 3. dein **eigener allgemeiner Preis**
 4. **gelernter allgemeiner Preis**
@@ -212,6 +212,29 @@ Standardmäßig **aus**. Eingeschaltet (Optionen → „Läden & Einkauf“) hol
 ### EDEKA-Angebote deines Markts
 Standardmäßig **aus**. Jeder EDEKA-Kaufmann hat eigene Angebote – eingeschaltet (Optionen → „Läden & Einkauf“) lädt der Essensplaner einmal am Tag (06:xx, sobald die Angebote einen Tag alt sind oder die Prospektwoche vorbei ist) die **Prospekt-Angebote deines EDEKA-Markts von www.edeka.de**: Preis, Packung, Grundpreis, gültig bis, PAYBACK-/App-Hinweise, Pfand als Hinweis (nie im Preis). Angebote, die zu deinen Rezepten, der Merkliste oder der Einkaufsliste passen, fließen wie andere Angebote in Planung, Budget und Einkaufsliste ein – nur für diese EDEKA-Filiale. Dafür braucht die Filiale eine **EDEKA-Markt-ID** („Markt suchen“ bzw. Aktion `essensplaner.find_edeka_markets`, dann mit `essensplaner.save_branch` als `edeka_market_id` speichern). Lehnt EDEKA ab, wird 7 Tage pausiert; die Angebote bleiben bis zu ihrem Ende.
 
+### Kassenzettel
+Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deiner Kassenzettel** als eigene Preise des Ladens:
+
+1. **Text einfügen** (immer möglich, ohne KI): den Text des Kassenzettels (z. B. aus einer Text-Erkennung am Handy oder einem E-Bon) einfügen – er wird lokal gelesen. Verstanden werden die üblichen Zeilen von REWE, EDEKA, Lidl, ALDI, Netto, Norma, Penny, Kaufland, Rossmann und dm: `BUTTER MILSANI 250G   1,15 A`, Mengenzeilen `2 x 0,99` / `2 Stk x 0,99`, Gewichtszeilen `0,512 kg x 7,99 EUR/kg`, Pfand/Leergut (ignoriert), Rabatte und Preisvorteile (beim Artikel davor), Storno, `SUMME` / `zu zahlen`; Bar, Karte, Rückgeld und MwSt zählen nicht.
+2. **Foto oder PDF** (optional): mit einer **KI-Aufgabe** (AI Task, z. B. Ollama, OpenAI oder Google; Optionen → „Läden & Einkauf“ → „KI-Aufgabe für Kassenzettel-Fotos“). Das Foto wird im Medienordner gespeichert (`/media/essensplaner/receipts/`, höchstens 10 MB, JPG/PNG/WebP/PDF) und **nur das Bild** geht an die gewählte KI – keine Rezepte, Filialen oder Preise.
+3. **Prüfen:** Laden und Filiale werden aus dem Kopf des Kassenzettels erkannt (Kette und Postleitzahl, bei mehreren Filialen die Straße), dazu Datum und Summe (stimmt die Summe der Zeilen nicht, gibt es einen Hinweis). Abkürzungen wie `H-MILCH 1,5%`, `GOUDA JUNG SCHEIB`, `HACKFL.GEM.` oder `BIO EIER 10ER` werden den Artikeln der Preisliste zugeordnet; die Packung kommt aus der Zeile (250G, 1L, 10ER), sonst aus dem Preis des Ladens oder dem Richtwert. Was nicht erkannt wird, bleibt „unbekannt“ – du ordnest es zu oder ignorierst es; deine Zuordnung merkt sich der Essensplaner für den nächsten Kassenzettel dieser Kette.
+4. **Speichern:** jeder zugeordnete Artikel wird **eigener Preis dieses Ladens** (in der Preisliste „🧾 Kassenzettel 07.11.“, mit Verlauf). Gespeichert wird der Normalpreis je Stück (ein Rabatt oder App-Preis zählt nicht), gewogene Ware je kg. Ein **neuerer** Kassenzettel ersetzt einen älteren Preis; einen Preis, den du **nach** dem Kassenzettel-Datum eingetippt hast, überschreibt er nicht. Preise anderer Ketten werden daraus nie geschätzt.
+
+Gespeichert werden höchstens 200 Kassenzettel (die ältesten gehen samt Foto) in `/config/.storage/essensplaner.receipts.<entry_id>`; nicht gespeicherte Fotos werden nach einem Tag gelöscht. Löschst du einen Kassenzettel, bleiben seine Preise (außer mit „Preise entfernen“). Aktionen: `receipt_parse_text`, `receipt_scan`, `receipt_save`, `get_receipts`, `delete_receipt`; für das Panel die Websockets `essensplaner/receipts`, `essensplaner/receipt_parse`, `essensplaner/receipt_save`, `essensplaner/receipt_delete` und der Upload `POST /api/essensplaner/receipt_upload` (nur Administratoren).
+
+```yaml
+action: essensplaner.receipt_parse_text
+data:
+  text: |
+    Lidl
+    Landblum 2
+    56593 Horhausen
+    Milbona H-Milch 1,5%     0,99 A
+    Butter                   1,69 A
+    zu zahlen                2,68
+response_variable: bon   # bon.items: Artikel, Preis, Packung, Zuordnung
+```
+
 ### Artikelsuche beim Hinzufügen
 Tippst du im Feld **„Artikel hinzufügen“**, erscheinen passende Artikel deines Hauptladens mit Preis, Packung und 🏷️ Angebot – aus der Preisliste, den Richtwerten, gültigen Angeboten und deinen zuletzt gekauften Artikeln. Mit Online-Angeboten (bzw. REWE- oder ALDI-SÜD-Onlinepreisen bei einem REWE- oder ALDI-SÜD-Laden) wird zusätzlich live gesucht. Antippen fügt den Artikel **mit Preis und Laden** hinzu; Enter ohne Auswahl übernimmt den Text wie bisher.
 
@@ -230,6 +253,7 @@ Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Ge
 | ALDI SÜD (`api.aldi-sued.de`) | nur bei „Filiale suchen“ | auf ca. 10 m gerundete Koordinaten |
 | EDEKA (`www.edeka.de`) | nur mit EDEKA-Angeboten (täglich, Knopf „Preise aktualisieren“) | Markt-ID deiner EDEKA-Filiale |
 | EDEKA (`www.edeka.de`) | nur bei „Markt suchen“ | Postleitzahl |
+| deine KI-Aufgabe (AI Task) | nur wenn du ein Kassenzettel-Foto lesen lässt | nur das Bild des Kassenzettels (lokale KI wie Ollama: bleibt im Haus) |
 
 Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Postleitzahlen, Orte, Namen, Bezeichnungen, Entfernungen, Zonen-Namen, Filial- und Markt-IDs geschwärzt; übrig bleiben Kette, Hauptladen-Markierung und Anzahlen.
 
@@ -289,6 +313,8 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.find_aldi_stores` | ALDI-SÜD-Filialen und ihre Filialnummern in der Nähe finden (Koordinaten, Postleitzahl einer deiner Filialen oder die ALDI-Filiale) |
 | `essensplaner.refresh_offers` / `get_offers` / `search_offers` | Angebote deiner Läden laden (höchstens einmal pro Stunde), abrufen, live suchen |
 | `essensplaner.add_offer` / `remove_offer` | Angebot eintragen / löschen |
+| `essensplaner.receipt_parse_text` / `receipt_scan` | Kassenzettel-Text lokal lesen / Foto oder PDF von der KI-Aufgabe lesen lassen (Vorschlag zum Prüfen) |
+| `essensplaner.receipt_save` / `get_receipts` / `delete_receipt` | Kassenzettel speichern (Preise werden eigene Ladenpreise) / abrufen / löschen |
 
 ```yaml
 action: essensplaner.plan_meal
@@ -322,14 +348,14 @@ Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 - **Nie vorschlagen**: z. B. „Fisch, Pilze“
 - **Geplantes automatisch als gekocht zählen** (Standard: an)
 - Schritt 2 **Budget & Angebote**: Wochenbudget, Planungsart, Online-Angebote, Postleitzahl, Supermärkte, Merkliste
-- Schritt 3 **Läden & Einkauf**: Einkaufsliste nach Läden (Aus · Alles im Hauptladen · Hauptladen + Ausnahmen), Schwellen (Standard: 1,00 € oder 20 %, Angebot ab 0,30 €, Extra-Laden ab 0 € = aus), Zonen, Umkreis (3 km) und Arbeitsweg (800 m) für die Filialsuche, REWE- und ALDI-SÜD-Onlinepreise (experimentell, aus), EDEKA-Angebote deines Markts (aus). Die Filialen selbst wählst du im Panel.
+- Schritt 3 **Läden & Einkauf**: Einkaufsliste nach Läden (Aus · Alles im Hauptladen · Hauptladen + Ausnahmen), Schwellen (Standard: 1,00 € oder 20 %, Angebot ab 0,30 €, Extra-Laden ab 0 € = aus), Zonen, Umkreis (3 km) und Arbeitsweg (800 m) für die Filialsuche, REWE- und ALDI-SÜD-Onlinepreise (experimentell, aus), EDEKA-Angebote deines Markts (aus), KI-Aufgabe für Kassenzettel-Fotos (keine). Die Filialen selbst wählst du im Panel.
 
 <!-- screenshot: optionen-laeden.png -->
 - Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren
 - Intents an/aus, Panel an/aus
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Optionen ist geschwärzt.
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`, die Kassenzettel in `essensplaner.receipts.<entry_id>` und ihre Fotos in `/media/essensplaner/receipts/`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Optionen ist geschwärzt.
 
 ## Entwicklung
 

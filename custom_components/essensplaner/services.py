@@ -66,6 +66,7 @@ from .const import (
     SERVICE_CLEAR_SHOPPING,
     SERVICE_COMPARE_PRICES,
     SERVICE_COPY_PLAN,
+    SERVICE_DELETE_RECEIPT,
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
     SERVICE_FIND_ALDI_STORES,
@@ -77,6 +78,7 @@ from .const import (
     SERVICE_GET_COSTS,
     SERVICE_GET_OFFERS,
     SERVICE_GET_PLAN,
+    SERVICE_GET_RECEIPTS,
     SERVICE_GET_RECIPE,
     SERVICE_GET_RECIPES,
     SERVICE_GET_SHOPPING_LIST,
@@ -87,6 +89,9 @@ from .const import (
     SERVICE_MARK_COOKED,
     SERVICE_MOVE_MEAL,
     SERVICE_PLAN_MEAL,
+    SERVICE_RECEIPT_PARSE_TEXT,
+    SERVICE_RECEIPT_SAVE,
+    SERVICE_RECEIPT_SCAN,
     SERVICE_REFRESH_OFFERS,
     SERVICE_REFRESH_PRICES,
     SERVICE_REMOVE_BRANCH,
@@ -105,6 +110,13 @@ from .dates import DateParseError, parse_date, parse_meal, week_start
 from .edeka import SOURCE_EDEKA, async_find_edeka_markets, async_refresh_edeka_offers
 from .ingredients import fold
 from .offers import async_refresh_offers, async_search_target_offers
+from .receipts import (
+    async_delete_receipt,
+    async_parse_receipt_text,
+    async_save_receipt,
+    async_scan_receipt,
+    receipts_view,
+)
 from .recipe_import import async_fetch_recipe
 from .rewe import async_find_rewe_markets, async_refresh_rewe_prices, rewe_enabled, rewe_market
 
@@ -337,6 +349,24 @@ ADD_SHOPPING_ITEM_SCHEMA = vol.Schema(
 )
 GET_COSTS_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_START_DATE): cv.string, vol.Optional(ATTR_DAYS): _DAYS}
+)
+RECEIPT_PARSE_TEXT_SCHEMA = vol.Schema(
+    {vol.Required("text"): cv.string, vol.Optional("branch"): cv.string}
+)
+RECEIPT_SCAN_SCHEMA = vol.Schema(
+    {
+        vol.Exclusive("upload_id", "receipt"): cv.string,
+        vol.Exclusive("media_content_id", "receipt"): cv.string,
+        vol.Optional("entity_id"): cv.entity_id,
+        vol.Optional("branch"): cv.string,
+    }
+)
+RECEIPT_SAVE_SCHEMA = vol.Schema({vol.Required("receipt"): dict})
+GET_RECEIPTS_SCHEMA = vol.Schema(
+    {vol.Optional("limit", default=50): vol.All(vol.Coerce(int), vol.Range(min=1, max=200))}
+)
+DELETE_RECEIPT_SCHEMA = vol.Schema(
+    {vol.Required("id"): cv.string, vol.Optional("remove_prices", default=False): cv.boolean}
 )
 IMPORT_RECIPES_SCHEMA = vol.Schema(
     {
@@ -942,6 +972,39 @@ def async_setup_services(hass: HomeAssistant) -> None:
             call.data.get("lon"),
         )
 
+    async def receipt_parse_text(call: ServiceCall) -> ServiceResponse:
+        return await async_parse_receipt_text(
+            get_manager(hass), call.data["text"], call.data.get("branch")
+        )
+
+    async def receipt_scan(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        if not call.data.get("upload_id") and not call.data.get("media_content_id"):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="receipt_media_invalid",
+                translation_placeholders={"media": ""},
+            )
+        return await async_scan_receipt(
+            hass,
+            manager,
+            upload_id=call.data.get("upload_id"),
+            media_content_id=call.data.get("media_content_id"),
+            entity_id=call.data.get("entity_id"),
+            branch=call.data.get("branch"),
+        )
+
+    async def receipt_save(call: ServiceCall) -> ServiceResponse:
+        return await async_save_receipt(get_manager(hass), dict(call.data["receipt"]))
+
+    async def get_receipts(call: ServiceCall) -> ServiceResponse:
+        return receipts_view(get_manager(hass), call.data["limit"])
+
+    async def delete_receipt(call: ServiceCall) -> ServiceResponse:
+        return await async_delete_receipt(
+            get_manager(hass), call.data["id"], call.data["remove_prices"]
+        )
+
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
@@ -993,6 +1056,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_FIND_REWE_MARKETS, find_rewe_markets, FIND_REWE_MARKETS_SCHEMA),
         (SERVICE_FIND_EDEKA_MARKETS, find_edeka_markets, FIND_EDEKA_MARKETS_SCHEMA),
         (SERVICE_FIND_ALDI_STORES, find_aldi_stores, FIND_ALDI_STORES_SCHEMA),
+        (SERVICE_RECEIPT_PARSE_TEXT, receipt_parse_text, RECEIPT_PARSE_TEXT_SCHEMA),
+        (SERVICE_RECEIPT_SCAN, receipt_scan, RECEIPT_SCAN_SCHEMA),
+        (SERVICE_RECEIPT_SAVE, receipt_save, RECEIPT_SAVE_SCHEMA),
+        (SERVICE_GET_RECEIPTS, get_receipts, GET_RECEIPTS_SCHEMA),
+        (SERVICE_DELETE_RECEIPT, delete_receipt, DELETE_RECEIPT_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

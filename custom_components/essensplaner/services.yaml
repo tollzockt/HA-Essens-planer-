@@ -743,3 +743,65 @@ find_aldi_stores:
           max: 180
           step: any
           mode: box
+
+receipt_parse_text:
+  fields:
+    text:
+      required: true
+      example: "BUTTER MILSANI 250G   1,15 A"
+      selector:
+        text:
+          multiline: true
+    branch:
+      example: "Lidl"
+      selector:
+        text:
+
+receipt_scan:
+  fields:
+    upload_id:
+      example: "3f9c2a7b1d4e5f60"
+      selector:
+        text:
+    media_content_id:
+      example: "media-source://media_source/local/essensplaner/receipts/bon.jpg"
+      selector:
+        text:
+    entity_id:
+      selector:
+        entity:
+          filter:
+            domain: ai_task
+    branch:
+      example: "Lidl"
+      selector:
+        text:
+
+receipt_save:
+  fields:
+    receipt:
+      required: true
+      selector:
+        object:
+
+get_receipts:
+  fields:
+    limit:
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 200
+          mode: box
+
+delete_receipt:
+  fields:
+    id:
+      required: true
+      example: "3f9c2a7b1d4e5f60"
+      selector:
+        text:
+    remove_prices:
+      default: false
+      selector:
+        boolean:
