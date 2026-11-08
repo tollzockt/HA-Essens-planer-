@@ -1185,7 +1185,7 @@
       "fields": {
         "receipt": {
           "name": "Receipt",
-          "description": "The proposal of 'Read receipt text' / 'Read receipt photo' or own data: branch or store, date, items (name, key, price, amount, unit, quantity, ignored), total, upload_id."
+          "description": "The proposal of 'Read receipt text' / 'Read receipt photo' or own data: branch or store, date, items (name, key, price, amount, unit, quantity, ignored, regular = save an offer line as regular price anyway), total, upload_id."
         }
       }
     },

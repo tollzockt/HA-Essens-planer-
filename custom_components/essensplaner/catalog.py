@@ -36,7 +36,7 @@ Stored in its own file (Store "essensplaner.catalog.<entry_id>"), removed with t
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import date, datetime, timedelta
 import hashlib
 import json
@@ -679,16 +679,18 @@ class KeyMatcher:
                     found[key] = None
         return list(found)
 
-    def match(self, text: str, product: str) -> list[str]:
+    def match(self, text: str, product: str, short_context: str = "") -> list[str]:
         """Keys a text fits ("Butter-Spekulatius" is no butter, "Granatapfel" no Apfel,
-        "Skyr Drink Erdbeere" or "Limonaden" of the kind "Zitrone" no Erdbeere / Zitrone)."""
+        "Skyr Drink Erdbeere" or "Limonaden" of the kind "Zitrone" no Erdbeere / Zitrone).
+        The short words of a key ("tk" of "tk erbse") may also be named by short_context
+        (the description: "tiefgefroren, je 750-g-Beutel")."""
         if not text.strip():
             return []
         context = text if text == product else f"{product} {text}"
         return [
             key
             for key in self.candidates(text)
-            if offer_matches(text, key)
+            if offer_matches(text, key, short_context)
             and not key_only_as_modifier(product, key)
             and not other_compound(text, key)
             and not flavour_only(context, key)
@@ -697,13 +699,17 @@ class KeyMatcher:
     def offer_keys(self, offer: dict[str, Any]) -> list[str]:
         """Keys of an offer: the product itself decides (the name up to a comma or "in" /
         "mit": ALDI's "Apfelmus 360 g, Apfel" is no Apfel); the description only names the
-        kind of product ("Classic" + "frz. Schnittkäse"), not what is in it ("mit Gurken")."""
-        product = product_head(str(offer.get("product") or offer.get("title") or ""))
-        found = self.match(product, product)
+        kind of product ("Classic" + "frz. Schnittkäse"), not what is in it ("mit Gurken"),
+        and the short words of keys ("tiefgefroren" for "tk erbse")."""
+        name = str(offer.get("product") or offer.get("title") or "")
+        description = str(offer.get("description") or "")
+        product = product_head(name)
+        short_context = f"{name} {description}"
+        found = self.match(product, product, short_context)
         if not found:
-            kind = kind_text(offer.get("description"))
+            kind = kind_text(description)
             if kind:
-                found = self.match(kind, product)
+                found = self.match(kind, product, short_context)
         return found
 
 
@@ -1289,6 +1295,84 @@ class OfferCatalog:
         }
 
 
+# offers that live only in manager.offers: typed from a leaflet ("＋ Angebot aus Prospekt
+# eintragen", voice) and ALDI SÜD's reduced articles of the price refresh
+OWN_OFFER_SOURCES = ("manual", "aldi_online")
+
+
+def own_offers(manager: EssensplanerManager, today: date) -> list[dict[str, Any]]:
+    """The offers of OWN_OFFER_SOURCES that have not ended, shaped like catalog offers
+    (retailer resolved, kind, branch_ids = the branches they are tagged with); online-only
+    ones and those whose id is in the catalog are left out."""
+    day = today.isoformat()
+    catalog = getattr(manager, "catalog", None)
+    listed = catalog.current_offers(today) if catalog is not None else []
+    known = {o.get("id") for o in listed}
+    # a catalog offer pinned with "📌 Merken" (a manual copy) is listed once
+    pinned = {
+        (o.get("retailer"), o.get("price"), (o.get("valid_to") or "")[:10], fold(name))
+        for o in listed
+        for name in (
+            str(o.get("title") or ""),
+            str(o.get("product") or ""),
+            f"{o.get('brand') or ''} {o.get('product') or o.get('title') or ''}",
+        )
+        if name.strip()
+    }
+    found: list[dict[str, Any]] = []
+    for offer in manager.offers:
+        if (
+            not isinstance(offer, dict)
+            or offer.get("source") not in OWN_OFFER_SOURCES
+            or not offer.get("id")
+            or offer["id"] in known
+            or offer.get("online_only")
+            or (offer.get("valid_to") or "9999")[:10] < day
+            or offer.get("price") is None
+        ):
+            continue
+        retailer = manager.offer_retailer(offer)
+        if not retailer:
+            continue
+        name = fold(str(offer.get("title") or offer.get("product") or ""))
+        if (retailer, offer.get("price"), (offer.get("valid_to") or "")[:10], name) in pinned:
+            continue
+        product = str(offer.get("product") or offer.get("title") or "")
+        found.append(
+            {
+                **offer,
+                "title": offer.get("title") or product,
+                "retailer": retailer,
+                "kind": offer.get("kind")
+                or classify_offer(product, str(offer.get("description") or ""), retailer),
+                "branch_ids": list(offer.get("branches") or []),
+            }
+        )
+    return found
+
+
+def price_overlay(
+    manager: EssensplanerManager, today: date
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """best_offers() of the catalog with the own offers (own_offers()) of the day: the
+    cheapest current offer per key and retailer for the price list."""
+    catalog: OfferCatalog | None = getattr(manager, "catalog", None)
+    overlay = catalog.best_offers(today) if catalog is not None else {}
+    day = today.isoformat()
+    merged: dict[str, dict[str, dict[str, Any]]] | None = None
+    for offer in own_offers(manager, today):
+        if (offer.get("valid_from") or "")[:10] > day:
+            continue
+        for key in offer.get("keys") or []:
+            if merged is None:  # the memo of best_offers() stays as it is
+                merged = {k: dict(cells) for k, cells in overlay.items()}
+            cells = merged.setdefault(key, {})
+            current = cells.get(offer["retailer"])
+            if current is None or float(offer["price"]) < float(current.get("price") or 1e9):
+                cells[offer["retailer"]] = offer_info(offer)
+    return merged if merged is not None else overlay
+
+
 def offer_info(offer: dict[str, Any]) -> dict[str, Any]:
     """The short offer shown in a price list cell (display only, never a regular price)."""
     return {
@@ -1368,7 +1452,28 @@ def catalog_plan(manager: EssensplanerManager) -> dict[str, Any]:
         "aldi": aldi,
         "signature": signature,
         "direct": direct,
+        "aldi_point": point,
+        "payload": payload,
     }
+
+
+def _resolved_plan(manager: EssensplanerManager, plan: dict[str, Any]) -> dict[str, Any]:
+    """The plan after a refresh: when the run linked the ALDI SÜD service point itself
+    (the nearest one of the branch, AldiSource.async_target()), what it fetched is the plan
+    with that point – no store change, no second refresh (and no second round of
+    marktguru requests). Any other change (a branch saved while the run was going on)
+    keeps the plan the run started with, so it gets its own refresh."""
+    after = catalog_plan(manager)
+    before_payload, after_payload = plan.get("payload") or {}, after["payload"]
+    if (
+        plan.get("aldi")
+        and plan.get("aldi_point") is None
+        and after["aldi_point"] is not None
+        and before_payload.get("mg") == after_payload["mg"]
+        and before_payload.get("edeka") == after_payload["edeka"]
+    ):
+        return after
+    return plan
 
 
 def catalog_untried(manager: EssensplanerManager) -> bool:
@@ -1643,6 +1748,8 @@ async def _async_run(
     status = STATUS_OK if succeeded else STATUS_ERROR
     if mg_meta is not None and mg_meta["status"] == STATUS_BLOCKED and not succeeded:
         status = STATUS_BLOCKED
+    # the ALDI SÜD service point this run linked itself is what it fetched
+    plan = _resolved_plan(manager, plan)
     catalog.data.update(
         {
             "status": status,
@@ -1650,6 +1757,7 @@ async def _async_run(
             "errors": errors[:MAX_ERRORS],
             "matched": matched_total,
             "requests": (mg_meta or {}).get("requests", 0),
+            "tried_direct": plan["direct"],
         }
     )
     if succeeded:
@@ -2049,12 +2157,41 @@ _SORT_KEYS = {
 
 
 def _matches_query(offer: dict[str, Any], query: str) -> bool:
+    """The panel's search box: any text of the offer (a brand, "Kaffeevollautomat")."""
     folded = fold(query)
     text = f"{offer.get('title') or ''} {offer.get('description') or ''}"
     if folded and folded in fold(text):
         return True
     key = ingredient_key(query)
     return bool(key) and (key in (offer.get("keys") or []) or offer_matches(text, key))
+
+
+def _text_query(query: str) -> Callable[[dict[str, Any]], bool]:
+    """The panel's search box as a filter (see _matches_query())."""
+
+    def matches(offer: dict[str, Any]) -> bool:
+        return _matches_query(offer, query)
+
+    return matches
+
+
+def _key_query(query: str) -> Callable[[dict[str, Any]], bool]:
+    """A product question (voice): an offer of the product itself – its ingredient key, or
+    a product name the catalog matcher accepts for it (no Kaffeevollautomat for "Kaffee",
+    no Granatapfel for "Apfel", no Butter-Spekulatius for "Butter")."""
+    key = ingredient_key(query)
+    matcher = KeyMatcher([key] if key else [])
+
+    def matches(offer: dict[str, Any]) -> bool:
+        if not key:
+            return False
+        if key in (offer.get("keys") or []):
+            return True
+        return bool(
+            matcher.offer_keys({**offer, "product": offer.get("product") or offer.get("title")})
+        )
+
+    return matches
 
 
 def _source_status(
@@ -2114,6 +2251,7 @@ def store_offers_view(
     offset: int = 0,
     limit: int = 60,
     include_online: bool = False,
+    match: str = "text",
 ) -> dict[str, Any]:
     """All offers of the saved stores (websocket essensplaner/store_offers).
 
@@ -2121,14 +2259,24 @@ def store_offers_view(
     count_upcoming, sources, leaflet_only, leaflets, status, error}], meta: {updated, status,
     errors, marktguru, sources, count}}. The store counts follow the kind / query / mine
     filters (not the store and time filters). Online-only offers only with include_online.
+    match: "text" (the panel's search box: any text of the offer) or "key" (a product
+    question: offers of the product itself, see _key_query()).
     """
     catalog: OfferCatalog = manager.catalog
     today = manager.today()
     day = today.isoformat()
     offers = catalog.current_offers(today)
     branch_map = _branch_map(manager, catalog, offers)
+    # the offers typed from a leaflet (e.g. NORMA) and ALDI SÜD's reduced articles, for the
+    # branches they are tagged with
+    extra = own_offers(manager, today)
+    if extra:
+        branch_map = {**branch_map, **{o["id"]: o["branch_ids"] for o in extra}}
+        offers = [*offers, *extra]
     planning = set(planning_keys(manager)) if mine else set()
     folded_query = (query or "").strip()
+    fits = _key_query(folded_query) if match == "key" else _text_query(folded_query)
+
     counts: dict[str, list[int]] = {}
     selected: list[dict[str, Any]] = []
     wanted = set(branch_ids or [])
@@ -2146,7 +2294,7 @@ def store_offers_view(
             continue
         if mine and not set(offer.get("keys") or []) & planning:
             continue
-        if folded_query and not _matches_query(offer, folded_query):
+        if folded_query and not fits(offer):
             continue
         current = not offer.get("valid_from") or offer["valid_from"] <= day
         for bid in branches:

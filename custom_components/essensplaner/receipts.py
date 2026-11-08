@@ -1004,17 +1004,25 @@ def line_pack(name: str) -> tuple[float, str] | None:
     return None
 
 
-# marks of name tokens: completed from a known word, truncated and not understood
+# marks of name tokens: completed from a known word (a unique completion of 5+ letters,
+# "WEIZENM." -> Weizenmehl), guessed (a completion of a short prefix, "BOD." could be
+# anything), truncated and not understood
 _COMPLETED = "completed"
+_GUESSED = "guessed"
 _TRUNCATED = "truncated"
+# the shortest prefix whose unique completion is trusted
+MIN_COMPLETION = 5
+# marks of a word before a hit that make the hit unsure (the word may change the product)
+_UNSURE_MARKS = (_COMPLETED, _GUESSED, _TRUNCATED)
 
 
 def _marked_tokens(
     name: str, vocabulary: dict[str, str] | None = None, complete: bool = True
 ) -> list[tuple[str, str]]:
     """name_tokens() with a mark per token: "" (as printed, a known word or an
-    abbreviation), "completed" (a truncated word completed from the vocabulary) or
-    "truncated" (a truncated word that was not understood or not completed)."""
+    abbreviation), "completed" (a truncated word of 5+ letters completed from the
+    vocabulary), "guessed" (a shorter one or a stop word completed) or "truncated" (a
+    truncated word that was not understood or not completed)."""
     text = _PACK_TOKEN_RE.sub(" ", str(name or ""))
     tokens: list[tuple[str, str]] = []
     for raw in re.split(r"\s+", text.replace(".", ". ")):
@@ -1027,7 +1035,11 @@ def _marked_tokens(
                 word = ABBREVIATIONS[word]
             elif truncated and len(word) >= 3 and not (vocabulary and word in vocabulary):
                 completion = vocabulary.get(f"{word}*") if vocabulary and complete else None
-                word, mark = (completion, _COMPLETED) if completion else (word, _TRUNCATED)
+                if completion:
+                    sure = len(word) >= MIN_COMPLETION and word not in STOP_WORDS
+                    word, mark = completion, _COMPLETED if sure else _GUESSED
+                else:
+                    mark = _TRUNCATED
             for part in word.split():
                 if part not in STOP_WORDS:
                     tokens.append((part, mark))
@@ -1143,18 +1155,24 @@ class ReceiptMapper:
                 "confidence": 0.98,
             }
         # the words as printed first; a truncated word completed from the known words
-        # ("BOD." -> "Bodylotion") only when they name nothing: a guessed word must not
-        # outvote a recognised one ("EIER BOD.10ER M")
+        # ("WEIZENM." -> Weizenmehl) only when they name nothing for sure: a guessed word
+        # must not outvote a recognised one ("EIER BOD.10ER M"), a completion may beat a
+        # suggestion ("SONNENBL.OEL" is Sonnenblumenöl, no Rapsöl)
         plain = _marked_tokens(name, self.vocabulary, complete=False)
         if not plain:
             return none
         found = self._map_tokens(plain)
         marked = plain
-        if found is None:
+        if found is None or found["confidence"] < MIN_CONFIDENCE:
             completed = _marked_tokens(name, self.vocabulary)
             if completed != plain:
-                marked = completed
-                found = self._map_tokens(completed)
+                better = self._map_tokens(completed)
+                if found is None:
+                    marked = completed
+                if better is not None and (
+                    found is None or better["confidence"] > found["confidence"]
+                ):
+                    found = better
         if found is None:
             found = self._fuzzy(" ".join(token for token, _ in marked))
         return found or none
@@ -1184,8 +1202,8 @@ class ReceiptMapper:
             if len({h[1][0] for h in hits}) > 1:
                 confidence -= 0.1
             marks = [mark for _, mark in marked[start : start + size]]
-            if _COMPLETED in marks or (start and marked[start - 1][1] == _TRUNCATED):
-                # a guessed word, or an abbreviation not understood right before the hit
+            if _GUESSED in marks or (start and marked[start - 1][1] in _UNSURE_MARKS):
+                # a guessed word, or a word not understood right before the hit
                 # ("GESCH.TOMATEN" may be no fresh tomatoes): only a suggestion
                 confidence = min(confidence, MIN_CONFIDENCE - 0.05)
             return {"key": key, "product": product, "match": source, "confidence": confidence}
@@ -1333,7 +1351,66 @@ def own_price(item: dict[str, Any]) -> tuple[float, float, str] | None:
     )
 
 
-OFFER_TOLERANCE = 0.05
+# the receipt's price is the offer's price (cent rounding of a price per piece)
+OFFER_TOLERANCE = 0.01
+# words of an article name that tell nothing about which product it is
+_PLAIN_WORDS = {
+    "frisch",
+    "frische",
+    "frischer",
+    "deutsch",
+    "deutsche",
+    "deutscher",
+    "echt",
+    "echte",
+    "fein",
+    "feine",
+    "feiner",
+    "natur",
+    "marken",
+    "markenqualitaet",
+    "qualitaet",
+    "sorte",
+    "sorten",
+    "versch",
+    "verschiedene",
+}
+
+
+def _product_words(text: str, key: str) -> set[str]:
+    """The words of an article name that tell one product of a key from another (brand,
+    variety), without the key itself, plain and pack words ('Kerrygold' of 'Kerrygold
+    Irische Butter'; nothing of 'Deutsche Markenbutter')."""
+    key_words = [w for w in key.split() if len(w) >= 3]
+    words: set[str] = set()
+    for token in name_tokens(text):
+        if len(token) < 3 or token.isdigit() or token in _PLAIN_WORDS:
+            continue
+        if any(w in token or token in w for w in key_words):
+            continue
+        words.add(token)
+    return words
+
+
+def _same_article(offer: dict[str, Any], key: str, name: str) -> bool:
+    """True if a receipt line may be the offer's article: when both names tell which
+    product of the key it is (a brand, a variety), they share such a word ('KERRYGOLD
+    IRISCHE BUTTER' is the offer 'Kerrygold Butter', 'GUT LAND DEUTSCHE MARKENBUTTER' is
+    not); a truncated receipt word counts ('KERRYG.')."""
+    offer_name = " ".join(
+        str(offer.get(field) or "") for field in ("brand", "product") if offer.get(field)
+    ) or str(offer.get("title") or "")
+    wanted = _product_words(offer_name, key)
+    printed = _product_words(name, key)
+    if not wanted or not printed:
+        return True  # "BUTTER" or the offer "Butter": the key and the price decide
+    return any(
+        word == token
+        or (len(token) >= 4 and word.startswith(token))
+        or (len(word) >= 4 and token.startswith(word))
+        for word in wanted
+        for token in printed
+    )
 
 
 def receipt_offer(
@@ -1344,9 +1421,11 @@ def receipt_offer(
     item: dict[str, Any],
 ) -> dict[str, Any] | None:
     """The leaflet offer of the receipt's chain for this article that was valid on the
-    receipt's day at the line's price (an offer price is no regular price), else None.
-    Weighed articles are not checked."""
-    if not (retailer and key) or item.get("weight"):
+    receipt's day at the line's price (an offer price is no regular price), else None:
+    the same key, the same price (to the cent) and, when both names tell it, the same
+    brand or variety (see _same_article()). Weighed articles and lines the user marked
+    as regular price ("regular") are not checked."""
+    if not (retailer and key) or item.get("weight") or item.get("regular"):
         return None
     try:
         price = (float(item.get("price") or 0) + float(item.get("discount") or 0)) / float(
@@ -1367,7 +1446,7 @@ def receipt_offer(
             continue
         old = offer.get("old_price") or offer.get("regular_price")
         if (
-            abs(offer_price - price) > OFFER_TOLERANCE
+            abs(offer_price - price) > OFFER_TOLERANCE + 1e-6
             or (old and float(old) <= offer_price)  # no price cut
             or str(offer.get("valid_from") or "")[:10] > text
             or str(offer.get("valid_to") or "9999")[:10] < text
@@ -1375,7 +1454,7 @@ def receipt_offer(
         ):
             continue
         keys = offer.get("keys") or [ingredient_key(str(offer.get("product") or ""))]
-        if key in keys:
+        if key in keys and _same_article(offer, key, str(item.get("name") or "")):
             return offer
     return None
 
@@ -1453,6 +1532,7 @@ def build_proposal(
         item = {k: raw.get(k) for k in ("line", "name", "quantity", "weight", "unit_price")}
         item.update(
             {
+                "regular": bool(raw.get("regular")),
                 "price": raw.get("price"),
                 "discount": raw.get("discount") or 0.0,
                 "kind": raw.get("kind") or "article",
@@ -1746,6 +1826,8 @@ def _clean_items(raw_items: Any) -> list[dict[str, Any]]:
             value = _number(raw.get(field))
             item[field] = round(value, 3) if value is not None and abs(value) < MAX_PRICE else None
         item["unit"] = str(raw.get("unit") or "").strip()[:20] or None
+        # "trotzdem als Normalpreis": no offer check for this line
+        item["regular"] = bool(raw.get("regular"))
         key = raw.get("key")
         item["key"] = str(key).strip()[:80] if key not in (None, "") else None
         item["product"] = str(raw.get("product") or "").strip()[:80] or None
@@ -1765,7 +1847,8 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
     assigned to another key are remembered for the next receipt of the chain.
     Result {receipt, prices: [{key, name, price, amount, unit, status saved|kept|offer}],
     saved, kept, offer, unknown}. A line at the price of a leaflet offer of the store on
-    the receipt's day (status "offer") only goes into the price history.
+    the receipt's day (status "offer", see receipt_offer()) only goes into the price
+    history, unless the item says "regular": true ("trotzdem als Normalpreis").
     """
     from .manager import _error
 
@@ -1856,6 +1939,7 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
                     "discount",
                     "weight",
                     "ignored",
+                    "regular",
                     "status",
                 )
             }

@@ -824,7 +824,10 @@ async def test_store_split_services(hass: HomeAssistant, setup_integration) -> N
     assert overview["selection"]["items"] == ["250 g Butter"]
     assert overview["selection"]["branch_id"] == lidl["id"]
     compare = await _call(hass, "compare_prices", item="Butter")
-    assert compare["cheapest"]["retailer"] == "lidl"
+    # the only own price: no "cheapest" next to estimates (1.4 review round 2)
+    assert compare["cheapest"] is None
+    assert (compare["results"][0]["retailer"], compare["results"][0]["real"]) == ("lidl", True)
+    assert compare["estimate"]["price"] == 1.99
     with pytest.raises(ServiceValidationError):
         await _call(hass, "set_shopping_store", item="Butter", store="Netto")
 
@@ -875,23 +878,27 @@ async def test_store_split_intents(hass: HomeAssistant, setup_integration) -> No
     speech = await _speech(hass, "essensplaner_get_shopping_list", store="im Supermarkt")
     assert speech.startswith("Auf der Einkaufsliste stehen 3 Einträge.")
 
+    # only the stores' own prices are named, never an estimate (1.4 review round 2)
     assert await _speech(hass, "essensplaner_compare_prices", item="Butter") == (
-        "Am günstigsten gibt es Butter bei Lidl: 1,59 € (250 g). "
-        "Bei Aldi Süd 1,99 € (250 g) und bei REWE Arbeit 1,99 € (250 g)."
+        "Ich kenne nur den Preis bei Lidl: 1,59 € (250 g)."
     )
     assert await _speech(hass, "essensplaner_compare_prices", item="Eier") == (
-        "Eier gibt es überall für etwa 2,49 € (10 Stück, Richtwert)."
+        "Für Eier kenne ich noch keinen Ladenpreis (Richtwert 2,49 € für 10 Stück)."
     )
     assert await _speech(hass, "essensplaner_compare_prices", item="Milch") == (
+        "Ich kenne nur den Preis bei REWE Arbeit: 0,69 € (1 l) im Angebot."
+    )
+    manager.set_store_price("Aldi Süd", "Milch", 0.99, 1, "l")
+    assert await _speech(hass, "essensplaner_compare_prices", item="Milch") == (
         "Am günstigsten gibt es Milch bei REWE Arbeit: 0,69 € (1 l) im Angebot. "
-        "Bei Aldi Süd 0,99 € (1 l) und bei Lidl 0,99 € (1 l)."
+        "Bei Aldi Süd 0,99 € (1 l)."
     )
     assert await _speech(hass, "essensplaner_compare_prices", item="Blumenerde") == (
         "Für Blumenerde habe ich keinen Preis."
     )
     # 1.4: drugstore / household estimates (pack in rolls)
     assert await _speech(hass, "essensplaner_compare_prices", item="Klopapier") == (
-        "Klopapier gibt es überall für etwa 3,95 € (10 Rollen, Richtwert)."
+        "Für Klopapier kenne ich noch keinen Ladenpreis (Richtwert 3,95 € für 10 Rollen)."
     )
 
     assert await _speech(
@@ -1021,7 +1028,8 @@ async def test_store_intents_as_llm_tools(hass: HomeAssistant, setup_integration
     result = await api.async_call_tool(
         llm.ToolInput(tool_name="essensplaner_compare_prices", tool_args={"item": "Butter"})
     )
-    assert result["speech_slots"]["cheapest"]["retailer"] == "lidl"
+    assert result["speech_slots"]["results"][0]["retailer"] == "lidl"
+    assert result["speech_slots"]["results"][0]["real"] is True
     result = await api.async_call_tool(
         llm.ToolInput(
             tool_name="essensplaner_set_shopping_store",

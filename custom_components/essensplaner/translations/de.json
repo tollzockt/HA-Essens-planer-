@@ -1185,7 +1185,7 @@
       "fields": {
         "receipt": {
           "name": "Kassenzettel",
-          "description": "Der Vorschlag von „Kassenzettel-Text lesen“ / „Kassenzettel-Foto lesen“ oder eigene Daten: branch oder store, date, items (name, key, price, amount, unit, quantity, ignored), total, upload_id."
+          "description": "Der Vorschlag von „Kassenzettel-Text lesen“ / „Kassenzettel-Foto lesen“ oder eigene Daten: branch oder store, date, items (name, key, price, amount, unit, quantity, ignored, regular = Angebotszeile trotzdem als Normalpreis speichern), total, upload_id."
         }
       }
     },

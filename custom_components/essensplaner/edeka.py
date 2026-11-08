@@ -36,16 +36,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
+from .catalog import KeyMatcher
 from .const import CONF_EDEKA_OFFERS, DEFAULT_EDEKA_OFFERS
 from .ingredients import fold
-from .offers import (
-    _parse_count,
-    key_only_as_modifier,
-    offer_matches,
-    parse_pack,
-    parse_pack_text,
-    short_key,
-)
+from .offers import _parse_count, parse_pack, parse_pack_text
 from .online_prices import (
     STATUS_ERROR,
     STATUS_OK,
@@ -442,19 +436,19 @@ def match_offers(
     manager: EssensplanerManager, offers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """The offers that fit a planned / frequent ingredient or an open shopping item, with
-    their keys (copies; the others are left out like a leaflet page nobody needs)."""
+    their keys (copies; the others are left out like a leaflet page nobody needs).
+
+    The same matcher as the offer catalog: the product itself decides ("Granatäpfel" are
+    no Äpfel, "Ingwer Shot" no Ingwer); the description only names the kind of product
+    ("französischer Hartkäse" for "Gruyère"), not what is in it ("mit Röstzwiebeln"),
+    and the short words of keys ("tiefgefroren" for "tk erbse")."""
     keys = list(
         dict.fromkeys(k for _, k in refresh_terms(manager, MAX_MATCH_TERMS, MAX_SHOPPING_TERMS))
     )
-    words = {key: [w for w in key.split() if len(w) >= 3] for key in keys}
+    matcher = KeyMatcher(keys)
     matched: list[dict[str, Any]] = []
     for offer in offers:
-        product = str(offer.get("product") or "")
-        # the product name decides; the description only names the kind of product
-        # ("französischer Hartkäse" for "Gruyère"), not what is in it ("mit Röstzwiebeln")
-        found = _keys_in(product, product, keys, words) or _keys_in(
-            _kind_text(offer), product, keys, words
-        )
+        found = matcher.offer_keys(offer)
         if found:
             matched.append({**offer, "keys": found})
     return matched
@@ -478,20 +472,6 @@ def _kind_text(offer: dict[str, Any]) -> str:
         return ""
     cut = _KIND_CUT_RE.search(first)
     return first[: cut.start()] if cut else first
-
-
-def _keys_in(text: str, product: str, keys: list[str], words: dict[str, list[str]]) -> list[str]:
-    """Keys that fit a text (prefiltered by substring, "Butter-Spekulatius" is no butter)."""
-    if not text.strip():
-        return []
-    folded = fold(text)
-    return [
-        key
-        for key in keys
-        if (short_key(key) or all(w in folded for w in words[key]))
-        and offer_matches(text, key)
-        and not key_only_as_modifier(product, key)
-    ]
 
 
 # ----------------------------------------------------------------------

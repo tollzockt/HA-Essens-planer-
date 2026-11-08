@@ -328,6 +328,26 @@ async def test_receipt_abbreviations_do_not_guess(
     )
     item = proposal["items"][0]
     assert (item["status"], item["key"], item["suggestion"]) == ("unknown", None, "Tomaten")
+    # a unique completion of 5+ letters is no guess; it beats a suggestion of the printed
+    # words ("SONNENBL.OEL" is no Rapsöl) (fix-regressions-r2-2)
+    lines = {
+        "WEIZENM. 405 1KG": "weizenmehl",
+        "SONNENBL.OEL 1L": "sonnenblumenoel",
+        "MARGAR. 500G": "margarine",
+        "CHAMPIGN. 400G": "champignon",
+        "ZUCCH.": "zucchini",
+    }
+    for line, key in lines.items():
+        found = mapper.map(line)
+        assert (found["key"], found["confidence"] >= 0.5) == (key, True), line
+    prices = "".join(f"{line} 0,99 B\n" for line in lines)
+    proposal = await _service(
+        hass, "receipt_parse_text", text=f"{OCR_HEAD}{prices}SUMME 4,95\n04.11.2026"
+    )
+    assert [(i["status"], i["key"]) for i in proposal["items"]] == [
+        ("mapped", key) for key in lines.values()
+    ]
+    assert mapper.map("BOD.EIER 10ER")["key"] == "ei"
 
 
 async def test_receipt_offer_price_is_no_regular_price(

@@ -214,6 +214,11 @@ intents:
           - "welche drogerie angebote gibt es [diese woche|gerade|aktuell]"
         slots:
           store: "drogerie"
+  essensplaner_set_price:
+    data:
+      # the regular price of a store (a leaflet offer is no sentence: LLM tool add_offer)
+      - sentences:
+          - "[merk dir] {item:product} kostet (bei|beim|im) {store} [jetzt] {price}"
   essensplaner_get_costs:
     data:
       - sentences:
@@ -382,6 +387,8 @@ lists:
   dish:
     wildcard: true
   query:
+    wildcard: true
+  price:
     wildcard: true
   ingredients:
     wildcard: true

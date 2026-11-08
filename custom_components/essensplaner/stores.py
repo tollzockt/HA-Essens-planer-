@@ -1773,9 +1773,17 @@ class StoresMixin:
             history.append(own)  # a typed price replaced by the receipt can come back
         history = sorted([*history, mark], key=lambda h: str(h.get("date") or ""))
         if offer:
-            if current:
+            if current.get("source") == SOURCE_RECEIPT and current.get("receipt_id") == receipt_id:
+                # saved before as the regular price, now known as an offer: the price
+                # before this receipt comes back (none: the receipt's price goes)
+                earlier = [h for h in history if not h.get("offer") and h.get("price") is not None]
+                if earlier:
+                    bucket[key] = self._restored_price(current, earlier[-1], history)
+                else:
+                    del bucket[key]
+            elif current:
                 current["history"] = history[-HISTORY_MAX:]
-            elif not bucket:
+            if not bucket:
                 del self.store_prices_user[retailer]
             return "offer"
         current_day = self.own_price_day(current) if current else None
@@ -2209,8 +2217,11 @@ class StoresMixin:
                 ranks[(row["key"], column)] = (rank, exact)
                 row["stores"][column] = cell
 
-        # current offers of the catalog (display only, never stored as a regular price)
-        overlay = self.catalog.best_offers(self.today()) if self.catalog is not None else {}
+        # current offers of the catalog and the own ones typed from a leaflet (display
+        # only, never stored as a regular price)
+        from .catalog import price_overlay  # avoid an import cycle
+
+        overlay = price_overlay(self, self.today())
         folded = fold(query or "")
         result = []
         for row in rows.values():
@@ -3157,9 +3168,13 @@ class StoresMixin:
 
         Without branches the active retailers (offer_stores option) are compared. With an
         amount ('500 g Hackfleisch') the cost in whole packs is compared, else the price
-        per unit (pack prices differ in size). cheapest: the best result (None with less
-        than two stores or when all cost the same). A drugstore only counts for food with
-        an own price or an offer of the product (no estimate of butter at Rossmann).
+        per unit (pack prices differ in size). results: the stores' own prices (real:
+        typed, receipt, learned, offer) first, then the stores without one (real False:
+        the estimate). cheapest: the best real result (None with less than two real
+        results or when they cost the same) – never an estimate. estimate: the Richtwert
+        once ({price, pack, packs, unit_price, base}) when a store has no own price. A
+        drugstore only counts for food with an own price or an offer of the product (no
+        estimate of butter at Rossmann).
         """
         from .manager import _error  # avoid an import cycle
 
@@ -3231,20 +3246,29 @@ class StoresMixin:
                 value = result["unit_price"]
             return (value, result["price"], not result["main"])
 
-        results.sort(key=rank)
+        # an estimate is no price of the store: it never ranks with (or before) a real one
+        results.sort(key=lambda r: (not r["real"], *rank(r)))
+        real = [r for r in results if r["real"]]
         cheapest = None
         if (
-            len(results) >= 2
-            and rank(results[0])[0] != float("inf")
-            and rank(results[0])[0] < rank(results[1])[0] - 1e-9
+            len(real) >= 2
+            and rank(real[0])[0] != float("inf")
+            and rank(real[0])[0] < rank(real[1])[0] - 1e-9
         ):
-            cheapest = results[0]
+            cheapest = real[0]
+        guessed = next((r for r in results if not r["real"]), None)
+        estimate = (
+            {k: guessed[k] for k in ("price", "pack", "packs", "unit_price", "base")}
+            if guessed is not None
+            else None
+        )
         return {
             "item": product,
             "amount": " + ".join(f"{a:g} {u}".strip() for u, a in amounts.items()) or None,
             "compared_by": "price" if by_price else "unit_price",
             "results": results,
             "cheapest": cheapest,
+            "estimate": estimate,
         }
 
 

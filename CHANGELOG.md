@@ -89,6 +89,15 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   „Granatapfel“ kein Apfel, „Geschirrreiniger“ kein WC-Reiniger; gelernte Normalpreise
   stammen nur von Angeboten des Produkts selbst. Lebensmittel bei Drogerien (Kaffee, Riegel,
   Haferdrink) erscheinen unter „Lebensmittel“.
+- „TK-Erbsen“, „TK-Spinat“ & Co. bekommen ihre Angebote auch, wenn „tiefgefroren“ nur in der
+  Beschreibung steht (EDEKA, marktguru). Aufzählungen wie „iglo Rahm-, Würz- oder
+  Blatt-Spinat“, „Birkel’s No. 1, 7-Hühnchen oder 3 Glocken Nudeln“, „Joghurt oder Pudding“
+  und gefüllte Nudeln („Gefüllte Kartoffel Gnocchi“) behalten ihre Zutat. Die EDEKA-Angebote
+  für Rezepte und Einkaufsliste werden genauso zugeordnet wie in der Gesamtübersicht
+  („Granatäpfel“, „Ingwer Shot“, „Kondensmilch“ zählen nicht als Äpfel, Ingwer, Milch).
+- Selbst eingetragene Angebote (z. B. aus dem NORMA-Prospekt) und die reduzierten Artikel von
+  ALDI SÜD stehen auch unter „Alle Angebote meiner Läden“ bei ihrem Laden und in der
+  Preisliste; ein mit „📌 Merken“ übernommenes Angebot erscheint dort nur einmal.
 - **Normalpreise aus dem ganzen Prospekt:** Streichpreise, Lidls „Normalpreis: 1.35“ und die
   Streichpreise von ALDI SÜD werden für alle Artikel der Preisliste gelernt (mit
   Plausibilitätsprüfung), nicht nur für gesuchte Zutaten.
@@ -127,8 +136,13 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
 - Nach dem Prüfen werden die Preise **eigene Preise des Ladens** (Quelle „Kassenzettel“
   mit Datum und Verlauf, in der Preisliste „🧾 Kassenzettel 07.11.“). Ein neuerer
   Kassenzettel ersetzt einen älteren Preis, ein später eingetippter Preis bleibt. Ein
-  Angebotspreis des Ladens an diesem Tag wird nicht zum Normalpreis (nur Verlauf). „Mit
-  Preisen löschen“ stellt den Preis davor wieder her (eingetippt oder älterer Kassenzettel).
+  Angebotspreis des Ladens an diesem Tag (gleiche Zutat, auf den Cent derselbe Preis und –
+  wenn beide sie nennen – dieselbe Marke) wird nicht zum Normalpreis (nur Verlauf); mit
+  `regular` („trotzdem als Normalpreis“) doch. „Mit Preisen löschen“ stellt den Preis davor
+  wieder her (eingetippt oder älterer Kassenzettel), ebenso erneutes Speichern, wenn eine
+  Zeile inzwischen als Angebot bekannt ist. Eindeutig abgekürzte Wörter („WEIZENM.“,
+  „MARGAR.“, „CHAMPIGN.“, „SONNENBL.OEL“) werden zugeordnet, kurze Abkürzungen nur
+  vorgeschlagen.
 - Neue Aktionen `receipt_parse_text`, `receipt_scan`, `receipt_save`, `get_receipts` und
   `delete_receipt`; für das Panel die Websockets `essensplaner/receipts`, `receipt_parse`,
   `receipt_save`, `receipt_delete` und der Foto-Upload `/api/essensplaner/receipt_upload`
@@ -170,6 +184,28 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
 - Öffnest du das Panel nach dem Update, bevor Home Assistant neu gestartet ist, zeigt es
   „bitte neu starten“, statt die neuen Bereiche immer wieder abzufragen.
 - Alle Textfelder der Aktionen haben ein Beispiel in den Entwicklerwerkzeugen.
+- Verknüpft der Essensplaner die ALDI-SÜD-Filiale selbst, startet das keinen zweiten
+  vollständigen Angebotsabruf (marktguru wird nicht doppelt gefragt).
+- Markennamen als Artikel („Persil“, „Zewa“, „Somat“, „Tempo“, „Elmex“, „Nivea“ …) kommen in
+  die Abteilungen Haushalt bzw. Drogerie – und damit bei „Hauptladen + Ausnahmen“ in die
+  Drogerie („Froschschenkel“ bleibt ein Lebensmittel).
+
+### Jarvis
+- „Wo ist Butter am günstigsten?“ nennt nur echte Preise der Läden (eigene, Kassenzettel,
+  gelernte, Angebote) – nie einen Richtwert als Ladenpreis oder als günstigsten. Kennt er
+  nur einen Preis: „Ich kenne nur den Preis bei REWE: 2,29 €“, keinen: „Für Butter kenne ich
+  noch keinen Ladenpreis (Richtwert 1,99 € für 250 g)“. `compare_prices` sortiert die Läden
+  ohne eigenen Preis ans Ende, `cheapest` gilt nur unter echten Preisen, neu ist `estimate`.
+- Produktfragen zu Angeboten („Wo ist Kaffee im Angebot?“) suchen das Produkt selbst – keine
+  Kaffeemaschine, kein Granatapfel für „Äpfel“, keine Butter-Spekulatius für „Butter“. Die
+  Suche im Panel findet weiter jeden Text.
+- „Was hat Norma im Angebot?“ sagt, wenn es für den Laden nur den Prospekt als Bilder gibt,
+  wo er im Panel steht; bei EDEKA zusätzlich, dass die Einstellung „EDEKA-Angebote“ die
+  einzelnen Angebote bringt.
+- Neues Tool `essensplaner_set_price`: „Butter kostet bei Netto 1,79 Euro“ speichert den
+  Normalpreis des Ladens (bleibt, mit der üblichen Packung); `essensplaner_add_offer` ist
+  ausdrücklich für befristete Angebote. Mit den deutschen Sätzen auch für den eingebauten
+  Sprachagenten (Datei erneut kopieren).
 
 ## 1.3.2
 

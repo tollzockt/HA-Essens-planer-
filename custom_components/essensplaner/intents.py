@@ -23,8 +23,10 @@ from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK, SPLIT_OFF
 from .dates import describe_date
 from .ingredients import fold, strip_article
 from .manager import EssensplanerManager, error_message
-from .pricing import format_eur
+from .offers import parse_pack, parse_pack_text
+from .pricing import format_eur, pack_text
 from .recipe_import import async_fetch_recipe
+from .retailers import retailer_name
 from .services import (
     async_sync_shopping,
     parse_price,
@@ -60,6 +62,7 @@ INTENT_GET_COSTS = "essensplaner_get_costs"
 INTENT_COMPARE_PRICES = "essensplaner_compare_prices"
 INTENT_SET_SHOPPING_STORE = "essensplaner_set_shopping_store"
 INTENT_ADD_SHOPPING_ITEM = "essensplaner_add_shopping_item"
+INTENT_SET_PRICE = "essensplaner_set_price"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -880,7 +883,7 @@ class GetOffersIntent(_EssensplanerIntent):
                     )
         if not offers:
             return (
-                f"Ich habe keine passenden Angebote gefunden.{_offers_hint(manager)}",
+                f"Ich habe keine passenden Angebote gefunden.{_offers_hint(manager, store)}",
                 {"offers": []},
             )
         top = offers[:5]
@@ -933,8 +936,15 @@ def _catalog_offers(
             if retailer is None:
                 return []
             branch_ids = None
+    # a product question asks for the product itself, not for any text containing it
     view = store_offers_view(
-        manager, branch_ids=branch_ids, when=when, query=query, limit=200, sort="saving"
+        manager,
+        branch_ids=branch_ids,
+        when=when,
+        query=query,
+        limit=200,
+        sort="saving",
+        match="key",
     )
     return [
         o
@@ -951,9 +961,40 @@ def _merge_offers(
     return [*first, *(o for o in second if not o.get("id") or o["id"] not in ids)]
 
 
-def _offers_hint(manager: EssensplanerManager) -> str:
+def _store_hints(manager: EssensplanerManager, store: str | None) -> list[str]:
+    """Hints for an asked store without offers: only leaflet pages as images (NORMA, EDEKA
+    via marktguru), EDEKA's own offers switched off."""
+    from .catalog import store_offers_view  # the catalog imports the manager
+    from .edeka import edeka_enabled
+
+    if not store or manager.is_generic_store(store):
+        return []
+    branches = manager._match_branches(store)
+    if not branches and (retailer := manager.resolve_store(store)):
+        branches = [b for b in manager.selected_branches() if b.get("retailer") == retailer]
+    ids = {b.get("id") for b in branches if b.get("id")}
+    if not ids:
+        return []
+    hints = []
+    stores = [s for s in store_offers_view(manager, limit=1)["stores"] if s["branch_id"] in ids]
+    leaflets = list(dict.fromkeys(s["store"] for s in stores if s.get("leaflet_only")))
+    if leaflets:
+        names = _join(leaflets)
+        hints.append(
+            f"Für {names} gibt es nur den Prospekt als Bilder – im Essensplaner-Panel unter "
+            "Angebote, Alle Angebote meiner Läden."
+        )
+    if any(b.get("retailer") == "edeka" for b in branches) and not edeka_enabled(manager):
+        hints.append(
+            "Mit „EDEKA-Angebote“ in den Einstellungen bekomme ich die einzelnen Angebote "
+            "deines Markts."
+        )
+    return hints
+
+
+def _offers_hint(manager: EssensplanerManager, store: str | None = None) -> str:
     """Why no offer may be known: no source on, the EDEKA market not linked, nothing
-    fetched yet."""
+    fetched yet; for an asked store: only leaflet images, EDEKA's offers off."""
     from .catalog import catalog_enabled, catalog_status  # the catalog imports the manager
     from .edeka import edeka_enabled, edeka_markets
 
@@ -976,6 +1017,8 @@ def _offers_hint(manager: EssensplanerManager) -> str:
         )
     if catalog_status(manager) == "pending":
         hints.append("Die Angebote wurden noch nicht abgerufen.")
+    else:
+        hints.extend(h for h in _store_hints(manager, store) if h not in hints)
     return "".join(f" {h}" for h in hints)
 
 
@@ -985,9 +1028,11 @@ class AddOfferIntent(_EssensplanerIntent):
     intent_type = INTENT_ADD_OFFER
     response_type = intent.IntentResponseType.ACTION_DONE
     description = (
-        "Essensplaner: merkt sich ein Supermarkt-Angebot, damit es bei Planung und Einkaufsliste "
+        "Essensplaner: merkt sich ein befristetes Supermarkt-Angebot (Prospekt, gilt bis zum "
+        "angegebenen Tag, sonst bis Samstag), damit es bei Planung und Einkaufsliste "
         "berücksichtigt wird ('Bei Lidl gibt es Hähnchenbrust für 4,99 Euro das Kilo bis Samstag'). "
-        "Saves an offer."
+        "Für den normalen (dauerhaften) Preis eines Ladens essensplaner_set_price verwenden. "
+        "Saves a limited-time offer."
     )
     slot_schema = {
         vol.Required("product", description="Produkt, z. B. 'Hähnchenbrust'"): cv.string,
@@ -1018,6 +1063,62 @@ class AddOfferIntent(_EssensplanerIntent):
         if recipes:
             speech += f" Passt zum Beispiel zu {_join(recipes[:3])}."
         return speech, {"offer": offer, "recipes": recipes[:10]}
+
+
+# "1 Euro 79", "1 € 79" (speech recognition) -> "1,79"; "99 Cent" -> "0,99"
+_EURO_CENT_RE = re.compile(r"^\s*(\d+)\s*(?:euro|€|eur)\s*(\d{1,2})\s*(?:cent)?\s*$", re.I)
+_CENT_RE = re.compile(r"^\s*(\d{1,2})\s*cent\s*$", re.I)
+
+
+def _spoken_price(text: str) -> str:
+    """A price as spoken ("1 Euro 79", "99 Cent") in the form parse_price() reads."""
+    if match := _EURO_CENT_RE.match(text):
+        return f"{match[1]},{int(match[2]):02d}"
+    if match := _CENT_RE.match(text):
+        return f"0,{int(match[1]):02d}"
+    return text
+
+
+class SetPriceIntent(_EssensplanerIntent):
+    """Remember the regular price of a product at a store (an own store price)."""
+
+    intent_type = INTENT_SET_PRICE
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: merkt sich den Normalpreis (dauerhaft) eines Produkts in einem Laden "
+        "als eigenen Preis dieses Ladens ('Butter kostet bei Netto 1,79 Euro', 'Merk dir: "
+        "Milch kostet bei Lidl 99 Cent'). Für befristete Prospekt-Angebote "
+        "essensplaner_add_offer verwenden. Saves a store's regular price."
+    )
+    slot_schema = {
+        vol.Required("product", description="Produkt, z. B. 'Butter'"): cv.string,
+        vol.Required("store", description=_STORE_DESC): cv.string,
+        vol.Required("price", description="Preis in Euro, z. B. '1,79'"): cv.string,
+        vol.Optional(
+            "pack",
+            description="Packungsgröße, z. B. '250 g' oder '1 l' (ohne Angabe: die übliche)",
+        ): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        price = parse_price(_spoken_price(str(values["price"])))
+        product = _cap(strip_article(str(values["product"])).strip())
+        store = str(values["store"]).strip()
+        retailer = manager.require_retailer(manager.store_text(store))
+        pack = parse_pack_text(values.get("pack")) or parse_pack(product)
+        if pack is None:
+            # the pack of the price there or of the estimate ("Butter": 250 g)
+            known = manager.store_book(retailer).lookup(product)
+            pack = (known.amount, known.unit) if known is not None else (1.0, "Stück")
+        entry = manager.set_price(product, price, pack[0], pack[1], store)
+        branch = manager.named_branch(store)
+        label = manager.branch_label(branch) if branch else retailer_name(retailer)
+        shown = pack_text(entry["amount"], entry["unit"])
+        speech = (
+            f"Okay, {product} kostet bei {label} {format_eur(entry['price'])}"
+            f"{f' ({shown})' if shown else ''}. Das ist jetzt der Normalpreis dort."
+        )
+        return speech, {"price": entry}
 
 
 class GetCostsIntent(_EssensplanerIntent):
@@ -1081,19 +1182,39 @@ class ComparePricesIntent(_EssensplanerIntent):
         results = result["results"]
         if not results:
             return f"Für {name} habe ich keinen Preis.", result
+        # only the stores' own prices are named; an estimate is said to be one
+        real = [r for r in results if r["real"]]
+        if not real:
+            estimate = result.get("estimate") or results[0]
+            return (
+                f"Für {name} kenne ich noch keinen Ladenpreis"
+                f"{_pack_hint(estimate, estimate=True, price=True)}.",
+                result,
+            )
         cheapest = result["cheapest"]
         if cheapest is None:
+            first = real[0]
+            offer = " im Angebot" if first.get("offer") else ""
+            if len(real) == 1 and len(results) > 1:
+                return (
+                    f"Ich kenne nur den Preis bei {first['label']}: "
+                    f"{format_eur(first['price'])}{_pack_hint(first)}{offer}.",
+                    result,
+                )
             # "gibt es" works for "Butter" and "Eier" alike
-            first = results[0]
-            where = f"bei {first['label']}" if len(results) == 1 else "überall"
-            estimate = not any(r["real"] for r in results)
+            if len(real) == 1:
+                where = f"bei {first['label']}"
+            elif len(real) == len(results):
+                where = "überall"
+            else:
+                where = _join([f"bei {r['label']}" for r in real])
             return (
-                f"{name} gibt es {where} für etwa {format_eur(first['price'])}"
-                f"{_pack_hint(first, estimate)}.",
+                f"{name} gibt es {where} für {format_eur(first['price'])}{_pack_hint(first)}"
+                f"{offer}.",
                 result,
             )
         # without an amount stores are compared per kilo / litre: say it when packs differ
-        per_unit = result["compared_by"] == "unit_price" and len({r["pack"] for r in results}) > 1
+        per_unit = result["compared_by"] == "unit_price" and len({r["pack"] for r in real}) > 1
         speech = (
             f"Am günstigsten gibt es {name} bei {cheapest['label']}: "
             f"{format_eur(cheapest['price'])}{_pack_hint(cheapest, per_unit=per_unit)}"
@@ -1102,7 +1223,7 @@ class ComparePricesIntent(_EssensplanerIntent):
             speech += " im Angebot"
         others = [
             f"bei {r['label']} {format_eur(r['price'])}{_pack_hint(r, per_unit=per_unit)}"
-            for r in results
+            for r in real
             if r is not cheapest
         ][:3]
         speech += "."
@@ -1111,12 +1232,21 @@ class ComparePricesIntent(_EssensplanerIntent):
         return speech, result
 
 
-def _pack_hint(result: dict[str, Any], estimate: bool = False, per_unit: bool = False) -> str:
-    """' (250 g)', ' (2 mal 250 g)', ' (250 g, Richtwert)', ' (500 g, 6,98 € pro Kilo)'."""
+def _pack_hint(
+    result: dict[str, Any], estimate: bool = False, per_unit: bool = False, price: bool = False
+) -> str:
+    """' (250 g)', ' (2 mal 250 g)', ' (250 g, Richtwert)', ' (500 g, 6,98 € pro Kilo)';
+    with price the estimate itself: ' (Richtwert 1,99 € für 250 g)'."""
     parts = []
+    pack = ""
     if result.get("pack"):
         packs = result.get("packs") or 1
-        parts.append(f"{packs} mal {result['pack']}" if packs > 1 else result["pack"])
+        pack = f"{packs} mal {result['pack']}" if packs > 1 else result["pack"]
+    if price:
+        text = f"Richtwert {format_eur(result['price'])}"
+        return f" ({text} für {pack})" if pack else f" ({text})"
+    if pack:
+        parts.append(pack)
     if per_unit and (base_price := _base_price(result)):
         parts.append(base_price)
     if estimate:
@@ -1256,6 +1386,7 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     ComparePricesIntent,
     SetShoppingStoreIntent,
     AddShoppingItemIntent,
+    SetPriceIntent,
 ]
 
 

@@ -1281,6 +1281,48 @@ _CATEGORY_KEYWORDS[CATEGORY_HOUSEHOLD] = (
     "zahnstocher",
 )
 
+# brand names people use for the product ("Tempo", "Persil", "Zewa"): whole words only
+# ("Froschschenkel" is no Frosch, "April" no Pril)
+_BRAND_KEYWORDS = {
+    CATEGORY_DRUGSTORE: (
+        "tempo",
+        "kleenex",
+        "elmex",
+        "aronal",
+        "odol",
+        "colgate",
+        "oral b",
+        "blend a med",
+        "nivea",
+        "penaten",
+        "bepanthen",
+        "hansaplast",
+        "pampers",
+        "always",
+        "durex",
+        "balea",
+    ),
+    CATEGORY_HOUSEHOLD: (
+        "persil",
+        "ariel",
+        "somat",
+        "frosch",
+        "domestos",
+        "sagrotan",
+        "zewa",
+        "pril",
+        "lenor",
+        "calgon",
+        "finish",
+        "meister proper",
+        "vanish",
+        "cillit",
+    ),
+}
+_WHOLE_WORD_KEYWORDS = frozenset(kw for keywords in _BRAND_KEYWORDS.values() for kw in keywords)
+for _category, _brands in _BRAND_KEYWORDS.items():
+    _CATEGORY_KEYWORDS[_category] = (*_CATEGORY_KEYWORDS[_category], *_brands)
+
 # (keyword, category) sorted by keyword length, longest first
 _KEYWORDS: list[tuple[str, str]] = sorted(
     ((kw, category) for category, keywords in _CATEGORY_KEYWORDS.items() for kw in keywords),
@@ -1303,6 +1345,8 @@ def guess_category(name: str) -> str:
     for keyword, category in _KEYWORDS:
         for text in candidates:
             if text == keyword or text.endswith(keyword) or f"{keyword} " in f"{text} ":
+                if keyword in _WHOLE_WORD_KEYWORDS and f" {keyword} " not in f" {text} ":
+                    continue
                 if keyword in ("ei",) and not re.search(r"(^| )ei(er)?( |$)", folded):
                     continue
                 if keyword == "deo" and not re.search(r"(^| )deo", text):
@@ -1316,7 +1360,7 @@ def guess_category(name: str) -> str:
                 return category
     # 2. keyword anywhere (e.g. "Hähnchenbrustfilet")
     for keyword, category in _KEYWORDS:
-        if len(keyword) < 4:
+        if len(keyword) < 4 or keyword in _WHOLE_WORD_KEYWORDS:
             continue
         for text in candidates:
             if keyword in text:

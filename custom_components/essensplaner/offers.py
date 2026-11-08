@@ -204,34 +204,47 @@ def _short_key_matches(offer_text: str, key: str) -> bool:
 
 
 # written-out forms of the short words of keys ("Tiefkühl-Erbsen" for "TK-Erbsen",
-# "haltbare Milch" for "H-Milch")
+# "haltbare Milch" for "H-Milch"); stems, so that they also fit the singular forms of
+# _singular() ("tiefgefroren" -> "tiefgefrore")
 _SHORT_WORD_FORMS = {
-    "tk": ("tiefkuehl", "tiefgekuehlt", "tiefgefroren"),
+    "tk": ("tiefkuehl", "tiefgekuehl", "tiefgefror"),
     "h": ("haltbar",),
 }
 
 
 def _short_word_found(tokens: list[str], word: str) -> bool:
     """A short word of a longer key ("wc" of "WC-Reiniger", "tk" of "TK-Erbsen") is a word
-    of its own in the text (fold() splits "WC-Ente" into "wc ente"), or written out."""
+    of its own in the text (fold() splits "WC-Ente" into "wc ente"), or written out
+    ("länger haltbar" is ESL milk, no H-Milch)."""
     forms = _SHORT_WORD_FORMS.get(word, ())
-    return any(t == word or (forms and t.startswith(forms)) for t in tokens)
+    return any(
+        t == word
+        or (forms and t.startswith(forms) and (not i or tokens[i - 1] not in ("laenger", "lange")))
+        for i, t in enumerate(tokens)
+    )
 
 
-def offer_matches(offer_text: str, key: str) -> bool:
+def offer_matches(offer_text: str, key: str, short_context: str = "") -> bool:
     """True if an offer title fits an ingredient key ('haehnchenbrust' ~ 'Hähnchenbrustfilet').
 
     Every word of the key counts: a short one ("wc" of "wc reiniger") as a word of its
-    own, so 'Geschirrreiniger' is no WC-Reiniger and 'Barbarie-Ente' no WC-Ente.
+    own, so 'Geschirrreiniger' is no WC-Reiniger and 'Barbarie-Ente' no WC-Ente. The short
+    words may also be named by short_context (the description: 'Iglo Junge Erbsen' +
+    'tiefgefroren, je 750-g-Beutel' is a "tk erbse"); the long words come from the text.
     """
     if not key:
         return False
     if short_key(key):
         return _short_key_matches(offer_text, key)
     tokens = [_singular(w) for w in fold(offer_text).split()]
+    short_tokens = tokens
+    if short_context:
+        short_tokens = tokens + [_singular(w) for w in fold(short_context).split()]
     words = key.split()
     return all(
-        _short_word_found(tokens, w) if len(w) < 3 else any(_token_match(t, w) for t in tokens)
+        _short_word_found(short_tokens, w)
+        if len(w) < 3
+        else any(_token_match(t, w) for t in tokens)
         for w in words
     )
 
@@ -387,6 +400,10 @@ def names_key_product(product: str, key: str, description: str = "") -> bool:
 # "Bio-Gourmet Kapern 180 g, Olivenöl" (the variant follows the comma), "Wildlachsfilet in
 # Blätterteig", "Thunfisch in Sonnenblumenöl", "Eier aus Freilandhaltung"
 _HEAD_CUT_RE = re.compile(r",\s+|\s+(?:in|mit|aus|auf)\s+", re.IGNORECASE)
+# ALDI's layout: a pack size before the comma ("Apfelmus 360 g, Apfel")
+_PACK_BEFORE_COMMA_RE = re.compile(r"\d\s*(?:g|kg|ml|l|cl|stück|st)\.?$", re.IGNORECASE)
+# alternatives after the comma: "Birkel's No. 1, 7-Hühnchen oder 3 Glocken Nudeln"
+_ALTERNATIVES_RE = re.compile(r"\s(?:oder|und)\s", re.IGNORECASE)
 
 
 # a ready meal: "Wildlachsfilet in Blätterteig", "Lachs in Senf-Dill-Sauce", "Schnitzel
@@ -407,11 +424,20 @@ def product_head(product: str) -> str:
     text = str(product or "")
     if _READY_MEAL_RE.search(text):
         return ""
-    parts = _HEAD_CUT_RE.split(text, maxsplit=1)
-    head = parts[0].strip()
-    if len(parts) > 1 and fold(head) in _GROUP_HEADS:
-        head = product_head(parts[1])  # "Backzutaten, Backpulver 160 g": Backpulver
-    return head or text
+    for match in _HEAD_CUT_RE.finditer(text):
+        head, rest = text[: match.start()].strip(), text[match.end() :]
+        if fold(head) in _GROUP_HEADS:
+            return product_head(rest)  # "Backzutaten, Backpulver 160 g": Backpulver
+        if (
+            match.group().startswith(",")
+            and not _PACK_BEFORE_COMMA_RE.search(head)
+            and (head.endswith("-") or _ALTERNATIVES_RE.search(rest))
+        ):
+            # an enumeration, not ALDI's variant: "iglo Rahm-, Würz- oder Blatt-Spinat",
+            # "Birkel's No. 1, 7-Hühnchen oder 3 Glocken Nudeln"
+            continue
+        return head or text
+    return text.strip() or text
 
 
 # first parts of compounds that make the head another product: "Granatapfel" is no Apfel,
@@ -509,6 +535,19 @@ _CARRIER_HEADS = (
     "tee",
 )
 _CARRIER_PREFIXES = ("gefuellt",)
+# products that are still themselves when filled ("Gefüllte Kartoffel Gnocchi", "Oliven,
+# gefüllt mit Paprika"); "Gefüllte Paprika" is a ready meal
+_FILLED_PRODUCTS = (
+    "gnocchi",
+    "tortellin",
+    "tortellon",
+    "ravioli",
+    "pasta",
+    "nudel",
+    "maultasche",
+    "teigtasche",
+    "olive",
+)
 
 
 def _word_forms(token: str) -> set[str]:
@@ -526,17 +565,32 @@ def flavour_only(text: str, key: str) -> bool:
     words = [w for w in key.split() if len(w) >= 3]
     if not words:
         return False
-    for token in fold(text).split():
+    tokens = fold(text).split()
+
+    def is_key(position: int) -> bool:
+        if not 0 <= position < len(tokens):
+            return False
+        forms = _word_forms(tokens[position])
+        return any(f == w or f.endswith(w) or w.endswith(f) for w in words for f in forms)
+
+    filled_product = any(w.startswith(_FILLED_PRODUCTS) for w in words)
+    for position, token in enumerate(tokens):
         forms = _word_forms(token)
         carrier = (
             token == "eis"
-            or token.startswith(_CARRIER_PREFIXES)
+            or (token.startswith(_CARRIER_PREFIXES) and not filled_product)
             or any(f.endswith(_CARRIER_HEADS) for f in forms)
         )
-        if carrier and not any(
-            f == w or f.endswith(w) or w.endswith(f) for w in words for f in forms
+        if not carrier or is_key(position):
+            continue
+        # an alternative to the key's product: "Mövenpick Joghurt oder Pudding"
+        if (position >= 2 and tokens[position - 1] in ("oder", "und") and is_key(position - 2)) or (
+            position + 2 < len(tokens)
+            and tokens[position + 1] in ("oder", "und")
+            and is_key(position + 2)
         ):
-            return True
+            continue
+        return True
     return False
 
 
