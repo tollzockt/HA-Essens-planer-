@@ -119,6 +119,21 @@ OWN_SOURCES = (SOURCE_USER, SOURCE_RECEIPT)
 MAX_OFFER_TARGETS = 4
 # seconds after a branch change before offers are searched at a new postcode (debounced)
 OFFER_REFRESH_DELAY = 60
+# seconds after a change of the shopping list, plan, recipes or own prices until the offer
+# catalog is matched again (no request; several changes in a row: one match)
+CATALOG_REMATCH_DELAY = 30
+# the changes that can bring new planning keys (catalog.planning_keys())
+REMATCH_CHANGES = frozenset(
+    {
+        "shopping",
+        "plan",
+        "prices",
+        "recipe_added",
+        "recipe_updated",
+        "recipe_deleted",
+        "recipes_imported",
+    }
+)
 # learned store prices: price history length and minimum distance of unchanged entries
 HISTORY_MAX = 12
 HISTORY_INTERVAL_DAYS = 7
@@ -401,6 +416,8 @@ class StoresMixin:
     _branch_lock: asyncio.Lock | None
     _offer_refresh: Callable[[datetime | None], None] | None
     _offer_refresh_timer: Callable[[], None] | None
+    _catalog_rematch: Callable[[datetime | None], None] | None
+    _catalog_rematch_timer: Callable[[], None] | None
 
     # ------------------------------------------------------------------
     # Persistence
@@ -428,6 +445,8 @@ class StoresMixin:
         self._branch_lock = None  # one OpenStreetMap search at a time (branches.py)
         self._offer_refresh = None  # set while marktguru is on (see enable_offer_refresh())
         self._offer_refresh_timer = None
+        self._catalog_rematch = None  # set while the offer catalog is on
+        self._catalog_rematch_timer = None
         self._other_product_cache: dict[tuple[str, str], bool] = {}
         self._estimate_cache: dict[str, bool] = {}
 
@@ -1222,6 +1241,38 @@ class StoresMixin:
                 self._offer_refresh(now)
 
         self._offer_refresh_timer = async_call_later(self.hass, OFFER_REFRESH_DELAY, _fire)
+
+    def enable_catalog_rematch(
+        self: EssensplanerManager, rematch: Callable[[datetime | None], None]
+    ) -> Callable[[], None]:
+        """Match the offer catalog again soon after a change of the planning keys (see
+        schedule_catalog_rematch()). Returns the stop function (unload)."""
+        self._catalog_rematch = rematch
+
+        def _stop() -> None:
+            self._catalog_rematch = None
+            if self._catalog_rematch_timer is not None:
+                self._catalog_rematch_timer()
+                self._catalog_rematch_timer = None
+
+        return _stop
+
+    def schedule_catalog_rematch(self: EssensplanerManager) -> None:
+        """Match the stored offer catalog with the keys again in CATALOG_REMATCH_DELAY s:
+        an item put on the shopping list, a planned recipe or an own price after the last
+        fetch gets its offers without a request (several changes in a row: one match)."""
+        if self._catalog_rematch is None:
+            return
+        if self._catalog_rematch_timer is not None:
+            self._catalog_rematch_timer()
+
+        @callback
+        def _fire(now: datetime) -> None:
+            self._catalog_rematch_timer = None
+            if self._catalog_rematch is not None:
+                self._catalog_rematch(now)
+
+        self._catalog_rematch_timer = async_call_later(self.hass, CATALOG_REMATCH_DELAY, _fire)
 
     def set_main_branch(self: EssensplanerManager, branch: str | None) -> dict[str, Any] | None:
         """Make a branch (id, label, store name) the main branch; None removes the main branch."""
@@ -2396,6 +2447,7 @@ class StoresMixin:
         lead_days: int = 3,
         by_unit: bool = False,
         same_product: bool = False,
+        prefer_specific: bool = False,
     ) -> dict[str, Any] | None:
         """Cheapest way to buy a shopping item at one retailer (whole packs).
 
@@ -2409,6 +2461,10 @@ class StoresMixin:
         Krönung, Röstkaffee" for Kaffee, not a compound like "Eiskaffee"; see
         names_key_product()). Always so for a product without an estimate: an "Eiskaffee"
         offer neither prices Kaffee nor keeps it at its store.
+        prefer_specific: the cheapest price of this retailer (own, receipt, learned, online
+        price or a valid offer) even when the estimate is cheaper or the same – the
+        estimate only without one (price comparison: an offer at 1,11 €/100 g is the
+        store's price, not the Richtwert).
         """
         day = day or self.today()
         today = self.today().isoformat()
@@ -2418,9 +2474,10 @@ class StoresMixin:
         amounts = self._item_amounts(item)
         as_packs = item.get("source") != "plan"
         best: dict[str, Any] | None = None
+        best_specific: dict[str, Any] | None = None
 
         def consider(entry: PriceEntry | None) -> dict[str, Any] | None:
-            nonlocal best
+            nonlocal best, best_specific
             if entry is None:
                 return None
             cost = item_cost(amounts, key, entry, category, as_packs)
@@ -2437,6 +2494,10 @@ class StoresMixin:
             }
             if best is None or _better(option, best, by_unit):
                 best = option
+            if option["specific"] and (
+                best_specific is None or _better(option, best_specific, by_unit)
+            ):
+                best_specific = option
             return option
 
         regular_entry = self._chosen_entry(item, retailer, branch_id)
@@ -2458,6 +2519,8 @@ class StoresMixin:
             ):
                 continue
             consider(self.offer_entry(offer, name))
+        if prefer_specific and best_specific is not None:
+            best = best_specific
         if best is None:
             return None
         return {**best, "regular": regular}
@@ -3171,7 +3234,9 @@ class StoresMixin:
         per unit (pack prices differ in size). results: the stores' own prices (real:
         typed, receipt, learned, offer) first, then the stores without one (real False:
         the estimate). cheapest: the best real result (None with less than two real
-        results or when they cost the same) – never an estimate. estimate: the Richtwert
+        results or when they cost the same) – never an estimate. tied: the real results
+        sharing the best price when cheapest is None for a tie. A store's own price or
+        offer counts even when the Richtwert is cheaper. estimate: the Richtwert
         once ({price, pack, packs, unit_price, base}) when a store has no own price. A
         drugstore only counts for food with an own price or an offer of the product (no
         estimate of butter at Rossmann).
@@ -3215,6 +3280,7 @@ class StoresMixin:
                 0,
                 by_unit=not amounts,
                 same_product=drugstore_food,
+                prefer_specific=True,
             )
             if cost is None or (drugstore_food and not cost["specific"]):
                 continue
@@ -3250,12 +3316,13 @@ class StoresMixin:
         results.sort(key=lambda r: (not r["real"], *rank(r)))
         real = [r for r in results if r["real"]]
         cheapest = None
-        if (
-            len(real) >= 2
-            and rank(real[0])[0] != float("inf")
-            and rank(real[0])[0] < rank(real[1])[0] - 1e-9
-        ):
-            cheapest = real[0]
+        tied: list[dict[str, Any]] = []
+        if len(real) >= 2 and rank(real[0])[0] != float("inf"):
+            if rank(real[0])[0] < rank(real[1])[0] - 1e-9:
+                cheapest = real[0]
+            else:
+                # the same best price at several stores: only these are the cheapest
+                tied = [r for r in real if abs(rank(r)[0] - rank(real[0])[0]) <= 1e-9]
         guessed = next((r for r in results if not r["real"]), None)
         estimate = (
             {k: guessed[k] for k in ("price", "pack", "packs", "unit_price", "base")}
@@ -3268,6 +3335,7 @@ class StoresMixin:
             "compared_by": "price" if by_price else "unit_price",
             "results": results,
             "cheapest": cheapest,
+            "tied": tied,
             "estimate": estimate,
         }
 

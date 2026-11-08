@@ -23,7 +23,7 @@ from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK, SPLIT_OFF
 from .dates import describe_date
 from .ingredients import fold, strip_article
 from .manager import EssensplanerManager, error_message
-from .offers import parse_pack, parse_pack_text
+from .offers import parse_pack_text, split_pack
 from .pricing import format_eur, pack_text
 from .recipe_import import async_fetch_recipe
 from .retailers import retailer_name
@@ -100,6 +100,12 @@ class _SpokenError(HomeAssistantError):
     """An answer that is an error for the assistant (its text is spoken as is)."""
 
 
+class _NotThisIntent(_SpokenError):
+    """A sentence of the built-in agent that is no command of this intent after all (a
+    question caught by a wildcard): with "prefer handling commands locally" the
+    conversation agent (LLM) answers it; a tool call gets the spoken error."""
+
+
 def _split_off_reason(manager: EssensplanerManager) -> str:
     """Why the shopping list is not split by store right now."""
     if manager.split_mode == SPLIT_OFF:
@@ -156,6 +162,16 @@ class _EssensplanerIntent(intent.IntentHandler):
         }
         try:
             speech, data = await self._async_handle(hass, manager, values)
+        except _NotThisIntent as err:
+            if intent_obj.platform == "conversation":  # a sentence of the built-in agent
+                raise intent.MatchFailedError(
+                    result=intent.MatchTargetsResult(False, intent.MatchFailedReason.NAME),
+                    constraints=intent.MatchTargetsConstraints(),
+                ) from err
+            response.async_set_error(
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE, _speakable(str(err))
+            )
+            return response
         except (ServiceValidationError, _SpokenError) as err:
             response.async_set_error(
                 intent.IntentResponseErrorCode.FAILED_TO_HANDLE, _speakable(error_message(err))
@@ -1079,6 +1095,20 @@ def _spoken_price(text: str) -> str:
     return text
 
 
+# a price ("1,79", "1.79 €", "2 Euro", "1,79 € für 250 g"), not an amount ("1 kg
+# Hackfleisch", "500 g Paket Kaffee") or a product ("die Butter")
+_PRICE_TEXT_RE = re.compile(
+    r"^\s*(?:€\s*)?\d+(?:[.,]\d{1,2})?(?!\d)(?!\s*(?:-\s*)?(?:kg|g|mg|ml|l|cl|liter|stück|stueck"
+    r"|stk|st|x|er|prozent|%)(?:\b|$))",
+    re.IGNORECASE,
+)
+# a question that the sentence "{product} kostet bei {store} {price}" may catch: "Was kostet
+# bei Lidl 1 kg Hackfleisch?", "Wie viel kostet beim Lidl …"
+_QUESTION_WORDS = frozenset(
+    {"was", "wie", "wieviel", "welche", "welcher", "welches", "wo", "wer", "warum", "wann"}
+)
+
+
 class SetPriceIntent(_EssensplanerIntent):
     """Remember the regular price of a product at a store (an own store price)."""
 
@@ -1101,11 +1131,27 @@ class SetPriceIntent(_EssensplanerIntent):
     }
 
     async def _async_handle(self, hass, manager, values):
-        price = parse_price(_spoken_price(str(values["price"])))
-        product = _cap(strip_article(str(values["product"])).strip())
+        text = str(values["price"]).strip()
+        if values.get("price_cent") is not None:  # sentence "… 1 Euro 79"
+            text = f"{text} Euro {int(float(values['price_cent']))}"
+        elif values.get("price_unit") == "cent":  # sentence "… 99 Cent"
+            text = f"{text} Cent"
+        text = _spoken_price(text)
+        words = fold(str(values["product"])).split()
+        if not words or words[0] in _QUESTION_WORDS:
+            raise _NotThisIntent(f"„{values['product']}“ ist kein Produkt.")
+        if not _PRICE_TEXT_RE.match(text):
+            raise _NotThisIntent(
+                f"„{values['price']}“ ist kein Preis – bitte den Preis in Euro sagen, "
+                "zum Beispiel 1,79 Euro."
+            )
+        price = parse_price(text)
+        # a pack named with the product ("Butter 250 g"): the price of Butter in that pack
+        product, named_pack = split_pack(strip_article(str(values["product"])))
+        product = _cap(product.strip())
         store = str(values["store"]).strip()
         retailer = manager.require_retailer(manager.store_text(store))
-        pack = parse_pack_text(values.get("pack")) or parse_pack(product)
+        pack = parse_pack_text(values.get("pack")) or named_pack
         if pack is None:
             # the pack of the price there or of the estimate ("Butter": 250 g)
             known = manager.store_book(retailer).lookup(product)
@@ -1192,29 +1238,60 @@ class ComparePricesIntent(_EssensplanerIntent):
                 result,
             )
         cheapest = result["cheapest"]
+        # without an amount stores are compared per kilo / litre: say it when packs differ
+        per_unit = result["compared_by"] == "unit_price" and len({r["pack"] for r in real}) > 1
         if cheapest is None:
             first = real[0]
             offer = " im Angebot" if first.get("offer") else ""
-            if len(real) == 1 and len(results) > 1:
+            if len(real) == 1:
+                if len(results) > 1:
+                    return (
+                        f"Ich kenne nur den Preis bei {first['label']}: "
+                        f"{format_eur(first['price'])}{_pack_hint(first)}{offer}.",
+                        result,
+                    )
                 return (
-                    f"Ich kenne nur den Preis bei {first['label']}: "
-                    f"{format_eur(first['price'])}{_pack_hint(first)}{offer}.",
+                    f"{name} gibt es bei {first['label']} für {format_eur(first['price'])}"
+                    f"{_pack_hint(first)}{offer}.",
                     result,
                 )
-            # "gibt es" works for "Butter" and "Eier" alike
-            if len(real) == 1:
-                where = f"bei {first['label']}"
-            elif len(real) == len(results):
-                where = "überall"
+            tied = result.get("tied") or []
+            if not tied:
+                # prices that cannot be compared (no unit price): each store with its own
+                prices = [
+                    f"bei {r['label']} {format_eur(r['price'])}{_pack_hint(r)}"
+                    f"{' im Angebot' if r.get('offer') else ''}"
+                    for r in real[:4]
+                ]
+                return f"{name} kostet {_join(prices)}.", result
+            others = [
+                f"bei {r['label']} {format_eur(r['price'])}{_pack_hint(r, per_unit=per_unit)}"
+                for r in real
+                if not any(r is t for t in tied)
+            ][:3]
+            if len({(r["price"], r["pack"], r.get("packs")) for r in tied}) == 1:
+                # "gibt es" works for "Butter" and "Eier" alike; "überall" only when every
+                # store has this price
+                where = (
+                    "überall"
+                    if len(tied) == len(results)
+                    else _join([f"bei {r['label']}" for r in tied])
+                )
+                offer = " im Angebot" if all(r.get("offer") for r in tied) else ""
+                speech = (
+                    f"{name} gibt es {where} für {format_eur(first['price'])}"
+                    f"{_pack_hint(first)}{offer}."
+                )
             else:
-                where = _join([f"bei {r['label']}" for r in real])
-            return (
-                f"{name} gibt es {where} für {format_eur(first['price'])}{_pack_hint(first)}"
-                f"{offer}.",
-                result,
-            )
-        # without an amount stores are compared per kilo / litre: say it when packs differ
-        per_unit = result["compared_by"] == "unit_price" and len({r["pack"] for r in real}) > 1
+                # the same price per kilo / litre in different packs
+                same = [
+                    f"bei {r['label']} für {format_eur(r['price'])}{_pack_hint(r, per_unit=True)}"
+                    for r in tied
+                ]
+                speech = f"Gleich günstig gibt es {name} {_join(same)}."
+            if others:
+                speech += f" {_cap(_join(others))}."
+            return speech, result
         speech = (
             f"Am günstigsten gibt es {name} bei {cheapest['label']}: "
             f"{format_eur(cheapest['price'])}{_pack_hint(cheapest, per_unit=per_unit)}"

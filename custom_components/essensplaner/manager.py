@@ -62,7 +62,7 @@ from .ingredients import (
     to_base,
 )
 from .pricing import COUNT_UNITS, offer_pack, unit_price
-from .stores import StoresMixin
+from .stores import REMATCH_CHANGES, StoresMixin
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -506,6 +506,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if change.startswith("recipe"):
             self._recipes_using_cache = {}  # which recipes use an offer
         self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
+        if change in REMATCH_CHANGES:
+            self.schedule_catalog_rematch()  # new keys: their offers from the catalog
         for update_callback in list(self._listeners):
             update_callback()
         self.hass.bus.async_fire(EVENT_UPDATED, {"change": change})

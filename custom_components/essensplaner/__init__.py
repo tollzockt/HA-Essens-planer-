@@ -23,7 +23,13 @@ from .aldi import (
     async_refresh_aldi_prices,
 )
 from .articles import register_live_provider
-from .catalog import OfferCatalog, async_refresh_catalog, catalog_enabled, marktguru_enabled
+from .catalog import (
+    OfferCatalog,
+    async_refresh_catalog,
+    async_rematch_catalog,
+    catalog_enabled,
+    marktguru_enabled,
+)
 from .const import (
     CONF_IMPORT_STARTER,
     CONF_REGISTER_INTENTS,
@@ -211,8 +217,23 @@ def _setup_offer_refresh(
     def _branch_refresh(_now: datetime | None = None) -> None:
         entry.async_create_background_task(hass, _async_refresh(True), "essensplaner_offers")
 
+    async def _async_rematch() -> None:
+        if manager._offers_task is not None and not manager._offers_task.done():
+            manager.schedule_catalog_rematch()  # the running refresh comes first
+            return
+        try:
+            await async_rematch_catalog(manager)
+        except Exception:
+            _LOGGER.exception("Matching the offers again failed")
+
+    @callback
+    def _rematch(_now: datetime | None = None) -> None:
+        entry.async_create_background_task(hass, _async_rematch(), "essensplaner_rematch")
+
     # shortly after start (sends nothing while the catalog is fresh)
     entry.async_on_unload(async_call_later(hass, OFFERS_START_DELAY, _refresh))
+    # new planning keys (shopping list, plan, own prices): the catalog matched again
+    entry.async_on_unload(manager.enable_catalog_rematch(_rematch))
     # a new branch at a postcode (or of a chain) not searched yet: search shortly after
     entry.async_on_unload(manager.enable_offer_refresh(_branch_refresh))
     # spread the daily request over the morning (stable per installation)

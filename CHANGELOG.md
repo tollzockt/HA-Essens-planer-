@@ -66,8 +66,11 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
 - `refresh_prices` kennt die Quellen `aldi` und `edeka`; neue Aktionen `find_aldi_stores` und
   `find_edeka_markets`. Beide Ketten pausieren 7 Tage, wenn sie automatische Abfragen ablehnen;
   es wird nichts umgangen.
-- Eine öffentliche Liste aller Angebote eines REWE-Markts gibt es nicht (Bot-Prüfung) –
-  REWE-Angebote kommen weiter über marktguru oder von dir.
+- **REWE-Onlinepreise:** ist ein gesuchter Artikel gerade reduziert, wird der Streichpreis
+  als Normalpreis gelernt und der reduzierte Preis ist bis Samstag ein Angebot deiner
+  REWE-Filiale (auch unter „Alle Angebote meiner Läden“ und in der Preisliste). Eine
+  öffentliche Liste aller Angebote eines REWE-Markts gibt es nicht (Bot-Prüfung) – die
+  übrigen REWE-Angebote kommen weiter über marktguru oder von dir.
 
 ### Alle Angebote deiner Läden (Angebotskatalog)
 - Der Essensplaner kennt jetzt **alle aktuellen und kommenden Angebote deiner gespeicherten
@@ -80,13 +83,20 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   alle 3 Tage und zum neuen Prospekt (Samstag, Sonntag und Montag je einmal – REWE und Netto
   veröffentlichen die neue Woche erst am Sonntag). Ein fehlgeschlagener Abruf wird beim
   nächsten Tagesabruf wiederholt, nicht im Minutentakt. Der Abgleich mit Rezepten,
-  Merkliste, Einkaufsliste und Preisliste passiert lokal. „Angebote aktualisieren“ fragt
+  Merkliste, Einkaufsliste und Preisliste passiert lokal – auch für das, was du nach dem
+  Abruf auf die Einkaufsliste setzt, planst oder als Preis einträgst (etwa eine halbe Minute
+  später, ohne neue Anfrage; ebenso beim täglichen Check und mit „Angebote aktualisieren“
+  in der Sperrstunde: „Angebote neu abgeglichen“). „Angebote aktualisieren“ fragt
   höchstens einmal pro Stunde (außer deine Läden haben sich geändert). Lehnt marktguru ab,
   wird 7 Tage pausiert – auch die Live-Suche und „Artikel hinzufügen“. Schaltest du marktguru
   aus, verschwinden seine Angebote sofort.
 - Angebote werden nach dem Produkt selbst zugeordnet, nicht nach Sorte oder Füllung:
   „Skyr Drink Erdbeere“ ist kein Erdbeer-Angebot, ALDIs „Apfelmus 360 g, Apfel“ kein Apfel,
-  „Granatapfel“ kein Apfel, „Geschirrreiniger“ kein WC-Reiniger; gelernte Normalpreise
+  „Granatapfel“ kein Apfel, „Kräuterbutter“ keine Butter, „Kaffeemilch“ und „Buttermilch“
+  keine Milch, „Geschirrreiniger“ kein WC-Reiniger; Sorten nach dem Komma sind keine eigenen
+  Produkte („Buitoni Pizza, Salami oder Schinken“ ist Pizza, „Knorr Fix, Spaghetti
+  Bolognese oder Lasagne“ keine Spaghetti), eine Liste von Produkten schon („Tomaten,
+  Gurken oder Paprika“); gelernte Normalpreise
   stammen nur von Angeboten des Produkts selbst. Lebensmittel bei Drogerien (Kaffee, Riegel,
   Haferdrink) erscheinen unter „Lebensmittel“.
 - „TK-Erbsen“, „TK-Spinat“ & Co. bekommen ihre Angebote auch, wenn „tiefgefroren“ nur in der
@@ -96,8 +106,10 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   für Rezepte und Einkaufsliste werden genauso zugeordnet wie in der Gesamtübersicht
   („Granatäpfel“, „Ingwer Shot“, „Kondensmilch“ zählen nicht als Äpfel, Ingwer, Milch).
 - Selbst eingetragene Angebote (z. B. aus dem NORMA-Prospekt) und die reduzierten Artikel von
-  ALDI SÜD stehen auch unter „Alle Angebote meiner Läden“ bei ihrem Laden und in der
-  Preisliste; ein mit „📌 Merken“ übernommenes Angebot erscheint dort nur einmal.
+  ALDI SÜD und REWE stehen auch unter „Alle Angebote meiner Läden“ bei ihrem Laden und in der
+  Preisliste; ein mit „📌 Merken“ übernommenes Angebot erscheint dort nur einmal. Die
+  Prospektseiten eines Ladens bleiben dabei sichtbar, damit du das nächste Angebot eintragen
+  kannst. Ein Angebot „Butter 250 g“ gilt für Butter (250 g), nicht für eine eigene Zeile.
 - **Normalpreise aus dem ganzen Prospekt:** Streichpreise, Lidls „Normalpreis: 1.35“ und die
   Streichpreise von ALDI SÜD werden für alle Artikel der Preisliste gelernt (mit
   Plausibilitätsprüfung), nicht nur für gesuchte Zutaten.
@@ -142,7 +154,8 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   wieder her (eingetippt oder älterer Kassenzettel), ebenso erneutes Speichern, wenn eine
   Zeile inzwischen als Angebot bekannt ist. Eindeutig abgekürzte Wörter („WEIZENM.“,
   „MARGAR.“, „CHAMPIGN.“, „SONNENBL.OEL“) werden zugeordnet, kurze Abkürzungen nur
-  vorgeschlagen.
+  vorgeschlagen – ebenso Wörter, die der Essensplaner nur als Nebennamen eines Richtwerts
+  kennt („BUTTERSCHM.“ ist Butterschmalz, keine Butter; „RAEUCHERL.“ kein Lachsfilet).
 - Neue Aktionen `receipt_parse_text`, `receipt_scan`, `receipt_save`, `get_receipts` und
   `delete_receipt`; für das Panel die Websockets `essensplaner/receipts`, `receipt_parse`,
   `receipt_save`, `receipt_delete` und der Foto-Upload `/api/essensplaner/receipt_upload`
@@ -195,7 +208,11 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   gelernte, Angebote) – nie einen Richtwert als Ladenpreis oder als günstigsten. Kennt er
   nur einen Preis: „Ich kenne nur den Preis bei REWE: 2,29 €“, keinen: „Für Butter kenne ich
   noch keinen Ladenpreis (Richtwert 1,99 € für 250 g)“. `compare_prices` sortiert die Läden
-  ohne eigenen Preis ans Ende, `cheapest` gilt nur unter echten Preisen, neu ist `estimate`.
+  ohne eigenen Preis ans Ende, `cheapest` gilt nur unter echten Preisen, neu sind `estimate`
+  und `tied`. Ein Angebot des Ladens zählt auch, wenn es teurer als der Richtwert ist (im
+  Sprachvergleich und in der Laden-Auswahl ⇄). Kosten mehrere Läden gleich wenig, nennt er nur
+  diese („Butter gibt es bei REWE und bei Lidl für 1,99 €. Bei Netto 2,49 €.“) – „überall“
+  nur, wenn wirklich jeder Laden diesen Preis hat.
 - Produktfragen zu Angeboten („Wo ist Kaffee im Angebot?“) suchen das Produkt selbst – keine
   Kaffeemaschine, kein Granatapfel für „Äpfel“, keine Butter-Spekulatius für „Butter“. Die
   Suche im Panel findet weiter jeden Text.
@@ -203,9 +220,12 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   wo er im Panel steht; bei EDEKA zusätzlich, dass die Einstellung „EDEKA-Angebote“ die
   einzelnen Angebote bringt.
 - Neues Tool `essensplaner_set_price`: „Butter kostet bei Netto 1,79 Euro“ speichert den
-  Normalpreis des Ladens (bleibt, mit der üblichen Packung); `essensplaner_add_offer` ist
-  ausdrücklich für befristete Angebote. Mit den deutschen Sätzen auch für den eingebauten
-  Sprachagenten (Datei erneut kopieren).
+  Normalpreis des Ladens (bleibt, mit der üblichen Packung; „Butter 250 g“ ist Butter in
+  250 g); `essensplaner_add_offer` ist ausdrücklich für befristete Angebote. Mit den deutschen
+  Sätzen auch für den eingebauten Sprachagenten (Datei erneut kopieren): der Preis endet mit
+  „Euro“, „€“ oder „Cent“ („1 Euro 79“ geht auch), eine bloße Zahl nur nach „Merk dir“.
+  Fragen wie „Was kostet bei Lidl 1 kg Hackfleisch?“ speichern nie einen Preis – mit „lokale
+  Verarbeitung bevorzugen“ beantwortet sie der Gesprächsagent.
 
 ## 1.3.2
 

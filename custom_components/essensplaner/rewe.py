@@ -21,9 +21,12 @@ branch_id}; rewe_status() adds "off" (option off) and "pending" (never run).
 
 Learned prices go to the REWE price list (learn_store_price("rewe", key, ...,
 source "rewe_online")): the cheapest matching article per ingredient (price per kg / l /
-piece), refreshed weekly (daily check at 04:xx in __init__.py). There is no public list of
-all offers of a REWE market (checked 11/2026: the offers pages answer automated requests
-with a bot check, stationary-app-offers is gone) – REWE offers come from marktguru.
+piece), refreshed weekly (daily check at 04:xx in __init__.py). An article that is reduced
+right now (discount.regularPrice) teaches its regular price and becomes an offer of the
+REWE branch until the end of the leaflet week (source "rewe_online", like ALDI SÜD's reduced
+articles). There is no public list of all offers of a REWE market (checked 11/2026: the
+offers pages answer automated requests with a bot check, stationary-app-offers is gone) –
+the other REWE offers come from marktguru (optional).
 """
 
 from __future__ import annotations
@@ -499,6 +502,8 @@ class ReweSource(OnlinePriceSource):
     site = "Der REWE-Onlineshop"
     site_from = "vom REWE-Onlineshop"
     log_name = "REWE online prices"
+    # reduced articles are offers until Saturday (1.4)
+    offer_source = SOURCE
 
     def target(
         self, manager: EssensplanerManager, branch: dict[str, Any] | None = None

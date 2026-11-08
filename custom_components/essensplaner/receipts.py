@@ -1036,7 +1036,13 @@ def _marked_tokens(
             elif truncated and len(word) >= 3 and not (vocabulary and word in vocabulary):
                 completion = vocabulary.get(f"{word}*") if vocabulary and complete else None
                 if completion:
-                    sure = len(word) >= MIN_COMPLETION and word not in STOP_WORDS
+                    # a word only known from an estimate's alias may be another product
+                    # ("BUTTERSCHM." is Butterschmalz, an alias of Butter): a suggestion
+                    sure = (
+                        len(word) >= MIN_COMPLETION
+                        and word not in STOP_WORDS
+                        and f"{completion}~" not in vocabulary
+                    )
                     word, mark = completion, _COMPLETED if sure else _GUESSED
                 else:
                     mark = _TRUNCATED
@@ -1053,11 +1059,16 @@ def name_tokens(name: str, vocabulary: dict[str, str] | None = None) -> list[str
     return [token for token, _ in _marked_tokens(name, vocabulary)]
 
 
-def _vocabulary(names: list[str]) -> dict[str, str]:
+def _vocabulary(names: list[str], weak: list[str] | tuple[str, ...] = ()) -> dict[str, str]:
     """{word: word} of known product words plus {prefix*: word} for prefixes that only one
-    word starts with (completes truncated receipt words)."""
-    words = {w for name in names for w in fold(name).split() if len(w) >= 4}
+    word starts with (completes truncated receipt words). Words only named by the weak
+    names (the aliases of the estimates, which group other products under one price:
+    Butterschmalz under Butter, Räucherlachs under Lachsfilet) are marked {word~: word}."""
+    strong = {w for name in names for w in fold(name).split() if len(w) >= 4}
+    words = strong | {w for name in weak for w in fold(name).split() if len(w) >= 4}
     vocabulary = {w: w for w in words}
+    for word in words - strong:
+        vocabulary[f"{word}~"] = word
     prefixes: dict[str, set[str]] = {}
     for word in words:
         for end in range(3, len(word)):
@@ -1087,11 +1098,14 @@ class ReceiptMapper:
         self.names: dict[str, tuple[str, str, str]] = {}  # phrase -> (key, product, source)
         defaults = manager.defaults_index()
         all_names: list[str] = []
+        alias_names: list[str] = []
         for entry in defaults.entries():
             key = ingredient_key(entry.name)
-            for name in [entry.name, *entry.aliases]:
+            self._add(entry.name, key, entry.name, "estimate")
+            all_names.append(entry.name)
+            for name in entry.aliases:
                 self._add(name, key, entry.name, "estimate")
-                all_names.append(name)
+                alias_names.append(name)
         for article in reversed(manager.article_history[:200]):
             key = str(article.get("key") or "")
             summary = str(article.get("summary") or "")
@@ -1113,7 +1127,7 @@ class ReceiptMapper:
                 if len(name) <= 40:
                     self._add(name, key, product, source)
                 all_names.append(name)
-        self.vocabulary = _vocabulary(all_names)
+        self.vocabulary = _vocabulary(all_names, alias_names)
         self.aliases = manager.receipts.aliases_for(retailer)
         self._matcher: KeyMatcher | None = None
 

@@ -216,9 +216,17 @@ intents:
           store: "drogerie"
   essensplaner_set_price:
     data:
-      # the regular price of a store (a leaflet offer is no sentence: LLM tool add_offer)
+      # the regular price of a store (a leaflet offer is no sentence: LLM tool add_offer);
+      # the price ends with its currency ("1,79 Euro", "99 Cent", "1 Euro 79"), a bare
+      # number only after "merk dir": "was kostet bei Lidl 1 kg Hackfleisch" is a question
       - sentences:
-          - "[merk dir] {item:product} kostet (bei|beim|im) {store} [jetzt] {price}"
+          - "[merk dir] {item:product} kostet (bei|beim|im) {store} [jetzt] {price}(€| euro| eur)"
+          - "[merk dir] {item:product} kostet (bei|beim|im) {store} [jetzt] {price} euro {price_cent}"
+          - "merk dir [:] {item:product} kostet (bei|beim|im) {store} [jetzt] {price}"
+      - sentences:
+          - "[merk dir] {item:product} kostet (bei|beim|im) {store} [jetzt] {price} cent"
+        slots:
+          price_unit: "cent"
   essensplaner_get_costs:
     data:
       - sentences:
@@ -390,5 +398,9 @@ lists:
     wildcard: true
   price:
     wildcard: true
+  price_cent:
+    range:
+      from: 1
+      to: 99
   ingredients:
     wildcard: true

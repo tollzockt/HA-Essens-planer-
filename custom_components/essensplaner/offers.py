@@ -125,6 +125,30 @@ def parse_pack_text(text: str | None) -> tuple[float, str] | None:
     return None
 
 
+# what may stand around a pack size inside a product name: "je 250 g", "500-g-Packung"
+_PACK_LEAD_RE = re.compile(r"(?:\s+(?:je|à|a|ca\.?))+\s*$", re.IGNORECASE)
+_PACK_TAIL_RE = re.compile(r"^-[^\W\d_][\w.]*", re.UNICODE)
+
+
+def split_pack(text: str | None) -> tuple[str, tuple[float, str] | None]:
+    """A product name and the pack size named in it: 'Butter 250 g' -> ('Butter', (250.0,
+    'g')), '250 g Butter', 'Kaffee 500-g-Packung', 'Eier 10 Stück'; (name, None) without one
+    (the name stays as it is when nothing is left of it)."""
+    raw = str(text or "")
+    pack = parse_pack_text(raw)
+    if pack is None:
+        return raw.strip(), None
+    for regex in (_LOADS_RE, _MULTI_RE, _PACK_RE, _ROLLS_RE, _STUECK_RE):
+        match = regex.search(raw)
+        if match is None or parse_pack_text(match.group()) != pack:
+            continue
+        before = _PACK_LEAD_RE.sub("", raw[: match.start()])
+        after = _PACK_TAIL_RE.sub("", raw[match.end() :])
+        name = " ".join(re.sub(r"[()\[\]]", " ", f"{before} {after}").split()).strip(" ,-")
+        return (name or raw.strip()), pack
+    return raw.strip(), pack
+
+
 def _date(value: Any) -> str | None:
     """Local date of a timestamp: marktguru's '2026-11-08T23:00:00Z' starts on 09.11. in
     Germany (UTC timestamps become the local date; a plain date stays as it is)."""
@@ -404,6 +428,7 @@ _HEAD_CUT_RE = re.compile(r",\s+|\s+(?:in|mit|aus|auf)\s+", re.IGNORECASE)
 _PACK_BEFORE_COMMA_RE = re.compile(r"\d\s*(?:g|kg|ml|l|cl|stück|st)\.?$", re.IGNORECASE)
 # alternatives after the comma: "Birkel's No. 1, 7-Hühnchen oder 3 Glocken Nudeln"
 _ALTERNATIVES_RE = re.compile(r"\s(?:oder|und)\s", re.IGNORECASE)
+_ALTERNATIVES_SPLIT_RE = re.compile(r"\s*,\s+|\s+(?:oder|und)\s+", re.IGNORECASE)
 
 
 # a ready meal: "Wildlachsfilet in Blätterteig", "Lachs in Senf-Dill-Sauce", "Schnitzel
@@ -428,16 +453,35 @@ def product_head(product: str) -> str:
         head, rest = text[: match.start()].strip(), text[match.end() :]
         if fold(head) in _GROUP_HEADS:
             return product_head(rest)  # "Backzutaten, Backpulver 160 g": Backpulver
-        if (
-            match.group().startswith(",")
-            and not _PACK_BEFORE_COMMA_RE.search(head)
-            and (head.endswith("-") or _ALTERNATIVES_RE.search(rest))
-        ):
-            # an enumeration, not ALDI's variant: "iglo Rahm-, Würz- oder Blatt-Spinat",
-            # "Birkel's No. 1, 7-Hühnchen oder 3 Glocken Nudeln"
+        if match.group().startswith(",") and head.endswith("-"):
+            # an enumeration of compounds: "iglo Rahm-, Würz- oder Blatt-Spinat"
             continue
+        # the variants after the comma are no products of their own: "Buitoni Pizza,
+        # Salami oder Schinken", "Kaffee, ganze Bohne oder gemahlen" (enumeration()
+        # decides about lists of products: "Tomaten, Gurken oder Paprika")
         return head or text
     return text.strip() or text
+
+
+def enumeration(product: str) -> tuple[str, list[str]] | None:
+    """(head, alternatives) of a name listing alternatives after its first comma
+    ("Tomaten, Gurken oder Paprika": ("Tomaten", ["Gurken", "Paprika"]), "Birkel's No. 1,
+    7-Hühnchen oder 3 Glocken Nudeln"); None without "oder" / "und" after the comma, for
+    ALDI's "Kartoffeln 2 kg, festkochend oder mehligkochend" (a pack size before the
+    comma) and for an enumeration of compounds ("Rahm-, Würz- oder Blatt-Spinat")."""
+    head, comma, rest = str(product or "").partition(",")
+    head = head.strip()
+    if (
+        not comma
+        or not head
+        or head.endswith("-")
+        or _PACK_BEFORE_COMMA_RE.search(head)
+        or not _ALTERNATIVES_RE.search(f" {rest} ")
+    ):
+        return None
+    parts = [part.strip() for part in _ALTERNATIVES_SPLIT_RE.split(rest.strip())]
+    parts = [part for part in parts if part]
+    return (head, parts) if len(parts) >= 2 else None
 
 
 # first parts of compounds that make the head another product: "Granatapfel" is no Apfel,
@@ -470,12 +514,32 @@ _OTHER_COMPOUND_PARTS = frozenset(
 )
 
 
+# first parts that make a compound of one product another product ("Kräuterbutter" is no
+# Butter, "Kaffeemilch" and "Buttermilch" no Milch, "Kaffeesahne" no Sahne) – only for that
+# product: "Kräutersalz", "Kaffeebohnen" stay what they are
+_OTHER_COMPOUND_BY_HEAD = {
+    "butter": frozenset({"kraeuter", "knoblauch"}),
+    "milch": frozenset({"kaffee", "butter", "dose"}),
+    "sahne": frozenset({"kaffee"}),
+}
+
+
 def other_compound(text: str, key: str) -> bool:
     """True if a key word is only named as the head of a compound of another product
-    ('Granatäpfel' / 'Granatapfel' for "apfel", 'Kondensmilch' for "milch")."""
+    ('Granatäpfel' / 'Granatapfel' for "apfel", 'Kondensmilch' for "milch", 'Kräuterbutter'
+    or 'Kräuter-Butter' for "butter")."""
     tokens = [_singular(t) for t in fold(text).split()]
     for word in (w for w in key.split() if len(w) >= 3):
+        deny = _OTHER_COMPOUND_PARTS | _OTHER_COMPOUND_BY_HEAD.get(word, frozenset())
         if word in tokens:
+            positions = [i for i, t in enumerate(tokens) if t == word]
+            if word in _OTHER_COMPOUND_BY_HEAD and all(
+                i
+                and _compound_part(tokens[i - 1], _OTHER_COMPOUND_BY_HEAD[word])
+                in _OTHER_COMPOUND_BY_HEAD[word]
+                for i in positions
+            ):
+                return True  # "Meggle Kräuter-Butter"
             continue
         heads = [t for t in tokens if t.endswith(word) and t != word]
         if not heads and word.startswith("a"):
@@ -483,18 +547,18 @@ def other_compound(text: str, key: str) -> bool:
             umlaut = f"ae{word[1:]}"
             heads = [t for t in tokens if t.endswith(umlaut) and t != umlaut]
             word = umlaut
-        if heads and all(_compound_part(t[: -len(word)]) in _OTHER_COMPOUND_PARTS for t in heads):
+        if heads and all(_compound_part(t[: -len(word)], deny) in deny for t in heads):
             return True
     return False
 
 
-def _compound_part(modifier: str) -> str:
+def _compound_part(modifier: str, parts: frozenset[str] = _OTHER_COMPOUND_PARTS) -> str:
     """The first part of a compound without its linking letters ('schokoladen' ->
-    'schokolade', 'reinigungs' -> 'reinigung')."""
-    if modifier in _OTHER_COMPOUND_PARTS:
+    'schokolade', 'reinigungs' -> 'reinigung', 'dosen' -> 'dose')."""
+    if modifier in parts:
         return modifier
     for link in ("s", "n", "es", "en"):
-        if modifier.endswith(link) and modifier[: -len(link)] in _OTHER_COMPOUND_PARTS:
+        if modifier.endswith(link) and modifier[: -len(link)] in parts:
             return modifier[: -len(link)]
     return modifier
 
@@ -1087,9 +1151,11 @@ def manual_offer(
     valid_to: date | None = None,
     old_price: float | None = None,
 ) -> dict[str, Any]:
-    """Create an offer entered by the user."""
-    pack = parse_pack_text(pack_text) or parse_pack(product)
-    key = ingredient_key(product)
+    """Create an offer entered by the user (its key without a pack size in the name:
+    'Butter 250 g' is an offer of Butter)."""
+    name, named_pack = split_pack(product)
+    pack = parse_pack_text(pack_text) or named_pack
+    key = ingredient_key(name)
     stamp = int(datetime.now().timestamp() * 1000)
     return {
         "id": f"man_{stamp}",

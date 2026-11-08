@@ -59,12 +59,13 @@ def test_tk_word_of_the_description(product: str, description: str, expected: se
 
 
 def test_product_head_keeps_enumerations() -> None:
-    """Only ALDI's "Name 360 g, Variante" is cut at the comma (fix-regressions-r2-6)."""
+    """An enumeration of compounds is not cut at its comma (fix-regressions-r2-6); the
+    alternatives after a comma are decided by KeyMatcher (enumeration(), r3-1)."""
     assert product_head("Apfelmus 360 g, Apfel") == "Apfelmus 360 g"
     assert product_head("Meerrettich, Sahne 185 g") == "Meerrettich"
     assert product_head("Backzutaten, Mehl & Zucker") == "Mehl & Zucker"
     birkel = "Birkel’s No. 1, 7-Hühnchen oder 3 Glocken Nudeln"
-    assert product_head(birkel) == birkel
+    assert product_head(birkel) == "Birkel’s No. 1"
     assert product_head("iglo Rahm-, Würz- oder Blatt-Spinat") == (
         "iglo Rahm-, Würz- oder Blatt-Spinat"
     )
@@ -501,8 +502,9 @@ async def test_own_offers_in_the_store_view_and_price_list(
     aioclient_mock: AiohttpClientMocker,
     catalog_user: None,
 ) -> None:
-    """An offer typed from the NORMA leaflet shows under the NORMA chip (no longer
-    leaflet-only) and in the price list's butter row (completeness-r2-3)."""
+    """An offer typed from the NORMA leaflet shows under the NORMA chip and in the price
+    list's butter row (completeness-r2-3); NORMA keeps its leaflet tiles to type the next
+    one (fix-regressions-r3-3)."""
     from datetime import date
 
     from custom_components.essensplaner.catalog import store_offers_view
@@ -519,7 +521,8 @@ async def test_own_offers_in_the_store_view_and_price_list(
     offer = manager.add_offer("Butter", manager.branch_label(branches["norma"]), 1.49, "250 g")
     view = store_offers_view(manager, branch_ids=[norma], when="all")
     chip = next(s for s in view["stores"] if s["branch_id"] == norma)
-    assert (chip["count_current"], chip["leaflet_only"]) == (1, False)
+    assert (chip["count_current"], chip["leaflet_only"]) == (1, True)
+    assert chip["leaflets"] == before["leaflets"] and chip["leaflets"]
     assert [(o["id"], o["source"], o["branch_ids"]) for o in view["offers"]] == [
         (offer["id"], "manual", [norma])
     ]

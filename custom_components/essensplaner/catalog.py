@@ -67,6 +67,7 @@ from .offers import (
     MARKTGURU_API,
     MARKTGURU_HOME,
     _date,
+    enumeration,
     flavour_only,
     key_only_as_modifier,
     normalize_marktguru_short,
@@ -652,6 +653,7 @@ class KeyMatcher:
     def __init__(self, keys: Iterable[str]) -> None:
         """Index the keys."""
         self.keys = list(dict.fromkeys(k for k in keys if k))
+        self._key_set = set(self.keys)
         self._words: dict[str, list[str]] = {}
         self._short: dict[str, list[str]] = {}
         for key in self.keys:
@@ -710,7 +712,33 @@ class KeyMatcher:
             kind = kind_text(description)
             if kind:
                 found = self.match(kind, product, short_context)
+        listed = enumeration(name)
+        if listed and listed[0] == product:
+            found = self._enumerated_keys(listed[0], listed[1], found, short_context)
         return found
+
+    def _enumerated_keys(
+        self, head: str, parts: list[str], found: list[str], short_context: str
+    ) -> list[str]:
+        """Keys of a name listing alternatives after its comma: a list of products
+        ("Tomaten, Gurken oder Paprika": every part is a product of its own) or one noun
+        after the alternatives ("Birkel's No. 1, 7-Hühnchen oder 3 Glocken Nudeln"); the
+        variants of a product are no products ("Buitoni Pizza, Salami oder Schinken",
+        "Knorr Fix, Spaghetti Bolognese oder Lasagne", "Pringles, Original oder Paprika")."""
+
+        def own_product(part: str) -> list[str]:
+            keys = self.match(part, part, short_context)
+            return keys if ingredient_key(part) in keys else []
+
+        if found and own_product(head):
+            listed = [own_product(part) for part in parts]
+            if all(listed):
+                return list(dict.fromkeys([*found, *(k for keys in listed for k in keys)]))
+            return found
+        last = parts[-1].split()
+        if found or len(last) < 2 or self.match(parts[0], parts[0], short_context):
+            return found
+        return self.match(last[-1], last[-1], short_context)
 
 
 def planning_keys(manager: EssensplanerManager) -> list[str]:
@@ -1026,6 +1054,8 @@ class OfferCatalog:
         self._offers_memo: tuple[Any, list[dict[str, Any]]] | None = None
         self._branch_memo: tuple[Any, dict[str, list[str]]] | None = None
         self._overlay_memo: tuple[Any, dict[str, dict[str, dict[str, Any]]]] | None = None
+        # the keys the stored offers were last matched with (async_rematch_catalog())
+        self.match_signature: str | None = None
         self.unloaded = False
 
     @staticmethod
@@ -1296,8 +1326,8 @@ class OfferCatalog:
 
 
 # offers that live only in manager.offers: typed from a leaflet ("＋ Angebot aus Prospekt
-# eintragen", voice) and ALDI SÜD's reduced articles of the price refresh
-OWN_OFFER_SOURCES = ("manual", "aldi_online")
+# eintragen", voice) and the reduced articles of the ALDI SÜD / REWE price refresh
+OWN_OFFER_SOURCES = ("manual", "aldi_online", "rewe_online")
 
 
 def own_offers(manager: EssensplanerManager, today: date) -> list[dict[str, Any]]:
@@ -1631,6 +1661,8 @@ async def _async_refresh(
         manager.async_refresh_listeners()
         return _result(manager, **meta)
     if not force and not catalog_stale(catalog, plan, now):
+        # nothing to fetch: what was added since the last match still gets its offers
+        await async_rematch_catalog(manager)
         return _result(manager)
     last = parse_time(catalog.data.get("last_success"))
     if (
@@ -1640,11 +1672,12 @@ async def _async_refresh(
         and now - last < timedelta(hours=MANUAL_MIN_HOURS)
     ):
         until = last + timedelta(hours=MANUAL_MIN_HOURS)
-        return _result(
-            manager,
-            cooldown_until=until.isoformat(),
-            message=f"Gerade erst aktualisiert – wieder möglich ab {time_text(until, now)}.",
-        )
+        # no new request yet, but items added since the last fetch get their offers
+        if await async_rematch_catalog(manager):
+            message = f"Angebote neu abgeglichen – neu abrufen ab {time_text(until, now)}."
+        else:
+            message = f"Gerade erst aktualisiert – wieder möglich ab {time_text(until, now)}."
+        return _result(manager, cooldown_until=until.isoformat(), message=message)
     return await _async_run(hass, manager, catalog, plan, force, now)
 
 
@@ -1665,10 +1698,16 @@ async def _async_run(
     keep: set[str] = set()
 
     # 1. EDEKA: the market leaflet (its own refresh rules; it stores its list here)
+    edeka_matched = not plan["edeka"]
     if plan["edeka"]:
-        from .edeka import RETAILER as EDEKA, async_refresh_edeka_offers
+        from .edeka import META_KEY, RETAILER as EDEKA, async_refresh_edeka_offers
 
+        edeka_before = (manager.price_sources_meta.get(META_KEY) or {}).get("last_success")
         status = await async_refresh_edeka_offers(hass, manager, force=force)
+        # a fresh leaflet is not fetched: its planning offers are of an earlier match
+        edeka_matched = (manager.price_sources_meta.get(META_KEY) or {}).get(
+            "last_success"
+        ) != edeka_before
         keep.add(_bucket_key(SOURCE_EDEKA, EDEKA, None))
         if status.get("status") in (STATUS_ERROR, STATUS_BLOCKED):
             errors.extend(f"EDEKA: {e}" for e in status.get("errors") or [])
@@ -1766,6 +1805,13 @@ async def _async_run(
         # a source that failed (not paused) is asked again at the next check
         catalog.data["last_success"] = now.isoformat()
         catalog.data["signature"] = plan["signature"]
+    # the keys of this match; offers kept from earlier (a fresh EDEKA leaflet, a failed
+    # source) are matched again at the next change or check
+    catalog.match_signature = (
+        _match_signature(all_keys(manager, sorted(planning)), planning)
+        if edeka_matched and not failed
+        else None
+    )
     catalog._touch()
     await catalog.async_save()
     if not replaced:
@@ -1810,6 +1856,89 @@ def _matched(
         copy["keys"] = list(offer.get("keys") or [])
         matched.append(copy)
     return matched
+
+
+def _match_signature(keys: list[str], planning: set[str]) -> str:
+    """The keys a match used (the catalog keys and the planning keys)."""
+    text = json.dumps([sorted(set(keys)), sorted(planning)], ensure_ascii=False)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _source_stored(catalog: OfferCatalog, source: str) -> bool:
+    """True if the catalog holds offers of a source (a failed fetch keeps the earlier
+    ones, like the planning offers)."""
+    return any(b.get("source") == source and b.get("offers") for b in catalog.buckets.values())
+
+
+async def async_rematch_catalog(manager: EssensplanerManager, force: bool = False) -> bool:
+    """Match the stored catalog with the current keys again – no request.
+
+    The planning offers (manager.offers: planning, shopping list, "Für meine Rezepte",
+    Jarvis) of marktguru, ALDI SÜD's weekly offers and EDEKA were matched at the last
+    fetch; an item put on the shopping list, a planned recipe, a watchlist entry or an own
+    / receipt price added after it gets its offers here (debounced after such changes, at
+    every check that does not fetch, after a start / reload and at the manual refresh's
+    cooldown). The keys of every catalog offer (all_keys()) are set again, the regular
+    prices of the catalog learned. Skipped while the keys are the same as at the last
+    match (force: always). Returns True if it matched.
+    """
+    if manager.unloaded or not catalog_enabled(manager):
+        return False
+    catalog: OfferCatalog = manager.catalog
+    planning = set(planning_keys(manager))
+    keys = all_keys(manager, sorted(planning))
+    signature = _match_signature(keys, planning)
+    if not force and signature == catalog.match_signature:
+        return False
+    for bucket in list(catalog.buckets.values()):
+        if bucket.get("offers"):
+            await async_match_offers(manager, bucket["offers"], keys)
+            if manager.unloaded:
+                return False
+    catalog._touch()
+    catalog.save_later()
+    today = manager.today()
+    offers = catalog.current_offers(today)
+    learned = manager.learn_from_offers(
+        [o for o in offers if not o.get("online_only") and o.get("keys")]
+    )
+    replaced = False
+    sources = []
+    if _aldi_on(manager):
+        sources.append(SOURCE_ALDI)
+    if marktguru_enabled(manager):
+        sources.append(SOURCE_MARKTGURU)
+    for source in sources:
+        if not _source_stored(catalog, source):
+            continue
+        matched = _matched(manager, offers, source, planning)
+        manager.replace_source_offers(source, matched, None)
+        replaced = True
+        if source == SOURCE_MARKTGURU and manager.offers_meta:
+            manager.offers_meta = {**manager.offers_meta, "count": len(matched)}
+    if _edeka_on(manager):
+        from .edeka import RETAILER as EDEKA, match_offers
+
+        bucket = catalog.bucket(SOURCE_EDEKA, EDEKA, None)
+        if bucket is not None and bucket.get("status") == STATUS_OK:
+            day = today.isoformat()
+            current = [
+                {k: v for k, v in o.items() if k != "kind"}
+                for o in bucket.get("offers") or []
+                if (o.get("valid_to") or "9999") >= day
+            ]
+            # the planning copies hold more fields than the catalog (origin): keep them
+            before = {o.get("id"): o for o in manager.offers if o.get("source") == SOURCE_EDEKA}
+            matched = [{**before.get(o["id"], {}), **o} for o in match_offers(manager, current)]
+            manager.replace_source_offers(SOURCE_EDEKA, matched, None)
+            replaced = True
+    catalog.match_signature = signature
+    if not replaced:
+        if learned:
+            manager._after_price_change("prices")  # learned prices can move open items
+        else:
+            manager._changed("catalog")
+    return True
 
 
 def _served_directly(
@@ -2201,10 +2330,12 @@ def _source_status(
     zip_code: str | None,
 ) -> tuple[list[str], str, str | None, list[dict[str, Any]]]:
     """(sources, status, error, leaflets) of a branch: the chain's own source (EDEKA market,
-    ALDI SÜD weekly offers) first, marktguru for the others; status off when no source
-    covers the chain (e.g. REWE without marktguru)."""
+    ALDI SÜD weekly offers, REWE's reduced articles of the online prices) first, marktguru
+    for the others; status off when no source covers the chain (e.g. REWE without
+    marktguru and online prices)."""
     from .aldi import aldi_enabled
     from .edeka import edeka_enabled, edeka_status
+    from .rewe import RETAILER as REWE, SOURCE as REWE_ONLINE, rewe_market, rewe_status
 
     retailer = branch.get("retailer")
     sources: list[str] = []
@@ -2224,6 +2355,14 @@ def _source_status(
         direct = catalog.bucket(SOURCE_ALDI, ALDI_SUED, None)
         status = str((direct or {}).get("status") or STATUS_PENDING)
         error = (direct or {}).get("error")
+    elif retailer == REWE and rewe_market(manager)[1] is not None:
+        info = rewe_status(manager)
+        if info.get("status") != STATUS_OFF:
+            # reduced articles of the weekly REWE online prices (the leaflet: marktguru)
+            sources.append(REWE_ONLINE)
+            status = str(info.get("status") or STATUS_PENDING)
+            if status in (STATUS_ERROR, STATUS_BLOCKED):
+                error = next(iter(info.get("errors") or []), None) or info.get("message")
     covered = bool(direct and direct.get("status") == STATUS_OK and direct.get("offers"))
     if marktguru_enabled(manager) and zip_code and retailer and not covered:
         sources.append(SOURCE_MARKTGURU)
@@ -2256,7 +2395,8 @@ def store_offers_view(
     """All offers of the saved stores (websocket essensplaner/store_offers).
 
     {total, offers: [...], stores: [{branch_id, label, retailer, store, count_current,
-    count_upcoming, sources, leaflet_only, leaflets, status, error}], meta: {updated, status,
+    count_upcoming, sources, leaflet_only (leaflet images and no catalog offers; own offers
+    typed from the leaflet do not count), leaflets, status, error}], meta: {updated, status,
     errors, marktguru, sources, count}}. The store counts follow the kind / query / mine
     filters (not the store and time filters). Online-only offers only with include_online.
     match: "text" (the panel's search box: any text of the offer) or "key" (a product
@@ -2267,6 +2407,9 @@ def store_offers_view(
     day = today.isoformat()
     offers = catalog.current_offers(today)
     branch_map = _branch_map(manager, catalog, offers)
+    # a store whose source has only leaflet images (NORMA) stays a leaflet tile when the
+    # user types offers from its leaflet: only the catalog's offers count for leaflet_only
+    catalog_ids = [o["id"] for o in offers]
     # the offers typed from a leaflet (e.g. NORMA) and ALDI SÜD's reduced articles, for the
     # branches they are tagged with
     extra = own_offers(manager, today)
@@ -2316,7 +2459,7 @@ def store_offers_view(
         zip_code = branch_zip.get(branch["id"])
         sources, status, error, leaflets = _source_status(manager, catalog, branch, zip_code)
         current, upcoming = counts.get(branch["id"], [0, 0])
-        has_offers = any(branch["id"] in (branch_map.get(o["id"]) or []) for o in offers)
+        has_offers = any(branch["id"] in (branch_map.get(i) or []) for i in catalog_ids)
         stores.append(
             {
                 "branch_id": branch["id"],
