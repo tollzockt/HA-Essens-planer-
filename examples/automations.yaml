@@ -46,3 +46,27 @@
         days: 7
         meals: [abendessen]
   mode: single
+
+# 4) Zwei Tage vor dem nächsten Anlass (Filmabend, Grillabend …) um 9 Uhr die eigene
+#    Einkaufsliste für den Anlass erstellen und Bescheid geben (1.5).
+- alias: "Essensplaner: Einkauf für den nächsten Anlass"
+  triggers:
+    - trigger: time
+      at: "09:00:00"
+  conditions:
+    - condition: template
+      value_template: "{{ state_attr('sensor.essensplaner_next_occasion', 'days_until') == 2 }}"
+  actions:
+    - action: essensplaner.generate_shopping_list
+      data:
+        occasion: "{{ state_attr('sensor.essensplaner_next_occasion', 'id') }}"
+    - action: notify.notify
+      data:
+        title: >-
+          {{ state_attr('sensor.essensplaner_next_occasion', 'emoji') }}
+          {{ states('sensor.essensplaner_next_occasion') }}
+        message: >
+          In zwei Tagen ({{ state_attr('sensor.essensplaner_next_occasion', 'weekday') }})
+          für {{ state_attr('sensor.essensplaner_next_occasion', 'guests') }} Gäste –
+          die Einkaufsliste ist fertig.
+  mode: single

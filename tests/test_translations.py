@@ -154,6 +154,15 @@ def test_services_yaml_fields_complete() -> None:
             selector = field_spec["selector"]
             if "text" in selector or "object" in selector:
                 assert "example" in field_spec, f"{service}.{field}"
+            # 1.5: every other field (numbers, selects, entities) has an example or a
+            # default, so "fill example data" in the developer tools gives a whole call
+            if "boolean" not in selector:
+                assert "example" in field_spec or "default" in field_spec, f"{service}.{field}"
+            if "select" in selector and "example" in field_spec:
+                example = field_spec["example"]
+                values = example if isinstance(example, list) else str(example).split(",")
+                options = selector["select"]["options"]
+                assert all(str(v).strip() in options for v in values), f"{service}.{field}"
         assert spec is None or set(spec) <= {"fields", "target"}, service
 
 

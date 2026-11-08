@@ -1,10 +1,10 @@
 # 🍽️ Essensplaner für Home Assistant
 
-Ein Essensplaner mit **176 Rezepten (auch Fertiggerichte, Beilagen, Desserts und Getränke), Wochenplan, Kochmodus, Einkaufsliste mit Preisen, Wochenbudget, den Angeboten deiner Läden, Kassenzetteln und deinen Läden (Hauptladen + Ausnahmen, auch Drogerien wie Rossmann oder dm)**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**.
+Ein Essensplaner mit **176 Rezepten (auch Fertiggerichte, Beilagen, Desserts und Getränke), Wochenplan, Anlässen mit Getränken, Saisonkalender, Kochmodus, Einkaufsliste mit Preisen und Produkten, Wochenbudget, einer Artikel-Datenbank, den Angeboten und Prospekten deiner Läden, Kassenzetteln und deinen Läden (Hauptladen + Ausnahmen, auch Drogerien wie Rossmann oder dm)**, im Stil von Apps wie Piatto, aber komplett lokal in Home Assistant und **per Sprache bzw. Chat über „Jarvis“ (oder jeden anderen Assist- bzw. LLM-Agenten) steuerbar**. Eine KI braucht er nicht – wer mag, bindet eine aus Home Assistant ein (Claude, ChatGPT, Gemini, Ollama oder den eigenen Gesprächsagenten).
 
-> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane mir die Woche günstig.“ · „Welche Angebote gibt es diese Woche?“ · „Wie viel Budget habe ich noch?“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Erstelle die Einkaufsliste.“ · „Was muss ich bei Aldi kaufen?“ · „Was kaufe ich bei Rossmann?“ · „Wo ist Butter am günstigsten?“
+> „Hey Jarvis, was gibt es heute zu essen?“ · „Plane mir die Woche günstig.“ · „Welche Angebote gibt es diese Woche?“ · „Wie viel Budget habe ich noch?“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Erstelle die Einkaufsliste.“ · „Was muss ich bei Aldi kaufen?“ · „Was kaufe ich bei Rossmann?“ · „Wo ist Butter am günstigsten?“ · „Plane einen Filmabend am Samstag für 4.“ · „Welcher Wein passt zur Lasagne?“ · „Was hat gerade Saison?“
 
-**Inhalt:** [Funktionen](#funktionen) · [Installation](#installation) · [Einstellungen](#️-einstellungen) · [Jarvis](#-jarvis--andere-sprachassistenten) · [Dashboard-Karte](#️-dashboard-karte) · [Preise, Budget & Angebote](#-preise-budget--angebote) · [Läden, Filialen & Preise](#-läden-filialen--preise) · [Angebote deiner Läden](#️-angebote-deiner-läden) · [Anlässe & Getränke](#-anlässe--getränke) · [Kassenzettel](#-kassenzettel) · [Datenschutz](#-datenschutz) · [Blueprints](#-blueprints) · [Entitäten](#entitäten) · [Aktionen](#aktionen-services)
+**Inhalt:** [Funktionen](#funktionen) · [Installation](#installation) · [Update auf 1.5](#update-auf-15) · [Einstellungen](#️-einstellungen) · [KI einrichten](#-ki-einrichten-optional) · [Jarvis](#-jarvis--andere-sprachassistenten) · [Dashboard-Karte](#️-dashboard-karte) · [Preise, Budget & Angebote](#-preise-budget--angebote) · [Läden, Filialen & Preise](#-läden-filialen--preise) · [Angebote deiner Läden](#️-angebote-deiner-läden) · [Prospekte](#-prospekte-aller-filialen) · [Artikel-Datenbank](#-artikel-datenbank) · [Anlässe & Getränke](#-anlässe--getränke) · [Saison & Fertiggerichte](#-saison--fertiggerichte) · [Kassenzettel](#-kassenzettel) · [Datenschutz](#-datenschutz) · [Blueprints](#-blueprints) · [Entitäten](#entitäten) · [Aktionen](#aktionen-services)
 
 ![Wochenplan](docs/images/wochenplan.png)
 
@@ -18,13 +18,15 @@ Ein Essensplaner mit **176 Rezepten (auch Fertiggerichte, Beilagen, Desserts und
 | 🏪 **Läden & Filialen** | Deine Filialen per **OpenStreetMap-Suche** rund um Zuhause und Arbeit, **auf dem Arbeitsweg** oder von Hand – Supermärkte und **Drogerien (Rossmann, dm, Müller, Budni)**. **Hauptladen + Ausnahmen**: alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden, Drogerieartikel in deine Drogerie. |
 | 🏷️ **Angebote** | **Alle aktuellen und kommenden Angebote deiner Läden** – EDEKA (dein Markt) und ALDI SÜD direkt von den Ketten, Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm … optional über marktguru.de (auf eigenes Risiko), bei NORMA die Prospektseiten als Bilder – oder selbst eingetragen. **📰 Prospekte aller Filialen** (aktuelle und nächste Woche, mit marktguru als Seitenbilder, sonst als Link zur Kette). Passende Angebote fließen in Rezeptkosten, Planung und Einkaufsliste ein. „➕ Auf die Einkaufsliste“ direkt vom Angebot. |
 | 🎉 **Anlässe & Getränke** | Filmabend, Grillabend, Familienessen, Weihnachtsessen, Silvester, Geburtstag, Brunch, Raclette, Fondue, Party oder Osteressen als **eigener Anlass** im Wochenplan: Gänge mit Rezepten, Produkten oder Freitext, **Zubehör je Gäste** (Grillkohle, Popcorn, Servietten …), passende **Getränke mit und ohne Alkohol** (alkoholfreie immer dabei, Mengen je Gäste), Kosten, eigene Einkaufsliste, Kalender-Termin und Sensor „Nächster Anlass“. Vorschläge nach Regeln, optional mit KI. |
+| 📦 **Artikel-Datenbank** | Jedes Produkt mit **echtem Preis**, das der Essensplaner sieht (Angebote, REWE-/ALDI-Onlinepreise, Kassenzettel, eigene Artikel) – mit Bild, Marke, Packung, Normal- und Angebotspreis und Preisverlauf, ohne zusätzliche Abfrage. Tab **„📦 Artikel“**, ⭐ **Lieblingsprodukt** je Zutat, „auch bei …“ für Markenartikel, Fertiggerichte als Rezept speichern. |
 | 🧾 **Kassenzettel** | Text des Kassenzettels einfügen (lokal gelesen) oder Foto/PDF von deiner KI-Aufgabe lesen lassen, prüfen – und die Preise werden **eigene Preise des Ladens** (mit Datum und Verlauf). |
 | 👩‍🍳 **Kochmodus** | Vollbild Schritt für Schritt mit großer Schrift, Zutaten zum Abhaken, **Timer aus dem Rezepttext** („15 Minuten köcheln“ → ⏱ mit Signalton). Der Bildschirm bleibt an. Blättern per Wischen oder Pfeiltasten. |
 | 🧊 **Was kann ich kochen?** | Rezepte zu den Zutaten, die du da hast, mit Angabe, was noch fehlt. |
-| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **nach Laden** mit Zwischensumme oder nach Abteilung, **Ladenwahl je Artikel**, **Artikelsuche beim Tippen** (Preis, Packung, Angebot), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
+| 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **nach Laden** mit Zwischensumme oder nach Abteilung, **Ladenwahl je Artikel**, **Bild und Produkt je Artikel** (⭐ Lieblingsprodukt, sonst das günstigste passende), **Artikelsuche beim Tippen in allen Läden** (Bild, Laden, Preis, Packung, Angebot – günstigste zuerst), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
 | 🗣️ **Jarvis / Assist / LLM** | 28 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
-| 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte, Wochenplan, Rezepten, Einkaufsliste, Angeboten, „🏪 Läden & Preise“ und allen **Einstellungen (⚙️)**, passend zu Hell/Dunkel-Theme und Handy. |
-| 🖼️ **Dashboard-Karte** | `custom:essensplaner-card` (Heute · Nächste Mahlzeit · Woche), ideal fürs Küchen- oder Esszimmer-Tablet. |
+| 🤖 **KI (optional)** | Über Home Assistant – eine **KI-Aufgabe** oder ein **Gesprächsagent** (Claude, ChatGPT, Gemini, Ollama lokal oder in der Cloud, dein eigener Agent): 🤖 KI-Menü für Anlässe, Getränke-Vorschläge, Wochenplan zur Saison, Kassenzettel-Fotos. Nur auf Knopfdruck, Antworten werden geprüft – ohne KI läuft alles nach Regeln. |
+| 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte und Saison-Zeile, Wochenplan mit Anlässen, Rezepten, Einkaufsliste, „📦 Artikel“, Angeboten und Prospekten, „🏪 Läden & Preise“ und allen **Einstellungen (⚙️)**, passend zu Hell/Dunkel-Theme und Handy. |
+| 🖼️ **Dashboard-Karte** | `custom:essensplaner-card` (Heute · Nächste Mahlzeit · Woche, mit Anlässen), ideal fürs Küchen- oder Esszimmer-Tablet. |
 | 🏠 **Entitäten & Blueprints** | Sensoren, Kalender, To-do-Liste und Buttons, dazu fertige Blueprints für Essens-Erinnerung und Wochen-Routine. |
 
 | Angebote & Budget | Rezept mit Kosten & Angebot |
@@ -51,7 +53,17 @@ Ein Essensplaner mit **176 Rezepten (auch Fertiggerichte, Beilagen, Desserts und
 Ordner `custom_components/essensplaner` nach `/config/custom_components/essensplaner` kopieren, neu starten, Integration hinzufügen.
 
 ### Updates
-HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repositorys. Für jede neue Version wird deshalb ein Release mit dem Tag `vX.Y.Z` erstellt – für diese Version **`v1.4.0`**. Dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS (falls es nicht von selbst auftaucht: in HACS beim Essensplaner über ⋮ die Informationen aktualisieren). Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
+HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repositorys. Für jede neue Version wird deshalb ein Release mit dem Tag `vX.Y.Z` erstellt – für diese Version **`v1.5.0`**. Dann erscheint das Update unter *Einstellungen → Updates* bzw. in HACS (falls es nicht von selbst auftaucht: in HACS beim Essensplaner über ⋮ die Informationen aktualisieren). Danach Home Assistant neu starten und den Browser einmal neu laden (Strg+F5 bzw. App-Cache leeren).
+
+### Update auf 1.5
+- **Deine Daten und Einstellungen bleiben erhalten.** Beim ersten Start stellt der Essensplaner seine Daten auf Version 5 um: offene Artikel der Einkaufsliste und Rezeptzeilen, deren Abteilung 1.4 falsch geraten hatte (Grillkohle und Apfelschorle bei Obst & Gemüse, „Pizza Salami“ bei Käse & Aufschnitt, Chips und Servietten unter Sonstiges …), bekommen die richtige – was du selbst gewählt hast, bleibt. Die neue [Artikel-Datenbank](#-artikel-datenbank) füllt sich einmal aus dem, was schon gespeichert ist (Angebote, Onlinepreise, Kassenzettel der letzten 90 Tage) – ohne Abfrage.
+- **69 neue mitgelieferte Rezepte** kommen automatisch dazu: 25 **Fertiggerichte** (TK-Pizza, Maultaschen, Ravioli aus der Dose …) und 44 Beilagen, Vorspeisen, Desserts, Fest- und Grillgerichte, Snacks und Getränke für [Anlässe](#-anlässe--getränke). Rezepte, die du gelöscht hast, bleiben gelöscht. Getränke, Beilagen, Vorspeisen, Dips und Saucen landen nie als Hauptgericht im Wochenplan, Fertiggerichte werden nur halb so oft vorgeschlagen wie gekochte Gerichte.
+- **Keine Fertiggerichte?** Trag unter **⚙️ → Allgemein → „Ausgeschlossene Zutaten“** zusätzlich `Fertiggericht` ein (z. B. „Fisch, Pilze, Fertiggericht“) – dann werden sie weder vorgeschlagen noch automatisch eingeplant, auch nicht für Anlässe; die Rezepte bleiben in der Sammlung. Oder lösche einzelne im Tab Rezepte (Kategorie „Fertiggericht“) – auch die kommen nicht wieder.
+- **Neue Einstellungen** (⚙️): **🤖 KI** (keine – alles funktioniert ohne KI, siehe [KI einrichten](#-ki-einrichten-optional)), unter Budget & Planung „Saison berücksichtigen“, „Anlässe im Wochenbudget“ und „Getränkevorschläge mit Alkohol“ (alle an), unter Angebote & Preisquellen „Prospekte aller Filialen“ (an, wirkt nur mit marktguru). Hast du marktguru an, holt der Essensplaner damit zusätzlich die Prospekte **aller** deiner Filialen (höchstens 12 Anfragen je Abruf, eine Prospektliste meist nur 2–3× pro Woche) – abschaltbar mit „Prospekte aller Filialen“.
+- **Neu im Panel:** Tab „📦 Artikel“, „📰 Prospekte“ bei den Angeboten, Anlässe im Wochenplan („🎉 Anlass planen“), die Saison-Zeile mit 🍂 Saisonkalender, Bilder und Produkte auf der Einkaufsliste und die Suche über alle Läden. Lade den Browser nach dem Update einmal neu (Strg+F5 bzw. App-Cache leeren). Die Dashboard-Karte zeigt Anlässe an (`show_occasions: false` blendet sie aus).
+- **Sprache:** fünf neue Tools (Anlässe, Getränke, Saison) – LLM-Agenten sehen sie nach einem Neuladen der Tool-Liste. Für den eingebauten Sprachagenten kopiere [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) erneut (Anlässe, Feiertage, Getränke, Saison, „plane die Woche saisonal“).
+- Das **Wochenbudget** zählt die Kosten geplanter Anlässe mit (abschaltbar), und es gibt die Planungsart **„Saisonal“**. Alle Abfragen senden jetzt die Kennung `HA-Essensplaner/1.5`.
+- Zurück auf 1.4 geht nur mit einem Backup von vorher (Datenversion 5).
 
 ### Update auf 1.4
 - **Deine Daten und Einstellungen bleiben erhalten.** Eine Drogerie, die du in 1.3 notgedrungen als andere Kette gespeichert hast (z. B. „ROSSMANN Drogeriemarkt“ als Marktkauf), wird beim ersten Start automatisch auf die richtige Kette umgestellt – samt eigener Preise und „immer hier“.
@@ -71,12 +83,12 @@ Alle Einstellungen findest du im Panel **Essensplaner** über das **⚙️-Zahnr
 
 | Bereich | Einstellungen (Standard) |
 |---|---|
-| 🏠 **Allgemein** | Portionen (2), Standard-Mahlzeit (Abendessen), aktive Mahlzeiten und ihre Uhrzeiten (für Kalender und „Nächste Mahlzeit“), **Vorratszutaten** (kommen nie auf die Einkaufsliste), **ausgeschlossene Zutaten** („Nie vorschlagen“, z. B. „Fisch, Pilze“), automatisch als gekocht markieren (an), Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren (z. B. Bring!), Sprachbefehle registrieren (an), Panel in der Seitenleiste (an) |
+| 🏠 **Allgemein** | Portionen (2), Standard-Mahlzeit (Abendessen), aktive Mahlzeiten und ihre Uhrzeiten (für Kalender und „Nächste Mahlzeit“), **Vorratszutaten** (kommen nie auf die Einkaufsliste), **ausgeschlossene Zutaten** („Nie vorschlagen“, z. B. „Fisch, Pilze“ – auch Kategorien wie „Fertiggericht“), automatisch als gekocht markieren (an), Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren (z. B. Bring!), Sprachbefehle registrieren (an), Panel in der Seitenleiste (an) |
 | 💶 **Budget & Planung** | Wochenbudget (0 = kein Budget), Planungsart: ausgewogen · günstig · Angebote nutzen · Abwechslung · saisonal; Saison berücksichtigen (an – siehe [Saison & Fertiggerichte](#-saison--fertiggerichte)), Anlässe im Wochenbudget (an), Getränkevorschläge mit Alkohol (an – alkoholfreie sind immer dabei) |
-| 🏷️ **Angebote & Preisquellen** | **EDEKA-Angebote** (aus), **ALDI-SÜD-Preise** (experimentell, aus), **REWE-Onlinepreise** (experimentell, aus), **marktguru-Angebote** (aus, inoffiziell, eigenes Risiko – der AGB-Hinweis steht direkt am Schalter), Prospekte aller Filialen (an, nur mit marktguru), Postleitzahl, Läden ohne gespeicherte Filialen, Merkliste |
+| 🏷️ **Angebote & Preisquellen** | **EDEKA-Angebote** (aus, eigenes Risiko – der Hinweis zu den Nutzungsbedingungen von edeka.de steht am Schalter), **ALDI-SÜD-Preise** (experimentell, aus), **REWE-Onlinepreise** (experimentell, aus), **marktguru-Angebote** (aus, inoffiziell, eigenes Risiko – der AGB-Hinweis steht direkt am Schalter), Prospekte aller Filialen (an, nur mit marktguru), Postleitzahl, Läden ohne gespeicherte Filialen, Merkliste |
 | 🏪 **Läden & Einkauf** | Aufteilungsmodus: Aus – eine Liste wie bisher · Alles im Hauptladen · Hauptladen + Ausnahmen (Standard); Schwellen (woanders günstiger ab 1,00 € oder 20 %, Angebot ab 0,30 €, Extra-Laden ab 0 € = aus); Zonen (leer = Zuhause und „Arbeit“-Zonen), Umkreis (3 km), Arbeitsweg (an, 800 m daneben) für die Filialsuche |
 | 🧾 **Kassenzettel** | KI-Aufgabe für Kassenzettel-Fotos (keine – dann die KI aus „🤖 KI“, wenn sie eine KI-Aufgabe ist, sonst nur eingefügter Text) |
-| 🤖 **KI** | KI-Aufgabe oder Gesprächsagent aus Home Assistant (keine), wofür die KI genutzt wird (Anlässe, Getränke, Saisonplan, Kassenzettel-Fotos an; Produktzuordnung aus), „Verbindung testen“ – siehe [KI über Home Assistant](#-ki-über-home-assistant-optional) |
+| 🤖 **KI** | KI-Aufgabe oder Gesprächsagent aus Home Assistant (keine), wofür die KI genutzt wird (Anlässe, Getränke, Saisonplan, Kassenzettel-Fotos an; Produktzuordnung aus), „Verbindung testen“ – siehe [KI einrichten](#-ki-einrichten-optional) |
 
 Die Filialen selbst, den Hauptladen, die Markt-IDs (REWE, EDEKA) und die ALDI-SÜD-Filiale wählst du im Tab **„🏪 Läden & Preise“**. Hinweise im Panel („Einschalten: ⚙️ Angebote & Preisquellen“) öffnen die Einstellungen direkt am richtigen Bereich.
 
@@ -84,21 +96,65 @@ Die Filialen selbst, den Hauptladen, die Markt-IDs (REWE, EDEKA) und die ALDI-S�
 
 Für eigene Oberflächen: die Websockets `essensplaner/get_settings` (Werte, Standardwerte, Bereiche, Auswahllisten und Hinweise) und `essensplaner/save_settings` (`values`; prüft alle Werte und antwortet mit `errors` je Feld oder `saved`/`reload`), dazu `essensplaner/ai_status` (gewählte KI, Art, erreichbar, Funktionen) und `essensplaner/ai_test` (optional `entity_id`; Ergebnis `ok`, Sekunden oder `error`) – alle nur für Administratoren.
 
-### 🤖 KI über Home Assistant (optional)
+## 🤖 KI einrichten (optional)
 
-Der Essensplaner funktioniert **komplett ohne KI** – Vorschläge, Planung, Preise und Einkaufsliste laufen nach festen Regeln. Wer mag, lässt eine KI zusätzlich Vorschläge ordnen oder ergänzen (z. B. ein Menü für einen Anlass oder passende Getränke). Die KI läuft **über Home Assistant**, der Essensplaner speichert **keine API-Schlüssel**:
+Der Essensplaner funktioniert **komplett ohne KI** – Vorschläge, Planung, Anlässe, Getränke, Preise und Einkaufsliste laufen nach festen Regeln. Wer mag, lässt zusätzlich eine KI Vorschläge ordnen oder ergänzen (ein Menü für einen Anlass, passende Getränke, den Wochenplan zur Saison) oder Kassenzettel-Fotos lesen. Die KI läuft **über Home Assistant**: du richtest sie dort ein, der Essensplaner nutzt sie nur – er speichert **keine API-Schlüssel** und spricht mit keinem KI-Anbieter selbst.
 
-1. In Home Assistant eine KI-Integration einrichten (*Einstellungen → Geräte & Dienste → Integration hinzufügen*), z. B. **Anthropic** (Claude), **OpenAI** (GPT), **Google Generative AI** (Gemini) oder **Ollama** (lokal auf deinem Rechner oder mit Ollama-Cloud-Modellen). Sie bringt eine **KI-Aufgabe** (`ai_task.…`) und/oder einen **Gesprächsagenten** (`conversation.…`) mit; auch ein eigener Agent wie Jarvis/Hermes geht.
-2. Im Panel **⚙️ → 🤖 KI** die KI wählen (KI-Aufgaben und Gesprächsagenten, jeweils mit „nicht erreichbar“, falls sie gerade nicht verfügbar sind), die Funktionen an- oder abhaken und **„Verbindung testen“** – das schickt eine winzige Anfrage und zeigt, ob und wie schnell eine Antwort kommt (auch vor dem Speichern).
+<!-- screenshot: einstellungen-ki.png -->
 
-Danach gibt es im Panel die Knöpfe **„🤖 KI-Menü“** (im Anlass), **„🤖 KI-Vorschläge“** (Getränke eines Anlasses) und **„🤖 mit KI“** (✨ Automatisch planen) – nur für die angehakten Funktionen, auch für Benutzer ohne Administratorrechte. Die KI wird nur gefragt, wenn du so einen Knopf drückst; bis sie antwortet, zeigt das Panel die Vorschläge nach Regeln.
+### KI-Aufgabe oder Gesprächsagent?
 
-Gut zu wissen:
+| | **KI-Aufgabe** (`ai_task.…`) | **Gesprächsagent** (`conversation.…`) |
+|---|---|---|
+| Was ist das? | Home Assistants Schnittstelle für einzelne Aufgaben („erzeuge Daten“) – ohne Gespräch und ohne Werkzeuge | der Chat- und Sprachagent, mit dem du sprichst – z. B. Jarvis |
+| Menü, Getränke, Saisonplan | ✅ | ✅ – jede Anfrage ist ein neues Gespräch auf Deutsch |
+| Kassenzettel-Fotos | ✅, wenn das Modell Bilder versteht | ❌ – ein Gesprächsagent bekommt keine Bilder |
+| Empfehlung | **erste Wahl**: schnell, ohne Werkzeuge, ohne Gesprächsverlauf | wenn du nur einen Agenten hast oder deinen eigenen nutzen willst |
 
-- **Kassenzettel-Fotos** brauchen eine **KI-Aufgabe**, die Bilder lesen kann – ein Gesprächsagent bekommt keine Bilder. Unter ⚙️ → Kassenzettel kannst du dafür eine eigene KI-Aufgabe wählen; leer bleibt die KI aus „🤖 KI“ zuständig, wenn sie eine KI-Aufgabe ist.
-- Eine Anfrage nach der anderen (bis zu 2 Minuten, eine lokale KI auf einem kleinen Rechner braucht Zeit); dieselbe Anfrage wird 10 Minuten lang nicht noch einmal gestellt. Jede Anfrage an einen Gesprächsagenten ist ein neues Gespräch.
-- **Keine Schleifen:** Jede Anfrage endet mit „Benutze keine Werkzeuge. Antworte nur mit JSON.“, und ruft der Agent während einer Essensplaner-Anfrage trotzdem ein Essensplaner-Tool auf, lehnt der Essensplaner ab – ein Agent wie Jarvis ruft sich so nicht selbst wieder auf. (Agenten außerhalb von Home Assistant, die per MCP zugreifen, kann der Essensplaner keiner Anfrage zuordnen; für sie gilt die Anweisung im Text.) Umgekehrt fragen die Sprachbefehle nie selbst die KI (Jarvis ist ja schon eine).
-- **Was die KI bekommt:** nur Rezeptnamen, Tags und Zutaten, Kettennamen (keine Filialen, Adressen oder Postleitzahlen), Angebotspreise, Monat/Saison, Gästezahl und ausgeschlossene Zutaten – nie Notizen, Kassenzettel-Texte oder Namen. Ist die KI ein Cloud-Dienst, geht das an diesen Anbieter; eine lokale KI wie Ollama bleibt im Haus. KI-Antworten werden gegen deine Rezepte geprüft und nie ungefragt übernommen.
+Bei den großen KI-Integrationen (Anthropic, OpenAI, Google, Ollama) legst du auf der Seite der Integration einen **Gesprächsagenten** und/oder eine **KI-Aufgabe** an, jeweils mit eigenem Modell – wie genau, hängt von deiner Home-Assistant-Version ab (KI-Aufgaben gibt es seit Home Assistant 2025.7).
+
+### So geht's
+
+1. **Eine KI in Home Assistant einrichten** (*Einstellungen → Geräte & Dienste → Integration hinzufügen*):
+   - **Claude** – Integration **Anthropic** mit einem API-Schlüssel aus der Anthropic Console (Kosten je Anfrage bei Anthropic). Gesprächsagent und KI-Aufgabe; Claude liest auch Kassenzettel-Fotos.
+   - **ChatGPT** – Integration **OpenAI** mit einem API-Schlüssel von OpenAI. Gesprächsagent und KI-Aufgabe; liest auch Fotos.
+   - **Gemini** – Integration **Google Generative AI** mit einem API-Schlüssel aus Google AI Studio. Gesprächsagent und KI-Aufgabe.
+   - **Ollama** – Integration **Ollama** mit der Adresse deines Ollama-Servers (z. B. `http://ollama.local:11434`), entweder **lokal** (das Modell läuft auf deinem Rechner, nichts verlässt dein Netz – für saubere JSON-Antworten lieber ein mittelgroßes Modell als das kleinste; auf einem Raspberry Pi selbst ist das zu langsam) oder mit **Ollama-Cloud-Modellen** (Modellname mit `-cloud` auf einem bei ollama.com angemeldeten Ollama-Server – dann laufen die Anfragen bei Ollama). Für Kassenzettel-Fotos braucht es ein Modell, das Bilder versteht.
+   - **jeder andere Gesprächsagent** – z. B. dein eigener Agent (Jarvis/Hermes über seine Integration) oder eine andere LLM-Integration. Der eingebaute Agent „Home Assistant“ steht nicht zur Wahl – er ist keine KI.
+2. Im Panel **⚙️ → 🤖 KI** die KI wählen (KI-Aufgaben und Gesprächsagenten getrennt; „nicht erreichbar“, wenn sie gerade nicht verfügbar ist), die Funktionen an- oder abhaken und **„Verbindung testen“** – das schickt eine feste Testanfrage (ohne deine Daten) und zeigt, ob und wie schnell eine gültige Antwort kommt, auch vor dem Speichern. Dann speichern.
+3. **Kassenzettel-Fotos** (optional): unter ⚙️ → Kassenzettel eine eigene KI-Aufgabe wählen – leer nimmt der Essensplaner die KI aus „🤖 KI“, wenn sie eine KI-Aufgabe ist.
+
+Danach gibt es im Panel diese Knöpfe – nur für die angehakten Funktionen, auch für Benutzer ohne Administratorrechte:
+
+| Funktion (⚙️ → 🤖 KI, Standard) | Knopf · Aktion | Was die KI macht | Was der Essensplaner prüft |
+|---|---|---|---|
+| Anlässe (an) | „🤖 KI-Menü“ im Anlass · `suggest_occasion_menu` mit `ai: true` | wählt und ergänzt Gerichte je Gang aus den passenden Rezepten (bis zu 12 je Gang) | Rezepte müssen existieren, Namen werden deinen Rezepten zugeordnet, Unbekanntes wird Freitext (🤖); höchstens 4 je Gang, Alkohol nur, wenn erlaubt, „Ausgeschlossene Zutaten“ gelten |
+| Getränke (an) | „🤖 KI-Vorschläge“ bei den Getränken eines Anlasses · `suggest_drinks` mit `ai: true` | schlägt Getränke zu Gerichten und Anlass vor | mit den Regeln zusammengeführt: mindestens zwei alkoholfreie bleiben, Alkohol nur, wenn erlaubt; die Mengen rechnet der Essensplaner |
+| Saisonplan (an) | „🤖 mit KI“ bei „✨ Automatisch planen“ · `auto_plan` mit `ai: true` | ordnet die 40 passendsten Rezepte, die die Regeln ausgesucht haben | nur diese Rezepte; Mahlzeit, Abwechslung und „Ausgeschlossene Zutaten“ gelten weiter |
+| Kassenzettel-Fotos (an) | „🤖 Mit KI auslesen“ | liest Foto oder PDF | du prüfst jede Zeile, bevor gespeichert wird |
+| Produktzuordnung (aus) | – | vorbereitet, noch ohne Knopf | – |
+
+**Wie die Anfragen laufen:** Die KI wird nur gefragt, wenn du einen dieser Knöpfe drückst oder eine Aktion mit `ai: true` aufrufst – nie im Hintergrund und nie von den Sprachbefehlen (Jarvis ist ja schon eine KI). Beim Menü und bei den Getränken stehen bis zur Antwort die Vorschläge nach Regeln da, und übernommen wird nur, was du antippst (bzw. mit `apply: true`); beim automatischen Planen plant der Essensplaner wie ohne KI direkt ein – nur in der Reihenfolge der KI. Es läuft eine Anfrage nach der anderen, jede darf bis zu 2 Minuten dauern (eine lokale KI auf einem kleinen Rechner braucht Zeit); dieselbe Anfrage beantwortet der Essensplaner 10 Minuten lang aus dem Speicher. Scheitert die KI, steht der Grund dabei und es gelten die Regeln:
+
+| Meldung | Was tun? |
+|---|---|
+| „Dafür brauche ich eine KI …“ | unter ⚙️ → 🤖 KI eine KI wählen |
+| „Die KI … ist gerade nicht erreichbar“ | Integration bzw. Ollama-Server prüfen, später erneut versuchen |
+| „… hat keine verwertbare Antwort (JSON) geliefert“ | erneut versuchen; kommt das oft, ein größeres Modell oder eine KI-Aufgabe statt eines Gesprächsagenten nehmen |
+| „Die KI ist für … ausgeschaltet“ | die Funktion unter ⚙️ → 🤖 KI anhaken |
+| „Die KI arbeitet gerade an einer anderen Essensplaner-Anfrage“ | kurz warten |
+
+**Keine Schleifen:** Jede Anfrage endet mit „Benutze keine Werkzeuge. Antworte nur mit JSON.“, und ruft der Agent während einer Essensplaner-Anfrage trotzdem ein Essensplaner-Tool auf, lehnt der Essensplaner ab – ein Agent wie Jarvis ruft sich so nicht selbst wieder auf. (Agenten außerhalb von Home Assistant, die per MCP zugreifen, kann der Essensplaner keiner Anfrage zuordnen; für sie gilt die Anweisung im Text.) Hat dein Gesprächsagent Zugriff auf Home Assistant („Home Assistant steuern“), ist eine KI-Aufgabe deshalb die ruhigere Wahl.
+
+### Was die KI bekommt
+
+- **Anlässe:** die Art des Anlasses („Grillabend“ – nicht der Name, den du ihm gibst), Monat, Zahl der Gäste und Kinder, die Gänge, die passenden Rezepte (Name, Gang, Kategorien), was schon im Anlass steht, deine ausgeschlossenen Zutaten und ob Alkohol erlaubt ist.
+- **Getränke:** Namen und Kategorien der Gerichte, die Art des Anlasses, Monat, Gäste, Kinder, die Getränke nach Regeln und ob Alkohol erlaubt ist.
+- **Saisonplan:** Monat, Jahreszeit, was gerade Saison hat, die Zeiten des Jahres, die Tage und Mahlzeiten, die Planungsart und die passenden Rezepte (Name, Kategorien, Saison-Zutaten, Zutaten im Angebot, Kosten je Portion).
+- **Kassenzettel-Fotos:** nur das Bild. **Verbindungstest:** nur die feste Testanfrage.
+- **Nie:** Notizen, Namen von Anlässen oder Personen, Filialen, Adressen, Postleitzahlen, Kassenzettel-Texte, deine Einkaufsliste – und in den Diagnose-Daten stehen weder Fragen noch Antworten der KI.
+
+Ist die KI ein Cloud-Dienst (Anthropic, OpenAI, Google, Ollama-Cloud-Modelle), geht das an diesen Anbieter; eine lokale KI wie Ollama bleibt im Haus. KI-Antworten werden gegen deine Rezepte geprüft und nie ungefragt übernommen.
 
 ## 🤖 Jarvis & andere Sprachassistenten
 
@@ -152,6 +208,26 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 Antworten klingen z. B. so: *„Bei Aldi Süd kaufst du 3 Artikel für ungefähr 7,47 €: …“* · *„Am günstigsten gibt es Butter bei Lidl: 1,59 € (250 g).“* · *„Ich habe Butter auf die Einkaufsliste gesetzt – bei Aldi Süd etwa 1,79 €.“* Läden versteht Jarvis als Kette (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus, Marktkauf, Rossmann, dm, Müller, Budni), als eigene Bezeichnung („Lidl Arbeit“), als „Hauptladen“ oder als „Drogerie“ (deine gespeicherte Drogerie: „Was kaufe ich in der Drogerie?“) – auch bei Angeboten. Fragst du nach einem Laden oder Produkt („Was hat Rossmann im Angebot?“, „Wo ist Duschgel im Angebot?“), antwortet Jarvis aus allen Angeboten deiner Läden, nicht nur aus denen zu deinen Rezepten; beginnt die neue Prospektwoche erst, sagt er das („Gerade nicht, aber am Montag gibt es 10 Angebote …“). Mengen dürfen in Worten kommen („zwei Liter Milch“, „drei Packungen Butter“); „Hackfleisch“ findet auf der Liste auch „Rinderhackfleisch“ und „Tomaten“ die „Cherrytomaten“, wenn es das einzige dieser Art ist – „Milch“ aber nicht „Buttermilch“ oder „Kokosmilch“.
 
 Datumsangaben werden in natürlicher Sprache verstanden: *heute, morgen, übermorgen, heute Abend, morgen früh, Freitag, nächsten Montag, nächste Woche, in 3 Tagen, 24.12., 2026-11-20* – und Feiertage: *Heiligabend, Weihnachten (25.12.), 1./2. Weihnachtstag, Silvester, Neujahr, Ostern, Ostermontag, Karfreitag, Pfingsten, Nikolaus, Valentinstag, Muttertag, Vatertag* (immer der nächste).
+
+### Beispiele: Anlässe, Getränke, Saison
+
+So klingt das mit den mitgelieferten Rezepten (Mengen und Preise je nach deinen Läden):
+
+| Du sagst | Jarvis antwortet |
+|---|---|
+| „Plane einen Filmabend am Samstag für 4.“ | „Ich habe Filmabend am Samstag um 20:00 Uhr für 4 Personen geplant. Hauptgang: Hausgemachte Burger; Snacks: Nachos mit Käsesoße, Popcorn und Chips; Getränke: Bier, Sekt, Eistee, Cola und Limonade. Das kostet ungefähr 33,84 €.“ |
+| „Plane ein Weihnachtsessen an Heiligabend für 8 Personen.“ | „Ich habe Weihnachtsessen am Donnerstag, 24.12. um 18:00 Uhr für 8 Personen geplant. Vorspeise: Feldsalat mit Speck und Croutons; Hauptgang: Gänsekeulen mit Rotkohl und Klößen; Beilagen: Rosenkohl mit Butter und Muskat und Apfelrotkohl; Dessert: Mousse au Chocolat; Getränke: Sekt, Glühwein, Kindersekt, Traubensecco und Kaffee. …“ |
+| „Was gibt es Weihnachten?“ | „Weihnachtsessen am Donnerstag, 24.12. um 18:00 Uhr für 8 Personen: Vorspeise: Feldsalat …“ |
+| „Füge Kartoffelsalat zum Grillabend hinzu.“ | „Ich habe Kartoffelsalat zum Grillabend hinzugefügt (Beilagen).“ |
+| „Zum Grillabend kommen 8 Personen.“ | „Zum Grillabend kommen jetzt 8 Personen.“ (Getränke und Zubehör wachsen mit) |
+| „Welcher Wein passt zur Lasagne?“ | „Zu Lasagne passt Rotwein, leicht (z. B. Spätburgunder oder Chianti) oder Rotwein, kräftig (z. B. Dornfelder oder Lemberger). Ohne Alkohol: Roter Traubensaft, Apfelschorle oder Johannisbeerschorle.“ |
+| „Was trinken wir zum Grillen?“ | „Zum Grillabend passt Bier (Pils oder Helles) oder Rotwein, kräftig … Ohne Alkohol: Alkoholfreies Bier, Radler 0,0 % oder Fassbrause.“ |
+| „Was hat gerade Saison?“ (im November) | „Gerade hat Saison: Gans, Grünkohl, Quitten, Kürbis, Schwarzwurzeln und Spinat. Es ist Martinstag. Dazu passt aus deinen Rezepten Gänsekeulen mit Rotkohl und Klößen, Apfelrotkohl oder Kürbissuppe.“ |
+| „Welches Gemüse hat im Mai Saison?“ | „Im Mai hat Saison: Erdbeeren, Bärlauch, Spargel, Rhabarber, Kohlrabi und Radieschen. Es ist Grillzeit. …“ |
+| „Plane die Woche saisonal.“ | „Ich habe 5 Mahlzeiten eingeplant: …“ (bevorzugt, was gerade Saison hat, und Angebote) |
+| „Wie viel Budget habe ich noch?“ | nennt die Kosten der Mahlzeiten und „Dazu kommen Filmabend und Grillabend mit etwa …“ |
+
+Die Sprachbefehle fragen nie selbst die KI (Jarvis ist ja schon eine); Menü, Getränke und Wochenplan kommen nach Regeln. Über einen LLM-Agenten gehen auch Kinder, Uhrzeit und eigene Namen („Plane Omas Geburtstag am Sonntag um 15 Uhr für 6 Erwachsene und 2 Kinder“); die Sätze für den eingebauten Agenten kennen die Vorlagen, die Feiertage und die Zahl der Personen.
 
 ### Eingebauter Sprachagent (ohne LLM)
 Datei [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) nach `/config/custom_sentences/de/` kopieren und Home Assistant neu starten.
@@ -316,6 +392,9 @@ Neben den Einzelangeboten hält der Essensplaner die **Prospekte deiner gespeich
 
 **Im Panel** (Tab „💶 Angebote“ → **„📰 Prospekte“**): je Prospekt eine Kachel mit Titelbild, Kette, Filialen und Gültigkeit – „Diese Woche“, „Nächste Woche“ oder „Alle“. Antippen öffnet den Prospekt **im Vollbild zum Blättern** (wischen, ‹ › oder Pfeiltasten, Schieberegler für die Seite; nur die Seiten in der Nähe werden geladen); Doppeltippen oder 🔍 vergrößert die Seite, „Öffnen ↗“ zeigt den Prospekt auf marktguru bzw. bei der Kette. Ohne marktguru gibt es je Kette eine Kachel mit dem Link zu ihrer Prospektseite.
 
+<!-- screenshot: prospekte.png -->
+<!-- screenshot: prospekt-blaettern.png -->
+
 Für eigene Oberflächen gibt es den Websocket `essensplaner/leaflets` (`when`: `current` / `upcoming` / `all`, optional `branch_ids`): je Prospekt Kette, Titel, gültig von/bis, Seitenzahl, Titelbild, die ersten Seiten, Bildvorlagen für Seiten, Zoom und Vorschau (`page_url_template` mit `{page}`, ab Seite 0), Link und die Filialen; dazu je Filiale die Anzahl aktueller und kommender Prospekte und die Links der Ketten. Die Aktion `essensplaner.get_leaflets` liefert dasselbe für Automationen:
 
 ```yaml
@@ -338,6 +417,10 @@ Der Essensplaner merkt sich **jedes Produkt mit echtem Preis**, das er ohnehin s
 
 **Im Panel** (Tab **„📦 Artikel“**, zwischen Einkaufsliste und Angeboten): Karten wie bei den Angeboten (Bild, Marke, Name, Packung, Preis, durchgestrichener Normalpreis, Grundpreis, Laden, woher der Preis stammt), Auswahl nach Laden, Abteilung, ⭐ Favoriten, 🏷️ Angeboten, 🧾 gekauft und ✍️ eigenen, Suche und Sortierung (Preis, Grundpreis, Ersparnis, Name, zuletzt gesehen). ☆/⭐ auf einer Karte macht den Artikel zum Lieblingsprodukt seiner Zutat, „➕ Auf die Einkaufsliste“ setzt genau dieses Produkt auf die Liste. Antippen zeigt die Details: Preisverlauf, „Auch bei …“ (derselbe Markenartikel bei deinen anderen Läden), die Zutat(en) mit ⭐, „🍕 Als Rezept speichern“ und – bei eigenen Artikeln – Bearbeiten und Löschen. „＋ Eigener Artikel“ trägt einen Artikel mit Laden, Name, Marke, Packung, Preis, Zutat, Abteilung und Bild-Link ein. Auf der **Einkaufsliste** steht vor jedem Artikel sein Bild (sonst das Symbol der Abteilung), darunter Marke und Produkt; Antippen öffnet **„Produkt wählen“** mit den passenden Artikeln aller Läden, günstigste für die benötigte Menge zuerst, und „⭐ Immer dieses“.
 
+<!-- screenshot: artikel.png -->
+<!-- screenshot: artikel-detail.png -->
+<!-- screenshot: handy-artikel.png -->
+
 Aktionen: `search_products` (Suche nach Marke, Name oder Zutat, optional Laden, nur Favoriten / Angebote / gekauft / eigene, Sortierung) und `save_product` (eigenen Artikel anlegen oder ändern). Für das Panel (Tab „📦 Artikel“) und eigene Oberflächen gibt es die Websockets `essensplaner/products` (Seiten mit Filtern für Laden, Kategorie, Art, Favoriten, Angebote, gekauft, eigene und Sortierung nach Preis, Grundpreis, Ersparnis, Name, zuletzt gesehen), `essensplaner/product_detail` (Preisverlauf, „auch bei …“, Zutaten), `essensplaner/product_save`, `essensplaner/product_delete`, `essensplaner/product_favorite`, `essensplaner/product_alternatives` (Produkte einer Zutat in allen Läden, günstigste für die benötigte Menge zuerst) und `essensplaner/product_to_recipe`.
 
 ```yaml
@@ -348,7 +431,7 @@ data:
 response_variable: artikel   # artikel.products: Marke, Name, Packung, Preis, Laden, Bild
 ```
 
-### 🛒 Einkaufsliste aus der Artikel-Datenbank
+### 🛒 Einkaufsliste mit Produkten
 
 Beim Erstellen der Einkaufsliste (und immer, wenn Preise, Angebote oder Läden sich ändern) bekommt jeder Artikel das **Produkt**, das du in seinem Laden kaufst – mit Bild, Marke und Packung (`product`, Grund in `product_reason`), in der Beschreibung als „📦 Bergland Butter“:
 
@@ -358,6 +441,8 @@ Beim Erstellen der Einkaufsliste (und immer, wenn Preise, Angebote oder Läden s
 4. sonst das **günstigste passende Produkt** dieser Kette für die benötigte Menge – bevorzugt das Angebot, mit dem der Artikel ohnehin berechnet ist.
 
 Ein ⭐ Lieblingsprodukt, ein gewähltes oder gemerktes Produkt bestimmt auch den Preis des Artikels. Ein **⭐ Lieblingsprodukt bindet den Laden** wie „immer hier“: der Artikel kommt in die Kette des Lieblingsprodukts (den Hauptladen, wenn es dort – als Markenartikel auch bei einer anderen Kette – zu haben ist), solange diese Kette einer deiner Läden ist; „immer hier“ und eine eigene Ladenwahl gehen vor. Gemerkte Käufe binden keinen Laden – sie zählen nur, wenn der Artikel ohnehin in dieser Kette landet (nicht, wenn er wegen eines günstigeren Angebots dorthin gewechselt ist). Ein Produkt, das du selbst gewählt hast, zählt auch beim Vergleich der Läden: dort kostet der Artikel den Preis dieses Produkts (bzw. desselben Markenartikels), Angebote anderer Produkte zählen dann nicht. Auch die anderen Läden eines Artikels (`alternatives`) nennen ihr Produkt, und „Wo ist Butter am günstigsten?“ (`compare_prices`) sagt, welches Produkt hinter dem günstigsten Preis steckt.
+
+<!-- screenshot: produkt-waehlen.png -->
 
 **Produkt wechseln:** die Aktion `set_shopping_product` (bzw. der Websocket `essensplaner/shopping_set_product`) kauft einen Artikel der Liste als ein anderes Produkt – mit dessen Angebots- oder Normalpreis in dessen Laden (bei aufgeteilter Liste wechselt der Artikel dorthin); `remember: pick` merkt die Wahl, `remember: favorite` macht das Produkt zum ⭐ Lieblingsprodukt der Zutat. Die Auswahl dafür liefert `essensplaner/product_alternatives`. Ohne `product_id` wählt die Liste wieder selbst.
 
@@ -405,6 +490,10 @@ Ein **Anlass** ist ein eigener Eintrag im Wochenplan – mit Datum, Uhrzeit, Gä
 - **„💡 Menü vorschlagen“** bzw. **„🤖 KI-Menü“**: die Vorschläge nach Regeln stehen sofort da, die der KI kommen nach (bis zu 2 Minuten; scheitert die KI, steht der Grund dabei). Einzelne Vorschläge kommen mit ＋ dazu, **„✓ Fehlendes übernehmen“** füllt jeden Gang bis zur Zahl der Vorlage, Getränke (wenn noch keine da sind) und fehlendes Zubehör;
 - Kosten (gesamt, pro Person, im Angebot, ohne Preis), Notizen, **„🛒 Einkaufsliste für den Anlass“** und Löschen.
 
+<!-- screenshot: anlass-wochenplan.png -->
+<!-- screenshot: anlass-editor.png -->
+<!-- screenshot: handy-anlass.png -->
+
 Im **Rezept** zeigt **„🍷 Passt dazu“** passende Getränke (Antippen: warum, Angebot, „🛒 Auf die Einkaufsliste“, aus einer geplanten Mahlzeit heraus „＋ Zur Mahlzeit“); im **Eintrag einer Mahlzeit** stehen ihre Getränke mit ✕ und **„🍷 Getränk hinzufügen“** (Vorschläge oder Freitext). Der Wochenplan zeigt sie unter der Mahlzeit („🥤 Rotwein, leicht +1“); eine schon gekochte Mahlzeit bleibt dabei gekocht.
 
 Aktionen: `save_occasion` (planen oder ändern, `auto_fill` füllt Gerichte, Getränke und Zubehör nach Regeln), `delete_occasion`, `get_occasions`, `suggest_occasion_menu` (`ai`, `apply`), `suggest_drinks` (`recipe` und/oder `occasion`, `alcohol`, `ai`) und `generate_shopping_list` mit `occasion` bzw. `include_occasions`. Für das Panel die Websockets `essensplaner/occasion_save`, `essensplaner/occasion_delete`, `essensplaner/occasion_suggest` (Vorschläge je Gang, `ai`, `apply`) und `essensplaner/drinks_suggest`; `essensplaner/data` liefert die Anlässe ab 30 Tage zurück (`occasions`), die Vorlagen (`occasion_meta`, mit der Zahl der Gerichte je Gang) und welche KI-Knöpfe es gibt (`ai`: eingeschaltete Funktionen und ob die KI erreichbar ist – ohne Entität, Fragen oder Antworten).
@@ -431,7 +520,10 @@ response_variable: anlass   # anlass.occasion: Gänge, Getränke, Zubehör, Kost
 - **Im Panel:** unter der Heute-Karte die Zeile **„Jetzt Saison: Gans ✨, Grünkohl, Kürbis … 🏮 Martinstag“** mit dem **🍂 Saisonkalender** (Monat für Monat: Obst und Gemüse der Saison – ✨ neu, ⏳ bald vorbei –, die Zeiten des Jahres, die passendsten deiner Rezepte und was gerade nicht Saison hat); 🍂-Abzeichen auf den Rezeptkarten und der Filter **„🍂 Saison“**; die Vorschläge beim Planen einer Mahlzeit nennen ihre Gründe; „✨ Automatisch planen“ hat die Planungsart „🍂 Saisonal“ und – mit KI – den Schalter **„🤖 mit KI“** (bis zu 2 Minuten) und zeigt danach jede eingeplante Mahlzeit mit ihren Gründen.
 - **Panel und Sprache:** `essensplaner/data` liefert `season` (was heute Saison hat, laufende und kommende Zeiten des Jahres) und `recipe_season` (je Rezept Saison-Wert, Zutaten und Hinweise für die 🍂-Abzeichen); der Websocket `essensplaner/season` (`date`, `limit`) dazu die passendsten Rezepte. Jarvis beantwortet „Was hat gerade Saison?“ (`essensplaner_get_season`).
 
-**Fertiggerichte und Rezepte für Anlässe:** Zu den Rezepten kommen **25 Fertiggerichte** (Kategorie „Fertiggericht“: TK-Pizza Salami und Margherita, TK-Lasagne, Maultaschen, Ravioli aus der Dose, Currywurst mit Pommes, Frühlingsrollen, Chili sin Carne und Linseneintopf aus der Dose, Flammkuchen, Kartoffelpuffer, Chicken Nuggets, Bami Goreng, Kaiserschmarrn, Schlemmerfilet …) mit Zutaten in Prospekt-Schreibweise („2 Packungen Pizza Salami (TK, je 350 g)“), damit Angebote wie „Wagner Steinofen Pizza Salami“ passen, und **44 Rezepte für Anlässe**: Beilagen (Kartoffelsalat, Krautsalat, Grillgemüse, Kräuterbutter, Tzatziki, Apfelrotkohl, Kartoffelklöße …), Vorspeisen, Grill- und Festessen (Gänsekeulen mit Rotkohl und Klößen, Lammkeule, Käsefondue …), Desserts, Snacks und Getränke – mit und ohne Alkohol (Glühwein, Kinderpunsch, Erdbeerbowle, alkoholfreie Bowle, Hugo und Hugo alkoholfrei, Apfelschorle, Eistee, Heiße Schokolade, Virgin Mojito). Neue mitgelieferte Rezepte kommen beim Update automatisch dazu, gelöschte bleiben gelöscht; Fertiggerichte werden nur halb so oft vorgeschlagen wie gekochte Gerichte (als ⭐ Favorit normal oft), gelten bei der Abwechslung als eigene Art (nicht zwei Tage hintereinander), und wer gar keine vorgeschlagen bekommen möchte, trägt „Fertiggericht“ bei **„Nie vorschlagen“** ein. Auch ein Artikel der Artikel-Datenbank, der „Als Rezept gespeichert“ wird, bekommt „Fertiggericht“ und seinen Gang (Hauptgericht, Dessert, Snack; ein Getränk nur „Getränk“).
+<!-- screenshot: saisonkalender.png -->
+<!-- screenshot: automatisch-planen-ki.png -->
+
+**Fertiggerichte und Rezepte für Anlässe:** Zu den Rezepten kommen **25 Fertiggerichte** (Kategorie „Fertiggericht“: TK-Pizza Salami und Margherita, TK-Lasagne, Maultaschen, Ravioli aus der Dose, Currywurst mit Pommes, Frühlingsrollen, Chili sin Carne und Linseneintopf aus der Dose, Flammkuchen, Kartoffelpuffer, Chicken Nuggets, Bami Goreng, Kaiserschmarrn, Schlemmerfilet …) mit Zutaten in Prospekt-Schreibweise („2 Packungen Pizza Salami (TK, je 350 g)“), damit Angebote wie „Wagner Steinofen Pizza Salami“ passen, und **44 Rezepte für Anlässe**: Beilagen (Kartoffelsalat, Krautsalat, Grillgemüse, Kräuterbutter, Tzatziki, Apfelrotkohl, Kartoffelklöße …), Vorspeisen, Grill- und Festessen (Gänsekeulen mit Rotkohl und Klößen, Lammkeule, Käsefondue …), Desserts, Snacks und Getränke – mit und ohne Alkohol (Glühwein, Kinderpunsch, Erdbeerbowle, alkoholfreie Bowle, Hugo und Hugo alkoholfrei, Apfelschorle, Eistee, Heiße Schokolade, Virgin Mojito). Neue mitgelieferte Rezepte kommen beim Update automatisch dazu, gelöschte bleiben gelöscht; Fertiggerichte werden nur halb so oft vorgeschlagen wie gekochte Gerichte (als ⭐ Favorit normal oft), gelten bei der Abwechslung als eigene Art (nicht zwei Tage hintereinander), und wer gar keine vorgeschlagen bekommen möchte, trägt „Fertiggericht“ unter **⚙️ → Allgemein → „Ausgeschlossene Zutaten“** („Nie vorschlagen“) ein. Auch ein Artikel der Artikel-Datenbank, der „Als Rezept gespeichert“ wird, bekommt „Fertiggericht“ und seinen Gang (Hauptgericht, Dessert, Snack; ein Getränk nur „Getränk“).
 
 Dazu kommen **über 70 neue Richtpreise** (Bier, Sekt, Kindersekt, Glühwein, Kinderpunsch, Limonade, Schorlen, Eistee, Traubensaft, Tee, TK-Pizza, Maultaschen, Chips, Nachos, Popcorn, Salzstangen, Grillkohle, Grillanzünder, Servietten, Pappteller, Raclettekäse, Gänsekeulen, Klöße …) und korrigierte Abteilungen: Grillkohle ist kein Gemüse, Apfelschorle kein Obst, „Pizza Salami“ kein Aufschnitt, Chips und Salzstangen stehen bei den Snacks; „(TK)“ in einer Rezeptzeile heißt Tiefkühl, „1 Dose Mais“ Konserven. Beim Update bekommen offene Artikel der Einkaufsliste und Rezeptzeilen mit einer solchen Abteilung die richtige (Datenversion 5).
 
@@ -440,7 +532,7 @@ Dazu kommen **über 70 neue Richtpreise** (Bier, Sekt, Kindersekt, Glühwein, Ki
 Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deiner Kassenzettel** als eigene Preise des Ladens:
 
 1. **Text einfügen** (immer möglich, ohne KI): den Text des Kassenzettels (z. B. aus einer Text-Erkennung am Handy oder einem E-Bon) einfügen – er wird **lokal** gelesen. Verstanden werden die üblichen Zeilen von REWE, EDEKA, Lidl, ALDI, Netto, Norma, Penny, Kaufland, Rossmann und dm: `BUTTER MILSANI 250G   1,15 A`, auch Name und Preis in zwei Zeilen oder – wie es die Text-Erkennung am Handy oft liefert – erst alle Namen, dann alle Preise (dann mit Hinweis zum Prüfen), Mengenzeilen `2 x 0,99` / `2 Stk x 0,99`, Gewichtszeilen `0,512 kg x 7,99 EUR/kg`, Pfand/Leergut (ignoriert), Rabatte und Preisvorteile (beim Artikel davor), Storno, `SUMME` / `zu zahlen`; Bar, Karte, Rückgeld und MwSt zählen nicht.
-2. **Foto oder PDF** (optional): mit einer **KI-Aufgabe** (AI Task, z. B. Ollama, OpenAI oder Google), die du unter **⚙️ → Kassenzettel** wählst. Das Foto wird in einem eigenen Ordner gespeichert (`/config/.storage/essensplaner_receipts/`, höchstens 10 MB, JPG/PNG/WebP/PDF; größere Fotos verkleinert das Panel vorher) – nicht im Medienordner, den jeder Home-Assistant-Benutzer durchsuchen kann; ansehen können es nur Administratoren. **Nur das Bild** geht an die gewählte KI – keine Rezepte, Filialen oder Preise.
+2. **Foto oder PDF** (optional): mit einer **KI-Aufgabe** (AI Task, z. B. Claude, OpenAI, Google oder Ollama mit einem Modell, das Bilder versteht), die du unter **⚙️ → Kassenzettel** wählst (leer: die KI aus ⚙️ → 🤖 KI, wenn sie eine KI-Aufgabe ist – siehe [KI einrichten](#-ki-einrichten-optional)). Das Foto wird in einem eigenen Ordner gespeichert (`/config/.storage/essensplaner_receipts/`, höchstens 10 MB, JPG/PNG/WebP/PDF; größere Fotos verkleinert das Panel vorher) – nicht im Medienordner, den jeder Home-Assistant-Benutzer durchsuchen kann; ansehen können es nur Administratoren. **Nur das Bild** geht an die gewählte KI – keine Rezepte, Filialen oder Preise.
 3. **Prüfen:** Laden und Filiale werden aus dem Kopf des Kassenzettels erkannt (Kette und Postleitzahl, bei mehreren Filialen die Straße), dazu Datum und Summe (stimmt die Summe der Zeilen nicht, gibt es einen Hinweis). Abkürzungen wie `H-MILCH 1,5%`, `GOUDA JUNG SCHEIB`, `HACKFL.GEM.`, `EIER BOD.10ER M` oder `PASS.TOMATEN` werden den Artikeln der Preisliste zugeordnet (eine unbekannte Abkürzung davor macht daraus nur einen Vorschlag); die Packung kommt aus der Zeile (250G, 1L, 10ER), sonst aus dem Preis des Ladens oder dem Richtwert. Was nicht erkannt wird, bleibt „unbekannt“ – du ordnest es zu oder ignorierst es; deine Zuordnung merkt sich der Essensplaner für den nächsten Kassenzettel dieser Kette.
 4. **Speichern:** jeder zugeordnete Artikel wird **eigener Preis dieses Ladens** (in der Preisliste „🧾 Kassenzettel 07.11.“, mit Verlauf). Gespeichert wird der Normalpreis je Stück (ein Rabatt oder App-Preis zählt nicht), gewogene Ware je kg. Ein **neuerer** Kassenzettel ersetzt einen älteren Preis; einen Preis, den du **nach** dem Kassenzettel-Datum eingetippt hast, überschreibt er nicht. War der Artikel an diesem Tag im **Angebot** dieses Ladens (gleiche Zutat, auf den Cent derselbe Preis wie im Prospekt und – wenn Kassenzettel und Angebot eine Marke oder Sorte nennen – dieselbe, z. B. „KERRYGOLD IRISCHE BUTTER“ zum Angebot „Kerrygold Butter“), steht „Angebotspreis“ dabei und der Preis kommt nur in den Verlauf – der Normalpreis bleibt. Mit „trotzdem als Normalpreis“ (Feld `regular` der Zeile) wird er doch gespeichert. Wird ein schon gespeicherter Kassenzettel erneut gespeichert und ist eine Zeile inzwischen als Angebot bekannt, kommt der Preis von vor dem Kassenzettel zurück. Preise anderer Ketten werden daraus nie geschätzt.
 
@@ -480,13 +572,13 @@ Alles bleibt lokal in Home Assistant, solange du keine Online-Funktion nutzt. Je
 | REWE (`www.rewe.de`) | Knopf „🔎 Markt suchen“ | nur auf Knopfdruck | Postleitzahl |
 | marktguru.de | ⚙️ → marktguru-Angebote (aus, eigenes Risiko) | Prospekte deiner Läden etwa 2–3× pro Woche (mit „Prospekte aller Filialen“ zusätzlich je Postleitzahl und Branche die Prospektliste), Live-Suche, Artikelsuche | Postleitzahlen (Filialen bzw. Einstellungen), Ketten und Suchbegriffe – auch, was du in „Artikel hinzufügen“ tippst (ab 3 Zeichen); dein Browser lädt die Angebots- und Prospektbilder von `cdn.marktguru.de` |
 | deine KI-Aufgabe (AI Task) | ⚙️ → Kassenzettel → KI-Aufgabe (keine; sonst die KI aus ⚙️ → 🤖 KI, wenn sie eine KI-Aufgabe ist) | nur wenn du bei einem Kassenzettel-Foto „🤖 Mit KI auslesen“ wählst | nur das Bild des Kassenzettels |
-| deine KI (KI-Aufgabe oder Gesprächsagent) | ⚙️ → 🤖 KI (keine) | nur auf Knopfdruck („🤖 …“ im Panel, „Verbindung testen“) | Rezeptnamen, Tags, Zutaten, Kettennamen, Angebotspreise, Monat, Gästezahl, ausgeschlossene Zutaten – siehe [KI über Home Assistant](#-ki-über-home-assistant-optional) |
+| deine KI (KI-Aufgabe oder Gesprächsagent) | ⚙️ → 🤖 KI (keine) | nur auf Knopfdruck („🤖 …“ im Panel, „Verbindung testen“) | Rezeptnamen und Kategorien, Art des Anlasses (nicht sein Name), Saison-Zutaten und Zutaten im Angebot, Monat, Zahl der Gäste und Kinder, ausgeschlossene Zutaten – nie Notizen, Filialen oder Adressen; siehe [Was die KI bekommt](#was-die-ki-bekommt) |
 | die Rezept-Webseite | Rezept-Import per Link | nur wenn du ein Rezept importierst | Abruf der angegebenen Seite |
 | Bild-Link eines eigenen Artikels | „＋ Eigener Artikel“ mit Bild-Link | wenn das Panel den Artikel zeigt | dein Browser lädt das Bild von der angegebenen Adresse (Home Assistant selbst ruft nichts ab) |
 
 Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.5 (+https://github.com/tollzockt/HA-Essens-planer-)`; Bot-Prüfungen und andere Schutzmechanismen werden nicht umgangen – lehnt eine Kette ab, pausiert der Essensplaner.
 
-**Kassenzettel:** Fotos und PDFs bleiben in einem eigenen Ordner deiner Home-Assistant-Installation (`/config/.storage/essensplaner_receipts/`, nicht im Medienordner) und sind nur für Administratoren sichtbar, eingefügter Text wird lokal gelesen. Eine KI bekommt ein Bild nur, wenn du selbst eine KI-Aufgabe gewählt hast und „Mit KI auslesen“ antippst. Achtung: Die KI-Aufgabe kann ein **Cloud-Dienst** sein (z. B. OpenAI oder Google) – dann geht das Foto des Kassenzettels an diesen Anbieter; eine lokale KI wie Ollama bleibt im Haus. Mit der Integration werden auch alle Kassenzettel und ihre Fotos gelöscht (andere Dateien nicht).
+**Kassenzettel:** Fotos und PDFs bleiben in einem eigenen Ordner deiner Home-Assistant-Installation (`/config/.storage/essensplaner_receipts/`, nicht im Medienordner) und sind nur für Administratoren sichtbar, eingefügter Text wird lokal gelesen. Eine KI bekommt ein Bild nur, wenn du selbst eine KI-Aufgabe gewählt hast und „Mit KI auslesen“ antippst. Achtung: Die KI-Aufgabe kann ein **Cloud-Dienst** sein (z. B. Anthropic, OpenAI oder Google) – dann geht das Foto des Kassenzettels an diesen Anbieter; eine lokale KI wie Ollama bleibt im Haus. Mit der Integration werden auch alle Kassenzettel und ihre Fotos gelöscht (andere Dateien nicht).
 
 Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Postleitzahlen, Orte, Namen, Bezeichnungen, Entfernungen, Zonen-Namen, Filial- und Markt-IDs geschwärzt; übrig bleiben Kette, Hauptladen-Markierung und Anzahlen (vom Angebotskatalog, der Artikel-Datenbank und den Kassenzetteln nur Anzahlen).
 
@@ -553,7 +645,20 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.search_products` / `save_product` | In der [Artikel-Datenbank](#-artikel-datenbank) suchen / eigenen Artikel anlegen oder ändern |
 | `essensplaner.save_occasion` / `delete_occasion` / `get_occasions` | [Anlässe](#-anlässe--getränke) planen oder ändern / löschen / abrufen |
 | `essensplaner.suggest_occasion_menu` / `suggest_drinks` | Menü für einen Anlass vorschlagen (optional mit KI, auf Wunsch übernehmen) / Getränke zu Gericht oder Anlass vorschlagen |
-| `essensplaner.set_shopping_product` | [Produkt eines Artikels der Einkaufsliste wechseln](#-einkaufsliste-aus-der-artikel-datenbank) (optional als gewählt oder ⭐ Lieblingsprodukt merken) |
+| `essensplaner.set_shopping_product` | [Produkt eines Artikels der Einkaufsliste wechseln](#-einkaufsliste-mit-produkten) (optional als gewählt oder ⭐ Lieblingsprodukt merken) |
+
+Für eigene Oberflächen (alle Websockets mit `type: essensplaner/…`, neu bzw. erweitert in 1.5):
+
+| Websocket | Zweck |
+|---|---|
+| `products` · `product_detail` · `product_save` · `product_delete` · `product_favorite` · `product_alternatives` · `product_to_recipe` | [Artikel-Datenbank](#-artikel-datenbank): Seiten mit Filtern, Details mit Preisverlauf, eigene Artikel, ⭐, Produkte einer Zutat in allen Läden, Fertiggericht als Rezept |
+| `shopping_set_product` · `article_search` (`scope: all`) | [Produkt eines Artikels wechseln](#-einkaufsliste-mit-produkten), Suche in allen Läden |
+| `leaflets` | [Prospekte](#-prospekte-aller-filialen) aller Filialen |
+| `occasion_save` · `occasion_delete` · `occasion_suggest` · `drinks_suggest` | [Anlässe & Getränke](#-anlässe--getränke) |
+| `season` | [Saisonkalender](#-saison--fertiggerichte) eines Monats mit passenden Rezepten |
+| `ai_status` · `ai_test` (nur Administratoren) | [KI](#-ki-einrichten-optional): Stand und Verbindungstest |
+| `data` | zusätzlich `occasions`, `occasion_meta`, `season`, `recipe_season`, `products` (nur Anzahlen) und `ai` (welche KI-Knöpfe es gibt) |
+| `get_settings` · `save_settings` | zusätzlich der Bereich „🤖 KI“ |
 
 ```yaml
 action: essensplaner.plan_meal
@@ -576,6 +681,23 @@ action: essensplaner.get_shopping_list
 data:
   store: Aldi Süd   # oder "Hauptladen", "Lidl Arbeit", "Rossmann"
 response_variable: einkauf   # einkauf.selection: Artikel, Zwischensumme, Ersparnis
+```
+
+```yaml
+action: essensplaner.auto_plan
+data:
+  days: 7
+  strategy: seasonal   # saisonal: was gerade Saison hat, dazu Angebote
+  ai: true             # optional: die KI ordnet die Vorschläge (⚙️ → 🤖 KI)
+response_variable: plan   # plan.planned: Mahlzeiten mit Gründen, plan.ai: ok oder Grund
+```
+
+```yaml
+action: essensplaner.suggest_drinks
+data:
+  recipe: Lasagne
+  guests: 4
+response_variable: getraenke   # getraenke.drinks: mit und ohne Alkohol, Mengen, Angebote
 ```
 
 Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
