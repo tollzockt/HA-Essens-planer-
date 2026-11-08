@@ -17,7 +17,9 @@ Safety and size:
   ends with NO_TOOLS;
 - privacy: callers send only recipe ids/names/tags, ingredient keys, chain names (no
   branch labels, addresses or postcodes), offer products and prices, month/season, guest
-  counts and dietary exclusions – never notes, receipts or user names. Prompts and answers
+  counts and dietary exclusions – never notes, receipts or user names; the sorting of
+  articles (ai_sort.py) sends only product names, brands, packs and their aisle / kind /
+  ingredient keys (no prices, no stores). Prompts and answers
   are never logged above debug level and never put into the diagnostics.
 
 Receipt photos need attachments, which only AI Tasks take: receipts.py uses ai_entity(…,
@@ -125,7 +127,8 @@ def ai_mode(entity_id: str | None) -> str | None:
 
 
 def ai_features(manager: EssensplanerManager) -> list[str]:
-    """The AI features switched on in the settings (default: all except products)."""
+    """The AI features switched on in the settings (default: all; 1.5.1 also the sorting of
+    articles and recipes)."""
     raw = manager.options.get(CONF_AI_FEATURES)
     chosen = raw if isinstance(raw, (list, tuple)) else DEFAULT_AI_FEATURES
     return [f for f in AI_FEATURES if f in chosen]
@@ -203,9 +206,12 @@ def entity_choices(hass: HomeAssistant, current: str | None = None) -> list[dict
 
 def ai_status(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, Any]:
     """{entity, mode, label, configured, available, features, ready: {feature: bool},
-    receipts_entity, receipts_available, busy, last} – ready = switched on, configured and
-    available; last = {ok, seconds, mode, feature, code, at} of the last request (no
-    prompts, no answers)."""
+    receipts_entity, receipts_available, busy, last, sort} – ready = switched on, configured
+    and available; last = {ok, seconds, mode, feature, code, at} of the last request (no
+    prompts, no answers); sort = the AI sorting of articles and recipes (ai_sort.
+    sort_status(): last runs, counts, running, next weekly check)."""
+    from .ai_sort import sort_status  # the sorting imports this module
+
     entity = ai_entity(manager)
     available = ai_available(hass, entity)
     features = ai_features(manager)
@@ -229,6 +235,7 @@ def ai_status(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, An
         "receipts_available": receipts_available,
         "busy": state.lock.locked(),
         "last": dict(state.last) if state.last else None,
+        "sort": sort_status(manager),
     }
 
 
@@ -236,8 +243,11 @@ def ai_panel(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, Any
     """What the panel needs to show its AI buttons ("🤖 KI-Menü", "🤖 mit KI") – also for
     users who are not administrators (ai_status is admin-only): {configured, available,
     label, mode, enabled: {feature: bool}, ready: {feature: bool}}. enabled = switched on
-    with an AI entity (the button shows); ready = also reachable right now. No last result,
-    no prompts."""
+    with an AI entity (the button shows); ready = also reachable right now; sort = the AI
+    sorting (ai_sort.sort_status(): last runs and counts, running, next weekly check). No
+    prompts, no answers."""
+    from .ai_sort import sort_status  # the sorting imports this module
+
     entity = ai_entity(manager)
     available = ai_available(hass, entity)
     receipts = ai_entity(manager, AI_FEATURE_RECEIPTS)
@@ -253,6 +263,7 @@ def ai_panel(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, Any
             f: enabled[f] and (receipts_available if f == AI_FEATURE_RECEIPTS else available)
             for f in AI_FEATURES
         },
+        "sort": sort_status(manager),
     }
 
 

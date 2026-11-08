@@ -18,6 +18,9 @@ from custom_components.essensplaner.const import DOMAIN
 
 from .test_config_flow import _defaults
 
+# 1.5.1: every AI feature is on by default (also the sorting of articles and recipes)
+ALL_AI = ["occasions", "drinks", "season", "products", "recipes", "receipts"]
+
 DE = json.loads(
     (
         Path(__file__).parent.parent / "custom_components" / DOMAIN / "translations" / "de.json"
@@ -70,7 +73,7 @@ def test_every_option_has_a_field() -> None:
     # 1.5: no AI until one is chosen; all features except the product matching; the new
     # planning / leaflet switches are on
     assert defaults["ai_entity"] is None
-    assert defaults["ai_features"] == ["occasions", "drinks", "season", "receipts"]
+    assert defaults["ai_features"] == ALL_AI
     for key in ("season_aware", "occasions_in_budget", "drinks_alcohol", "all_leaflets"):
         assert defaults[key] is True, key
     assert schema.FIELD_MAP["ai_entity"].section == "ai"
@@ -113,7 +116,7 @@ def test_entity_fields_with_several_domains() -> None:
     # dropped when read and refused when saved
     assert schema.current_values({"ai_features": []})["ai_features"] == []
     assert schema.current_values({"ai_features": ["drinks", "alt"]})["ai_features"] == ["drinks"]
-    assert schema.current_values({})["ai_features"] == ["occasions", "drinks", "season", "receipts"]
+    assert schema.current_values({})["ai_features"] == ALL_AI
     assert schema.validate({"ai_features": []}) == ({"ai_features": []}, {})
     assert schema.validate({"ai_features": ["telepathie"]})[1] == {"ai_features": "invalid_choice"}
     # offer_stores keeps its 1.4 meaning: nothing chosen = the default chains
@@ -254,7 +257,7 @@ async def test_get_settings(
     assert res["fields"]["ai_features"] == {"section": "ai", "type": "multi"}
     assert res["sections"] == ["general", "planning", "offers", "stores", "receipts", "ai"]
     assert values["ai_entity"] is None
-    assert values["ai_features"] == ["occasions", "drinks", "season", "receipts"]
+    assert values["ai_features"] == ALL_AI
     assert values["season_aware"] is True and values["all_leaflets"] is True
     choices = res["choices"]
     assert [c["value"] for c in choices["meals"]] == [

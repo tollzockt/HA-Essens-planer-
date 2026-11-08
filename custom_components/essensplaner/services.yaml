@@ -1007,6 +1007,18 @@ get_leaflets:
             - current
             - upcoming
 
+sort_with_ai:
+  fields:
+    target:
+      default: all
+      selector:
+        select:
+          translation_key: ai_sort_target
+          options:
+            - all
+            - products
+            - recipes
+
 save_occasion:
   fields:
     occasion: *occasion

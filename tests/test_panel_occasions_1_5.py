@@ -96,6 +96,7 @@ async def test_data_export_ai_block(
     entity id, prompts or answers."""
     manager = setup_integration.runtime_data
     block = manager.export()["ai"]
+    sort = block.pop("sort")
     assert block == {
         "configured": False,
         "available": False,
@@ -104,6 +105,9 @@ async def test_data_export_ai_block(
         "enabled": dict.fromkeys(AI_FEATURES, False),
         "ready": dict.fromkeys(AI_FEATURES, False),
     }
+    # 1.5.1: the AI sorting (nothing switched on without an AI entity)
+    assert sort["next_run"] is None and sort["running"] is None
+    assert sort["products"]["enabled"] is False and sort["products"]["last_run"] is None
 
     _fake_agent(hass)
     hass.config_entries.async_update_entry(
@@ -118,7 +122,8 @@ async def test_data_export_ai_block(
         "occasions": True,
         "drinks": True,
         "season": True,
-        "products": False,  # not switched on by default
+        "products": True,  # 1.5.1: on by default (articles sorted by the AI)
+        "recipes": True,
         "receipts": False,  # photos need an AI Task, not a conversation agent
     }
     assert block["ready"]["occasions"] and block["ready"]["season"]

@@ -11,9 +11,10 @@ The catalog holds every current (and announced) offer of the selected branches, 
   - discovery: which chain variants have single offers at a postcode
     (PUBLISHERS_PATH?as=mobile&limit=50&offerLimit=1&zipCode=.., cached DISCOVERY_DAYS);
   - catalog of one variant (RETAILER_OFFERS_PATH?as=web&zipCode=..&limit=PAGE_LIMIT
-    &offset=..): current offers first, then up to ~15 expired "filler" offers; paging stops
-    at the first expired offer or a short page (totalResults is not trusted), at most
-    MAX_PAGES pages;
+    &offset=..): current offers first, then up to ~15 expired "filler" offers; expired
+    offers are skipped (1.5.1: Netto lists the ended week between the new one on Sunday),
+    paging stops at a page ending with an expired offer or a short page (totalResults is
+    not trusted), at most MAX_PAGES pages;
   - leaflet images of chains without single offers (NORMA, EDEKA without the direct
     source): LEAFLETS_PATH?as=mobile&zipCode=..&limit=LEAFLET_LIMIT per industry.
 - REWE: there is no public list of all offers of a market (1.4 probe), so REWE offers come
@@ -141,7 +142,7 @@ MAX_BYTES = 4 * 1024 * 1024
 HOME_MAX_BYTES = 2 * 1024 * 1024
 PAGE_LIMIT = 500
 MAX_PAGES = 4
-LEAFLET_LIMIT = 30
+LEAFLET_LIMIT = 50
 DISCOVERY_LIMIT = 50
 DISCOVERY_DAYS = 7
 REFRESH_DAYS = 3
@@ -156,7 +157,8 @@ MAX_SHOPPING_TERMS = 40
 LEAFLET_PREVIEW_PAGES = 4
 # leaflets of all saved branches (1.5, option all_leaflets with marktguru): one leaflet list
 # per (postcode, industry) of the selected branches, after the offers, at most this many
-# requests per run (inside MAX_REQUESTS; the rest at the next check)
+# requests per run (1.5.1: on top of the offers' MAX_REQUESTS – many branches used them up
+# and the leaflets waited for the next day; the rest at the next check)
 MAX_LEAFLET_REQUESTS = 12
 # a pair's list is asked again after this many days, ...
 LEAFLET_REFRESH_DAYS = 3
@@ -545,6 +547,15 @@ _CATEGORY_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
 _KIND_CUT_RE = re.compile(
     r"(?:^|\s)(?:mit|ohne|weniger|auch|zero|oder|und|in|aus|z\.\s*b\.)(?:\s|$)", re.IGNORECASE
 )
+# a drink by its pack (1.5.1, only for products the rules do not know otherwise): alcohol
+# by volume, deposit, a crate, a bottle size up to 5 litres ("0,75 Liter", "je 1-l-Fl")
+_DRINK_HINT_RE = re.compile(
+    r"\d\s*%\s*vol|\bpfand\b|kasten|-l-fl|(?<![\d.,])(?:0?[.,]\d+|[1-5](?:[.,]\d+)?)\s*-?\s*"
+    r"(?:l|liter)\b",
+    re.IGNORECASE,
+)
+# ... but no soup or sauce sold by the litre ("Suppenliebe Suppe 0,5 l")
+_NOT_DRINK_HEADS = ("suppe", "sosse", "sossen", "sauce", "saucen", "bruehe", "fond", "eintopf")
 _AISLE_KINDS = {
     CATEGORY_DRUGSTORE: KIND_DRUG,
     CATEGORY_HOUSEHOLD: KIND_HOUSEHOLD,
@@ -607,8 +618,9 @@ def classify_offer(
     household products, a category of the source (EDEKA's warengruppe, ALDI's
     categories), non-food words ("LED-Lampe", "Funktionsshirt", pet food), drugstore words
     ("Kräuter-Shampoo"; "Creme" only at a drugstore chain), drinks, the food aisles, the
-    kind named by the description ("Classic" + "frz. Schnittkäse") and last the kind of
-    chain (Rossmann: drugstore).
+    kind named by the description ("Classic" + "frz. Schnittkäse"), the kind of chain
+    (Rossmann: drugstore) and last a drink's pack (1.5.1: "% Vol.", deposit, a crate, a
+    bottle ≤ 5 l). The rest is unknown – stored unsorted, the AI sorts it (ai_sort.py).
     """
     category_kind = _category_kind(categories or ())
     words = _words(product)
@@ -653,6 +665,10 @@ def classify_offer(
             ):
                 return KIND_FOOD
         return KIND_DRUG
+    if _DRINK_HINT_RE.search(f"{product} {description or ''}") and not _has_head(
+        words, _NOT_DRINK_HEADS
+    ):
+        return KIND_DRINKS  # "Claret Bordeaux" + "0,75 Liter", "Pils" + "Kasten"
     return KIND_UNKNOWN
 
 
@@ -916,9 +932,14 @@ class CatalogClient:
         self._keys: tuple[str, str] | None = None
         self._delay = REQUEST_DELAY if delay is None else delay
         self.requests = 0
+        self.limit = MAX_REQUESTS
+
+    def allow(self, count: int) -> None:
+        """At least `count` more requests from now on (the leaflet lists after the offers)."""
+        self.limit = max(self.limit, self.requests + count)
 
     async def _async_wait(self) -> None:
-        if self.requests >= MAX_REQUESTS:
+        if self.requests >= self.limit:
             raise _BudgetExceeded
         if self.requests and self._delay > 0:
             await asyncio.sleep(self._delay)  # be polite to the web site
@@ -1020,22 +1041,19 @@ class CatalogClient:
 async def async_variant_offers(
     client: CatalogClient, unique_name: str, zip_code: str, now: datetime
 ) -> tuple[list[dict[str, Any]], int]:
-    """(current raw offers, pages) of one chain variant: pages of PAGE_LIMIT until the first
-    expired offer ("filler" offers follow the current ones) or a short page, at most
-    MAX_PAGES (totalResults is not trusted)."""
+    """(current raw offers, pages) of one chain variant: pages of PAGE_LIMIT until a short
+    page or a page that ends with an expired offer (the "filler" offers after the current
+    ones), at most MAX_PAGES (totalResults is not trusted). Expired offers between current
+    ones are skipped (1.5.1, live 11/2026: on Sunday Netto lists the week that ended between
+    the new offers – stopping at the first one kept 18 of about 400 offers)."""
     current: list[dict[str, Any]] = []
     offset = 0
     pages = 0
     for _ in range(MAX_PAGES):
         page = await client.async_retailer_page(unique_name, zip_code, offset)
         pages += 1
-        stop = len(page) < PAGE_LIMIT
-        for raw in page:
-            if _expired(raw, now):
-                stop = True
-                break
-            current.append(raw)
-        if stop:
+        current.extend(raw for raw in page if not _expired(raw, now))
+        if len(page) < PAGE_LIMIT or not page or _expired(page[-1], now):
             break
         offset += len(page)
     return current, pages
@@ -2103,41 +2121,49 @@ async def _async_marktguru(
     # (postcode, retailer) of the chains without single offers: leaflets only
     missing_pairs: list[tuple[str, str]] = []
     try:
-        for zip_code, retailers in targets:
-            wanted = [
-                r for r in retailers if (r, zip_code) not in served and (r, None) not in served
-            ]
-            if not wanted:
-                continue
-            publishers = catalog.publishers(zip_code, now)
-            if publishers is None:
-                try:
-                    publishers = await client.async_publishers(zip_code)
-                except _STOP_ERRORS:
-                    raise
-                except SourceError as err:
-                    errors.append(f"{zip_code}: {err.message}")
-                    if not succeeded:
-                        stop = err
-                        break
+        try:
+            for zip_code, retailers in targets:
+                wanted = [
+                    r for r in retailers if (r, zip_code) not in served and (r, None) not in served
+                ]
+                if not wanted:
                     continue
-                catalog.set_publishers(zip_code, publishers, now)
-                succeeded = True
-            missing: list[str] = []
-            for retailer in wanted:
-                variants = [p for p in publishers if p["retailer"] == retailer]
-                if not variants:
-                    missing.append(retailer)
-                    continue
-                found = await _async_retailer(
-                    client, catalog, manager, retailer, zip_code, variants, now, errors
-                )
-                succeeded = succeeded or found is not None
-                if found == 0:
-                    # nothing current: ask the discovery again next time; show leaflets
-                    catalog.set_publishers(zip_code, None, now)
-                    missing.append(retailer)
-            missing_pairs.extend((zip_code, r) for r in missing)
+                publishers = catalog.publishers(zip_code, now)
+                if publishers is None:
+                    try:
+                        publishers = await client.async_publishers(zip_code)
+                    except _STOP_ERRORS:
+                        raise
+                    except SourceError as err:
+                        errors.append(f"{zip_code}: {err.message}")
+                        if not succeeded:
+                            stop = err
+                            break
+                        continue
+                    catalog.set_publishers(zip_code, publishers, now)
+                    succeeded = True
+                missing: list[str] = []
+                for retailer in wanted:
+                    variants = [p for p in publishers if p["retailer"] == retailer]
+                    if not variants:
+                        missing.append(retailer)
+                        continue
+                    found = await _async_retailer(
+                        client, catalog, manager, retailer, zip_code, variants, now, errors
+                    )
+                    succeeded = succeeded or found is not None
+                    if found == 0:
+                        # nothing current: ask the discovery again next time; show leaflets
+                        catalog.set_publishers(zip_code, None, now)
+                        missing.append(retailer)
+                missing_pairs.extend((zip_code, r) for r in missing)
+        except _BudgetExceeded:
+            errors.append(
+                f"Anfragelimit erreicht ({MAX_REQUESTS} Anfragen) – Rest beim nächsten Mal."
+            )
+        # the leaflet lists have their own allowance (1.5.1): many branches no longer use
+        # up the requests before the leaflets were asked
+        client.allow(MAX_LEAFLET_REQUESTS + 1)
         # the leaflet lists: chains without single offers first, then every saved branch
         pairs = leaflet_pairs(manager) if all_leaflets_enabled(manager) else {}
         priority: set[tuple[str, str]] = set()
@@ -3036,6 +3062,12 @@ def _direct_leaflet_view(item: dict[str, Any], day: str) -> dict[str, Any]:
     }
 
 
+def leaflet_week_day(today: date) -> date:
+    """The day whose leaflets are "current": today, on Sunday the Monday (the new leaflet
+    week starts tomorrow, the shops are closed)."""
+    return today + timedelta(days=1) if today.weekday() == 6 else today
+
+
 def leaflets_view(
     manager: EssensplanerManager, when: str = "all", branch_ids: list[str] | None = None
 ) -> dict[str, Any]:
@@ -3046,7 +3078,8 @@ def leaflets_view(
     chains without single offers) and ALDI SÜD's own list, one entry per leaflet (the same
     leaflet at several postcodes once) with the branches it applies to; when: current |
     upcoming | all. links: the chains' own leaflet pages (retailers.LEAFLET_LINKS, zero
-    requests) – the only leaflets without marktguru for most chains.
+    requests) – the only leaflets without marktguru for most chains. current: valid today –
+    on Sunday from Monday (leaflet_week_day()).
 
     {leaflets: [{id, leaflet_id, source, retailer, store, name, valid_from, valid_to,
     current, page_count, page_base, cover, pages, page_url_template, zoom_url_template,
@@ -3058,6 +3091,9 @@ def leaflets_view(
     catalog: OfferCatalog = manager.catalog
     today = manager.today()
     day = today.isoformat()
+    # 1.5.1: on Sunday (shops closed) the leaflets of the week starting tomorrow are this
+    # week's – marktguru lists only those then, and "Diese Woche" showed hardly anything
+    week = leaflet_week_day(today).isoformat()
     mg = marktguru_enabled(manager)
     every = all_leaflets_enabled(manager)
     branches = _leaflet_branches(manager)
@@ -3101,7 +3137,7 @@ def leaflets_view(
                         if b["branch"]["retailer"] == retailer and zip_code in b["zips"]
                     ]
                     if matches or retailer in active:
-                        attach(_marktguru_leaflet_view(item, day), matches)
+                        attach(_marktguru_leaflet_view(item, week), matches)
     direct = _aldi_on(manager) and not every
     if direct:
         entry = dict_of(catalog.data["leaflets_direct"].get(ALDI_SUED))
@@ -3112,7 +3148,7 @@ def leaflets_view(
         matches = [b for b in branches if b["branch"]["retailer"] == ALDI_SUED]
         for item in entry.get("items") or []:
             if (matches or ALDI_SUED in active) and (item.get("valid_to") or "9999") >= day:
-                attach(_direct_leaflet_view(item, day), matches)
+                attach(_direct_leaflet_view(item, week), matches)
 
     order = {info["branch"]["id"]: i for i, info in enumerate(branches)}
     leaflets = sorted(

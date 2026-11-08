@@ -153,6 +153,13 @@
         "side": "Beilage",
         "component": "Bestandteil (Sauce, Dip …)"
       }
+    },
+    "ai_sort_target": {
+      "options": {
+        "products": "Artikel",
+        "recipes": "Rezepte",
+        "all": "Artikel und Rezepte"
+      }
     }
   },
   "entity": {
@@ -1480,6 +1487,16 @@
         "when": {
           "name": "Zeitraum",
           "description": "Aktuelle, kommende oder alle Prospekte."
+        }
+      }
+    },
+    "sort_with_ai": {
+      "name": "Mit KI sortieren",
+      "description": "Die KI prüft, wie Artikel und Rezepte eingeordnet sind: Artikel bekommen Abteilung, Art und Zutat (Non-Food fliegt raus, außer Favoriten, eigene oder benutzte), Rezepte ihre Art (Mahlzeit, Snack, Getränk …) und passende Tags. Was du selbst eingeordnet hast, bleibt immer so. Braucht eine KI und die KI-Funktionen „Artikel sortieren“ / „Rezepte sortieren“.",
+      "fields": {
+        "target": {
+          "name": "Was",
+          "description": "Artikel, Rezepte oder beides (Standard: beides)."
         }
       }
     },

@@ -372,13 +372,14 @@ def test_parse_publishers_and_leaflets(berlin) -> None:
 async def test_paging_stops_at_expired_and_short_pages(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, monkeypatch, freezer
 ) -> None:
-    """Full pages are followed, the first expired offer or a short page ends the catalog
-    (totalResults is not trusted), at most MAX_PAGES pages."""
+    """Full pages are followed, a page ending with an expired offer or a short page ends
+    the catalog (totalResults is not trusted), at most MAX_PAGES pages; 1.5.1: expired
+    offers between current ones are skipped, not the end."""
     monkeypatch.setattr(catalog, "PAGE_LIMIT", 4)
     freezer.move_to(NOW)
     lidl = MG["catalogs"]["lidl@56501"]
     filler = MG["catalogs"]["rewe-petz@57601"][-1]  # expired in September
-    pages = [lidl[0:4], lidl[4:8], [lidl[8], lidl[9], filler, lidl[10]]]
+    pages = [lidl[0:4], lidl[4:8], [lidl[8], filler, lidl[10]]]
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
     for offset, page in zip((0, 4, 8), pages, strict=True):
         aioclient_mock.get(
@@ -389,8 +390,18 @@ async def test_paging_stops_at_expired_and_short_pages(
     client = catalog.CatalogClient(hass)
     raw, count = await async_variant_offers(client, "lidl", "56501", dt_util.utcnow())
     assert count == 3
-    assert [r["id"] for r in raw] == [r["id"] for r in lidl[:10]]  # stops at the filler
+    # the expired offer is skipped, the short page ends the catalog
+    assert [r["id"] for r in raw] == [r["id"] for r in [*lidl[:9], lidl[10]]]
     assert client.requests == 4  # home page + 3 pages
+
+    # a full page ending with an expired offer: the fillers have begun, no further page
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
+    aioclient_mock.get(catalog_url("lidl"), json={"results": [lidl[0], filler, lidl[1], filler]})
+    raw, count = await async_variant_offers(
+        catalog.CatalogClient(hass), "lidl", "56501", dt_util.utcnow()
+    )
+    assert ([r["id"] for r in raw], count) == ([lidl[0]["id"], lidl[1]["id"]], 1)
 
     # a page with only expired filler offers: nothing current, no further page
     aioclient_mock.clear_requests()

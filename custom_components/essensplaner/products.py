@@ -11,14 +11,23 @@ and typed prices; no estimates and never a price of another chain.
 Stored in its own file (Store "essensplaner.products.<entry_id>"), removed with the entry:
 {version, seeded, updated, products: {pid: product}, favorites: {ingredient key: pid},
 picks: {ingredient key: [[pid, count, last date, "picked" | "bought"], … ≤ MAX_PICKS]},
-aliases: {old pid: pid}}.
+aliases: {old pid: pid}, dropped: {"<retailer>|<sig>": date} (non-food the AI sorted out,
+not stored again, ≤ MAX_DROPPED, KEEP_DAYS)}.
 
 A product: {id, retailer, name, brand, pack_amount, pack_unit, image, category, kind,
 keys (ingredient keys), sig, stable_id?, deposit?, description?, sources (≤ MAX_SOURCES),
 regular: {price, source (rewe_online | aldi_online | leaflet | receipt | user), seen}?,
 offer: {price, id, source, valid_from, valid_to, zip_codes?, branch_ids?, loyalty?,
 loyalty_note?, app_price?}?, unit_price?, base_unit?, history: [[date, price, "r" | "o"],
-… ≤ HISTORY_MAX], first_seen, last_seen, manual?}.
+… ≤ HISTORY_MAX], first_seen, last_seen, manual?, checked?: {by: rule | ai | user, at},
+ai_fix?: {at, confidence, before: {category, kind, keys}}, ai_seen?, keys_off?}.
+
+Sorting (1.5.1): the rules classify every product (classify_offer(), guess_category());
+a product of unknown kind is stored too ("unsorted", checked_by() None) and the AI sorts it
+(ai_sort.py: category, kind, ingredient keys). What the user sets in the product detail
+(classify_product(), checked by "user") is never changed again – not by the AI, not by a
+later offer; what the AI set is not changed by the rules either. keys_off: keys the AI or
+the user took away (an offer does not add them again).
 
 Identity: a stable id of the chain (REWE product id, ALDI SÜD sku) gives pid
 "<retailer>:<id>"; otherwise the signature sig = folded brand | core name (the folded name
@@ -32,8 +41,8 @@ Caps (small on a Raspberry Pi): MAX_PRODUCTS, history ≤ HISTORY_MAX, images on
 URLs, saved SAVE_DELAY s after a change, offers ingested in chunks of INGEST_CHUNK. Never
 pruned: own products, favourites, picks and products used by open shopping items,
 recipes or occasions; a product with a valid offer stays; others go KEEP_DAYS after they
-were last seen; above MAX_PRODUCTS the oldest unprotected go first. Non-food is never
-stored.
+were last seen; above MAX_PRODUCTS the oldest unprotected go first. Non-food (clothes,
+electronics, furniture …) is never stored.
 """
 
 from __future__ import annotations
@@ -94,7 +103,8 @@ _LOGGER = logging.getLogger(__name__)
 
 STORE_VERSION = 1
 SAVE_DELAY = 30
-MAX_PRODUCTS = 3000
+MAX_PRODUCTS = 4000
+MAX_DROPPED = 3000
 KEEP_DAYS = 120
 REGULAR_STALE_DAYS = 90
 HISTORY_MAX = 8
@@ -114,8 +124,15 @@ NAME_MAX = 120
 MAX_VIEW_LIMIT = 100
 ALTERNATIVES_LIMIT = 20
 
-# kinds of products that are stored (an unknown kind only with an ingredient key)
-STORED_KINDS = frozenset({KIND_FOOD, KIND_DRINKS, KIND_DRUG, KIND_HOUSEHOLD})
+# kinds of products that are stored (1.5.1: an unknown kind too – "unsorted", the AI sorts it)
+STORED_KINDS = frozenset({KIND_FOOD, KIND_DRINKS, KIND_DRUG, KIND_HOUSEHOLD, KIND_UNKNOWN})
+# kinds a product can be sorted into (by the AI or the user)
+SORT_KINDS = (KIND_FOOD, KIND_DRINKS, KIND_DRUG, KIND_HOUSEHOLD, KIND_NONFOOD)
+# who checked a product's category, kind and keys (1.5.1)
+CHECK_RULE = "rule"
+CHECK_AI = "ai"
+CHECK_USER = "user"
+CHECKERS = (CHECK_RULE, CHECK_AI, CHECK_USER)
 
 PICK_PICKED = "picked"
 PICK_BOUGHT = "bought"
@@ -142,7 +159,8 @@ ONLY_FAVORITES = "favorites"
 ONLY_OFFERS = "offers"
 ONLY_BOUGHT = "bought"
 ONLY_MANUAL = "manual"
-ONLY_VALUES = (ONLY_FAVORITES, ONLY_OFFERS, ONLY_BOUGHT, ONLY_MANUAL)
+ONLY_UNSORTED = "unsorted"
+ONLY_VALUES = (ONLY_FAVORITES, ONLY_OFFERS, ONLY_BOUGHT, ONLY_MANUAL, ONLY_UNSORTED)
 SORTS = ("price", "unit_price", "saving", "name", "recent")
 KIND_FILTERS = ("food", "drugstore", "household", "nonfood", "all")
 
@@ -322,6 +340,30 @@ def _image(value: Any) -> str | None:
     return text[:500] if text.startswith("https://") else None
 
 
+def checked_by(product: dict[str, Any]) -> str | None:
+    """Who checked the product's category, kind and keys: "user", "ai", "rule" (the rules
+    know its kind) or None (unknown kind, not sorted yet)."""
+    checked = product.get("checked")
+    if isinstance(checked, dict) and checked.get("by") in CHECKERS:
+        return str(checked["by"])
+    return None if (product.get("kind") or KIND_UNKNOWN) == KIND_UNKNOWN else CHECK_RULE
+
+
+def is_unsorted(product: dict[str, Any]) -> bool:
+    """True for a product nobody sorted yet (unknown kind)."""
+    return checked_by(product) is None
+
+
+def _locked(product: dict[str, Any]) -> bool:
+    """True if the AI or the user sorted the product (the rules keep their hands off)."""
+    return checked_by(product) in (CHECK_AI, CHECK_USER)
+
+
+def dropped_key(retailer: str, sig: str) -> str:
+    """Key of a product the AI sorted out as non-food (data["dropped"])."""
+    return f"{retailer}|{sig}"
+
+
 # ----------------------------------------------------------------------
 # The store
 # ----------------------------------------------------------------------
@@ -336,6 +378,7 @@ def _empty() -> dict[str, Any]:
         "favorites": {},
         "picks": {},
         "aliases": {},
+        "dropped": {},
     }
 
 
@@ -419,6 +462,24 @@ class ProductStore:
         return self.data["aliases"]
 
     @property
+    def dropped(self) -> dict[str, str]:
+        """{"<retailer>|<sig>": date} of the non-food products the AI sorted out."""
+        return self.data.setdefault("dropped", {})
+
+    def is_dropped(self, retailer: str, sig: str) -> bool:
+        """True if the AI sorted this product of the chain out (non-food)."""
+        return dropped_key(retailer, sig) in self.dropped
+
+    def drop(self, product: dict[str, Any], day: date) -> None:
+        """Remove a non-food product and remember it: the next offer does not store it
+        again (≤ MAX_DROPPED, forgotten after KEEP_DAYS)."""
+        if product.get("sig"):
+            self.dropped[dropped_key(product["retailer"], product["sig"])] = day.isoformat()
+            while len(self.dropped) > MAX_DROPPED:
+                del self.dropped[next(iter(self.dropped))]
+        self.remove(product["id"])
+
+    @property
     def lock(self) -> asyncio.Lock:
         """One ingest at a time."""
         if self._lock is None:
@@ -454,6 +515,11 @@ class ProductStore:
                 if isinstance(value, dict):
                     base[key] = {str(k): str(v) for k, v in value.items() if k and v}
             base["picks"] = _clean_picks(data.get("picks"))
+            dropped = data.get("dropped")
+            if isinstance(dropped, dict):
+                base["dropped"] = {
+                    str(k): str(v)[:10] for k, v in dropped.items() if k and isinstance(v, str)
+                }
         self.data = base
         self._reindex()
 
@@ -770,6 +836,10 @@ class ProductStore:
         for key, pid in list(self.favorites.items()):
             if pid not in self.products:
                 del self.favorites[key]
+        for key, seen in list(self.dropped.items()):
+            if seen < cutoff:
+                del self.dropped[key]
+                changed = True
         if changed or removed:
             self._touch()
         return len(removed)
@@ -855,8 +925,11 @@ def _set_offer(product: dict[str, Any], offer: dict[str, Any], iso: str) -> None
 
 
 def _merge_keys(product: dict[str, Any], keys: Iterable[str]) -> None:
+    """New keys first, then the product's own; keys the AI or the user took away
+    (keys_off) are not added again."""
+    off = set(product.get("keys_off") or ())
     merged: list[str] = []
-    for key in [*keys, *(product.get("keys") or [])]:
+    for key in [*(k for k in keys if k not in off), *(product.get("keys") or [])]:
         key = str(key or "").strip()
         if key and key not in merged:
             merged.append(key)
@@ -906,6 +979,8 @@ def _upsert(
     keys = [k for k in keys if k]
     iso = day.isoformat()
     sig = signature(name, brand, pack)
+    if not manual and pid is None and store.is_dropped(retailer, sig):
+        return None  # the AI sorted it out (non-food)
     product: dict[str, Any] | None = store.get(pid) if pid else None
     created = False
     if product is None:
@@ -934,8 +1009,10 @@ def _upsert(
         product["pack_amount"], product["pack_unit"] = pack
     if stable and not product.get("stable_id") and product["id"] == f"{retailer}:{stable}":
         product["stable_id"] = stable
-    _merge_keys(product, keys)
-    if kind and (manual or product.get("kind") in (None, KIND_UNKNOWN)):
+    locked = _locked(product)
+    if manual or checked_by(product) != CHECK_USER:
+        _merge_keys(product, keys)  # what the user sorted stays (an own product he edits)
+    if kind and not locked and (manual or product.get("kind") in (None, KIND_UNKNOWN)):
         product["kind"] = kind
     elif not product.get("kind"):
         product["kind"] = (
@@ -943,7 +1020,7 @@ def _upsert(
         )
     if category in CATEGORY_ORDER and (manual or not product.get("category")):
         product["category"] = category
-    if not product.get("category") or product["category"] == "Sonstiges":
+    if not product.get("category") or (product["category"] == "Sonstiges" and not locked):
         # the aisle of its ingredient (cached) when the name ends with it ("Bergland
         # Butter", not "Butterkekse"), else of its name
         guessed = "Sonstiges"
@@ -954,7 +1031,11 @@ def _upsert(
         if guessed == "Sonstiges":
             guessed = guess_category(product["name"])
         product["category"] = guessed
-    if product.get("kind") in _KIND_AISLES and not (manual and category in CATEGORY_ORDER):
+    if (
+        product.get("kind") in _KIND_AISLES
+        and not locked
+        and not (manual and category in CATEGORY_ORDER)
+    ):
         # a drugstore / household product is in its aisle ("Kräuter-Shampoo" is no herb)
         drinks = product["kind"] == KIND_DRINKS
         if (drinks and product["category"] == "Sonstiges") or (
@@ -983,6 +1064,8 @@ def _upsert(
         _add_history(product, iso, history[0], history[1])
     if manual:
         product["manual"] = True
+    if not product.get("checked") and product.get("kind") not in (None, KIND_UNKNOWN):
+        product["checked"] = {"by": CHECK_RULE, "at": iso}
     _add_source(product, source)
     if iso > str(product.get("last_seen") or ""):
         product["last_seen"] = iso
@@ -1016,8 +1099,9 @@ def ingest_offer(
     manager: EssensplanerManager, offer: dict[str, Any], day: date | None = None
 ) -> dict[str, Any] | None:
     """Store one offer (catalog, saved, live leaflet or reduced shop offer) as the offer
-    of its product. Online-only, ended and non-food offers are left out. Returns the
-    product (None if not stored)."""
+    of its product. Online-only, ended and non-food offers are left out (also products the
+    AI sorted out); one of unknown kind is stored unsorted. Returns the product (None if
+    not stored)."""
     store = _store_of(manager)
     if store is None or not isinstance(offer, dict) or offer.get("online_only"):
         return None
@@ -1041,8 +1125,8 @@ def ingest_offer(
     description = str(offer.get("description") or "")
     categories = offer.get("categories") or ([offer["category"]] if offer.get("category") else None)
     kind = offer.get("kind") or classify_offer(name, description, retailer, categories)
-    if kind == KIND_NONFOOD or (kind not in STORED_KINDS and not keys):
-        return None
+    if kind == KIND_NONFOOD or kind not in STORED_KINDS:
+        return None  # 1.5.1: an unknown kind is stored ("unsorted"), non-food never
     source = str(offer.get("source") or "offer")
     reference = _reference(offer)
     branch_ids = (
@@ -1968,6 +2052,84 @@ def delete_product(manager: EssensplanerManager, pid: Any) -> dict[str, Any]:
     return product
 
 
+def consistent_aisle(kind: str, category: str) -> str | None:
+    """The aisle of a product of this kind (drugstore / household products are in their
+    aisle, a drink without an aisle in "Getränke"); None if kind and aisle contradict each
+    other (food or a drink in a drugstore / household aisle)."""
+    if kind in (KIND_DRUG, KIND_HOUSEHOLD):
+        return category if category in NONFOOD_CATEGORIES else _KIND_AISLES[kind]
+    if kind in (KIND_FOOD, KIND_DRINKS) and category in NONFOOD_CATEGORIES:
+        return None
+    if kind == KIND_DRINKS and category == "Sonstiges":
+        return "Getränke"
+    return category
+
+
+def set_keys(
+    store: ProductStore, product: dict[str, Any], keys: Iterable[str], keep: Iterable[str] = ()
+) -> bool:
+    """Give an (unindexed) product these ingredient keys (≤ MAX_KEYS); its keys in `keep`
+    stay; the others it had go to keys_off (an offer does not add them again). Returns True
+    if the keys changed."""
+    before = list(product.get("keys") or [])
+    wanted = [k for k in dict.fromkeys(str(k).strip() for k in keys) if k]
+    kept = set(keep)
+    final = [*wanted, *(k for k in before if k in kept and k not in wanted)][:MAX_KEYS]
+    off = [k for k in product.get("keys_off") or [] if k not in final]
+    off += [k for k in before if k not in final and k not in off]
+    product["keys"] = final
+    if off:
+        product["keys_off"] = off[-MAX_KEYS * 2 :]
+    else:
+        product.pop("keys_off", None)
+    return final != before
+
+
+def classify_product(
+    manager: EssensplanerManager,
+    pid: Any,
+    category: str | None = None,
+    kind: str | None = None,
+    keys: list[str] | None = None,
+) -> dict[str, Any]:
+    """The user sorts a product (product detail "🗂️ Einordnung"): its aisle (CATEGORY_ORDER),
+    kind (SORT_KINDS) and ingredients (names or keys, [] = none). Checked by "user" from
+    then on – the AI and the rules never change it again. A ⭐ of an ingredient taken away
+    goes too. Returns the product."""
+    store = _store_of(manager)
+    product = require_product(manager, pid)
+    assert store is not None
+    store._unindex(product)
+    if kind in SORT_KINDS:
+        product["kind"] = kind
+    if category in CATEGORY_ORDER:
+        product["category"] = category
+    aisle = consistent_aisle(
+        product.get("kind") or KIND_UNKNOWN, product.get("category") or "Sonstiges"
+    )
+    if aisle is None:
+        aisle = guess_category(product["name"])
+        if aisle in NONFOOD_CATEGORIES:
+            aisle = "Sonstiges"
+    product["category"] = aisle
+    if keys is not None:
+        found: list[str] = []
+        for text in keys:
+            text = str(text or "").strip()
+            key = text if text in store._by_key else ingredient_key(text)
+            if key and key not in found:
+                found.append(key)
+        set_keys(store, product, found)
+        for fav_key, fav in list(store.favorites.items()):
+            if fav == product["id"] and fav_key not in product["keys"]:
+                del store.favorites[fav_key]
+    product["checked"] = {"by": CHECK_USER, "at": dt_util.utcnow().isoformat(timespec="seconds")}
+    store._index(product)
+    store._touch()
+    store.save_later()
+    return product
+
+
 def recipe_tags(product: dict[str, Any]) -> list[str]:
     """The tags of a recipe made from a product: "Fertiggericht" and its course –
     "Getränk" for a drink, "Dessert" / "Snack" by its name or aisle, else "Hauptgericht" (so
@@ -2132,6 +2294,11 @@ def _card(
         "manual": bool(product.get("manual")),
         "first_seen": product.get("first_seen"),
         "last_seen": product.get("last_seen"),
+        # 1.5.1: who sorted it (rule | ai | user, None = unsorted) and what the AI changed
+        "checked": checked_by(product),
+        "checked_at": (product.get("checked") or {}).get("at"),
+        "unsorted": is_unsorted(product),
+        "ai_fix": product.get("ai_fix"),
     }
 
 
@@ -2204,7 +2371,7 @@ def products_view(
     """The products of the database (websocket essensplaner/products, service
     search_products): filtered by text (brand, name, ingredient), chains or branches,
     aisle, kind (food | drugstore | household | nonfood | all), only (favorites | offers |
-    bought | manual) and sorted (price | unit_price | saving | name | recent); offset /
+    bought | manual | unsorted) and sorted (price | unit_price | saving | name | recent); offset /
     limit (≤ MAX_VIEW_LIMIT) page the products.
 
     Result {total, offset, limit, products: [card], stores: [{branch_id, label, retailer,
@@ -2249,6 +2416,8 @@ def products_view(
         if only == ONLY_BOUGHT and pid not in bought:
             continue
         if only == ONLY_MANUAL and not product.get("manual"):
+            continue
+        if only == ONLY_UNSORTED and not is_unsorted(product):
             continue
         if words:
             text = texts.get(pid, "")
@@ -2461,7 +2630,7 @@ def product_alternatives(
 
 def product_counts(manager: EssensplanerManager) -> dict[str, Any]:
     """Counts for the panel's data (no products): {products, favorites, offers, manual,
-    bought, retailers: {retailer: count}, seeded}."""
+    bought, unsorted, ai_checked, retailers: {retailer: count}, seeded}."""
     store = _store_of(manager)
     if store is None:
         return {
@@ -2470,6 +2639,8 @@ def product_counts(manager: EssensplanerManager) -> dict[str, Any]:
             "offers": 0,
             "manual": 0,
             "bought": 0,
+            "unsorted": 0,
+            "ai_checked": 0,
             "seeded": False,
         }
     iso = manager.today().isoformat()
@@ -2479,6 +2650,8 @@ def product_counts(manager: EssensplanerManager) -> dict[str, Any]:
         "offers": sum(1 for p in store.products.values() if _offer_now(p.get("offer"), iso)),
         "manual": sum(1 for p in store.products.values() if p.get("manual")),
         "bought": len(store.bought_ids() & set(store.products)),
+        "unsorted": sum(1 for p in store.products.values() if is_unsorted(p)),
+        "ai_checked": sum(1 for p in store.products.values() if checked_by(p) == CHECK_AI),
         "retailers": {r: len(store._by_retailer.get(r) or ()) for r in store.retailers()},
         "seeded": bool(store.data.get("seeded")),
     }

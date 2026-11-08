@@ -277,7 +277,9 @@ async def test_offer_identity_week_to_week_and_kinds(
         ingest_offer(manager, _offer("mg_10", "Butter", 1.5, brand="X", online_only=True)) is None
     )
     assert ingest_offer(manager, _offer("mg_11", "Butter", 1.5, valid_to="2026-11-01")) is None
-    assert ingest_offer(manager, _offer("mg_12", "Classic", 1.5, kind="unknown", keys=())) is None
+    # 1.5.1: an unknown kind is stored too – unsorted, for the AI
+    classic = ingest_offer(manager, _offer("mg_12", "Classic", 1.5, kind="unknown", keys=()))
+    assert classic is not None and classic["kind"] == "unknown" and "checked" not in classic
     unknown = ingest_offer(manager, _offer("mg_13", "Classic", 1.5, brand="Y", kind="unknown"))
     assert unknown is not None and unknown["keys"] == ["butter"]
     # a drugstore product is kept (Drogerie), classified when the source has no kind
@@ -478,7 +480,7 @@ async def test_ingest_5000_offers_fast_and_capped(
     assert seconds < 5, f"ingest took {seconds:.1f} s"
     assert len(store.products) == MAX_PRODUCTS
     size = len(json.dumps(store.data, ensure_ascii=False))
-    assert size < 2_500_000, size
+    assert size < 3_000_000, size
     # the views stay quick
     started = time.process_time()
     view = products_view(manager, query="butter", sort="unit_price", limit=100)

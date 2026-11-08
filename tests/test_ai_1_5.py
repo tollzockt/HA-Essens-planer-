@@ -123,12 +123,20 @@ async def test_entities_and_features(
     assert ai.ai_mode("light.kueche") is None and ai.ai_mode("ai_task") is None
     assert ai.ai_mode(None) is None
     assert ai.ai_entity(manager) is None and not ai.ai_enabled(manager, "drinks")
-    assert ai.ai_features(manager) == ["occasions", "drinks", "season", "receipts"]
+    # 1.5.1: the sorting of articles and recipes is on by default
+    assert ai.ai_features(manager) == [
+        "occasions",
+        "drinks",
+        "season",
+        "products",
+        "recipes",
+        "receipts",
+    ]
 
     manager = await _use(hass, entry, ai_entity=AGENT)
     assert ai.ai_entity(manager, "occasions") == AGENT
     assert ai.ai_enabled(manager, "occasions")
-    assert not ai.ai_enabled(manager, "products")  # off by default
+    assert ai.ai_enabled(manager, "products") and ai.ai_enabled(manager, "recipes")
     assert ai.ai_entity(manager, "receipts") is None
     assert receipts.ai_entity(manager) is None
 
@@ -153,7 +161,7 @@ async def test_status(hass: HomeAssistant, setup_integration: MockConfigEntry) -
     status = ai.ai_status(hass, manager)
     assert status["configured"] is False and status["available"] is False
     assert status["ready"] == {
-        f: False for f in ("occasions", "drinks", "season", "products", "receipts")
+        f: False for f in ("occasions", "drinks", "season", "products", "recipes", "receipts")
     }
     _fake_agent(hass, _speech("{}"))
     manager = await _use(hass, setup_integration, ai_entity=AGENT, ai_features=["drinks"])
@@ -289,10 +297,13 @@ async def test_errors(hass: HomeAssistant, setup_integration: MockConfigEntry, f
     assert await _code(_ask(hass, manager)) == "ai_not_configured"
     manager = await _use(hass, setup_integration, ai_entity=TASK)
     assert await _code(_ask(hass, manager)) == "ai_unavailable"  # no AI Task service
+    manager = await _use(hass, setup_integration, ai_features=["drinks"])
     with pytest.raises(ServiceValidationError) as err:
         await _ask(hass, manager, feature="products")
     assert err.value.translation_key == "ai_feature_off"
-    assert err.value.translation_placeholders == {"feature": "Produktzuordnung"}
+    assert err.value.translation_placeholders == {
+        "feature": "Artikel sortieren (Knopf + wöchentlich)"
+    }
     with pytest.raises(ValueError):
         await _ask(hass, manager, feature="telepathie")
     _fake_task(hass, {"data": "{}"}, state="unavailable")

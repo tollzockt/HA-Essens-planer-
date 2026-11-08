@@ -108,19 +108,25 @@ CONF_AI_FEATURES: Final = "ai_features"
 AI_FEATURE_OCCASIONS: Final = "occasions"
 AI_FEATURE_DRINKS: Final = "drinks"
 AI_FEATURE_SEASON: Final = "season"
+# 1.5.1: "products" sorts the articles of the product database, "recipes" the recipe kinds
+# (both with a button and a weekly check of what is new; on by default)
 AI_FEATURE_PRODUCTS: Final = "products"
+AI_FEATURE_RECIPES: Final = "recipes"
 AI_FEATURE_RECEIPTS: Final = "receipts"
 AI_FEATURES: Final = [
     AI_FEATURE_OCCASIONS,
     AI_FEATURE_DRINKS,
     AI_FEATURE_SEASON,
     AI_FEATURE_PRODUCTS,
+    AI_FEATURE_RECIPES,
     AI_FEATURE_RECEIPTS,
 ]
 DEFAULT_AI_FEATURES: Final = [
     AI_FEATURE_OCCASIONS,
     AI_FEATURE_DRINKS,
     AI_FEATURE_SEASON,
+    AI_FEATURE_PRODUCTS,
+    AI_FEATURE_RECIPES,
     AI_FEATURE_RECEIPTS,
 ]
 # planning (1.5): season in suggestions and the auto plan, occasions in the weekly budget,
@@ -209,6 +215,7 @@ SERVICE_SEARCH_PRODUCTS: Final = "search_products"
 SERVICE_SAVE_PRODUCT: Final = "save_product"
 SERVICE_SET_SHOPPING_PRODUCT: Final = "set_shopping_product"
 SERVICE_GET_LEAFLETS: Final = "get_leaflets"
+SERVICE_SORT_WITH_AI: Final = "sort_with_ai"
 # occasions and drinks (1.5)
 SERVICE_SAVE_OCCASION: Final = "save_occasion"
 SERVICE_DELETE_OCCASION: Final = "delete_occasion"

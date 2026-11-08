@@ -15,6 +15,7 @@ from homeassistant.helpers.event import async_call_later, async_track_time_chang
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
+from .ai_sort import WEEKLY_HOUR, async_weekly_check, migrate_features, weekly_minute
 from .aldi import (
     RETAILER as ALDI_SUED,
     SOURCE_ALDI,
@@ -86,6 +87,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     manager = EssensplanerManager(hass, entry)
     await manager.async_load(import_starter=entry.data.get(CONF_IMPORT_STARTER, True))
     entry.runtime_data = manager
+    # 1.5.1: a saved AI selection gets the sorting of articles and recipes once
+    migrate_features(hass, manager)
     if not manager.products.data.get("seeded"):
         # 1.5: fill the product database once from what is stored already (no requests)
         entry.async_create_background_task(
@@ -134,6 +137,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
         manager.new_day()
 
     entry.async_on_unload(async_track_time_change(hass, _new_day, hour=0, minute=1, second=0))
+
+    async def _async_ai_sort() -> None:
+        try:
+            await async_weekly_check(hass, manager)
+        except Exception:
+            _LOGGER.exception("The weekly AI sorting failed")
+
+    @callback
+    def _ai_sort(now: datetime) -> None:
+        """Sunday 03:xx: the AI checks the new articles and recipes (only with an AI entity
+        and the features on; a failed check is tried again the next night)."""
+        entry.async_create_background_task(hass, _async_ai_sort(), "essensplaner_ai_sort_weekly")
+
+    entry.async_on_unload(
+        async_track_time_change(
+            hass, _ai_sort, hour=WEEKLY_HOUR, minute=weekly_minute(entry.entry_id), second=0
+        )
+    )
 
     if catalog_enabled(manager):
         # the offer catalog of the saved stores (marktguru, ALDI SÜD weekly offers; EDEKA

@@ -542,7 +542,9 @@ async def test_new_week_on_sunday(
     assert [lf["leaflet_id"] for lf in stored] == [900202]
     view = leaflets_view(manager)
     assert _ids(view) == [900102, 900202]
-    assert not any(lf["current"] for lf in view["leaflets"])
+    # 1.5.1: on Sunday the leaflets of the week starting tomorrow are this week's
+    assert all(lf["current"] for lf in view["leaflets"])
+    assert [lf["valid_from"] for lf in view["leaflets"]] == ["2026-11-09", "2026-11-09"]
 
 
 async def test_option_off_and_marktguru_off(

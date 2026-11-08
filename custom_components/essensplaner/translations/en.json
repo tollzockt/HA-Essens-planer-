@@ -153,6 +153,13 @@
         "side": "Side",
         "component": "Component (sauce, dip …)"
       }
+    },
+    "ai_sort_target": {
+      "options": {
+        "products": "Articles",
+        "recipes": "Recipes",
+        "all": "Articles and recipes"
+      }
     }
   },
   "entity": {
@@ -1480,6 +1487,16 @@
         "when": {
           "name": "Period",
           "description": "Current, upcoming or all leaflets."
+        }
+      }
+    },
+    "sort_with_ai": {
+      "name": "Sort with AI",
+      "description": "The AI checks how articles and recipes are sorted: articles get their aisle, kind and ingredient (non-food is removed unless it is a favourite, your own or in use), recipes their kind (meal, snack, drink …) and fitting tags. What you sorted yourself is never changed. Needs an AI entity and the AI features \"Sort articles\" / \"Sort recipes\".",
+      "fields": {
+        "target": {
+          "name": "What",
+          "description": "Articles, recipes or both (default: both)."
         }
       }
     },

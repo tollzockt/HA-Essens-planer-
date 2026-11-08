@@ -445,6 +445,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self.products = ProductStore(hass, entry.entry_id)
         # occasions ("Anlässe", 1.5, occasions.py): {id: occasion}, stored in the main file
         self.occasions: dict[str, dict[str, Any]] = {}
+        # AI sorting of articles and recipes (1.5.1, ai_sort.py): last runs per target,
+        # stored in the main file
+        self.ai_sort_state: dict[str, Any] = {}
         self._init_store_data()
         self._init_article_data()
 
@@ -546,6 +549,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         from .occasions import load_occasions, prune_occasions
 
         self.occasions = load_occasions(data.get("occasions"))
+        self.ai_sort_state = dict(data["ai_sort"]) if isinstance(data.get("ai_sort"), dict) else {}
         pruned_occasions = prune_occasions(self)
         self._load_store_data(data)
         await self.catalog.async_load()
@@ -610,6 +614,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "offers": self.offers,
             "offers_meta": self.offers_meta,
             "occasions": self.occasions,
+            "ai_sort": self.ai_sort_state,
             **self._store_data(),
         }
 

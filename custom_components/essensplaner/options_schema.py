@@ -268,7 +268,8 @@ CHOICE_LABELS_DE: dict[str, dict[str, str]] = {
         "occasions": "Anlässe (Menü-Vorschläge)",
         "drinks": "Getränke",
         "season": "Saisonplan (Auto-Plan „mit KI“)",
-        "products": "Produktzuordnung",
+        "products": "Artikel sortieren (Knopf + wöchentlich)",
+        "recipes": "Rezepte sortieren (Knopf + wöchentlich)",
         "receipts": "Kassenzettel-Fotos",
     },
 }

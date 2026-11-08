@@ -22,6 +22,7 @@ from .const import (
     PANEL_STATIC_URL,
     PANEL_URL_PATH,
 )
+from .ingredients import CATEGORY_ORDER
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -1149,7 +1150,9 @@ def _products_changed(hass: HomeAssistant) -> None:
         vol.Optional("kind", default="all"): vol.In(
             ["food", "drugstore", "household", "nonfood", "all"]
         ),
-        vol.Optional("only"): vol.Any(None, vol.In(["favorites", "offers", "bought", "manual"])),
+        vol.Optional("only"): vol.Any(
+            None, vol.In(["favorites", "offers", "bought", "manual", "unsorted"])
+        ),
         vol.Optional("sort", default="price"): vol.In(
             ["price", "unit_price", "saving", "name", "recent"]
         ),
@@ -1165,14 +1168,14 @@ def ws_products(
 
     query: brand, name or ingredient; retailers / branch_ids: only these chains /
     branches; category: an aisle; kind: food | drugstore | household | nonfood | all; only:
-    favorites | offers | bought | manual; sort: price | unit_price | saving | name | recent;
+    favorites | offers | bought | manual | unsorted (1.5.1: nobody sorted it yet); sort: price | unit_price | saving | name | recent;
     offset / limit (≤ 100). Result {total, offset, limit, products: [{id, title, product,
     brand, description, image, price, regular_price, regular_source, regular_seen,
     old_price, stale, unit_price, base_unit, pack_amount, pack_unit, pack, on_offer,
     current, offer_price, valid_from, valid_to, offer_source, loyalty, loyalty_note,
     app_price, deposit, saving, discount, kind, category, retailer, store, branch_ids,
     keys, source, sources, favorite, favorite_keys, bought, manual, first_seen,
-    last_seen}], stores: [{branch_id, label, retailer, store, main, count}], categories:
+    last_seen, checked (rule | ai | user | None), checked_at, unsorted, ai_fix}], stores: [{branch_id, label, retailer, store, main, count}], categories:
     [{name, count}], counts}. Nothing is fetched.
     """
     if (manager := _loaded_manager(hass, connection, msg)) is None:
@@ -1238,6 +1241,66 @@ def ws_product_save(
         return
     _products_changed(hass)
     connection.send_result(msg["id"], {"product": product_card(manager, product)})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/product_classify",
+        vol.Required("product_id"): str,
+        vol.Optional("category"): vol.Any(None, vol.In(CATEGORY_ORDER)),
+        vol.Optional("kind"): vol.Any(
+            None, vol.In(["food", "drinks", "drugstore", "household", "nonfood"])
+        ),
+        vol.Optional("keys"): vol.Any(None, [str]),
+    }
+)
+@callback
+def ws_product_classify(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The user sorts a product (1.5.1, "🗂️ Einordnung" in the product detail): category
+    (an aisle), kind (food | drinks | drugstore | household | nonfood), keys (ingredient
+    names, [] = none). From then on checked by "user": the AI and the rules never change
+    it. Result {product (card)}. Error product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import classify_product, product_card
+
+    try:
+        product = classify_product(
+            manager,
+            msg["product_id"],
+            category=msg.get("category"),
+            kind=msg.get("kind"),
+            keys=msg.get("keys"),
+        )
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    _products_changed(hass)
+    connection.send_result(msg["id"], {"product": product_card(manager, product)})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/ai_sort",
+        vol.Optional("target", default="all"): vol.In(["products", "recipes", "all"]),
+    }
+)
+@websocket_api.async_response
+async def ws_ai_sort(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ "🤖 Artikel sortieren" / "🤖 Rezepte sortieren" (1.5.1): the AI checks what the rules
+    sorted (target products | recipes | all) – a running sort is joined. Result {targets,
+    ok, checked, changed, removed, skipped, errors: [German messages], products, recipes,
+    status}; progress meanwhile in ai_status / the panel data (ai.sort.running). A failing
+    AI is reported in the result (the rules stay), never as a websocket error."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .ai_sort import async_sort
+
+    connection.send_result(msg["id"], await async_sort(hass, manager, msg["target"]))
 
 
 @websocket_api.websocket_command(
@@ -1589,6 +1652,8 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_product_detail)
     websocket_api.async_register_command(hass, ws_product_save)
     websocket_api.async_register_command(hass, ws_product_delete)
+    websocket_api.async_register_command(hass, ws_product_classify)
+    websocket_api.async_register_command(hass, ws_ai_sort)
     websocket_api.async_register_command(hass, ws_product_favorite)
     websocket_api.async_register_command(hass, ws_product_alternatives)
     websocket_api.async_register_command(hass, ws_product_to_recipe)

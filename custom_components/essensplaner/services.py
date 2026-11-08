@@ -113,6 +113,7 @@ from .const import (
     SERVICE_SET_SHOPPING_PRODUCT,
     SERVICE_SET_SHOPPING_STORE,
     SERVICE_SHOPPING_LIST,
+    SERVICE_SORT_WITH_AI,
     SERVICE_SUGGEST,
     SERVICE_SUGGEST_DRINKS,
     SERVICE_SUGGEST_OCCASION_MENU,
@@ -438,6 +439,9 @@ GET_LEAFLETS_SCHEMA = vol.Schema(
         vol.Optional("store"): cv.string,
         vol.Optional("when", default="all"): vol.In(["current", "upcoming", "all"]),
     }
+)
+SORT_WITH_AI_SCHEMA = vol.Schema(
+    {vol.Optional("target", default="all"): vol.In(["all", "products", "recipes"])}
 )
 SAVE_PRODUCT_SCHEMA = vol.Schema(
     {
@@ -1277,6 +1281,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 ] or ["-"]  # a chain without a saved branch: no leaflets
         return leaflets_view(manager, when=call.data["when"], branch_ids=branch_ids)
 
+    async def sort_with_ai(call: ServiceCall) -> ServiceResponse:
+        from .ai_sort import async_sort  # imports the manager
+
+        manager = get_manager(hass)
+        result = await async_sort(hass, manager, call.data["target"])
+        return {k: v for k, v in result.items() if k != "status"}
+
     async def save_product(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         product = save_manual(manager, dict(call.data))
@@ -1423,6 +1434,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SAVE_PRODUCT, save_product, SAVE_PRODUCT_SCHEMA),
         (SERVICE_SET_SHOPPING_PRODUCT, set_shopping_product, SET_SHOPPING_PRODUCT_SCHEMA),
         (SERVICE_GET_LEAFLETS, get_leaflets, GET_LEAFLETS_SCHEMA),
+        (SERVICE_SORT_WITH_AI, sort_with_ai, SORT_WITH_AI_SCHEMA),
         (SERVICE_SAVE_OCCASION, save_occasion_service, SAVE_OCCASION_SCHEMA),
         (SERVICE_DELETE_OCCASION, delete_occasion_service, OCCASION_SCHEMA),
         (SERVICE_GET_OCCASIONS, get_occasions, GET_OCCASIONS_SCHEMA),

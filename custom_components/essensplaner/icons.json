@@ -208,6 +208,9 @@
     "get_leaflets": {
       "service": "mdi:newspaper-variant-multiple-outline"
     },
+    "sort_with_ai": {
+      "service": "mdi:robot-outline"
+    },
     "save_occasion": {
       "service": "mdi:party-popper"
     },

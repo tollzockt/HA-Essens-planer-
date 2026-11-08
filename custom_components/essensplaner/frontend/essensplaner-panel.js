@@ -219,8 +219,18 @@ const PRODUCT_ONLY = [
   ["offers", "🏷️ Angebote"],
   ["bought", "🧾 Gekauft"],
   ["manual", "✍️ Eigene"],
+  ["unsorted", "❓ Unsortiert"],
 ];
 const PRODUCT_PAGE = 60;
+// 1.5.1: kinds and aisles a product can be sorted into ("🗂️ Einordnung", AI sorting)
+const PRODUCT_KIND_LABELS = { food: "🍽️ Lebensmittel", drinks: "🥤 Getränk", drugstore: "🧴 Drogerie", household: "🧽 Haushalt", nonfood: "📦 Non-Food (kein Lebensmittel)" };
+const CHECKED_LABELS = { rule: "nach Regeln eingeordnet", ai: "🤖 von der KI geprüft", user: "✋ von dir eingeordnet" };
+const DAY_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+/** "So 03:15" of an ISO time (local). */
+const weekdayTime = (iso) => {
+  const d = new Date(iso || "");
+  return Number.isNaN(d.getTime()) ? "" : `${DAY_SHORT[d.getDay()]} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
 const PRODUCT_REASON = {
   manual: "von dir gewählt",
   favorite: "⭐ Lieblingsprodukt",
@@ -353,7 +363,7 @@ const SETTING_INFO = {
   branch_route_radius_m: ["Korridor am Arbeitsweg", "So weit darf ein Laden höchstens neben dem Arbeitsweg liegen.", "m"],
   receipt_ai_task_entity: ["KI-Aufgabe für Kassenzettel-Fotos", "Optional: eine KI-Aufgabe (z. B. Claude, OpenAI, Google Gemini oder Ollama mit Bildverarbeitung) liest Fotos und PDFs. Sie bekommt nur das Bild des Kassenzettels. Leer: die KI aus „🤖 KI“, wenn sie eine KI-Aufgabe ist. Ohne KI kannst du den Text einfügen – er wird lokal gelesen."],
   ai_entity: ["KI (über Home Assistant)", "Eine KI-Aufgabe (ai_task) oder ein Gesprächsagent (conversation, z. B. Jarvis). Die KI ordnet und ergänzt nur die Vorschläge der Regeln und wird nur auf Knopfdruck gefragt."],
-  ai_features: ["KI nutzen für", "Ohne Haken arbeitet die Funktion nur nach Regeln. Mit Haken gibt es die Knöpfe „🤖 KI-Menü“ im Anlass, „🤖 KI-Vorschläge“ bei den Getränken und „🤖 mit KI“ beim automatischen Planen – die KI wird nur gefragt, wenn du sie drückst."],
+  ai_features: ["KI nutzen für", "Ohne Haken arbeitet die Funktion nur nach Regeln. Mit Haken gibt es die Knöpfe „🤖 KI-Menü“ im Anlass, „🤖 KI-Vorschläge“ bei den Getränken, „🤖 mit KI“ beim automatischen Planen sowie „🤖 Artikel sortieren“ und „🤖 Rezepte sortieren“ – die KI wird nur gefragt, wenn du sie drückst; nur das Sortieren prüft zusätzlich jeden Sonntag gegen 3 Uhr, was neu dazugekommen ist."],
 };
 /* where the choices of entity / select / multi fields come from (keys of get_settings'
  * choices) – the field type and limits come from the backend (options_schema.py) */
@@ -938,6 +948,8 @@ const STYLE = `
   .prcats:empty { display: none; }
   .prcats .chip { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 6px 11px; min-height: 36px; }
   .prcount { margin-bottom: 8px; }
+  .praisort { margin: 2px 0 8px; }
+  .praisort:empty { display: none; }
   .prcard { position: relative; }
   .prcard .sotop { cursor: pointer; padding-right: 46px; border-radius: var(--ep-radius) var(--ep-radius) 0 0; }
   .prcard .sotop:hover .pname { text-decoration: underline; }
@@ -1988,7 +2000,7 @@ class EssensplanerPanel extends HTMLElement {
               <div class="name">${esc(r.name)}</div>
               ${r.rating ? `<div class="stars">${stars(r.rating)}</div>` : ""}
               ${meta ? `<div class="meta">${meta}</div>` : ""}
-              <div class="chips"><span class="chip kind k-${recipeKind(r)}" title="Art${r.kind_source === "user" ? " (selbst gewählt)" : ""}">${KIND_LABELS[recipeKind(r)] || ""}</span>${(r.tags || []).slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+              <div class="chips"><span class="chip kind k-${recipeKind(r)}" title="Art${r.kind_source === "user" ? " (selbst gewählt)" : r.kind_source === "ai" ? " (von der KI geprüft)" : ""}">${KIND_LABELS[recipeKind(r)] || ""}${r.kind_source === "ai" ? " 🤖" : ""}</span>${(r.tags || []).slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
             </div>
           </div>`;
       })
@@ -2004,9 +2016,11 @@ class EssensplanerPanel extends HTMLElement {
         <button class="btn primary" data-action="new-recipe">＋ Neues Rezept</button>
         <button class="btn" data-action="import">🌐 Von URL importieren</button>
         <button class="btn" data-action="cook-with">🧊 Was kann ich kochen?</button>
+        ${this._aiSortButton("recipes")}
         <span class="spacer"></span>
         <button class="btn ghost" data-action="backup">💾 Sichern & Teilen</button>
       </div>
+      ${this._aiOn("recipes") ? `<div class="praisort">${this._aiSortLine("recipes")}</div>` : ""}
       <div class="row chips tagrow kindrow" role="group" aria-label="Art">
         <button class="chip ${this._kind ? "" : "active"}" data-action="kind" data-kind="" aria-pressed="${!this._kind}">Alle Arten</button>
         ${KIND_FILTERS.map(([id, label, kinds]) => {
@@ -3034,6 +3048,9 @@ class EssensplanerPanel extends HTMLElement {
       case "pr-new":
         this._openProductForm({});
         break;
+      case "ai-sort":
+        await this._aiSort(d.target, el);
+        break;
       case "swap-product":
         await this._openProductSwap(d.uid);
         break;
@@ -3486,7 +3503,7 @@ class EssensplanerPanel extends HTMLElement {
         <label class="field">Gesamtzeit (Minuten)<input type="number" min="0" class="time" value="${esc(r.total_time ?? "")}"></label>
       </div>
       <label class="field">Art<select class="kind">
-        <option value="auto">Automatisch${r.kind && r.kind_source !== "user" ? ` (jetzt: ${esc(KIND_LABELS[r.kind] || r.kind)})` : ""}</option>
+        <option value="auto">Automatisch${r.kind && r.kind_source !== "user" ? ` (jetzt: ${esc(KIND_LABELS[r.kind] || r.kind)}${r.kind_source === "ai" ? " – von der KI geprüft" : ""})` : ""}</option>
         ${Object.entries(KIND_LABELS).map(([k, label]) => `<option value="${k}" ${r.kind_source === "user" && r.kind === k ? "selected" : ""}>${esc(label)}</option>`).join("")}
       </select></label>
       <div class="hint">Nur Mahlzeiten, Frühstück und Snacks werden allein eingeplant. Getränke, Beilagen, Bestandteile (Saucen, Dips, Kräuterbutter) und Desserts kommen zu einer Mahlzeit dazu.</div>
@@ -4987,6 +5004,8 @@ class EssensplanerPanel extends HTMLElement {
       if (o.stale && o.price != null) badges.push(`<span class="bdg warn" title="Preis länger nicht bestätigt">Stand ${esc(dayText(o.regular_seen || o.last_seen))}</span>`);
       if (o.bought) badges.push('<span class="bdg ok" title="Schon gekauft (Kassenzettel / abgehakt)">🧾 gekauft</span>');
       if (o.manual) badges.push('<span class="bdg" title="Eigener Artikel">✍️ eigener</span>');
+      if (o.unsorted) badges.push('<span class="bdg warn" title="Die Regeln wissen nicht, was das ist – „🤖 Artikel sortieren“ oder selbst einordnen">❓ unsortiert</span>');
+      else if (o.checked === "ai" && o.ai_fix) badges.push('<span class="bdg" title="Von der KI neu eingeordnet">🤖 einsortiert</span>');
     }
     const unit = o.unit_price != null && o.base_unit && o.base_unit !== "Stück" ? unitPriceText(o.unit_price, o.base_unit) : "";
     const ids = o.branch_ids || [];
@@ -5160,7 +5179,9 @@ class EssensplanerPanel extends HTMLElement {
         <input type="search" placeholder="🔍 Artikel oder Marke suchen, z. B. „Butter“" value="${esc(pr.query)}" data-input="pr-query" data-focuskey="pr-query" aria-label="Artikel suchen">
         <label class="switch">Sortieren <select data-change="pr-sort" aria-label="Sortieren">${sorts}</select></label>
         <button class="btn" data-action="pr-new" title="Einen Artikel mit Preis und Bild selbst eintragen">＋ Eigener Artikel</button>
+        ${this._aiSortButton("products")}
       </div>
+      <div class="praisort">${this._aiSortLine("products")}</div>
       <div class="sotools prfilter" role="group" aria-label="Filter">${this._prFilterHtml()}</div>
       <div class="prcats" role="group" aria-label="Kategorien">${this._prCatsHtml()}</div>
       <div class="prbody">${this._prBodyHtml()}</div>
@@ -5186,8 +5207,8 @@ class EssensplanerPanel extends HTMLElement {
     const pr = this._pr;
     const kinds = OFFER_KINDS.map(([k, label]) => `<button class="${pr.kind === k ? "on" : ""}" data-action="pr-kind" data-kind="${k}" aria-pressed="${pr.kind === k}">${label}</button>`).join("");
     const counts = pr.result?.counts || this._data?.products || {};
-    const n = { favorites: counts.favorites, offers: counts.offers, bought: counts.bought, manual: counts.manual };
-    const only = PRODUCT_ONLY.map(
+    const n = { favorites: counts.favorites, offers: counts.offers, bought: counts.bought, manual: counts.manual, unsorted: counts.unsorted };
+    const only = PRODUCT_ONLY.filter(([k]) => k !== "unsorted" || counts.unsorted || pr.only === k).map(
       ([k, label]) => `<button class="chip ${pr.only === k ? "active" : ""}" data-action="pr-only" data-only="${k}" aria-pressed="${pr.only === k}">${label}${n[k] != null ? ` <span class="n">${n[k]}</span>` : ""}</button>`
     ).join("");
     return `${only}<span class="seg" role="group" aria-label="Art">${kinds}</span>`;
@@ -5277,6 +5298,7 @@ class EssensplanerPanel extends HTMLElement {
       if (el) el.innerHTML = html;
     };
     part(".prchips", this._prChipsHtml());
+    part(".praisort", this._aiSortLine("products"));
     part(".prfilter", this._prFilterHtml());
     part(".prcats", this._prCatsHtml());
     part(".prbody", this._prBodyHtml());
@@ -5390,6 +5412,7 @@ class EssensplanerPanel extends HTMLElement {
         </div>
         <div class="section"><h4>⭐ Lieblingsprodukt für …</h4>${favHtml}</div>
         <div class="section"><h4>📈 Preisverlauf</h4>${this._sparkline(detail.history)}</div>
+        ${this._prSortHtml(p, detail)}
         ${twins ? `<div class="section"><h4>🔁 Auch bei …</h4><div class="hint">Der gleiche Markenartikel bei deinen anderen Läden.</div><div class="picklist" style="max-height:none">${twins}</div></div>` : ""}
         ${picks.length ? `<div class="meta">${esc(picks.join(" · "))}</div>` : ""}`;
     };
@@ -5406,6 +5429,27 @@ class EssensplanerPanel extends HTMLElement {
         }
       };
       box.addEventListener("click", async (ev) => {
+        const sortBtn = ev.target.closest("[data-psort]");
+        if (sortBtn) {
+          const keysText = box.querySelector("[data-pkeys]")?.value || "";
+          sortBtn.disabled = true;
+          try {
+            await this._hass.callWS({
+              type: `${DOMAIN}/product_classify`,
+              product_id: detail.product.id,
+              category: box.querySelector("[data-pcat]")?.value || null,
+              kind: box.querySelector("[data-pkind]")?.value || null,
+              keys: keysText.split(",").map((k) => k.trim()).filter(Boolean),
+            });
+            this._toast(`✋ ${detail.product.title} eingeordnet – die KI ändert das nicht mehr`);
+            this._pr.stale = true;
+            await reload();
+          } catch (err) {
+            this._toast(errText(err));
+            sortBtn.disabled = false;
+          }
+          return;
+        }
         const fav = ev.target.closest("[data-fav]");
         if (fav) {
           try {
@@ -5460,6 +5504,28 @@ class EssensplanerPanel extends HTMLElement {
         }
       });
     });
+  }
+
+  /** 1.5.1: who sorted the product and "✋ So einordnen" (aisle, kind, ingredients). */
+  _prSortHtml(p, detail) {
+    const by = p.checked ? CHECKED_LABELS[p.checked] || p.checked : "❓ noch nicht eingeordnet – die Regeln wissen nicht, was das ist";
+    const fix = p.checked === "ai" && p.ai_fix?.before ? p.ai_fix.before : null;
+    const before = fix ? ` · vorher: ${[fix.category, PRODUCT_KIND_LABELS[fix.kind] || (fix.kind === "unknown" ? "unbekannt" : fix.kind)].filter(Boolean).join(", ")}` : "";
+    const kind = p.unsorted ? "" : p.kind;
+    const cats = CATEGORY_ORDER.map((c) => `<option value="${esc(c)}" ${c === p.category ? "selected" : ""}>${CATEGORY_ICONS[c] || ""} ${esc(c)}</option>`).join("");
+    const kinds = `${kind ? "" : '<option value="" selected>– bitte wählen –</option>'}${Object.entries(PRODUCT_KIND_LABELS)
+      .map(([k, label]) => `<option value="${k}" ${k === kind ? "selected" : ""}>${esc(label)}</option>`)
+      .join("")}`;
+    const keys = (detail.keys || []).map((k) => k.name).join(", ");
+    return `<div class="section"><h4>🗂️ Einordnung</h4>
+      <div class="meta">${esc(by)}${p.checked_at && p.checked !== "rule" ? ` (${esc(dayText(p.checked_at))})` : ""}${esc(before)}</div>
+      <div class="grid2">
+        <label class="field">Abteilung<select data-pcat>${cats}</select></label>
+        <label class="field">Art<select data-pkind>${kinds}</select></label>
+      </div>
+      <label class="field">Zutat(en) – kommagetrennt, leer = keine<input data-pkeys value="${esc(keys)}" placeholder="z. B. Butter"></label>
+      <div class="row"><button class="btn small" data-psort>✋ So einordnen</button><span class="hint">Was du hier einstellst, ändert die KI nie.</span></div>
+    </div>`;
   }
 
   /** "＋ Eigener Artikel" (prefill.id: change that own product). */
@@ -5899,6 +5965,73 @@ class EssensplanerPanel extends HTMLElement {
   /** Switched on, but the AI is not reachable right now. */
   _aiOffline(feature) {
     return this._aiOn(feature) && !this._data?.ai?.ready?.[feature];
+  }
+
+  /** 1.5.1: "🤖 Artikel sortieren" / "🤖 Rezepte sortieren" (only with the feature on). */
+  _aiSortButton(target) {
+    if (!this._aiOn(target)) return "";
+    const sort = this._data?.ai?.sort || {};
+    const busy = (this._aiSorting || new Set()).has(target) || sort.running?.target === target;
+    const label = target === "products" ? "Artikel sortieren" : "Rezepte sortieren";
+    const title = this._aiOffline(target) ? `${this._aiName()} ist gerade nicht erreichbar` : target === "products" ? `${this._aiName()} prüft Abteilung, Art und Zutat der Artikel, die nur nach Regeln eingeordnet sind – deine Einordnungen bleiben` : `${this._aiName()} prüft, ob Rezepte Mahlzeit, Snack, Getränk … sind – deine Wahl bleibt`;
+    return `<button class="btn" data-action="ai-sort" data-target="${target}" ${busy ? "disabled" : ""} title="${esc(title)}">${busy ? `<span class="spin">⏳</span> sortiert …` : `🤖 ${label}`}</button>`;
+  }
+
+  /** "🤖 Zuletzt sortiert: 09.11., 23 geändert · nächste Kontrolle So 03:15". */
+  _aiSortLine(target, named = false) {
+    const sort = this._data?.ai?.sort;
+    const info = sort?.[target];
+    if (!sort || !info) return "";
+    const what = named ? `${target === "products" ? "Artikel" : "Rezepte"}: ` : "";
+    if (!info.enabled) return named ? `${what}aus` : "";
+    const run = sort.running;
+    if (run && run.target === target) return `<span class="meta">🤖 ${what}${esc(this._aiName())} sortiert … (Anfrage ${run.request} von höchstens ${run.requests})</span>`;
+    const parts = [];
+    const res = info.result || {};
+    if (info.last_run) {
+      const counts = [`${res.changed || 0} geändert`];
+      if (res.removed) counts.push(`${res.removed} Non-Food entfernt`);
+      if (res.remaining) counts.push(`${res.remaining} noch offen`);
+      parts.push(`Zuletzt sortiert: ${esc(timeText(info.last_run))}, ${counts.join(", ")}`);
+    } else {
+      parts.push(target === "products" ? "Noch nicht von der KI sortiert" : "Noch nicht von der KI geprüft");
+    }
+    if (target === "recipes" && info.pending) parts.push(`${info.pending} nach Regeln`);
+    if (sort.next_run) parts.push(`nächste Kontrolle ${esc(weekdayTime(sort.next_run))}`);
+    const warn = info.last_ok === false && (res.errors || []).length ? `<br><span class="bdg warn">⚠️ ${esc(res.errors[0])}</span> <span class="meta">Es bleibt bei den Regeln.</span>` : "";
+    return `<span class="meta">🤖 ${what}${parts.join(" · ")}</span>${warn}`;
+  }
+
+  /** Start the AI sorting (target products | recipes) and show what it did. */
+  async _aiSort(target, el) {
+    this._aiSorting = this._aiSorting || new Set();
+    if (this._aiSorting.has(target)) return;
+    this._aiSorting.add(target);
+    if (el) {
+      el.disabled = true;
+      el.innerHTML = `<span class="spin">⏳</span> sortiert …`;
+    }
+    this._toast(`🤖 ${this._aiName()} sortiert die ${target === "products" ? "Artikel" : "Rezepte"} – das kann ein paar Minuten dauern.`);
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/ai_sort`, target });
+      const part = res?.[target] || res || {};
+      if (part.ok === false && !part.checked) {
+        this._toast(`🤖 ${(part.errors || res?.errors || [])[0] || "Die KI hat nicht geantwortet."} Es bleibt bei den Regeln.`);
+      } else {
+        const bits = [`${part.checked || 0} geprüft`, `${part.changed || 0} geändert`];
+        if (part.removed) bits.push(`${part.removed} Non-Food entfernt`);
+        if (part.remaining) bits.push(`${part.remaining} noch offen – einfach noch mal drücken`);
+        this._toast(`🤖 ${target === "products" ? "Artikel" : "Rezepte"} sortiert: ${bits.join(", ")}`);
+      }
+    } catch (err) {
+      this._toast(errText(err));
+    } finally {
+      this._aiSorting.delete(target);
+      if (target === "products") {
+        this._pr.stale = true;
+        if (this._tab === "products") this._renderContent();
+      } else if (this._tab === "recipes") this._renderContent();
+    }
   }
 
   /** A recipe's season (🍂 badge) – or null. */
@@ -6996,6 +7129,7 @@ class EssensplanerPanel extends HTMLElement {
         ${f("ai_entity")}
         <div class="sfield"><div class="aitestrow"><button class="btn" data-saitest ${st.aiTest?.running ? "disabled" : ""}>🔌 Verbindung testen</button><div class="aitest" data-aitest aria-live="polite">${this._aiTestHtml()}</div></div></div>
         ${f("ai_features")}
+        ${this._data?.ai?.sort ? `<div class="hint">🗂️ <b>Sortieren:</b> ${this._aiSortLine("products", true)}<br>${this._aiSortLine("recipes", true)}</div>` : ""}
         <div class="hint">📷 Kassenzettel-Fotos brauchen eine <b>KI-Aufgabe</b>, die Bilder lesen kann – ein Gesprächsagent bekommt keine Bilder. Eine eigene KI-Aufgabe dafür wählst du unter <button class="btn small" data-sjump="receipts">🧾 Kassenzettel</button></div>
         <div class="hint">🔒 Die KI bekommt nur Rezeptnamen, Tags und Zutaten, Kettennamen, Angebotspreise, Monat und Gästezahl – keine Adressen, Postleitzahlen, Notizen oder Kassenzettel-Texte. Antworten werden gegen deine Rezepte geprüft und nie ungefragt übernommen; während einer Anfrage sind die Essensplaner-Sprachbefehle für die KI gesperrt (keine Schleifen).</div>`;
     }
