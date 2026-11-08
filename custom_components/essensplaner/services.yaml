@@ -75,6 +75,20 @@ add_recipe:
           min: 0
           max: 5
           mode: slider
+    kind: &kind
+      example: "meal"
+      selector:
+        select:
+          translation_key: recipe_kind
+          options:
+            - auto
+            - meal
+            - breakfast
+            - snack
+            - dessert
+            - drink
+            - side
+            - component
 
 update_recipe:
   fields:
@@ -99,6 +113,7 @@ update_recipe:
     image: *image
     favorite: *favorite
     rating: *rating
+    kind: *kind
 
 delete_recipe:
   fields:
@@ -177,6 +192,25 @@ plan_meal:
       selector:
         text:
           multiple: true
+    extras:
+      example: "Kräuterbutter, Kartoffelsalat"
+      selector:
+        text:
+          multiple: true
+
+plan_leftover:
+  fields:
+    date:
+      example: "Mittwoch"
+      selector:
+        text:
+    meal: *meal
+    from_date:
+      example: "Dienstag"
+      selector:
+        text:
+    from_meal: *meal
+    servings: *servings
 
 remove_meal:
   fields:

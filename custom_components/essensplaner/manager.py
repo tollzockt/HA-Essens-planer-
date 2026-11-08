@@ -63,8 +63,31 @@ from .ingredients import (
     strip_article,
     to_base,
 )
-from .occasions import COMPONENT_TAGS, DRINK_TAGS
-from .pricing import COUNT_UNITS, offer_pack, unit_price
+from .kinds import (
+    KIND_AUTO,
+    KIND_BREAKFAST,
+    KIND_MEAL,
+    KIND_SNACK,
+    KIND_SOURCES,
+    KINDS,
+    PART_KINDS,
+    SLOT_KINDS,
+    SOURCE_RULE,
+    SOURCE_USER,
+    kinds_view,
+    recipe_kind,
+    resolve_kind,
+    set_kind,
+)
+from .pricing import (
+    COUNT_UNITS,
+    offer_pack,
+    pack_text,
+    package_cost,
+    package_need,
+    to_pricing_base,
+    unit_price,
+)
 from .products import product_counts
 from .stores import REMATCH_CHANGES, StoresMixin
 
@@ -84,7 +107,27 @@ SNACK_TAGS = {
     "suessspeise",
 }
 
-MAIN_TAGS = {"hauptgericht", "hauptspeise", "mittagessen", "abendessen", "dinner", "lunch"}
+# leftovers ("Reste", 1.5.1): eaten at most this many days after the cooking day
+LEFTOVER_MAX_DAYS = 7
+LEFTOVER_EMOJI = "🍲"
+# extra components of a plan entry (a sauce, a side, a drink with its recipe)
+MAX_EXTRAS = 8
+# a bought pack leaves a remainder worth a hint ("↪ 200 g übrig – z. B. für …"): at least
+# this share of the pack and this much (g / ml, pieces) of a perishable aisle
+PACK_LEFTOVER_SHARE = 0.25
+PACK_LEFTOVER_MIN = {"g": 100.0, "ml": 100.0, "Stück": 2.0}
+PACK_LEFTOVER_CATEGORIES = frozenset(
+    {
+        "Fleisch & Fisch",
+        "Milchprodukte & Eier",
+        "Käse & Aufschnitt",
+        "Obst & Gemüse",
+        "Brot & Backwaren",
+    }
+)
+PACK_LEFTOVER_RECIPES = 2
+# keeps for weeks: no hint
+PACK_LEFTOVER_SKIP = frozenset({"butter", "margarine", "schmalz", "ei", "eier"})
 
 # ready meals (the bundled "Fertiggericht" recipes, recipes made from a product) are
 # suggested half as often as cooked dishes – unless they are favourites (1.5)
@@ -150,6 +193,14 @@ ERROR_MESSAGES_DE = {
     "invalid_url": "„{url}“ ist keine gültige Internetadresse.",
     "shopping_item_not_found": "Den Eintrag habe ich auf der Einkaufsliste nicht gefunden.",
     "meal_not_planned": "Am {date} ist zu dieser Mahlzeit nichts geplant.",
+    "leftover_not_after": (
+        "Reste kann ich nur für eine spätere Mahlzeit einplanen, höchstens {days} Tage nach "
+        "dem Kochen."
+    ),
+    "invalid_kind": (
+        "Die Art „{kind}“ kenne ich nicht – möglich sind Mahlzeit, Frühstück, Snack, "
+        "Dessert, Getränk, Beilage und Bestandteil."
+    ),
     "dish_not_planned": "„{name}“ ist in den nächsten Tagen nicht geplant.",
     "invalid_json": "Die Rezeptdaten konnten nicht gelesen werden.",
     "offers_disabled": (
@@ -585,6 +636,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             return  # a refresh finished after a reload: never overwrite the new data
         if change.startswith("recipe"):
             self._recipes_using_cache = {}  # which recipes use an offer
+        if change in ("plan", "recipe_updated", "recipe_deleted"):
+            self._fix_leftovers()  # leftovers whose cooking meal changed (1.5.1)
         self._store.async_delay_save(self._data_to_store, SAVE_DELAY)
         if change in REMATCH_CHANGES:
             self.schedule_catalog_rematch()  # new keys: their offers from the catalog
@@ -692,8 +745,37 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             recipe["favorite"] = bool(data["favorite"])
         if "rating" in data and data["rating"] is not None:
             recipe["rating"] = max(0, min(5, _to_int(data["rating"]) or 0))
+        self._apply_kind(recipe, data)
         recipe["updated"] = now
         return recipe
+
+    @staticmethod
+    def _apply_kind(recipe: dict[str, Any], data: dict[str, Any]) -> None:
+        """The recipe's kind (1.5.1): the one given (the user's choice, "auto" / "" hands
+        it back to the rules; an export's kind_source is kept), else the rules – which
+        never overwrite what the user or the AI chose (kinds.set_kind())."""
+        raw = data.get("kind")
+        if raw is None:
+            set_kind(recipe, None, SOURCE_RULE)
+            return
+        kind = resolve_kind(raw) if str(raw).strip() else KIND_AUTO
+        if kind is None:
+            raise _error("invalid_kind", kind=raw)
+        source = data.get("kind_source")
+        if source not in KIND_SOURCES:
+            source = SOURCE_USER
+        set_kind(recipe, None if source == SOURCE_RULE else kind, source)
+
+    def _migrate_kinds(self) -> int:
+        """v6 (1.5.1): every recipe without a (valid) kind gets one by the rules. Returns
+        the count of changed recipes (0 on a second run)."""
+        count = 0
+        for recipe in self.recipes.values():
+            if recipe.get("kind") in KINDS and recipe.get("kind_source") in KIND_SOURCES:
+                continue
+            set_kind(recipe, None, SOURCE_RULE)
+            count += 1
+        return count
 
     def add_recipe(self, data: dict[str, Any], allow_duplicate: bool = False) -> dict[str, Any]:
         """Add a recipe."""
@@ -867,6 +949,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "last_cooked": recipe.get("last_cooked"),
             "cooked_count": recipe.get("cooked_count", 0),
             "image": recipe.get("image") or None,
+            # 1.5.1: meal, breakfast, snack, dessert, drink, side or component
+            "kind": recipe_kind(recipe),
+            "kind_source": recipe.get("kind_source") or SOURCE_RULE,
         }
 
     def recipe_view(self, recipe: dict[str, Any], servings: int | None = None) -> dict[str, Any]:
@@ -890,22 +975,32 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         """Mark a recipe (and the planned meal) as cooked."""
         day = day or self.today()
         meals = self.plan.get(day.isoformat(), {})
-        entry = None
+        slot: str | None = None
         if meal and meal in meals:
-            entry = meals[meal]
+            slot = meal
         elif recipe is None and meals:
-            entry = next(iter(meals.values()))
+            slot = next(iter(meals))
         elif recipe is not None:
-            entry = next((e for e in meals.values() if e.get("recipe_id") == recipe["id"]), None)
+            slot = next((m for m, e in meals.items() if e.get("recipe_id") == recipe["id"]), None)
+        entry = meals.get(slot) if slot else None
         already = False
+        count_day = day
         if entry is not None:
             already = bool(entry.get("cooked"))
             entry["cooked"] = True
             entry.pop("auto_cooked", None)
             if recipe is None and entry.get("recipe_id"):
                 recipe = self.recipes.get(entry["recipe_id"])
+            assert slot is not None
+            if (source := self.leftover_source(day, slot, entry)) is not None:
+                # leftovers (1.5.1): the cooking day counts (once), the leftovers never
+                src_day, _src_meal, src_entry = source
+                already = bool(src_entry.get("cooked"))
+                src_entry["cooked"] = True
+                src_entry.pop("auto_cooked", None)
+                count_day = src_day
         if recipe is not None and not already:
-            self._count_cooked(recipe, day)
+            self._count_cooked(recipe, count_day)
         self._changed("cooked")
         return recipe
 
@@ -924,18 +1019,22 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         today = self.today()
         start = (today - timedelta(days=7)).isoformat()
         count = 0
+        marked = False
         for key in sorted(self.plan):
             if not start <= key < today.isoformat():
                 continue
-            for entry in self.plan[key].values():
+            for slot, entry in self.plan[key].items():
                 recipe = self.recipes.get(entry.get("recipe_id") or "")
                 if recipe is None or entry.get("cooked"):
                     continue
                 entry["cooked"] = True
                 entry["auto_cooked"] = True
+                marked = True
+                if self.leftover_source(date.fromisoformat(key), slot, entry) is not None:
+                    continue  # leftovers: their cooking day counted (1.5.1)
                 self._count_cooked(recipe, date.fromisoformat(key))
                 count += 1
-        if count:
+        if marked:
             self._changed("cooked")
         return count
 
@@ -952,17 +1051,36 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         servings: int | None = None,
         note: str | None = None,
         drinks: Any = None,
+        extras: Any = None,
+        as_extra: bool | None = None,
     ) -> dict[str, Any]:
         """Put a recipe (or free text) into the meal plan.
 
         drinks (1.5, optional): what is drunk with it ("🍷 Passt dazu") – texts or dicts
         {title, alcohol?, recipe_id?, product_id?}; None keeps the drinks of the meal that
         was planned in this slot with the same dish, [] removes them.
+        extras (1.5.1, optional): what comes with the meal ("Dazu": a sauce, a side, a
+        drink made from a recipe) – recipe names / ids or dicts {recipe_id | recipe |
+        title, servings?}; they join the shopping list and the costs. None keeps the extras
+        of the same dish, [] removes them.
+        A recipe that is only ever part of a meal (a drink, side, component or dessert)
+        planned into a slot that holds another dish is added to that dish as an extra
+        (as_extra None; True: also any other recipe, False: never) – the view then has
+        "added_as_extra". The same dish keeps "cooked" and its leftovers link.
         """
         if meal not in ALL_MEALS:
             raise _error("invalid_meal", meal=meal)
         if recipe is None and not (title or "").strip():
             raise _error("name_required")
+        previous = self.plan.get(day.isoformat(), {}).get(meal) or {}
+        if (
+            recipe is not None
+            and previous
+            and as_extra is not False
+            and previous.get("recipe_id") != recipe["id"]
+            and (as_extra or recipe_kind(recipe) in PART_KINDS)
+        ):
+            return self.add_plan_extra(day, meal, recipe=recipe, servings=servings)
         entry = {
             "recipe_id": recipe["id"] if recipe else None,
             "title": recipe["name"] if recipe else str(title).strip(),
@@ -971,7 +1089,6 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "cooked": False,
             "added": dt_util.utcnow().isoformat(),
         }
-        previous = self.plan.get(day.isoformat(), {}).get(meal) or {}
         same_dish = bool(previous) and (
             previous.get("recipe_id") == entry["recipe_id"]
             and previous.get("title") == entry["title"]
@@ -981,15 +1098,227 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             # the panel, 1.5): it stays cooked and keeps when it was planned
             entry["cooked"] = bool(previous.get("cooked"))
             entry["added"] = previous.get("added") or entry["added"]
+            if isinstance(previous.get("leftover_of"), dict):
+                entry["leftover_of"] = dict(previous["leftover_of"])  # still the leftovers
         if drinks is not None:
             if cleaned := self._plan_drinks(drinks):
                 entry["drinks"] = cleaned
         elif previous.get("drinks") and previous.get("title") == entry["title"]:
             entry["drinks"] = previous["drinks"]
+        if extras is not None:
+            if parts := self._plan_extras(extras, exclude=entry["recipe_id"]):
+                entry["extras"] = parts
+        elif previous.get("extras") and previous.get("title") == entry["title"]:
+            entry["extras"] = previous["extras"]
         self.plan.setdefault(day.isoformat(), {})[meal] = entry
         self._cleanup_plan()
         self._changed("plan")
         return self.entry_view(day, meal, entry)
+
+    def add_plan_extra(
+        self,
+        day: date,
+        meal: str,
+        recipe: dict[str, Any] | None = None,
+        title: str | None = None,
+        servings: int | None = None,
+    ) -> dict[str, Any]:
+        """Add a component to the planned meal of a slot ("Kräuterbutter" to the steak,
+        1.5.1). Returns the entry's view with "added_as_extra" (the extra's title)."""
+        entry = self.plan.get(day.isoformat(), {}).get(meal)
+        if entry is None:
+            raise _error("meal_not_planned", date=day.isoformat())
+        new: dict[str, Any] = {"recipe_id": recipe["id"]} if recipe else {"title": title}
+        if servings:
+            new["servings"] = servings
+        added = self._plan_extras([new])
+        if not added:
+            raise _error("name_required")
+        entry["extras"] = self._plan_extras(
+            [*(entry.get("extras") or []), *added], exclude=entry.get("recipe_id")
+        )
+        self._changed("plan")
+        view = self.entry_view(day, meal, entry)
+        view["added_as_extra"] = added[0]["title"]
+        return view
+
+    def _plan_extras(self, value: Any, exclude: str | None = None) -> list[dict[str, Any]]:
+        """Extras of a plan entry: [{title, recipe_id?, servings?}] (≤ MAX_EXTRAS, no
+        duplicates, not the dish itself). A text is a recipe name (else a free extra)."""
+        items = value if isinstance(value, list) else [value]
+        extras: list[dict[str, Any]] = []
+        for raw in items:
+            if isinstance(raw, str):
+                raw = {"recipe": raw}
+            if not isinstance(raw, dict):
+                continue
+            recipe = None
+            if isinstance(raw.get("recipe_id"), str):
+                recipe = self.recipes.get(raw["recipe_id"].strip())
+            name = raw.get("recipe")
+            if recipe is None and isinstance(name, str) and name.strip():
+                recipe = self.recipes.get(name.strip()) or self.find_recipe(strip_article(name))
+            title = (
+                recipe["name"] if recipe else " ".join(str(raw.get("title") or name or "").split())
+            )
+            title = title[:80]
+            if not title or (recipe is not None and recipe["id"] == exclude):
+                continue
+            if any(
+                (recipe is not None and x.get("recipe_id") == recipe["id"])
+                or fold(x["title"]) == fold(title)
+                for x in extras
+            ):
+                continue
+            extra: dict[str, Any] = {"title": title}
+            if recipe is not None:
+                extra["recipe_id"] = recipe["id"]
+            if number := _to_int(raw.get("servings"), 1):
+                extra["servings"] = min(number, 500)
+            extras.append(extra)
+            if len(extras) >= MAX_EXTRAS:
+                break
+        return extras
+
+    def plan_leftover(
+        self,
+        day: date,
+        meal: str,
+        from_day: date,
+        from_meal: str,
+        servings: int | None = None,
+    ) -> dict[str, Any]:
+        """Eat the leftovers of a planned meal later ("Dienstag für Mittwoch mitkochen",
+        1.5.1): the entry gets "leftover_of" {date, meal}; the cooking day is bought and
+        priced for both (its servings plus the leftovers'), the leftovers cost nothing and
+        add nothing to the shopping list. Leftovers of leftovers come from the cooking day.
+        An entry in the target slot is replaced (the view has "replaced")."""
+        for slot in (meal, from_meal):
+            if slot not in ALL_MEALS:
+                raise _error("invalid_meal", meal=slot)
+        source = self.plan.get(from_day.isoformat(), {}).get(from_meal)
+        if source is None:
+            raise _error("meal_not_planned", date=from_day.isoformat())
+        if found := self.leftover_source(from_day, from_meal, source):
+            from_day, from_meal, source = found
+        if (from_day, from_meal) == (day, meal) or not self._leftover_order_ok(
+            from_day, from_meal, day, meal
+        ):
+            raise _error("leftover_not_after", days=LEFTOVER_MAX_DAYS)
+        link = {"date": from_day.isoformat(), "meal": from_meal}
+        previous = self.plan.get(day.isoformat(), {}).get(meal) or {}
+        entry: dict[str, Any] = {
+            "recipe_id": source.get("recipe_id"),
+            "title": source.get("title") or "",
+            "servings": servings or source.get("servings") or self.default_servings,
+            "note": "",
+            "cooked": False,
+            "added": dt_util.utcnow().isoformat(),
+            "leftover_of": link,
+        }
+        same = previous.get("leftover_of") == link
+        if same:
+            # the same leftovers, other servings: what was added to them stays
+            entry["cooked"] = bool(previous.get("cooked"))
+            entry["note"] = previous.get("note") or ""
+            for key in ("drinks", "extras", "added"):
+                if previous.get(key):
+                    entry[key] = previous[key]
+        self.plan.setdefault(day.isoformat(), {})[meal] = entry
+        self._changed("plan")
+        view = self.entry_view(day, meal, entry)
+        if previous and not same:
+            view["replaced"] = previous.get("title")
+        return view
+
+    def _meal_rank(self, meal: str) -> tuple[time, int]:
+        return self.meal_time(meal), ALL_MEALS.index(meal) if meal in ALL_MEALS else 9
+
+    def _leftover_order_ok(self, from_day: date, from_meal: str, day: date, meal: str) -> bool:
+        """Leftovers are eaten after the cooking meal, at most LEFTOVER_MAX_DAYS later."""
+        if (day, self._meal_rank(meal)) <= (from_day, self._meal_rank(from_meal)):
+            return False
+        return (day - from_day).days <= LEFTOVER_MAX_DAYS
+
+    def leftover_source(
+        self, day: date, meal: str, entry: dict[str, Any]
+    ) -> tuple[date, str, dict[str, Any]] | None:
+        """(day, meal, entry) of the meal an entry is the leftovers of – None for a normal
+        entry or a link that no longer holds (the dish there changed, it was moved after
+        the leftovers, it is leftovers itself)."""
+        link = entry.get("leftover_of")
+        if not isinstance(link, dict):
+            return None
+        try:
+            src_day = date.fromisoformat(str(link.get("date")))
+        except ValueError:
+            return None
+        src_meal = link.get("meal")
+        if src_meal not in ALL_MEALS:
+            return None
+        source = self.plan.get(src_day.isoformat(), {}).get(src_meal)
+        if source is None or source is entry or isinstance(source.get("leftover_of"), dict):
+            return None
+        if source.get("recipe_id") != entry.get("recipe_id") or (source.get("title") or "") != (
+            entry.get("title") or ""
+        ):
+            return None
+        if not self._leftover_order_ok(src_day, src_meal, day, meal):
+            return None
+        return src_day, src_meal, source
+
+    def leftovers_of(self, day: date, meal: str) -> list[tuple[date, str, dict[str, Any]]]:
+        """The entries that are the leftovers of a planned meal: [(day, meal, entry)]."""
+        found: list[tuple[date, str, dict[str, Any]]] = []
+        for offset in range(LEFTOVER_MAX_DAYS + 1):
+            other = day + timedelta(days=offset)
+            for slot, entry in self.plan.get(other.isoformat(), {}).items():
+                link = entry.get("leftover_of")
+                if (
+                    isinstance(link, dict)
+                    and link.get("date") == day.isoformat()
+                    and link.get("meal") == meal
+                    and self.leftover_source(other, slot, entry) is not None
+                ):
+                    found.append((other, slot, entry))
+        return found
+
+    def cook_servings(
+        self, day: date, meal: str, entry: dict[str, Any], base: int | None = None
+    ) -> int:
+        """Servings cooked for a plan entry: its own plus those of its leftovers (base: the
+        servings of an entry without any, default the default servings)."""
+        own = entry.get("servings") or base or self.default_servings
+        extra = sum(int(e.get("servings") or own) for _d, _m, e in self.leftovers_of(day, meal))
+        return int(own) + extra
+
+    def _links_to(self, day: date, meal: str) -> list[dict[str, Any]]:
+        """Entries whose leftovers link names this slot (valid or not)."""
+        return [
+            entry
+            for meals in self.plan.values()
+            for entry in meals.values()
+            if isinstance(link := entry.get("leftover_of"), dict)
+            and link.get("date") == day.isoformat()
+            and link.get("meal") == meal
+        ]
+
+    def _fix_leftovers(self) -> list[tuple[date, str, dict[str, Any], dict[str, Any]]]:
+        """Leftovers whose cooking meal is gone, changed or after them become normal
+        entries (cooked on their own day). Returns [(day, meal, entry, old link)]."""
+        unlinked: list[tuple[date, str, dict[str, Any], dict[str, Any]]] = []
+        for key, meals in self.plan.items():
+            for slot, entry in meals.items():
+                if "leftover_of" not in entry:
+                    continue
+                try:
+                    day = date.fromisoformat(key)
+                except ValueError:
+                    continue
+                if self.leftover_source(day, slot, entry) is None:
+                    link = entry.pop("leftover_of")
+                    unlinked.append((day, slot, entry, link if isinstance(link, dict) else {}))
+        return unlinked
 
     @staticmethod
     def _plan_drinks(value: Any) -> list[dict[str, Any]]:
@@ -1030,6 +1359,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if not meals:
             self.plan.pop(key, None)
         if removed:
+            # leftovers of a removed meal are cooked on their own day now (1.5.1)
+            unlinked = self._fix_leftovers()
+            for view in removed:
+                view["leftovers_unlinked"] = [
+                    self.entry_view(d, m, e)
+                    for d, m, e, link in unlinked
+                    if link.get("date") == view["date"] and link.get("meal") == view["meal"]
+                ]
             self._changed("plan")
         return removed
 
@@ -1043,6 +1380,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         source = self.plan.get(from_day.isoformat(), {})
         if from_meal not in source:
             raise _error("meal_not_planned", date=from_day.isoformat())
+        # leftovers follow their cooking meal (1.5.1)
+        links_from = self._links_to(from_day, from_meal)
+        links_to = self._links_to(to_day, to_meal)
         entry = source.pop(from_meal)
         target = self.plan.setdefault(to_day.isoformat(), {})
         swapped = target.pop(to_meal, None)
@@ -1052,11 +1392,20 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         for key in (from_day.isoformat(), to_day.isoformat()):
             if not self.plan.get(key):
                 self.plan.pop(key, None)
+        for linked in links_from:
+            linked["leftover_of"] = {"date": to_day.isoformat(), "meal": to_meal}
+        for linked in links_to:
+            linked["leftover_of"] = {"date": from_day.isoformat(), "meal": from_meal}
+        unlinked = self._fix_leftovers()
         self._changed("plan")
-        return {
+        result = {
             "moved": self.entry_view(to_day, to_meal, entry),
             "swapped": self.entry_view(from_day, from_meal, swapped) if swapped else None,
         }
+        if unlinked:
+            # moved after its leftovers: they are cooked on their own day now
+            result["leftovers_unlinked"] = [self.entry_view(d, m, e) for d, m, e, _l in unlinked]
+        return result
 
     def copy_plan(
         self, source: date, target: date, days: int = 7, overwrite: bool = False
@@ -1076,11 +1425,32 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                     "added": dt_util.utcnow().isoformat(),
                 }
                 new_entry.pop("auto_cooked", None)
+                self._copy_leftover_link(new_entry, source, target, days)
                 self.plan.setdefault(dst_day.isoformat(), {})[meal] = new_entry
                 copied.append(self.entry_view(dst_day, meal, new_entry))
         if copied:
             self._changed("plan")
         return copied
+
+    @staticmethod
+    def _copy_leftover_link(entry: dict[str, Any], source: date, target: date, days: int) -> None:
+        """A copied leftovers entry points to the copy of its cooking meal (when that is
+        copied too), else it is a normal entry."""
+        link = entry.get("leftover_of")
+        if not isinstance(link, dict):
+            entry.pop("leftover_of", None)
+            return
+        try:
+            src = date.fromisoformat(str(link.get("date")))
+        except ValueError:
+            src = None
+        if src is None or not source <= src < source + timedelta(days=max(1, days)):
+            entry.pop("leftover_of", None)
+            return
+        entry["leftover_of"] = {
+            "date": (src + (target - source)).isoformat(),
+            "meal": link.get("meal"),
+        }
 
     def find_planned(
         self, dish: str, around: date | None = None, days: int = 14
@@ -1106,16 +1476,23 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             self.plan.pop(key, None)
 
     def entry_view(self, day: date, meal: str, entry: dict[str, Any]) -> dict[str, Any]:
-        """Return a plan entry enriched with labels and recipe info."""
+        """Return a plan entry enriched with labels and recipe info.
+
+        1.5.1: "dish" is the dish's name; leftovers are titled "🍲 Reste von Dienstag
+        (Lasagne)" ("leftover_of": {date, meal, weekday, meal_label}); a cooking meal lists
+        its "leftovers" [{date, meal, weekday, servings}] and its "cook_servings"; "extras"
+        are the components with the meal [{title, recipe_id, servings, kind}]."""
         recipe = self.recipes.get(entry.get("recipe_id") or "")
         meal_time = self.meal_time(meal)
-        return {
+        dish = entry.get("title") or (recipe["name"] if recipe else "")
+        view: dict[str, Any] = {
             "date": day.isoformat(),
             "weekday": WEEKDAY_NAMES[day.weekday()],
             "meal": meal,
             "meal_label": MEAL_LABELS.get(meal, meal),
             "time": meal_time.strftime("%H:%M"),
-            "title": entry.get("title") or (recipe["name"] if recipe else ""),
+            "title": dish,
+            "dish": dish,
             "recipe_id": recipe["id"] if recipe else None,
             "servings": entry.get("servings"),
             "note": entry.get("note", ""),
@@ -1124,6 +1501,107 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "image": (recipe.get("image") or None) if recipe else None,
             # 1.5: drinks with the meal (empty for older entries)
             "drinks": list(entry.get("drinks") or []),
+            "extras": [self._extra_view(x, entry) for x in entry.get("extras") or []],
+            "leftover_of": None,
+            "leftovers": [],
+            "cook_servings": entry.get("servings"),
+        }
+        if (source := self.leftover_source(day, meal, entry)) is not None:
+            src_day, src_meal, _src = source
+            view["leftover_of"] = {
+                "date": src_day.isoformat(),
+                "meal": src_meal,
+                "weekday": WEEKDAY_NAMES[src_day.weekday()],
+                "meal_label": MEAL_LABELS.get(src_meal, src_meal),
+            }
+            view["title"] = leftover_title(day, src_day, src_meal, dish)
+        elif leftovers := self.leftovers_of(day, meal):
+            view["leftovers"] = [
+                {
+                    "date": d.isoformat(),
+                    "meal": m,
+                    "weekday": WEEKDAY_NAMES[d.weekday()],
+                    "servings": e.get("servings"),
+                }
+                for d, m, e in leftovers
+            ]
+            view["cook_servings"] = self.cook_servings(
+                day, meal, entry, recipe.get("servings") if recipe else None
+            )
+        return view
+
+    def _extra_view(self, extra: dict[str, Any], entry: dict[str, Any]) -> dict[str, Any]:
+        recipe = self.recipes.get(extra.get("recipe_id") or "")
+        return {
+            "title": recipe["name"] if recipe else extra.get("title") or "",
+            "recipe_id": recipe["id"] if recipe else None,
+            "servings": extra.get("servings") or entry.get("servings"),
+            "kind": recipe_kind(recipe) if recipe else None,
+        }
+
+    def entry_ingredients(
+        self, day: date, meal: str, entry: dict[str, Any]
+    ) -> tuple[list[tuple[dict[str, Any], str]], list[str], int]:
+        """What a plan entry needs: ([(scaled ingredient, recipe name)], titles without a
+        recipe, 1 if its dish is a recipe cooked that day). The cooking meal of leftovers
+        is scaled to their servings too; leftovers need nothing (1.5.1); the extras need
+        their recipes."""
+        found: list[tuple[dict[str, Any], str]] = []
+        without: list[str] = []
+        counted = 0
+        recipe = self.recipes.get(entry.get("recipe_id") or "")
+        if self.leftover_source(day, meal, entry) is not None:
+            pass  # bought and cooked on the cooking day
+        elif recipe is None:
+            if entry.get("title"):
+                without.append(entry["title"])
+        else:
+            counted = 1
+            servings = self.cook_servings(day, meal, entry, recipe.get("servings"))
+            found.extend(self._scaled_ingredients(recipe, servings))
+        for extra in entry.get("extras") or []:
+            extra_recipe = self.recipes.get(extra.get("recipe_id") or "")
+            if extra_recipe is None:
+                if extra.get("title"):
+                    without.append(extra["title"])
+                continue
+            servings = (
+                extra.get("servings") or entry.get("servings") or extra_recipe.get("servings")
+            )
+            found.extend(self._scaled_ingredients(extra_recipe, servings))
+        return found, without, counted
+
+    def _scaled_ingredients(
+        self, recipe: dict[str, Any], servings: int | None
+    ) -> list[tuple[dict[str, Any], str]]:
+        base = recipe.get("servings") or self.default_servings
+        factor = (servings or base) / base
+        return [
+            (scale_ingredient(i, factor), recipe["name"]) for i in recipe.get("ingredients", [])
+        ]
+
+    def entry_cost(self, day: date, meal: str, entry: dict[str, Any]) -> dict[str, Any] | None:
+        """Estimated cost of a plan entry {total, savings, on_offer (ingredients),
+        leftover}: its recipe for the cooked servings (with its leftovers'), plus its
+        extras; leftovers cost nothing (1.5.1). None without any recipe."""
+        recipe = self.recipes.get(entry.get("recipe_id") or "")
+        leftover = self.leftover_source(day, meal, entry) is not None
+        parts: list[dict[str, Any]] = []
+        if recipe is not None and not leftover:
+            servings = self.cook_servings(day, meal, entry, recipe.get("servings"))
+            parts.append(self.recipe_cost(recipe, servings, day))
+        for extra in entry.get("extras") or []:
+            extra_recipe = self.recipes.get(extra.get("recipe_id") or "")
+            if extra_recipe is not None:
+                servings = extra.get("servings") or entry.get("servings")
+                parts.append(self.recipe_cost(extra_recipe, servings, day))
+        if not parts and not leftover:
+            return None
+        return {
+            "total": round(sum(p["total"] for p in parts), 2),
+            "savings": round(sum(p["savings"] for p in parts), 2),
+            "on_offer": [o["ingredient"] for p in parts for o in p["on_offer"]],
+            "leftover": leftover,
         }
 
     def day_meals(self, day: date) -> list[dict[str, Any]]:
@@ -1165,21 +1643,20 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
     # ------------------------------------------------------------------
 
     def _fits_meal(self, recipe: dict[str, Any], meal: str | None) -> bool:
-        tags = self.recipe_tags_folded(recipe)
-        is_breakfast = bool(tags & BREAKFAST_TAGS)
-        is_snack = bool(tags & SNACK_TAGS)
-        if tags & DRINK_TAGS:
-            return False  # a drink never fills a meal slot (1.5)
-        if tags & COMPONENT_TAGS and not tags & MAIN_TAGS:
-            # a side, starter, dip or sauce is no meal of its own – unless it is a snack
-            return meal == MEAL_SNACK and is_snack
-        if meal == MEAL_BREAKFAST:
-            return is_breakfast
-        if meal == MEAL_SNACK:
-            return is_snack
+        """True if the recipe can fill the meal slot on its own (1.5.1: by its kind – a
+        drink, side, component or dessert never does; meal None: any slot). A meal tagged
+        "Frühstück" / "Snack" also fits that slot (Pfannkuchen, Frühlingsrollen)."""
+        kind = recipe_kind(recipe)
+        if kind not in SLOT_KINDS:
+            return False
         if meal is None:
             return True
-        return bool(tags & MAIN_TAGS) or not (is_breakfast or is_snack)
+        tags = self.recipe_tags_folded(recipe)
+        if meal == MEAL_BREAKFAST:
+            return kind == KIND_BREAKFAST or bool(tags & BREAKFAST_TAGS)
+        if meal == MEAL_SNACK:
+            return kind == KIND_SNACK or bool(tags & SNACK_TAGS)
+        return kind == KIND_MEAL
 
     def is_excluded(self, recipe: dict[str, Any]) -> bool:
         """True if the recipe has an excluded tag or ingredient."""
@@ -1488,19 +1965,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         free_text: list[str] = []
         for offset in range(max(1, days)):
             day = start + timedelta(days=offset)
-            for entry in self.plan.get(day.isoformat(), {}).values():
-                recipe = self.recipes.get(entry.get("recipe_id") or "")
-                if recipe is None:
-                    if entry.get("title"):
-                        free_text.append(entry["title"])
-                    continue
-                meal_count += 1
-                base = recipe.get("servings") or self.default_servings
-                factor = (entry.get("servings") or base) / base
-                entries.extend(
-                    (scale_ingredient(i, factor), recipe["name"])
-                    for i in recipe.get("ingredients", [])
-                )
+            for slot, entry in self.plan.get(day.isoformat(), {}).items():
+                found, without, counted = self.entry_ingredients(day, slot, entry)
+                entries.extend(found)
+                free_text.extend(without)
+                meal_count += counted
         absorbed: list[dict[str, Any]] = []
         separate: list[dict[str, Any]] = []
         shares: dict[str, dict[str, dict[str, float]]] = {}
@@ -1534,6 +2003,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 if id(i) not in drop and i.get("occasion_id") not in absorbed_ids
             ]
         new_items, total_price = self._new_plan_items(aggregated, previous, start, shares=shares)
+        leftovers = self._pack_leftovers(new_items, start)
         self.shopping.extend(new_items)
         self._changed("shopping")
         result = {
@@ -1544,6 +2014,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "total_price": total_price,
             "items": self._shopping_result_items(new_items),
             "stores": self.stores_summary(),
+            # 1.5.1: what whole packs leave over ("↪ 200 g übrig – z. B. für …")
+            "leftovers": leftovers,
         }
         if absorbed or separate:
             result["occasions"] = [
@@ -1634,12 +2106,96 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                         "product",
                         "product_reason",
                         "occasion_id",
+                        "leftover",
                     )
                     if field in i
                 },
             }
             for i in items
         ]
+
+    def _pack_leftovers(self, items: list[dict[str, Any]], day: date) -> list[dict[str, Any]]:
+        """Hints for what whole packs leave over (1.5.1): items of a perishable aisle whose
+        packs hold clearly more than the recipes need get "leftover" {amount, unit, text,
+        recipes (≤ 2 meals that use it)} and "↪ 200 g übrig – z. B. für …" in their
+        description; nothing is planned. Returns [{item, name, amount, unit, text,
+        recipes}]."""
+        found: list[dict[str, Any]] = []
+        for item in items:
+            info = self._pack_leftover(item, day)
+            if info is None:
+                item.pop("leftover", None)
+                continue
+            item["leftover"] = info
+            self.update_shopping_description(item)
+            found.append({"item": item["summary"], "name": item["name"], **info})
+        return found
+
+    def _pack_leftover(self, item: dict[str, Any], day: date) -> dict[str, Any] | None:
+        packs = item.get("packs")
+        amounts = item.get("amounts") or {}
+        if not packs or item.get("price") is None or not amounts:
+            return None
+        if item.get("status") == "completed":
+            return None
+        name = str(item.get("name") or "")
+        category = item.get("category") or guess_category(name)
+        if category not in PACK_LEFTOVER_CATEGORIES:
+            return None
+        key = item.get("key") or ingredient_key(name)
+        if not key or key.split()[-1] in PACK_LEFTOVER_SKIP:
+            return None
+        pack: tuple[float | None, str] | None = None
+        spice = False
+        product = item.get("product") if isinstance(item.get("product"), dict) else None
+        if product and product.get("pack_amount") and product.get("pack_unit"):
+            pack = to_pricing_base(float(product["pack_amount"]), str(product["pack_unit"]))
+        if not pack or not pack[0]:
+            pack = None
+            for entry in self.best_price(name, day):
+                if entry is None or (cost := package_cost(amounts, key, entry, category)) is None:
+                    continue
+                pack, spice = to_pricing_base(entry.amount, entry.unit), entry.spice
+                if cost[1] == packs:
+                    break
+        if not pack or not pack[0] or pack[1] not in PACK_LEFTOVER_MIN:
+            return None
+        pack_amount, pack_unit = float(pack[0]), pack[1]
+        left = packs * pack_amount - package_need(
+            amounts, key, pack_amount, pack_unit, spice, category
+        )
+        if left < PACK_LEFTOVER_MIN[pack_unit] or left < PACK_LEFTOVER_SHARE * pack_amount:
+            return None
+        left = float(round(left / 10) * 10) if pack_unit in ("g", "ml") else float(int(left))
+        return {
+            "amount": left,
+            "unit": pack_unit,
+            "text": pack_text(left, pack_unit),
+            "recipes": self._leftover_recipes(item),
+        }
+
+    def _leftover_recipes(self, item: dict[str, Any]) -> list[dict[str, Any]]:
+        """Up to PACK_LEFTOVER_RECIPES meals (kind meal) that use the item and are not
+        the ones it was bought for."""
+        planned = {fold(str(r)) for r in item.get("recipes") or []}
+        result: list[dict[str, Any]] = []
+        hits = self.find_by_ingredients([str(item.get("name") or "")], count=40)
+        # favourites first, then as found (most of the recipe is the item); no ready meals
+        hits.sort(key=lambda h: not h.get("favorite"))
+        for hit in hits:
+            recipe = self.recipes.get(hit["id"])
+            if (
+                recipe is None
+                or recipe_kind(recipe) != KIND_MEAL
+                or fold(recipe["name"]) in planned
+                or READY_MEAL_TAG in self.recipe_tags_folded(recipe)
+                or self.is_excluded(recipe)
+            ):
+                continue
+            result.append({"id": recipe["id"], "name": recipe["name"]})
+            if len(result) >= PACK_LEFTOVER_RECIPES:
+                break
+        return result
 
     def _occasion_shopping_list(self, occasion_id: str, replace: bool = True) -> dict[str, Any]:
         """generate_shopping_list() for one occasion ("🛒 Einkaufsliste für den Anlass")."""
@@ -1660,6 +2216,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         new_items, total_price = self._new_plan_items(
             aggregated, previous, day, extra={"occasion_id": occasion["id"]}
         )
+        leftovers = self._pack_leftovers(new_items, day)
         self.shopping.extend(new_items)
         for item in changed:
             self._price_shopping_item(item)
@@ -1673,6 +2230,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "items": self._shopping_result_items(new_items),
             "stores": self.stores_summary(),
             "occasion": {"id": occasion["id"], "title": occasion["title"], "date": day.isoformat()},
+            "leftovers": leftovers,
         }
 
     def _take_out_occasion(self, occasion: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2043,6 +2601,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
     def _reprice_after_change(self, item: dict[str, Any]) -> None:
         """Store, price, product and description of an item after its product changed."""
+        item.pop("leftover", None)  # another pack (1.5.1)
         if item.get("status") != "completed" and self.trip_depends_on_items():
             self._reassign_open_items()
         else:
@@ -2194,6 +2753,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
     def _reparse_shopping_item(self, item: dict[str, Any]) -> None:
         """Amount, product and price after the text of an item (1.3 item) was changed."""
+        item.pop("leftover", None)  # other amounts (1.5.1)
         parsed = parse_ingredient(normalize_spoken_quantity(item["summary"]))
         amounts: dict[str, float] = {}
         if parsed["amount"] is not None:
@@ -2258,6 +2818,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         "image",
         "favorite",
         "rating",
+        # 1.5.1: the kind and who chose it (an import keeps the user's choice)
+        "kind",
+        "kind_source",
     )
 
     def export_recipes(self, recipe_ids: list[str] | None = None) -> list[dict[str, Any]]:
@@ -2389,7 +2952,21 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             # the AI buttons of the panel (1.5): which features are switched on and whether
             # the AI is reachable – no entity settings, prompts or answers
             "ai": ai_panel(self.hass, self),
+            # recipe kinds (1.5.1): [{id, label, emoji}] for the filters and the editor
+            "kinds": kinds_view(),
+            "leftover_max_days": LEFTOVER_MAX_DAYS,
         }
+
+
+def leftover_title(day: date, src_day: date, src_meal: str, dish: str) -> str:
+    """'🍲 Reste von Dienstag (Lasagne)' ('🍲 Reste vom Mittagessen (Lasagne)' the same
+    day; without a dish only '🍲 Reste von Dienstag')."""
+    if src_day == day:
+        when = f"vom {MEAL_LABELS.get(src_meal, src_meal)}"
+    else:
+        when = f"von {WEEKDAY_NAMES[src_day.weekday()]}"
+    text = f"{LEFTOVER_EMOJI} Reste {when}"
+    return f"{text} ({dish})" if dish else text
 
 
 def _load_starter_recipes() -> list[dict[str, Any]]:

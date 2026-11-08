@@ -76,6 +76,9 @@
     "plan_meal": {
       "service": "mdi:calendar-plus"
     },
+    "plan_leftover": {
+      "service": "mdi:pot-steam"
+    },
     "remove_meal": {
       "service": "mdi:calendar-remove"
     },

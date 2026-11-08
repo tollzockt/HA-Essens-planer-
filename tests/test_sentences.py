@@ -342,6 +342,22 @@ def test_all_intents_exist(intents: Intents) -> None:
             "essensplaner_auto_plan",
             {"strategy": "saisonal"},
         ),
+        # leftovers (1.5.1)
+        (
+            "koch am dienstag für mittwoch mit",
+            "essensplaner_plan_leftover",
+            {"from_date": "am dienstag", "to_date": "mittwoch"},
+        ),
+        (
+            "plane die reste vom dienstag für mittwoch",
+            "essensplaner_plan_leftover",
+            {"from_date": "dienstag", "to_date": "mittwoch"},
+        ),
+        (
+            "wir essen morgen die reste von heute",
+            "essensplaner_plan_leftover",
+            {"to_date": "morgen", "from_date": "heute"},
+        ),
         # the meals of a day stay with get_meals / plan_meal
         (
             "plane lasagne für samstag",

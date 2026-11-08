@@ -450,21 +450,19 @@ class EconomyMixin:
                         "cost": cost,
                     }
                 )
+            planned = self.plan.get(day.isoformat(), {})
             for view in self.day_meals(day):
-                recipe = self.recipes.get(view.get("recipe_id") or "")
-                if recipe is None:
+                # 1.5.1: with the extras and the leftovers (the cooking day pays for them)
+                cost = self.entry_cost(day, view["meal"], planned[view["meal"]])
+                if cost is None:
                     meals.append({**_meal_short(view), "cost": None})
                     continue
-                cost = self.recipe_cost(recipe, view.get("servings"), day)
                 day_total += cost["total"]
                 savings += cost["savings"]
-                meals.append(
-                    {
-                        **_meal_short(view),
-                        "cost": cost["total"],
-                        "on_offer": [o["ingredient"] for o in cost["on_offer"]],
-                    }
-                )
+                meal = {**_meal_short(view), "cost": cost["total"], "on_offer": cost["on_offer"]}
+                if cost["leftover"]:
+                    meal["leftover"] = True
+                meals.append(meal)
             total += day_total
             out_days.append(
                 {
@@ -845,6 +843,10 @@ class EconomyMixin:
                 for drink in entry.get("drinks") or []:
                     if isinstance(drink, dict) and drink.get("title"):
                         add(str(drink["title"]), 5, drinks=True)
+                for extra in entry.get("extras") or []:  # 1.5.1
+                    part = self.recipes.get(extra.get("recipe_id") or "") or {}
+                    for ingredient in part.get("ingredients", []):
+                        add(ingredient.get("name", ""), 5, drinks=True)
         for occasion in occasions_between(self, today, today + timedelta(days=13)):
             for ingredient, _label in occasion_entries(self, occasion)[0]:
                 add(str(ingredient.get("name") or ""), 6, drinks=True)

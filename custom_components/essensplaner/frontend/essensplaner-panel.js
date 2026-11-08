@@ -252,7 +252,30 @@ const AI_WAIT = "bis zu 2 Minuten";
 // a recipe counts as "in season" (🍂 badge, filter) from this score of season.recipe_season
 const SEASON_BADGE = 0.25;
 const drinkEmoji = (d) => DRINK_EMOJI[d?.kind] || (d?.alcohol ? "🍷" : "🥤");
-const isDrinkRecipe = (r) => (r?.tags || []).some((t) => DRINK_TAGS.has(fold(t)));
+const isDrinkRecipe = (r) => (r?.kind ? r.kind === "drink" : (r?.tags || []).some((t) => DRINK_TAGS.has(fold(t))));
+
+/* 1.5.1: recipe kinds (kinds.py) and leftovers ("🍲 Reste") */
+const KIND_FILTERS = [
+  ["meal", "🍽️ Mahlzeiten", ["meal"]],
+  ["snack", "🥪 Snacks", ["snack"]],
+  ["dessert", "🍰 Desserts", ["dessert"]],
+  ["drink", "🥤 Getränke", ["drink"]],
+  ["parts", "🧈 Beilagen & Bestandteile", ["side", "component"]],
+  ["breakfast", "☕ Frühstück", ["breakfast"]],
+];
+const KIND_LABELS = { meal: "🍽️ Mahlzeit", breakfast: "☕ Frühstück", snack: "🥪 Snack", dessert: "🍰 Dessert", drink: "🥤 Getränk", side: "🥔 Beilage", component: "🧈 Bestandteil" };
+// kinds that fill a meal slot on their own; the others come "Dazu" (extras of a meal)
+const SLOT_KINDS = new Set(["meal", "breakfast", "snack"]);
+const SLOT_KIND = { fruehstueck: "breakfast", snack: "snack" };
+const MEAL_NAMES = { fruehstueck: "Frühstück", mittagessen: "Mittagessen", snack: "Snack", abendessen: "Abendessen" };
+const recipeKind = (r) => r?.kind || (isDrinkRecipe(r) ? "drink" : "meal");
+/** "🍲 Reste von Dienstag (Lasagne)" for leftovers, else the entry's title. */
+const entryTitle = (entry, iso) => {
+  const lo = entry?.leftover_of;
+  if (!lo?.date) return entry?.title || "";
+  const when = lo.date === iso ? `vom ${MEAL_NAMES[lo.meal] || lo.meal}` : `von ${WEEKDAYS[weekdayIndex(fromIso(lo.date))]}`;
+  return `🍲 Reste ${when}${entry.title ? ` (${entry.title})` : ""}`;
+};
 /** "≈ 23 €" in the week plan (cents from below 10 €). */
 const euShort = (v) => (Number(v) >= 10 ? `${Math.round(Number(v))} €` : eur(v));
 const qtyText = (x) => (x?.quantity ? `${num(Math.round(Number(x.quantity) * 100) / 100)} ${x.unit || ""}`.trim() : "");
@@ -495,6 +518,13 @@ const STYLE = `
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .chip { font-size: 11.5px; border-radius: 999px; padding: 3px 9px; background: var(--ep-accent-bg); color: var(--primary-text-color); border: none; cursor: pointer; font-family: inherit; }
   .chip.active { background: var(--ep-primary); color: var(--ep-on-primary); }
+  .chip.kind { background: transparent; border: 1px solid var(--ep-divider); cursor: default; }
+  .kindrow { margin-bottom: 0; }
+  .meal.leftover .t { font-style: italic; }
+  .picklist.dazu { max-height: 190px; }
+  .pick.part.sel::after { content: "✓"; margin-left: 6px; color: var(--ep-primary); font-weight: 600; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 90px; gap: 10px; }
+  @media (max-width: 600px) { .grid3 { grid-template-columns: 1fr 1fr; } }
   .tagrow { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
   .tagrow .chip { flex: none; }
 
@@ -1171,6 +1201,7 @@ class EssensplanerPanel extends HTMLElement {
     this._data = null;
     this._search = "";
     this._tag = "";
+    this._kind = this._pref("kind", "");
     this._favOnly = false;
     this._modal = null;
     this._cook = null;
@@ -1493,6 +1524,47 @@ class EssensplanerPanel extends HTMLElement {
     return this._data.all_meals.find((m) => m.id === id)?.label || id;
   }
 
+  /** Index of a meal slot by time (leftovers come after their cooking meal). */
+  _mealRank(id) {
+    const i = this._data.all_meals.findIndex((m) => m.id === id);
+    return i < 0 ? 9 : i;
+  }
+
+  /** The entries that are the leftovers of a planned meal: [{date, meal, entry}] (1.5.1). */
+  _leftoversOf(iso, meal) {
+    const found = [];
+    const max = this._data.leftover_max_days || 7;
+    for (let i = 0; i <= max; i++) {
+      const day = toIso(addDays(fromIso(iso), i));
+      for (const [m, e] of Object.entries(this._data.plan[day] || {})) {
+        if (e.leftover_of?.date === iso && e.leftover_of?.meal === meal) found.push({ date: day, meal: m, entry: e });
+      }
+    }
+    return found;
+  }
+
+  /** Planned meals of the previous 3 days (and earlier the same day) whose leftovers fit
+   * this slot: [{date, meal, entry}], newest first. */
+  _leftoverSources(iso, meal) {
+    const found = [];
+    for (let i = 0; i <= 3; i++) {
+      const day = toIso(addDays(fromIso(iso), -i));
+      for (const [m, e] of Object.entries(this._data.plan[day] || {})) {
+        if (e.leftover_of || !(e.recipe_id || e.title)) continue;
+        if (i === 0 && this._mealRank(m) >= this._mealRank(meal)) continue;
+        found.push({ date: day, meal: m, entry: e });
+      }
+    }
+    return found.sort((a, b) => b.date.localeCompare(a.date) || this._mealRank(b.meal) - this._mealRank(a.meal));
+  }
+
+  /** "🍲 Die Reste am Mittwoch werden jetzt dort frisch gekocht." after a move / delete. */
+  _unlinkedToast(views) {
+    if (!views?.length) return;
+    const list = views.map((v) => `${this._dateLabel(v.date)} (${v.dish || v.title})`).join(", ");
+    this._toast(`🍲 ${list}: keine Reste mehr – wird jetzt dort frisch gekocht.`);
+  }
+
   _dateLabel(iso) {
     const d = fromIso(iso);
     return `${WEEKDAYS[weekdayIndex(d)]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
@@ -1623,7 +1695,8 @@ class EssensplanerPanel extends HTMLElement {
       }
       const to = { date: slot.dataset.dropDate, meal: slot.dataset.dropMeal };
       if (!src?.date || (src.date === to.date && src.meal === to.meal)) return;
-      await this._service("move_meal", { from_date: src.date, from_meal: src.meal, to_date: to.date, to_meal: to.meal });
+      const res = await this._service("move_meal", { from_date: src.date, from_meal: src.meal, to_date: to.date, to_meal: to.meal }, true);
+      this._unlinkedToast(res?.leftovers_unlinked);
     });
     this.shadowRoot.querySelector(".fileinput").addEventListener("change", (ev) => this._importFile(ev));
   }
@@ -1715,7 +1788,7 @@ class EssensplanerPanel extends HTMLElement {
       const entries = Object.entries(week[iso] || {});
       const main = entries.find(([m]) => m === this._data.default_meal) || entries[0];
       minis.push(
-        `<div class="mini"><b>${esc(relativeDay(iso, today).split(",")[0])}</b><span>${main ? esc(main[1].title) : '<span class="meta">noch frei</span>'}</span></div>`
+        `<div class="mini"><b>${esc(relativeDay(iso, today).split(",")[0])}</b><span>${main ? esc(entryTitle(main[1], iso)) : '<span class="meta">noch frei</span>'}</span></div>`
       );
     }
     const side = `<div class="side">${minis.join("")}</div>`;
@@ -1745,7 +1818,7 @@ class EssensplanerPanel extends HTMLElement {
         ${img ? "" : `<div class="bigemoji">${recipe ? dishEmoji(recipe.name) : "📝"}</div>`}
         <div>
           <div class="kicker">${esc(greet)}! · ${esc(when)} · ${esc(this._mealLabel(up.meal))}</div>
-          <div class="htitle">${esc(up.entry.title)}</div>
+          <div class="htitle">${esc(entryTitle(up.entry, up.date))}</div>
           <div class="hmeta">${esc(meta.join(" · "))}</div>
           <div class="hactions">
             ${recipe ? `<button class="btn primary" data-action="cook" data-id="${esc(recipe.id)}" data-date="${up.date}" data-meal="${up.meal}" data-servings="${up.entry.servings || ""}">👩‍🍳 Kochmodus</button>` : ""}
@@ -1777,14 +1850,18 @@ class EssensplanerPanel extends HTMLElement {
             planned += 1;
             const recipe = this._recipe(entry.recipe_id);
             const drinks = entry.drinks?.length ? `🥤 ${entry.drinks[0].title}${entry.drinks.length > 1 ? ` +${entry.drinks.length - 1}` : ""}` : "";
-            const sub = [entry.servings ? `👥 ${entry.servings}` : "", recipe?.total_time ? `⏱ ${recipe.total_time} min` : "", entry.note || "", drinks].filter(Boolean).join(" · ");
+            // 1.5.1: extras ("＋ Kräuterbutter") and leftovers cooked here ("🍲 +2 für Mi")
+            const extras = entry.extras?.length ? `＋ ${entry.extras.map((x) => x.title).join(", ")}` : "";
+            const lefts = entry.leftover_of ? [] : this._leftoversOf(iso, mealId);
+            const leftText = lefts.length ? `🍲 +${lefts.reduce((n, l) => n + (Number(l.entry.servings) || 0), 0) || lefts.length} für ${lefts.map((l) => WEEKDAYS[weekdayIndex(fromIso(l.date))].slice(0, 2)).join(", ")}` : "";
+            const sub = [entry.servings ? `👥 ${entry.servings}` : "", recipe?.total_time && !entry.leftover_of ? `⏱ ${recipe.total_time} min` : "", entry.note || "", extras, leftText, drinks].filter(Boolean).join(" · ");
             const mc = weekCosts?.[iso]?.[mealId];
-            const costHtml = mc?.cost != null ? `<span class="cost">≈ ${eur(mc.cost)}</span>${mc.on_offer?.length ? `<span class="tagoffer" title="Im Angebot: ${esc(mc.on_offer.join(", "))}">🏷️ ${mc.on_offer.length}</span>` : ""}` : "";
+            const costHtml = mc?.cost != null && !mc.leftover ? `<span class="cost">≈ ${eur(mc.cost)}</span>${mc.on_offer?.length ? `<span class="tagoffer" title="Im Angebot: ${esc(mc.on_offer.join(", "))}">🏷️ ${mc.on_offer.length}</span>` : ""}` : "";
             const thumb = recipe?.image && safeUrl(recipe.image)
               ? `<span class="thumb" ${bg(recipe.image)}></span>`
               : `<span class="thumb">${entry.cooked ? "✅" : recipe ? dishEmoji(recipe.name) : "📝"}</span>`;
-            inner = `<button class="meal ${recipe ? "" : "free"} ${entry.cooked ? "cooked" : ""}" draggable="true" data-drag-date="${iso}" data-drag-meal="${mealId}" data-action="open-entry" data-date="${iso}" data-meal="${mealId}" title="Klicken zum Bearbeiten, ziehen zum Verschieben">
-                ${thumb}<span><div class="t">${esc(entry.title)}</div>${sub || costHtml ? `<div class="s">${esc(sub)} ${costHtml}</div>` : ""}</span>
+            inner = `<button class="meal ${recipe ? "" : "free"} ${entry.cooked ? "cooked" : ""} ${entry.leftover_of ? "leftover" : ""}" draggable="true" data-drag-date="${iso}" data-drag-meal="${mealId}" data-action="open-entry" data-date="${iso}" data-meal="${mealId}" title="Klicken zum Bearbeiten, ziehen zum Verschieben">
+                ${thumb}<span><div class="t">${esc(entryTitle(entry, iso))}</div>${sub || costHtml ? `<div class="s">${esc(sub)} ${costHtml}</div>` : ""}</span>
               </button>`;
           } else {
             inner = `<button class="add" data-action="add-entry" data-date="${iso}" data-meal="${mealId}">＋ <span>hinzufügen</span></button>`;
@@ -1871,6 +1948,10 @@ class EssensplanerPanel extends HTMLElement {
     const list = this._data.recipes.filter((r) => {
       if (this._favOnly && !r.favorite) return false;
       if (this._seasonOnly && !this._seasonOf(r.id)) return false;
+      if (this._kind) {
+        const filter = KIND_FILTERS.find((f) => f[0] === this._kind);
+        if (filter && !filter[2].includes(recipeKind(r))) return false;
+      }
       if (this._tag && !(r.tags || []).some((t) => fold(t) === fold(this._tag))) return false;
       if (!q) return true;
       const hay = fold([r.name, ...(r.tags || []), ...(r.ingredients || []).map((i) => i.name)].join(" "));
@@ -1907,7 +1988,7 @@ class EssensplanerPanel extends HTMLElement {
               <div class="name">${esc(r.name)}</div>
               ${r.rating ? `<div class="stars">${stars(r.rating)}</div>` : ""}
               ${meta ? `<div class="meta">${meta}</div>` : ""}
-              <div class="chips">${(r.tags || []).slice(0, 4).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+              <div class="chips"><span class="chip kind k-${recipeKind(r)}" title="Art${r.kind_source === "user" ? " (selbst gewählt)" : ""}">${KIND_LABELS[recipeKind(r)] || ""}</span>${(r.tags || []).slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
             </div>
           </div>`;
       })
@@ -1925,6 +2006,13 @@ class EssensplanerPanel extends HTMLElement {
         <button class="btn" data-action="cook-with">🧊 Was kann ich kochen?</button>
         <span class="spacer"></span>
         <button class="btn ghost" data-action="backup">💾 Sichern & Teilen</button>
+      </div>
+      <div class="row chips tagrow kindrow" role="group" aria-label="Art">
+        <button class="chip ${this._kind ? "" : "active"}" data-action="kind" data-kind="" aria-pressed="${!this._kind}">Alle Arten</button>
+        ${KIND_FILTERS.map(([id, label, kinds]) => {
+          const n = this._data.recipes.filter((r) => kinds.includes(recipeKind(r))).length;
+          return n ? `<button class="chip ${this._kind === id ? "active" : ""}" data-action="kind" data-kind="${id}" aria-pressed="${this._kind === id}">${label} (${n})</button>` : "";
+        }).join("")}
       </div>
       <div class="row chips tagrow">
         <button class="chip ${this._tag ? "" : "active"}" data-action="tag" data-tag="">Alle (${this._data.recipes.length})</button>
@@ -2580,6 +2668,11 @@ class EssensplanerPanel extends HTMLElement {
         this._tag = d.tag;
         this._renderContent();
         break;
+      case "kind":
+        this._kind = d.kind || "";
+        this._setPref("kind", this._kind);
+        this._renderContent();
+        break;
       case "fav-only":
         this._favOnly = !this._favOnly;
         this._renderContent();
@@ -3003,26 +3096,60 @@ class EssensplanerPanel extends HTMLElement {
     const servings = current?.servings || this._data.default_servings;
     let selected = current?.recipe_id || null;
     let query = "";
+    // 1.5.1: meals first (those of this slot's kind at the top); sides, sauces, drinks and
+    // desserts come "Dazu" – as extras of the slot's meal, never as a meal of their own
+    const wanted = SLOT_KIND[meal] || "meal";
+    let extras = (current?.extras || []).map((x) => ({ recipe_id: x.recipe_id || null, title: x.title }));
+    const matches = (r, q) => !q || fold(r.name).includes(q) || (r.tags || []).some((t) => fold(t).includes(q));
+    const byFav = (a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || a.name.localeCompare(b.name, "de");
     const listHtml = () => {
       const q = fold(query).trim();
       const items = this._data.recipes
-        .filter((r) => !q || fold(r.name).includes(q) || (r.tags || []).some((t) => fold(t).includes(q)))
-        .sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || a.name.localeCompare(b.name, "de"))
+        .filter((r) => (SLOT_KINDS.has(recipeKind(r)) || r.id === selected) && matches(r, q))
+        .sort((a, b) => (recipeKind(a) === wanted ? 0 : 1) - (recipeKind(b) === wanted ? 0 : 1) || byFav(a, b))
         .slice(0, 80);
       if (!items.length) return `<div class="pick" style="cursor:default">Kein Rezept gefunden – wird als Freitext eingetragen.</div>`;
       return items
         .map((r) => {
           const season = this._seasonOf(r.id);
-          return `<button class="pick ${r.id === selected ? "sel" : ""}" data-pick="${esc(r.id)}">${dishEmoji(r.name)} ${esc(r.name)}${r.favorite ? ' <span class="stars"><span class="on">★</span></span>' : ""}${season ? ` <span title="${esc(season.hints.join(" · "))}">🍂</span>` : ""}<span class="m">${r.total_time ? r.total_time + " min" : ""}</span></button>`;
+          const kind = recipeKind(r);
+          return `<button class="pick ${r.id === selected ? "sel" : ""}" data-pick="${esc(r.id)}">${dishEmoji(r.name)} ${esc(r.name)}${r.favorite ? ' <span class="stars"><span class="on">★</span></span>' : ""}${season ? ` <span title="${esc(season.hints.join(" · "))}">🍂</span>` : ""}<span class="m">${kind !== wanted ? `${esc(KIND_LABELS[kind] || "")} · ` : ""}${r.total_time ? r.total_time + " min" : ""}</span></button>`;
         })
         .join("");
     };
+    const dazuHtml = () => {
+      const q = fold(query).trim();
+      const on = new Set(extras.map((x) => x.recipe_id).filter(Boolean));
+      const items = this._data.recipes
+        .filter((r) => !SLOT_KINDS.has(recipeKind(r)) && r.id !== selected && (on.has(r.id) || matches(r, q)))
+        .sort((a, b) => (on.has(b.id) ? 1 : 0) - (on.has(a.id) ? 1 : 0) || byFav(a, b))
+        .slice(0, 60);
+      const free = extras.filter((x) => !x.recipe_id).map((x) => `<button class="pick part sel" data-xfree="${esc(x.title)}">📝 ${esc(x.title)}<span class="m">Freitext</span></button>`).join("");
+      return (
+        free +
+          items.map((r) => `<button class="pick part ${on.has(r.id) ? "sel" : ""}" data-extra="${esc(r.id)}" aria-pressed="${on.has(r.id)}">${dishEmoji(r.name)} ${esc(r.name)}<span class="m">${esc(KIND_LABELS[recipeKind(r)] || "")}</span></button>`).join("") ||
+        '<div class="pick" style="cursor:default">Keine Beilagen, Saucen oder Getränke gefunden.</div>'
+      );
+    };
+    const dazuInfo = () => (extras.length ? `Dazu: ${extras.map((x) => esc(x.title)).join(", ")}` : "Bestandteile wie Saucen, Dips oder Getränke werden zu der Mahlzeit dazugeplant – nie als eigene Mahlzeit.");
+    // leftovers of the last days for an empty slot ("🍲 Reste von Dienstag (Lasagne)")
+    const sources = current ? [] : this._leftoverSources(date, meal);
+    const leftHtml = sources.length
+      ? `<div class="section"><h4>🍲 Reste essen</h4><div class="suglist leftlist">${sources
+          .slice(0, 6)
+          .map((x) => `<button class="sg" data-left="${x.date}|${x.meal}"><span class="sthumb">🍲</span><span class="sgt"><b>${esc(entryTitle({ title: x.entry.title, leftover_of: { date: x.date, meal: x.meal } }, date))}</b><div class="why">${esc(this._dateLabel(x.date))} · ${esc(this._mealLabel(x.meal))} – wird dort für alle mitgekocht</div></span></button>`)
+          .join("")}</div></div>`
+      : "";
     const body = `
       <div class="hint" style="display:flex;align-items:center;gap:6px"><i style="width:9px;height:9px;border-radius:50%;background:${this._mealColor(meal)};display:inline-block"></i>${esc(this._dateLabel(date))} · ${esc(this._mealLabel(meal))}</div>
+      ${leftHtml}
       <input type="search" placeholder="Rezept suchen oder Freitext („Pizza bestellen“) …" class="q" value="${esc(current && !current.recipe_id ? current.title : "")}">
       <div class="row" style="margin:0"><button class="btn small psuggest">💡 Vorschläge</button><span class="hint">nach Favoriten, Saison, Angeboten und Abwechslung</span></div>
       <div class="suggestions suglist"></div>
-      <div class="picklist">${listHtml()}</div>
+      <div class="picklist main">${listHtml()}</div>
+      <h4 style="margin:4px 0 0">➕ Dazu <span class="hint" style="font-weight:normal">Beilagen, Saucen & Dips, Getränke, Desserts</span></h4>
+      <div class="hint dazuinfo">${dazuInfo()}</div>
+      <div class="picklist dazu">${dazuHtml()}</div>
       <div class="grid2">
         <label class="field">Portionen<input type="number" min="1" max="50" class="servings" value="${servings}"></label>
         <label class="field">Notiz<input class="note" value="${esc(current?.note || "")}" placeholder="optional"></label>
@@ -3030,12 +3157,18 @@ class EssensplanerPanel extends HTMLElement {
     const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">📅 Einplanen</button>`;
     this._showModal(current ? "Mahlzeit ändern" : "Mahlzeit planen", body, footer, (root) => {
       const q = root.querySelector(".q");
-      const list = root.querySelector(".picklist");
+      const list = root.querySelector(".picklist.main");
+      const dazu = root.querySelector(".picklist.dazu");
+      const renderDazu = () => {
+        dazu.innerHTML = dazuHtml();
+        root.querySelector(".dazuinfo").innerHTML = dazuInfo();
+      };
       q.focus();
       q.addEventListener("input", () => {
         query = q.value;
         selected = null;
         list.innerHTML = listHtml();
+        renderDazu();
       });
       q.addEventListener("keydown", (ev) => ev.key === "Enter" && root.querySelector(".save").click());
       list.addEventListener("click", (ev) => {
@@ -3043,9 +3176,30 @@ class EssensplanerPanel extends HTMLElement {
         if (!pick) return;
         selected = pick.dataset.pick;
         list.innerHTML = listHtml();
+        renderDazu();
       });
       list.addEventListener("dblclick", (ev) => {
         if (ev.target.closest("[data-pick]")) root.querySelector(".save").click();
+      });
+      dazu.addEventListener("click", (ev) => {
+        const pick = ev.target.closest("[data-extra]");
+        const free = ev.target.closest("[data-xfree]");
+        if (pick) {
+          const id = pick.dataset.extra;
+          const r = this._recipe(id);
+          extras = extras.some((x) => x.recipe_id === id) ? extras.filter((x) => x.recipe_id !== id) : [...extras, { recipe_id: id, title: r?.name || id }];
+        } else if (free) {
+          extras = extras.filter((x) => x.recipe_id || x.title !== free.dataset.xfree);
+        } else return;
+        renderDazu();
+      });
+      root.querySelector(".leftlist")?.addEventListener("click", async (ev) => {
+        const left = ev.target.closest("[data-left]");
+        if (!left) return;
+        const [fromDate, fromMeal] = left.dataset.left.split("|");
+        const res = await this._service("plan_leftover", { date, meal, from_date: fromDate, from_meal: fromMeal, servings: Number(root.querySelector(".servings").value) || undefined }, true);
+        this._toast(`🍲 ${res?.entry?.title || "Reste"}: ${this._dateLabel(date)}, ${this._mealLabel(meal)}`);
+        this._closeModal();
       });
       // 1.5: with the reasons ("⭐ Favorit · 🍂 Saison: Kürbis · 🏷️ Angebot: Hack")
       const suggest = async () => {
@@ -3071,6 +3225,7 @@ class EssensplanerPanel extends HTMLElement {
         q.value = "";
         root.querySelectorAll(".suggestions [data-sugg]").forEach((x) => x.classList.toggle("sel", x === chip));
         list.innerHTML = listHtml();
+        renderDazu();
         list.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
       });
       root.querySelector(".save").addEventListener("click", async () => {
@@ -3079,7 +3234,10 @@ class EssensplanerPanel extends HTMLElement {
         if (note) data.note = note;
         if (selected) data.recipe = selected;
         else if (q.value.trim()) data.title = q.value.trim();
+        else if (extras.length && current) data[current.recipe_id ? "recipe" : "title"] = current.recipe_id || current.title;
+        else if (extras.length) return this._toast("Bitte zuerst eine Mahlzeit wählen – Beilagen, Saucen und Getränke werden zu ihr dazugeplant.");
         else return this._toast("Bitte ein Rezept auswählen oder einen Text eingeben.");
+        if (extras.length || current?.extras?.length) data.extras = extras.map((x) => (x.recipe_id ? { recipe_id: x.recipe_id } : { title: x.title }));
         await this._service("plan_meal", data);
         this._closeModal();
       });
@@ -3090,12 +3248,35 @@ class EssensplanerPanel extends HTMLElement {
     const entry = (this._data.plan[date] || {})[meal];
     if (!entry) return;
     const recipe = this._recipe(entry.recipe_id);
+    const lo = entry.leftover_of;
+    const lefts = lo ? [] : this._leftoversOf(date, meal);
+    // cooked here: its own servings and those of its leftovers
+    const cookServings = lefts.length ? (Number(entry.servings) || this._data.default_servings) + lefts.reduce((n, l) => n + (Number(l.entry.servings) || 0), 0) : entry.servings;
+    // 1.5.1: "🍲 Für einen weiteren Tag mitkochen" (default: the next day, the same meal)
+    const next = toIso(addDays(fromIso(date), 1));
+    const leftoverSec = lo
+      ? `<div class="section"><h4>🍲 Reste</h4><div>Gekocht wird am ${esc(this._dateLabel(lo.date))} (${esc(this._mealLabel(lo.meal))}) für alle Portionen – hier kommt nichts auf die Einkaufsliste, die Reste kosten nichts.</div><div><button class="btn small fresh">🍳 Doch frisch kochen</button></div></div>`
+      : `<div class="section leftsec"><h4>🍲 Für einen weiteren Tag mitkochen</h4>
+          ${lefts.length ? `<div>Mitgekocht für: ${lefts.map((l) => `${esc(this._dateLabel(l.date))}, ${esc(this._mealLabel(l.meal))}${l.entry.servings ? ` (👥 ${l.entry.servings})` : ""}`).join(" · ")}</div>` : ""}
+          <div class="hint">Hier wird für beide Mahlzeiten gekocht und eingekauft – praktisch, wenn sonst angebrochene Packungen übrig bleiben.</div>
+          <div class="grid3">
+            <label class="field">Reste am<input type="date" class="ldate" value="${next}"></label>
+            <label class="field">Mahlzeit<select class="lmeal">${this._mealOptions(meal)}</select></label>
+            <label class="field">Portionen<input type="number" min="1" max="50" class="lserv" value="${entry.servings || this._data.default_servings}"></label>
+          </div>
+          <div class="hint lwarn"></div>
+          <div><button class="btn small leftover">🍲 Mitkochen</button></div>
+        </div>`;
+    const extras = entry.extras || [];
+    const extrasSec = `<div class="section"><h4>➕ Dazu</h4><div class="xchips">${extras.length ? extras.map((x, n) => `<span class="dchip-x">${x.recipe_id ? dishEmoji(x.title) : "📝"} ${esc(x.title)}<button class="icon" data-xx="${n}" aria-label="${esc(x.title)} entfernen" title="Entfernen">✕</button></span>`).join("") : '<span class="hint">Beilagen, Saucen & Dips, Getränke oder ein Dessert zur Mahlzeit – kommen mit auf die Einkaufsliste.</span>'}</div><div><button class="btn small xadd">＋ Dazu planen</button></div></div>`;
     const body = `
       <div class="hint" style="display:flex;align-items:center;gap:6px"><i style="width:9px;height:9px;border-radius:50%;background:${this._mealColor(meal)};display:inline-block"></i>${esc(this._dateLabel(date))} · ${esc(this._mealLabel(meal))}</div>
-      <div class="heroimg" ${recipe ? bg(recipe.image) : ""}>${recipe && safeUrl(recipe.image) ? "" : recipe ? dishEmoji(recipe.name) : "📝"}</div>
-      <div class="meta" style="font-size:14px">${[entry.servings ? `👥 ${entry.servings} Portionen` : "", recipe?.total_time ? `⏱ ${recipe.total_time} min` : "", entry.cooked ? "✅ gekocht" : ""].filter(Boolean).join(" · ")}</div>
+      <div class="heroimg" ${recipe ? bg(recipe.image) : ""}>${recipe && safeUrl(recipe.image) ? "" : lo ? "🍲" : recipe ? dishEmoji(recipe.name) : "📝"}</div>
+      <div class="meta" style="font-size:14px">${[entry.servings ? `👥 ${entry.servings} Portionen` : "", recipe?.total_time && !lo ? `⏱ ${recipe.total_time} min` : "", entry.cooked ? "✅ gekocht" : ""].filter(Boolean).join(" · ")}</div>
       ${entry.note ? `<div>📝 ${esc(entry.note)}</div>` : ""}
-      ${!recipe ? `<div class="hint">Freitext ohne Rezept – Zutaten landen nicht auf der Einkaufsliste.</div>` : ""}
+      ${!recipe && !lo ? `<div class="hint">Freitext ohne Rezept – Zutaten landen nicht auf der Einkaufsliste.</div>` : ""}
+      ${leftoverSec}
+      ${extrasSec}
       ${recipe && isDrinkRecipe(recipe) ? "" : `<div class="section drinksec"><h4>🥤 Getränke dazu</h4><div class="dchips"></div><div class="dadd"></div></div>`}
       <div class="section">
         <h4>Verschieben / Tauschen</h4>
@@ -3108,12 +3289,22 @@ class EssensplanerPanel extends HTMLElement {
     const footer = `
       <button class="btn danger remove">🗑 Entfernen</button>
       <button class="btn change">✏️ Ändern</button>
-      ${entry.cooked ? "" : `<button class="btn cooked">✅ Gekocht</button>`}
+      ${entry.cooked ? "" : `<button class="btn cooked">✅ ${lo ? "Gegessen" : "Gekocht"}</button>`}
       ${recipe ? `<button class="btn showr">📖 Rezept</button><button class="btn primary cookbtn">👩‍🍳 Kochmodus</button>` : ""}`;
-    this._showModal(entry.title, body, footer, (root) => {
+    // the same dish with other extras (plan_meal keeps cooked, drinks and the leftovers link)
+    const planSame = (extrasList) => {
+      const data = { date, meal, extras: extrasList.map((x) => (x.recipe_id ? { recipe_id: x.recipe_id } : { title: x.title })) };
+      if (entry.servings) data.servings = entry.servings;
+      if (entry.recipe_id) data.recipe = entry.recipe_id;
+      else data.title = entry.title;
+      if (entry.note) data.note = entry.note;
+      return this._service("plan_meal", data, true);
+    };
+    this._showModal(entryTitle(entry, date), body, footer, (root) => {
       this._entryDrinks(root, date, meal, entry);
       root.querySelector(".remove").addEventListener("click", async () => {
-        await this._service("remove_meal", { date, meal });
+        const res = await this._service("remove_meal", { date, meal }, true);
+        this._unlinkedToast((res?.removed || []).flatMap((v) => v.leftovers_unlinked || []));
         this._closeModal();
       });
       root.querySelector(".change").addEventListener("click", () => this._openPicker(date, meal, entry));
@@ -3121,17 +3312,58 @@ class EssensplanerPanel extends HTMLElement {
         await this._service("mark_cooked", { date, meal });
         this._closeModal();
       });
-      root.querySelector(".showr")?.addEventListener("click", () => this._openRecipe(recipe.id, entry.servings, { date, meal }));
+      root.querySelector(".showr")?.addEventListener("click", () => this._openRecipe(recipe.id, cookServings, { date, meal }));
       root.querySelector(".cookbtn")?.addEventListener("click", () => {
         this._closeModal();
-        this._openCooking(recipe.id, entry.servings, { date, meal });
+        this._openCooking(recipe.id, cookServings, { date, meal });
+      });
+      root.querySelector(".xadd").addEventListener("click", () => this._openPicker(date, meal, entry));
+      root.querySelector(".xchips").addEventListener("click", async (ev) => {
+        const x = ev.target.closest("[data-xx]");
+        if (!x) return;
+        await planSame(extras.filter((_, n) => n !== Number(x.dataset.xx)));
+        this._closeModal();
+      });
+      root.querySelector(".fresh")?.addEventListener("click", async () => {
+        // leftovers become a normal meal of this day (its drinks and extras stay)
+        const data = { date, meal, servings: entry.servings || undefined };
+        if (entry.recipe_id) data.recipe = entry.recipe_id;
+        else data.title = entry.title;
+        if (entry.note) data.note = entry.note;
+        if (entry.drinks?.length) data.drinks = entry.drinks;
+        if (extras.length) data.extras = extras.map((x) => (x.recipe_id ? { recipe_id: x.recipe_id } : { title: x.title }));
+        await this._service("remove_meal", { date, meal });
+        await this._service("plan_meal", data);
+        this._toast(`🍳 ${entry.title}: wird am ${this._dateLabel(date)} frisch gekocht`);
+        this._closeModal();
+      });
+      const lwarn = () => {
+        const box = root.querySelector(".lwarn");
+        if (!box) return;
+        const d = root.querySelector(".ldate").value;
+        const m = root.querySelector(".lmeal").value;
+        const there = (this._data.plan[d] || {})[m];
+        const ok = d && (d > date || (d === date && this._mealRank(m) > this._mealRank(meal)));
+        box.textContent = !ok ? "Die Reste gibt es nach dem Kochen – bitte einen späteren Tag oder eine spätere Mahlzeit wählen." : there && !(there.leftover_of?.date === date && there.leftover_of?.meal === meal) ? `Dort steht schon „${entryTitle(there, d)}“ – wird durch die Reste ersetzt.` : "";
+      };
+      root.querySelector(".ldate")?.addEventListener("change", lwarn);
+      root.querySelector(".lmeal")?.addEventListener("change", lwarn);
+      lwarn();
+      root.querySelector(".leftover")?.addEventListener("click", async () => {
+        const toDate = root.querySelector(".ldate").value;
+        const toMeal = root.querySelector(".lmeal").value;
+        if (!toDate) return;
+        const res = await this._service("plan_leftover", { date: toDate, meal: toMeal, from_date: date, from_meal: meal, servings: Number(root.querySelector(".lserv").value) || undefined }, true);
+        this._toast(`🍲 ${entry.title}: Reste am ${this._dateLabel(toDate)}, ${this._mealLabel(toMeal)}${res?.entry?.replaced ? ` (statt ${res.entry.replaced})` : ""}`);
+        this._closeModal();
       });
       root.querySelector(".move").addEventListener("click", async () => {
         const toDate = root.querySelector(".mdate").value;
         const toMeal = root.querySelector(".mmeal").value;
         if (!toDate || (toDate === date && toMeal === meal)) return;
-        await this._service("move_meal", { from_date: date, from_meal: meal, to_date: toDate, to_meal: toMeal });
+        const res = await this._service("move_meal", { from_date: date, from_meal: meal, to_date: toDate, to_meal: toMeal }, true);
         this._toast(`↪ ${entry.title}: ${this._dateLabel(toDate)}, ${this._mealLabel(toMeal)}`);
+        this._unlinkedToast(res?.leftovers_unlinked);
         this._closeModal();
       });
     });
@@ -3208,8 +3440,9 @@ class EssensplanerPanel extends HTMLElement {
           const date = root.querySelector(".pdate").value;
           const meal = root.querySelector(".pmeal").value;
           if (!date) return;
-          await this._service("plan_meal", { date, meal, recipe: id, servings });
-          this._toast(`📅 ${r.name}: ${this._dateLabel(date)}, ${this._mealLabel(meal)}`);
+          const res = await this._service("plan_meal", { date, meal, recipe: id, servings }, true);
+          // 1.5.1: a side, sauce, drink or dessert joins the meal planned there
+          this._toast(res?.entry?.added_as_extra ? `➕ ${r.name} zu ${res.entry.title}: ${this._dateLabel(date)}, ${this._mealLabel(meal)}` : `📅 ${r.name}: ${this._dateLabel(date)}, ${this._mealLabel(meal)}`);
           this._closeModal();
         });
         root.querySelector(".fav").addEventListener("click", async () => {
@@ -3252,6 +3485,11 @@ class EssensplanerPanel extends HTMLElement {
         <label class="field">Portionen<input type="number" min="1" max="100" class="servings" value="${esc(r.servings || this._data.default_servings)}"></label>
         <label class="field">Gesamtzeit (Minuten)<input type="number" min="0" class="time" value="${esc(r.total_time ?? "")}"></label>
       </div>
+      <label class="field">Art<select class="kind">
+        <option value="auto">Automatisch${r.kind && r.kind_source !== "user" ? ` (jetzt: ${esc(KIND_LABELS[r.kind] || r.kind)})` : ""}</option>
+        ${Object.entries(KIND_LABELS).map(([k, label]) => `<option value="${k}" ${r.kind_source === "user" && r.kind === k ? "selected" : ""}>${esc(label)}</option>`).join("")}
+      </select></label>
+      <div class="hint">Nur Mahlzeiten, Frühstück und Snacks werden allein eingeplant. Getränke, Beilagen, Bestandteile (Saucen, Dips, Kräuterbutter) und Desserts kommen zu einer Mahlzeit dazu.</div>
       <label class="field">Kategorien (kommagetrennt)<input class="tags" value="${esc((r.tags || []).join(", "))}" placeholder="Hauptgericht, vegetarisch, schnell"></label>
       <label class="field">Zutaten – eine pro Zeile, z. B. „400 g Spaghetti“<textarea class="ingredients" placeholder="400 g Spaghetti&#10;1 Zwiebel&#10;2 EL Olivenöl">${esc((r.ingredients || []).map((i) => this._ingredientLine(i)).join("\n"))}</textarea></label>
       <label class="field">Zubereitung – ein Schritt pro Zeile (Zeitangaben wie „10 Minuten“ werden im Kochmodus zu Timern)<textarea class="steps">${esc((r.steps || []).join("\n"))}</textarea></label>
@@ -3279,6 +3517,10 @@ class EssensplanerPanel extends HTMLElement {
         };
         const time = v(".time");
         if (time !== "") data.total_time = Number(time);
+        // 1.5.1: the kind (the rules decide with "Automatisch")
+        const kind = v(".kind");
+        if (kind !== "auto") data.kind = kind;
+        else if (r.kind_source === "user") data.kind = "auto";
         const res = recipe
           ? await this._service("update_recipe", { recipe: recipe.id, ...data }, true)
           : await this._service("add_recipe", data, true);

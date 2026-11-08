@@ -71,10 +71,28 @@ class MealPlanCalendar(EssensplanerEntity, CalendarEntity):
         if view.get("note"):
             description_parts.append(view["note"])
         recipe = self.manager.recipes.get(view.get("recipe_id") or "")
-        if recipe:
-            lines = self.manager.recipe_view(recipe, view.get("servings"))["ingredient_lines"]
+        if leftover := view.get("leftover_of"):
+            # 1.5.1: cooked on another day
+            description_parts.append(
+                f"Vorgekocht am {leftover['weekday']} ({leftover['meal_label']})"
+            )
+        elif recipe:
+            servings = view.get("cook_servings") or view.get("servings")
+            lines = self.manager.recipe_view(recipe, servings)["ingredient_lines"]
             if lines:
                 description_parts.append("Zutaten: " + ", ".join(lines))
+            if view.get("leftovers"):
+                description_parts.append(
+                    "Mitkochen für "
+                    + ", ".join(
+                        f"{x['weekday']} ({x['servings']} Portionen)"
+                        if x.get("servings")
+                        else x["weekday"]
+                        for x in view["leftovers"]
+                    )
+                )
+        if extras := [x["title"] for x in view.get("extras") or [] if x.get("title")]:
+            description_parts.append("Dazu: " + ", ".join(extras))
         if drinks := [d.get("title") for d in view.get("drinks") or [] if d.get("title")]:
             description_parts.append("Getränke: " + ", ".join(drinks))
         return CalendarEvent(

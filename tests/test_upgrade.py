@@ -140,7 +140,7 @@ async def test_upgrade_1_2_to_1_3(
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
 
-    assert manager.data_version == 5  # 1.4: drugstore branches (v4), 1.5: aisle fixes (v5)
+    assert manager.data_version == 6  # 1.4: drugstore branches (v4), 1.5: aisle fixes (v5)
     assert manager.branches == []  # no legacy branches
     assert manager.main_branch is None
     assert manager.store_prices_user["lidl"]["butter"]["price"] == 1.79
@@ -162,7 +162,7 @@ async def test_upgrade_1_2_to_1_3(
     assert manager.best_price("Butter")[1].price == 1.79
     # migrated data was written right away
     stored = hass_storage[key]["data"]
-    assert stored["data_version"] == 5
+    assert stored["data_version"] == 6
     assert stored["store_prices_user"]["lidl"]["butter"]["price"] == 1.79
 
     # idempotent: a second run changes nothing, a reload neither
@@ -264,7 +264,7 @@ async def test_upgrade_1_4_to_1_5(
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
 
-    assert manager.data_version == 5
+    assert manager.data_version == 6
     aisles = {i["uid"]: i["category"] for i in manager.shopping}
     assert aisles == {
         "i1": "Sonstiges",
@@ -284,7 +284,7 @@ async def test_upgrade_1_4_to_1_5(
     assert manager.occasions == {}
     # written right away, with the new keys
     stored = hass_storage[key]["data"]
-    assert stored["data_version"] == 5 and stored["occasions"] == {}
+    assert stored["data_version"] == 6 and stored["occasions"] == {}
     assert next(i for i in stored["shopping"] if i["uid"] == "i1")["category"] == "Sonstiges"
 
     # idempotent: a second run changes nothing, a reload neither

@@ -35,6 +35,12 @@ intents:
           - "plane {dish} zum {meal} [(für|am)] {date}"
           - "plane {dish} (für|zum) {meal}"
           - "(setz|setze|trag|trage) {dish} (für|am) {date} [zum {meal}] (auf den|in den) (essensplan|speiseplan|plan) [ein]"
+  essensplaner_plan_leftover:
+    data:
+      - sentences:
+          - "(koch|koche) {date:from_date} [auch] für {date:to_date} [mit]"
+          - "plane die reste (von|vom) {date:from_date} (für|am) {date:to_date} [ein]"
+          - "(wir essen|es gibt) {date:to_date} [die] reste (von|vom) {date:from_date}"
   essensplaner_remove_meal:
     data:
       - sentences:

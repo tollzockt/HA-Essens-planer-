@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.5.1
+
+Rezepte nach Art und „Für einen weiteren Tag mitkochen“ (Kurzfassung, ausführliche Notizen
+folgen). Datenversion 6.
+
+- **Arten:** Mahlzeit, Frühstück, Snack, Dessert, Getränk, Beilage und Bestandteil (Saucen,
+  Dips, Kräuterbutter) – nach Regeln bestimmt, im Rezept-Editor (und mit `kind` in
+  `add_recipe` / `update_recipe`) selbst wählbar. Nur Mahlzeiten, Frühstück und Snacks werden
+  allein eingeplant; der Rest kommt „Dazu“ zu einer Mahlzeit (`plan_meal` mit `extras`) und
+  damit auf die Einkaufsliste und in die Kosten. Filter nach Art im Rezepte-Tab.
+- **Reste:** „🍲 Für einen weiteren Tag mitkochen“ im Panel, `plan_leftover` und „Koch am
+  Dienstag für Mittwoch mit“ – eingekauft und gerechnet wird am Kochtag für beide, die Reste
+  kosten nichts.
+- **Einkaufsliste:** Bleibt von einer ganzen Packung deutlich etwas übrig, steht es dabei
+  („↪ 200 g übrig – z. B. für …“).
+
 ## 1.5.0
 
 Eine Artikel-Datenbank mit echten Preisen, die Einkaufsliste mit Bild und Produkt, die Suche

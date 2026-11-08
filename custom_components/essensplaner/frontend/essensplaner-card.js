@@ -31,6 +31,16 @@ import {
   weekdayIndex,
 } from "./essensplaner-common.js";
 
+// 1.5.1 (here, not in common.js: a cached old common.js must not break the card)
+const MEAL_NAMES = { fruehstueck: "Frühstück", mittagessen: "Mittagessen", snack: "Snack", abendessen: "Abendessen" };
+/** "🍲 Reste von Dienstag (Lasagne)" for leftovers, else the entry's title. */
+const entryTitle = (entry, iso) => {
+  const lo = entry?.leftover_of;
+  if (!lo?.date) return entry?.title || "";
+  const when = lo.date === iso ? `vom ${MEAL_NAMES[lo.meal] || lo.meal}` : `von ${WEEKDAYS[weekdayIndex(fromIso(lo.date))]}`;
+  return `🍲 Reste ${when}${entry.title ? ` (${entry.title})` : ""}`;
+};
+
 const safeUrl = (url) => {
   const u = String(url || "").trim();
   if (!/^(https?:\/\/|\/)/i.test(u)) return "";
@@ -223,7 +233,7 @@ class EssensplanerCard extends HTMLElement {
         const sub = entry ? [entry.servings ? `${entry.servings} Portionen` : "", recipe?.total_time ? `${recipe.total_time} min` : "", entry.note || ""].filter(Boolean).join(" · ") : "";
         return `<div class="meal ${entry ? "" : "empty"}" style="--meal-color:${color}" data-open>
             ${this._thumb(entry, id)}
-            <div><div class="lbl">${esc(this._label(id))}</div><div class="t">${entry ? esc(entry.title) : "noch nichts geplant"}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ""}</div>
+            <div><div class="lbl">${esc(this._label(id))}</div><div class="t">${entry ? esc(entryTitle(entry, today)) : "noch nichts geplant"}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ""}</div>
           </div>`;
       })
       .join("");
@@ -235,7 +245,7 @@ class EssensplanerCard extends HTMLElement {
     return `<div class="wrap">
         ${this._head("Heute", `${WEEKDAYS[weekdayIndex(d)]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`)}
         <div class="meals">${rows}</div>
-        <div class="foot">${occLine}<span>Morgen: <b>${tMain ? esc(tMain[1].title) : "noch frei"}</b></span><span style="flex:1"></span>${this._budgetLine()}</div>
+        <div class="foot">${occLine}<span>Morgen: <b>${tMain ? esc(entryTitle(tMain[1], tomorrow)) : "noch frei"}</b></span><span style="flex:1"></span>${this._budgetLine()}</div>
       </div>`;
   }
 
@@ -265,7 +275,7 @@ class EssensplanerCard extends HTMLElement {
       <div class="hero ${url ? "img" : ""}" style="--meal-color:${color};${url ? `background-image:url('${url}')` : ""}" data-open>
         ${url ? "" : `<div class="emoji">${recipe ? dishEmoji(recipe.name) : "📝"}</div>`}
         <div class="k">${esc(relativeDay(up.date, this._data.today))} · ${esc(this._label(up.meal))}</div>
-        <div class="t">${esc(up.entry.title)}</div>
+        <div class="t">${esc(entryTitle(up.entry, up.date))}</div>
         <div class="s">${esc(sub)}</div>
       </div>${ingredients}`;
   }
@@ -285,7 +295,7 @@ class EssensplanerCard extends HTMLElement {
         .map((o) => `<span class="chip occ" style="--meal-color:#8e24aa" title="Anlass${o.time ? ` · ${esc(o.time)}` : ""}">${esc(o.emoji || "🎉")} ${esc(o.title)}</span>`)
         .join("");
       const meals = entries
-        .map(([id, e]) => `<span class="chip ${e.cooked ? "done" : ""}" style="--meal-color:${MEAL_STYLE[id]?.color || "var(--primary-color)"}" title="${esc(this._label(id))}"><i></i>${esc(e.title)}</span>`)
+        .map(([id, e]) => `<span class="chip ${e.cooked ? "done" : ""}" style="--meal-color:${MEAL_STYLE[id]?.color || "var(--primary-color)"}" title="${esc(this._label(id))}"><i></i>${esc(entryTitle(e, iso))}</span>`)
         .join("");
       const items = occasions || meals ? occasions + meals : `<span class="free">–</span>`;
       rows.push(`<div class="day ${iso === this._data.today ? "today" : ""}" data-open><div class="wd">${WEEKDAYS_SHORT[weekdayIndex(d)]}<small>${d.getDate()}. ${MONTHS[d.getMonth()]}</small></div><div class="items">${items}</div></div>`);

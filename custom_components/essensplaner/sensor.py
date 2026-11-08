@@ -143,7 +143,9 @@ class NextMealSensor(EssensplanerEntity, SensorEntity):
         attrs = dict(upcoming)
         recipe = self.manager.recipes.get(upcoming.get("recipe_id") or "")
         if recipe:
-            view = self.manager.recipe_view(recipe, upcoming.get("servings"))
+            # 1.5.1: what is cooked (with the leftovers for another day)
+            servings = upcoming.get("cook_servings") or upcoming.get("servings")
+            view = self.manager.recipe_view(recipe, servings)
             attrs["ingredients"] = view["ingredient_lines"]
             attrs["steps"] = view.get("steps", [])
             attrs["source_url"] = recipe.get("source_url") or None

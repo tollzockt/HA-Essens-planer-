@@ -356,7 +356,8 @@ async def test_plan_entry_drinks(hass: HomeAssistant, manager: Any) -> None:
     ]
     view = manager.plan_meal(NOVEMBER, "abendessen", lasagne, servings=4)
     assert [d["title"] for d in view["drinks"]] == ["Rotwein", "Wasser"]
-    view = manager.plan_meal(NOVEMBER, "abendessen", manager.get_recipe_by_name("Tiramisu"))
+    # (1.5.1: a dessert planned onto the lasagne is added to it as an extra)
+    view = manager.plan_meal(NOVEMBER, "abendessen", title="Pizza bestellen")
     assert view["drinks"] == []
     view = manager.plan_meal(NOVEMBER, "abendessen", lasagne, drinks=["Rotwein"])
     view = manager.plan_meal(NOVEMBER, "abendessen", lasagne, drinks=[])

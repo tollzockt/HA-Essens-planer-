@@ -104,7 +104,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_VERSION = 5
+DATA_VERSION = 6
 # learned store prices older than this are ignored for lookups (kept in storage)
 STALE_DAYS = 180
 # learned store price sources, most trusted first (each online source only learns prices of
@@ -288,7 +288,7 @@ _NO_PRODUCT_WORDS = {
 # "Buttermilch", "Zucker" the "Puderzucker", "Brot" the "Knäckebrot")
 _LOOSE_HEADS = {"hackfleisch", "hack", "tomate", "haehnchen"}
 # description parts written by the integration (rebuilt on every change)
-_DESCRIPTION_PREFIXES = ("🏪", "≈ ", "🏷️", "📦 ")
+_DESCRIPTION_PREFIXES = ("🏪", "≈ ", "🏷️", "📦 ", "↪ ")
 # the product of a shopping item (product database) and how it was chosen (stores.attach_
 # products): product = {id, name, brand, title, image, retailer, pack_amount, pack_unit,
 # price, on_offer}, product_reason = manual | favorite | picked | bought | offer | cheapest
@@ -300,6 +300,18 @@ _UNSET: Any = object()
 
 def _dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def pack_leftover_text(leftover: Any) -> str:
+    """'↪ 200 g übrig – z. B. für Chili con Carne oder Hackbraten' (1.5.1, what a whole
+    pack leaves over; empty without)."""
+    if not isinstance(leftover, dict) or not leftover.get("text"):
+        return ""
+    text = f"↪ {leftover['text']} übrig"
+    names = [str(r.get("name")) for r in leftover.get("recipes") or [] if r.get("name")]
+    if names:
+        text += " – z. B. für " + " oder ".join(names[:2])
+    return text
 
 
 def _list(value: Any) -> list[Any]:
@@ -536,6 +548,9 @@ class StoresMixin:
           aisle fixes (ingredients.CATEGORY_FIXES_1_5: "Grillkohle" was a vegetable,
           "Apfelschorle" fruit, "Pizza Salami" a cold cut) get their aisle again (see
           _migrate_v5()); the new top-level keys (occasions) start empty.
+        - v6 (1.5.1): recipes get their kind ("kind": meal, breakfast, snack, dessert,
+          drink, side, component; "kind_source": rule) by the rules of kinds.py
+          (manager._migrate_kinds(), also on every load for a recipe without a kind).
         - every load: offers of a known retailer get a "retailer"; offer keys that name
           another product are corrected (canned tomato offers never price fresh ones);
           offers entered without an end (1.2 / 1.3.0) end with the current leaflet week.
@@ -574,6 +589,10 @@ class StoresMixin:
             self._migrate_new_units()
         if self.data_version < 5:
             self._migrate_v5()
+        # v6 (1.5.1): every recipe gets its kind (meal, drink, side …) by the rules; also
+        # on every load for a recipe without one (a second run changes nothing)
+        if self._migrate_kinds():
+            changed = True
         if self.data_version < DATA_VERSION:
             self.data_version = DATA_VERSION
             changed = True
@@ -3251,6 +3270,8 @@ class StoresMixin:
             parts.append(f"≈ {format_eur(item['price'])}")
         if (plan or store) and (offer := item.get("offer")):
             parts.append(offer_label(offer))
+        if plan and (hint := pack_leftover_text(item.get("leftover"))):
+            parts.append(hint)
         parts.extend(extra)
         item["description"] = " · ".join(parts)
 

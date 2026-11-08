@@ -32,6 +32,7 @@ from .services import (
     async_sync_shopping,
     parse_price,
     resolve_day,
+    resolve_leftover,
     resolve_meal,
     resolve_meals,
     resolve_move,
@@ -69,6 +70,7 @@ INTENT_GET_OCCASION = "essensplaner_get_occasion"
 INTENT_EDIT_OCCASION = "essensplaner_edit_occasion"
 INTENT_SUGGEST_DRINKS = "essensplaner_suggest_drinks"
 INTENT_GET_SEASON = "essensplaner_get_season"
+INTENT_PLAN_LEFTOVER = "essensplaner_plan_leftover"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -131,6 +133,11 @@ def _split_off_reason(manager: EssensplanerManager) -> str:
         "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich einen "
         "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“)."
     )
+
+
+def _spoken_title(view: dict[str, Any]) -> str:
+    """A plan entry for speech: 'Reste von Dienstag (Lasagne)' without the emoji."""
+    return str(view.get("title") or "").removeprefix("🍲 ")
 
 
 def _cap(text: str) -> str:
@@ -240,7 +247,7 @@ class GetMealsIntent(_EssensplanerIntent):
             if meal:
                 return f"Für {when} {_PREPOSITION[meal]} ist noch nichts geplant.", data
             return f"Für {when} ist noch nichts geplant.", data
-        parts = [f"{_PREPOSITION[m['meal']]} {m['title']}" for m in meals]
+        parts = [f"{_PREPOSITION[m['meal']]} {_spoken_title(m)}" for m in meals]
         return f"{_cap(when)} gibt es {_join(parts)}.", data
 
 
@@ -268,7 +275,7 @@ class GetWeekPlanIntent(_EssensplanerIntent):
             if not day["meals"]:
                 empty += 1
                 continue
-            meals = ", ".join(f"{m['meal_label']} {m['title']}" for m in day["meals"])
+            meals = ", ".join(f"{m['meal_label']} {_spoken_title(m)}" for m in day["meals"])
             lines.append(f"{day['weekday']}: {meals}")
         if not lines:
             return "In diesem Zeitraum ist noch nichts geplant.", {"days": days}
@@ -310,6 +317,13 @@ class PlanMealIntent(_EssensplanerIntent):
             servings=values.get("servings"),
         )
         when = describe_date(day, manager.today())
+        if added := entry.get("added_as_extra"):
+            # 1.5.1: a side, sauce, drink or dessert joins the planned meal
+            speech = (
+                f"Ich habe {added} zu {_spoken_title(entry)} für {when} "
+                f"{_PREPOSITION[meal]} dazugeplant."
+            )
+            return speech, {"entry": entry, "recipe_found": True}
         speech = f"Ich habe {entry['title']} für {when} {_PREPOSITION[meal]} eingeplant"
         if previous and previous.get("title") and previous.get("title") != entry["title"]:
             speech += f" (statt {previous['title']})"
@@ -340,8 +354,13 @@ class RemoveMealIntent(_EssensplanerIntent):
         when = describe_date(day, manager.today())
         if not removed:
             return f"Für {when} war nichts geplant.", {"removed": []}
-        titles = _join([r["title"] for r in removed])
-        return f"Ich habe {titles} für {when} aus dem Plan entfernt.", {"removed": removed}
+        titles = _join([_spoken_title(r) for r in removed])
+        speech = f"Ich habe {titles} für {when} aus dem Plan entfernt."
+        for view in (v for r in removed for v in r.get("leftovers_unlinked") or []):
+            # 1.5.1: its leftovers are a meal of their own day now
+            other = describe_date(date.fromisoformat(view["date"]), manager.today())
+            speech += f" {_cap(other)} wird {view['dish']} jetzt frisch gekocht."
+        return speech, {"removed": removed}
 
 
 class SuggestIntent(_EssensplanerIntent):
@@ -817,12 +836,13 @@ class MoveMealIntent(_EssensplanerIntent):
         today = manager.today()
         moved = result["moved"]
         speech = (
-            f"Ich habe {moved['title']} auf {describe_date(dst_day, today).removeprefix('am ')} "
+            f"Ich habe {_spoken_title(moved)} auf "
+            f"{describe_date(dst_day, today).removeprefix('am ')} "
             f"{_PREPOSITION[dst_meal]} verschoben."
         )
         if swapped := result["swapped"]:
             speech += (
-                f" {swapped['title']} gibt es dafür {describe_date(src_day, today)} "
+                f" {_spoken_title(swapped)} gibt es dafür {describe_date(src_day, today)} "
                 f"{_PREPOSITION[src_meal]}."
             )
         return speech, result
@@ -1695,7 +1715,7 @@ class GetOccasionIntent(_EssensplanerIntent):
                 meals = manager.day_meals(day)
                 if not meals:
                     return f"Für {when} ist noch nichts geplant.", {"occasion": None}
-                parts = [f"{_PREPOSITION[m['meal']]} {m['title']}" for m in meals]
+                parts = [f"{_PREPOSITION[m['meal']]} {_spoken_title(m)}" for m in meals]
                 return (
                     f"Für {when} ist kein Anlass geplant, aber es gibt {_join(parts)}.",
                     {"occasion": None, "meals": meals},
@@ -1961,6 +1981,57 @@ class GetSeasonIntent(_EssensplanerIntent):
         }
 
 
+class PlanLeftoverIntent(_EssensplanerIntent):
+    """Cook a planned meal for another day too (leftovers, 1.5.1)."""
+
+    intent_type = INTENT_PLAN_LEFTOVER
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: kocht eine geplante Mahlzeit für einen weiteren Tag mit – die Reste "
+        "werden für eine spätere Mahlzeit eingeplant ('Koch am Dienstag für Mittwoch mit', "
+        "'Plane die Reste vom Dienstag für Mittwoch'); eingekauft wird am Kochtag für beide, "
+        "die Reste kosten nichts. Plans the leftovers of a planned meal for a later meal."
+    )
+    slot_schema = {
+        vol.Optional("from_date", description="Kochtag/cooking day. " + _DATE_DESC): cv.string,
+        vol.Optional(
+            "to_date", description="Tag der Reste/day of the leftovers (Standard: Tag danach)."
+        ): cv.string,
+        vol.Optional("from_meal", description="Gekocht zum/cooked for. " + _MEAL_DESC): cv.string,
+        vol.Optional(
+            "to_meal", description="Mahlzeit der Reste (Standard: wie beim Kochen)."
+        ): cv.string,
+        vol.Optional("dish", description="Geplantes Gericht, z. B. 'Lasagne'"): cv.string,
+        vol.Optional("servings", description="Portionen der Reste/servings"): _INT_1_30,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        dish = strip_article(str(values["dish"])) if values.get("dish") else None
+        src_day, src_meal, day, meal = resolve_leftover(
+            manager,
+            values.get("to_date"),
+            values.get("to_meal"),
+            values.get("from_date"),
+            values.get("from_meal"),
+            dish=dish,
+        )
+        view = manager.plan_leftover(day, meal, src_day, src_meal, servings=values.get("servings"))
+        link = view["leftover_of"]
+        cooking_day = date.fromisoformat(link["date"])
+        cooking = manager.entry_view(
+            cooking_day, link["meal"], manager.plan[link["date"]][link["meal"]]
+        )
+        today = manager.today()
+        speech = (
+            f"Alles klar: {view['dish']} wird {describe_date(cooking_day, today)} für "
+            f"{cooking['cook_servings']} Portionen gekocht, "
+            f"{describe_date(day, today)} {_PREPOSITION[meal]} gibt es die Reste."
+        )
+        if view.get("replaced") and view["replaced"] != view["dish"]:
+            speech += f" {view['replaced']} habe ich dafür aus dem Plan genommen."
+        return speech, {"entry": view, "cooking": cooking}
+
+
 INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetMealsIntent,
     GetWeekPlanIntent,
@@ -1990,6 +2061,7 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     EditOccasionIntent,
     SuggestDrinksIntent,
     GetSeasonIntent,
+    PlanLeftoverIntent,
 ]
 
 

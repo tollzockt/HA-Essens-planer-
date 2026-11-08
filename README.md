@@ -180,6 +180,7 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_get_week_plan` | „Wie sieht der Essensplan diese Woche aus?“ |
 | `essensplaner_plan_meal` | „Plane Lasagne für Freitag zum Abendessen.“ |
 | `essensplaner_move_meal` | „Verschiebe die Lasagne auf Samstag.“ · „Tausche Montag und Dienstag.“ |
+| `essensplaner_plan_leftover` | „Koch am Dienstag für Mittwoch mit.“ · „Plane die Reste vom Dienstag für Mittwoch.“ |
 | `essensplaner_remove_meal` | „Lösche das Essen von morgen.“ |
 | `essensplaner_suggest_recipes` | „Was soll ich heute kochen?“ · „Schlag mir was Schnelles vor.“ |
 | `essensplaner_cook_with` | „Was kann ich mit Hähnchen, Reis und Paprika kochen?“ |
@@ -619,6 +620,7 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.get_recipes` / `get_recipe` | Suchen / Rezept (skaliert) abrufen |
 | `essensplaner.find_by_ingredients` | Rezepte zu vorhandenen Zutaten |
 | `essensplaner.plan_meal` / `remove_meal` / `get_plan` | Wochenplan (optional mit Getränken zur Mahlzeit) |
+| `essensplaner.plan_leftover` | Reste einer geplanten Mahlzeit für eine spätere Mahlzeit einplanen (am Kochtag wird für beide eingekauft) |
 | `essensplaner.move_meal` / `copy_plan` | Verschieben/Tauschen, Wochen kopieren |
 | `essensplaner.suggest_recipes` / `auto_plan` | Vorschläge (mit Gründen: ⭐, 🍂 Saison, 🏷️ Angebot) / automatisch planen (Planungsart auch `seasonal`; `ai: true` lässt die KI die besten Rezepte ordnen) |
 | `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen (mit Läden und den Anlässen dieser Tage, oder nur für einen Anlass) / abrufen (optional nur ein Laden) |

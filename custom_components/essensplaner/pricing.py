@@ -608,13 +608,16 @@ def ingredient_cost(ingredient: dict[str, Any], entry: PriceEntry) -> float | No
     return converted * price_per_unit
 
 
-def package_cost(
-    amounts: dict[str, float], key: str, entry: PriceEntry, category: str | None = None
-) -> tuple[float, int] | None:
-    """Cost when buying whole packages. amounts: base unit -> amount (from aggregate())."""
-    pack_amount, pack_unit = to_pricing_base(entry.amount, entry.unit)
-    if not pack_amount:
-        return None
+def package_need(
+    amounts: dict[str, float],
+    key: str,
+    pack_amount: float,
+    pack_unit: str,
+    spice: bool = False,
+    category: str | None = None,
+) -> float:
+    """How much of a pack's unit the amounts need (amounts: base unit -> amount from
+    aggregate(); a can / jar / cup counts as one pack, an unknown conversion as one)."""
     total = 0.0
     for unit, amount in amounts.items():
         pricing_unit = "Stück" if unit in COUNT_UNITS else unit
@@ -625,11 +628,22 @@ def package_cost(
         ):
             total += amount * pack_amount  # one can/jar/cup = one pack
             continue
-        converted = convert(amount, pricing_unit, pack_unit, key, entry.spice, category)
+        converted = convert(amount, pricing_unit, pack_unit, key, spice, category)
         if converted is None:
             # unknown conversion (e.g. "4 Cocktailkirschen" vs. 200-g-Glas): assume one pack
             converted = pack_amount
         total += converted
+    return total
+
+
+def package_cost(
+    amounts: dict[str, float], key: str, entry: PriceEntry, category: str | None = None
+) -> tuple[float, int] | None:
+    """Cost when buying whole packages. amounts: base unit -> amount (from aggregate())."""
+    pack_amount, pack_unit = to_pricing_base(entry.amount, entry.unit)
+    if not pack_amount:
+        return None
+    total = package_need(amounts, key, pack_amount, pack_unit, entry.spice, category)
     if total <= 0:
         return None
     packs = max(1, math.ceil(total / pack_amount - 1e-6))

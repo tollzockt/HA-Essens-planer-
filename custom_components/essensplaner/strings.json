@@ -141,6 +141,18 @@
         "drink": "Drinks",
         "extra": "Extras"
       }
+    },
+    "recipe_kind": {
+      "options": {
+        "auto": "Automatic (by the rules)",
+        "meal": "Meal",
+        "breakfast": "Breakfast",
+        "snack": "Snack",
+        "dessert": "Dessert",
+        "drink": "Drink",
+        "side": "Side",
+        "component": "Component (sauce, dip …)"
+      }
     }
   },
   "entity": {
@@ -231,6 +243,12 @@
     },
     "meal_not_planned": {
       "message": "Nothing is planned for this meal on {date}."
+    },
+    "leftover_not_after": {
+      "message": "Leftovers can only be planned for a later meal, at most {days} days after cooking."
+    },
+    "invalid_kind": {
+      "message": "Unknown kind “{kind}” – use meal, breakfast, snack, dessert, drink, side or component."
     },
     "dish_not_planned": {
       "message": "\"{name}\" is not planned in the next days."
@@ -466,6 +484,10 @@
         "rating": {
           "name": "Rating",
           "description": "0-5 stars."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Meal, breakfast, snack, dessert, drink, side or component (sauce, dip, herb butter). Only meals, breakfasts and snacks are planned on their own; “auto” = by the rules (tags, name, ingredients)."
         }
       }
     },
@@ -528,6 +550,10 @@
         "rating": {
           "name": "Rating",
           "description": "0-5 stars."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Meal, breakfast, snack, dessert, drink, side or component (sauce, dip, herb butter). Only meals, breakfasts and snacks are planned on their own; “auto” = by the rules (tags, name, ingredients)."
         }
       }
     },
@@ -626,6 +652,36 @@
         "drinks": {
           "name": "Drinks",
           "description": "Optional: drinks with this meal, e.g. “red wine, apple spritzer” (empty = unchanged)."
+        },
+        "extras": {
+          "name": "Extras",
+          "description": "Optional: components with the meal (recipes like herb butter or potato salad, also free text) – they join the shopping list and the costs (empty = unchanged)."
+        }
+      }
+    },
+    "plan_leftover": {
+      "name": "Plan leftovers",
+      "description": "Plans the leftovers of a planned meal for a later meal (“cook on Tuesday for Wednesday too”): the cooking day is bought and priced for both, the leftovers cost nothing.",
+      "fields": {
+        "date": {
+          "name": "Date",
+          "description": "When the leftovers are eaten, e.g. 'Mittwoch' (default: tomorrow)."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Meal of the leftovers (default: the cooking meal)."
+        },
+        "from_date": {
+          "name": "Cooking day",
+          "description": "The day it is cooked, e.g. 'Dienstag' (default: the day before)."
+        },
+        "from_meal": {
+          "name": "Cooked for",
+          "description": "The meal it is cooked for (default: the planned meal of the cooking day)."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Servings of the leftovers (default: as cooked)."
         }
       }
     },

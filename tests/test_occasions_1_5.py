@@ -241,7 +241,7 @@ def test_recipe_courses() -> None:
 
 async def test_components_never_fill_meal_slots(hass: HomeAssistant, manager: Any) -> None:
     """Drinks, sides, dips and starters stay out of the week plan (suggestions and the auto
-    plan); a snack component still fits the snack slot."""
+    plan); 1.5.1: a dip is a component even when tagged "Snack" (never a meal of its own)."""
     manager.add_recipe(
         {"name": "Guacamole", "tags": ["Dip", "Snack"], "ingredients": ["2 Avocados"]}
     )
@@ -250,7 +250,8 @@ async def test_components_never_fill_meal_slots(hass: HomeAssistant, manager: An
             names = {r["name"] for r in manager.suggest(20, meal=meal)}
             assert not names & {"Erdbeerbowle", "Kinderpunsch", "Kartoffelsalat", "Tzatziki"}
             assert "Guacamole" not in names
-    assert "Guacamole" in {r["name"] for r in manager.suggest(20, meal="snack")}
+    assert "Guacamole" not in {r["name"] for r in manager.suggest(20, meal="snack")}
+    assert manager.get_recipe_by_name("Guacamole")["kind"] == "component"
     planned = manager.auto_plan(TODAY, 7, overwrite=True)
     titles = {p["title"] for p in planned}
     assert titles and not titles & {"Erdbeerbowle", "Kinderpunsch", "Kartoffelsalat", "Tzatziki"}

@@ -25,6 +25,7 @@ from .aldi import SOURCE_ALDI, async_find_aldi_stores, async_refresh_aldi_prices
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE, async_find_branches
 from .catalog import catalog_plan, leaflets_view, marktguru_paused, pause_marktguru, paused_message
 from .const import (
+    ALL_MEALS,
     ATTR_COOK_TIME,
     ATTR_COUNT,
     ATTR_DATE,
@@ -93,6 +94,7 @@ from .const import (
     SERVICE_IMPORT_STARTER,
     SERVICE_MARK_COOKED,
     SERVICE_MOVE_MEAL,
+    SERVICE_PLAN_LEFTOVER,
     SERVICE_PLAN_MEAL,
     SERVICE_RECEIPT_PARSE_TEXT,
     SERVICE_RECEIPT_SAVE,
@@ -169,6 +171,8 @@ _RECIPE_FIELDS = {
     vol.Optional(ATTR_IMAGE): cv.string,
     vol.Optional(ATTR_FAVORITE): cv.boolean,
     vol.Optional(ATTR_RATING): vol.All(vol.Coerce(int), vol.Range(min=0, max=5)),
+    # 1.5.1: meal, breakfast, snack, dessert, drink, side, component or auto
+    vol.Optional("kind"): cv.string,
 }
 
 ADD_RECIPE_SCHEMA = vol.Schema({vol.Required(ATTR_NAME): cv.string, **_RECIPE_FIELDS})
@@ -203,6 +207,17 @@ PLAN_MEAL_SCHEMA = vol.Schema(
         vol.Optional(ATTR_SERVINGS): _POSITIVE,
         vol.Optional(ATTR_NOTE): cv.string,
         vol.Optional("drinks"): vol.Any(cv.string, [vol.Any(cv.string, dict)]),
+        # 1.5.1: components with the meal (recipes or free text)
+        vol.Optional("extras"): vol.Any(cv.string, [vol.Any(cv.string, dict)]),
+    }
+)
+PLAN_LEFTOVER_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_DATE): cv.string,
+        vol.Optional(ATTR_MEAL): cv.string,
+        vol.Optional("from_date"): cv.string,
+        vol.Optional("from_meal"): cv.string,
+        vol.Optional(ATTR_SERVINGS): _POSITIVE,
     }
 )
 REMOVE_MEAL_SCHEMA = vol.Schema(
@@ -597,6 +612,50 @@ def resolve_move(
     return src_day, src_meal, dst_day, dst_meal
 
 
+def resolve_leftover(
+    manager: EssensplanerManager,
+    to_date: str | None,
+    to_meal: str | None,
+    from_date: str | None,
+    from_meal: str | None,
+    dish: str | None = None,
+) -> tuple[date, str, date, str]:
+    """Cooking meal and leftovers slot (plan_leftover, the voice intent; 1.5.1).
+
+    Without days the leftovers are tomorrow's of today; one day given, the other is the
+    day before / after it. The cooking meal is the one given, else the planned meal of the
+    cooking day (the one with the dish, else the default meal, the dinner, …); the
+    leftovers' meal defaults to the cooking meal. Returns (from_day, from_meal, day, meal).
+    """
+    today = manager.today()
+    src_hint = dst_hint = None
+    if from_date:
+        src_day, src_hint = resolve_day(manager, from_date)
+    if to_date:
+        dst_day, dst_hint = resolve_day(manager, to_date)
+    if not from_date and not to_date:
+        src_day, dst_day = today, today + timedelta(days=1)
+    elif not to_date:
+        dst_day = src_day + timedelta(days=1)
+    elif not from_date:
+        src_day = dst_day - timedelta(days=1)
+    src_meal = resolve_meal(manager, from_meal, src_hint, default=False)
+    if src_meal is None:
+        planned = manager.plan.get(src_day.isoformat(), {})
+        if dish and (found := manager.find_planned(dish, src_day, days=1)) and found[0] == src_day:
+            src_meal = found[1]
+        else:
+            order = [manager.default_meal, *reversed(ALL_MEALS)]
+            cooked = [m for m in order if m in planned and not planned[m].get("leftover_of")]
+            src_meal = next(
+                (m for m in cooked if planned[m].get("recipe_id")), cooked[0] if cooked else None
+            )
+    if src_meal is None:
+        src_meal = resolve_meal(manager, to_meal, dst_hint) or manager.default_meal
+    dst_meal = resolve_meal(manager, to_meal, dst_hint, default=False) or src_meal
+    return src_day, src_meal, dst_day, dst_meal
+
+
 def get_manager(hass: HomeAssistant) -> EssensplanerManager:
     """Return the manager of the loaded config entry."""
     entries = hass.config_entries.async_loaded_entries(DOMAIN)
@@ -764,6 +823,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             if recipe is None and not title:
                 title = name
         drinks = call.data.get("drinks")
+        extras = call.data.get("extras")
         entry = manager.plan_meal(
             day,
             meal,
@@ -772,8 +832,29 @@ def async_setup_services(hass: HomeAssistant) -> None:
             servings=call.data.get(ATTR_SERVINGS),
             note=call.data.get(ATTR_NOTE),
             drinks=split_list(drinks) if isinstance(drinks, str) else drinks,
+            extras=split_list(extras) if isinstance(extras, str) else extras,
         )
         return {"entry": entry, "recipe_found": recipe is not None}
+
+    async def plan_leftover(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        src_day, src_meal, day, meal = resolve_leftover(
+            manager,
+            call.data.get(ATTR_DATE),
+            call.data.get(ATTR_MEAL),
+            call.data.get("from_date"),
+            call.data.get("from_meal"),
+        )
+        entry = manager.plan_leftover(
+            day, meal, src_day, src_meal, servings=call.data.get(ATTR_SERVINGS)
+        )
+        link = entry["leftover_of"] or {"date": src_day.isoformat(), "meal": src_meal}
+        cooking_day = date.fromisoformat(link["date"])
+        cooking = manager.plan.get(link["date"], {}).get(link["meal"])
+        return {
+            "entry": entry,
+            "cooking": manager.entry_view(cooking_day, link["meal"], cooking) if cooking else None,
+        }
 
     async def remove_meal(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -1303,6 +1384,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_GET_RECIPES, get_recipes, GET_RECIPES_SCHEMA),
         (SERVICE_GET_RECIPE, get_recipe, GET_RECIPE_SCHEMA),
         (SERVICE_PLAN_MEAL, plan_meal, PLAN_MEAL_SCHEMA),
+        (SERVICE_PLAN_LEFTOVER, plan_leftover, PLAN_LEFTOVER_SCHEMA),
         (SERVICE_REMOVE_MEAL, remove_meal, REMOVE_MEAL_SCHEMA),
         (SERVICE_GET_PLAN, get_plan, GET_PLAN_SCHEMA),
         (SERVICE_SUGGEST, suggest, SUGGEST_SCHEMA),

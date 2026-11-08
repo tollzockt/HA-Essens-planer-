@@ -680,7 +680,43 @@ def _name_course(folded_name: str) -> str | None:
 
 def recipe_courses(recipe: dict[str, Any]) -> set[str]:
     """Every course a recipe can be served as (tags first, then its name): a drink is only
-    a drink; a main dish tagged "Salat" is also a side, a soup also a starter."""
+    a drink; a main dish tagged "Salat" is also a side, a soup also a starter. 1.5.1: by
+    the recipe's kind (kinds.py) – only a meal or a breakfast is a main course, a side or
+    component is a side, a dessert a dessert, a snack a snack."""
+    from .kinds import (  # the kinds import this module
+        KIND_BREAKFAST,
+        KIND_COMPONENT,
+        KIND_DESSERT,
+        KIND_DRINK,
+        KIND_MEAL,
+        KIND_SIDE,
+        KIND_SNACK,
+        recipe_kind,
+    )
+
+    kind = recipe_kind(recipe)
+    if kind == KIND_DRINK:
+        return {COURSE_DRINK}
+    courses = _tag_courses(recipe)
+    courses.discard(COURSE_DRINK)
+    if kind == KIND_MEAL:
+        courses.add(COURSE_MAIN)
+    elif kind != KIND_BREAKFAST:
+        courses.discard(COURSE_MAIN)
+        if not courses:
+            courses.add(
+                {
+                    KIND_SIDE: COURSE_SIDE,
+                    KIND_COMPONENT: COURSE_SIDE,
+                    KIND_DESSERT: COURSE_DESSERT,
+                    KIND_SNACK: COURSE_SNACK,
+                }.get(kind, COURSE_SIDE)
+            )
+    return courses
+
+
+def _tag_courses(recipe: dict[str, Any]) -> set[str]:
+    """The courses of a recipe by its tags and name (1.5)."""
     tags = _folded_tags(recipe)
     if tags & DRINK_TAGS or (not tags & MAIN_TAGS and is_drink_name(str(recipe.get("name") or ""))):
         return {COURSE_DRINK}

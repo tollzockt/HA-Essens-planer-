@@ -141,6 +141,18 @@
         "drink": "Getränke",
         "extra": "Zubehör"
       }
+    },
+    "recipe_kind": {
+      "options": {
+        "auto": "Automatisch (nach Regeln)",
+        "meal": "Mahlzeit",
+        "breakfast": "Frühstück",
+        "snack": "Snack",
+        "dessert": "Dessert",
+        "drink": "Getränk",
+        "side": "Beilage",
+        "component": "Bestandteil (Sauce, Dip …)"
+      }
     }
   },
   "entity": {
@@ -231,6 +243,12 @@
     },
     "meal_not_planned": {
       "message": "Am {date} ist zu dieser Mahlzeit nichts geplant."
+    },
+    "leftover_not_after": {
+      "message": "Reste kann ich nur für eine spätere Mahlzeit einplanen, höchstens {days} Tage nach dem Kochen."
+    },
+    "invalid_kind": {
+      "message": "Die Art „{kind}“ kenne ich nicht – möglich sind Mahlzeit, Frühstück, Snack, Dessert, Getränk, Beilage und Bestandteil."
     },
     "dish_not_planned": {
       "message": "„{name}“ ist in den nächsten Tagen nicht geplant."
@@ -466,6 +484,10 @@
         "rating": {
           "name": "Bewertung",
           "description": "0–5 Sterne."
+        },
+        "kind": {
+          "name": "Art",
+          "description": "Mahlzeit, Frühstück, Snack, Dessert, Getränk, Beilage oder Bestandteil (Sauce, Dip, Kräuterbutter). Nur Mahlzeiten, Frühstück und Snacks werden allein eingeplant; „auto“ = nach Regeln (Kategorien, Name, Zutaten)."
         }
       }
     },
@@ -528,6 +550,10 @@
         "rating": {
           "name": "Bewertung",
           "description": "0–5 Sterne."
+        },
+        "kind": {
+          "name": "Art",
+          "description": "Mahlzeit, Frühstück, Snack, Dessert, Getränk, Beilage oder Bestandteil (Sauce, Dip, Kräuterbutter). Nur Mahlzeiten, Frühstück und Snacks werden allein eingeplant; „auto“ = nach Regeln (Kategorien, Name, Zutaten)."
         }
       }
     },
@@ -626,6 +652,36 @@
         "drinks": {
           "name": "Getränke",
           "description": "Optional: Getränke zu dieser Mahlzeit, z. B. „Rotwein, Apfelschorle“ (leer lassen = unverändert)."
+        },
+        "extras": {
+          "name": "Dazu",
+          "description": "Optional: Bestandteile zur Mahlzeit (Rezepte wie Kräuterbutter oder Kartoffelsalat, auch Freitext) – kommen auf die Einkaufsliste und in die Kosten (leer lassen = unverändert)."
+        }
+      }
+    },
+    "plan_leftover": {
+      "name": "Reste einplanen",
+      "description": "Plant die Reste einer geplanten Mahlzeit für eine spätere Mahlzeit ein („Dienstag für Mittwoch mitkochen“): Am Kochtag wird für beide eingekauft und gerechnet, die Reste kosten nichts.",
+      "fields": {
+        "date": {
+          "name": "Datum",
+          "description": "Wann die Reste gegessen werden, z. B. „Mittwoch“ (Standard: morgen)."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Mahlzeit der Reste (Standard: wie beim Kochen)."
+        },
+        "from_date": {
+          "name": "Kochtag",
+          "description": "An welchem Tag gekocht wird, z. B. „Dienstag“ (Standard: der Tag davor)."
+        },
+        "from_meal": {
+          "name": "Gekocht zum",
+          "description": "Mahlzeit, zu der gekocht wird (Standard: die geplante Mahlzeit des Kochtags)."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Portionen der Reste (Standard: wie beim Kochen)."
         }
       }
     },
