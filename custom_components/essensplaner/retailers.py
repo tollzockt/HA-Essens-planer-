@@ -371,3 +371,142 @@ def _candidates(value: str | None) -> set[str]:
 def retailer_matches(a: str | None, b: str | None) -> bool:
     """True if two store texts/ids mean the same retailer (a plain 'Aldi' matches both)."""
     return bool(_candidates(a) & _candidates(b))
+
+
+# own brands of the chains (1.5 product database): a product of such a brand is only sold
+# by its chain, so the same name at another chain is another product – no "auch bei Lidl"
+# twin. Folded spellings; a brand also counts when it starts with one of them ("ja! Bio",
+# "K-Classic Bio").
+STORE_BRANDS: frozenset[str] = frozenset(
+    {
+        # REWE / Penny
+        "ja",
+        "rewe",
+        "rewe beste wahl",
+        "rewe bio",
+        "rewe feine welt",
+        "rewe regional",
+        "penny",
+        "naturgut",
+        "butchers",
+        # EDEKA / Netto Marken-Discount / Marktkauf
+        "edeka",
+        "edeka bio",
+        "edeka herzstuecke",
+        "edeka mein bayern",
+        "edeka zuhause",
+        "gut guenstig",
+        "gutguenstig",
+        "gut und guenstig",
+        "netto",
+        "biobio",
+        "muehlenhof",
+        "marktkauf",
+        # ALDI
+        "aldi",
+        "milsani",
+        "gut bio",
+        "moser roth",
+        "choceur",
+        "lacura",
+        "tandil",
+        "meine metzgerei",
+        "golden seafood",
+        "cucina nobile",
+        "westminster",
+        "rio d oro",
+        "lyttos",
+        "le gusto",
+        "sweet valley",
+        "happy harvest",
+        "nur nur natur",
+        "mamia",
+        "ombra",
+        "almare",
+        # Lidl
+        "lidl",
+        "milbona",
+        "pilos",
+        "cien",
+        "w5",
+        "formil",
+        "freeway",
+        "solevita",
+        "deluxe",
+        "chef select",
+        "bio organic",
+        "crownfield",
+        "fin carre",
+        "snack day",
+        "combino",
+        "sondey",
+        "vemondo",
+        "kania",
+        "alesto",
+        "dulano",
+        "nixe",
+        "italiamo",
+        "fairglobe",
+        "pikok",
+        "baresa",
+        "mcennedy",
+        "favorina",
+        "perlenbacher",
+        "freshona",
+        "rivercote",
+        "lord nelson",
+        "belbake",
+        "saskia",
+        "eridanous",
+        "realvalley",
+        "trattoria alfredo",
+        # Kaufland
+        "k classic",
+        "k bio",
+        "k favourites",
+        "k purland",
+        "kaufland",
+        # NORMA / Globus
+        "norma",
+        "globus",
+        # drugstores
+        "isana",
+        "alterra",
+        "babydream",
+        "domol",
+        "rival de loop",
+        "enerbio",
+        "sunozon",
+        "rossmann",
+        "balea",
+        "dmbio",
+        "dm bio",
+        "alverde",
+        "denkmit",
+        "babylove",
+        "sundance",
+        "ebelin",
+        "mivolis",
+        "profissimo",
+        "s quitofree",
+        "dm",
+    }
+)
+_STORE_BRAND_PREFIXES = tuple(sorted({f"{b} " for b in STORE_BRANDS}))
+
+
+def is_store_brand(brand: str | None, retailer: str | None = None) -> bool:
+    """True if a brand is a chain's own brand (STORE_BRANDS, or the name of the retailer
+    itself): products of such a brand have no twins at other chains."""
+    folded = fold(str(brand or ""))
+    if not folded:
+        return False
+    if folded in STORE_BRANDS or folded.startswith(_STORE_BRAND_PREFIXES):
+        return True
+    if retailer and retailer in RETAILERS:
+        names = {
+            fold(RETAILERS[retailer]["name"]),
+            *(fold(a) for a in RETAILERS[retailer]["aliases"]),
+        }
+        return folded in names or any(folded.startswith(f"{n} ") for n in names if n)
+    return False

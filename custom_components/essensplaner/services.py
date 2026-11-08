@@ -54,6 +54,7 @@ from .const import (
     ATTR_TOTAL_TIME,
     ATTR_URL,
     DOMAIN,
+    EVENT_UPDATED,
     OFFERS_MARKTGURU,
     PRICE_SOURCE_ALDI,
     PRICE_SOURCE_EDEKA,
@@ -99,7 +100,9 @@ from .const import (
     SERVICE_REMOVE_MEAL,
     SERVICE_REMOVE_OFFER,
     SERVICE_SAVE_BRANCH,
+    SERVICE_SAVE_PRODUCT,
     SERVICE_SEARCH_OFFERS,
+    SERVICE_SEARCH_PRODUCTS,
     SERVICE_SET_PRICE,
     SERVICE_SET_SHOPPING_STORE,
     SERVICE_SHOPPING_LIST,
@@ -111,6 +114,7 @@ from .dates import DateParseError, parse_date, parse_meal, week_start
 from .edeka import SOURCE_EDEKA, async_find_edeka_markets, async_refresh_edeka_offers
 from .ingredients import fold
 from .offers import OfferBlocked, async_refresh_offers, async_search_target_offers
+from .products import product_card, products_view, save_manual
 from .receipts import (
     async_delete_receipt,
     async_parse_receipt_text,
@@ -368,6 +372,30 @@ GET_RECEIPTS_SCHEMA = vol.Schema(
 )
 DELETE_RECEIPT_SCHEMA = vol.Schema(
     {vol.Required("id"): cv.string, vol.Optional("remove_prices", default=False): cv.boolean}
+)
+SEARCH_PRODUCTS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_QUERY): cv.string,
+        vol.Optional("store"): cv.string,
+        vol.Optional("only"): vol.In(["favorites", "offers", "bought", "manual"]),
+        vol.Optional("sort", default="price"): vol.In(
+            ["price", "unit_price", "saving", "name", "recent"]
+        ),
+        vol.Optional(ATTR_COUNT, default=20): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+    }
+)
+SAVE_PRODUCT_SCHEMA = vol.Schema(
+    {
+        vol.Optional("id"): cv.string,
+        vol.Optional("store"): cv.string,
+        vol.Optional(ATTR_NAME): cv.string,
+        vol.Optional("brand"): cv.string,
+        vol.Optional("pack"): cv.string,
+        vol.Optional("price"): vol.All(vol.Coerce(float), vol.Range(min=0.01, max=10000)),
+        vol.Optional(ATTR_IMAGE): cv.string,
+        vol.Optional("ingredient"): cv.string,
+        vol.Optional(ATTR_FAVORITE): cv.boolean,
+    }
 )
 IMPORT_RECIPES_SCHEMA = vol.Schema(
     {
@@ -1013,6 +1041,32 @@ def async_setup_services(hass: HomeAssistant) -> None:
             get_manager(hass), call.data["id"], call.data["remove_prices"]
         )
 
+    async def search_products(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        retailers = None
+        if store := call.data.get("store"):
+            branch = manager.resolve_branch(store)
+            retailers = [branch["retailer"] if branch else manager.require_retailer(store)]
+        result = products_view(
+            manager,
+            query=call.data.get(ATTR_QUERY),
+            retailers=retailers,
+            only=call.data.get("only"),
+            sort=call.data["sort"],
+            limit=call.data[ATTR_COUNT],
+        )
+        return {
+            "total": result["total"],
+            "products": result["products"],
+            "counts": result["counts"],
+        }
+
+    async def save_product(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        product = save_manual(manager, dict(call.data))
+        hass.bus.async_fire(EVENT_UPDATED, {"change": "products"})
+        return {"product": product_card(manager, product)}
+
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
@@ -1064,6 +1118,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_FIND_REWE_MARKETS, find_rewe_markets, FIND_REWE_MARKETS_SCHEMA),
         (SERVICE_FIND_EDEKA_MARKETS, find_edeka_markets, FIND_EDEKA_MARKETS_SCHEMA),
         (SERVICE_FIND_ALDI_STORES, find_aldi_stores, FIND_ALDI_STORES_SCHEMA),
+        (SERVICE_SEARCH_PRODUCTS, search_products, SEARCH_PRODUCTS_SCHEMA),
+        (SERVICE_SAVE_PRODUCT, save_product, SAVE_PRODUCT_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

@@ -48,6 +48,7 @@ from .panel import (
     async_remove_panel,
     async_setup_websocket,
 )
+from .products import ProductStore, async_seed_safe
 from .receipts import ReceiptStore, async_register_views
 from .rewe import (
     RETAILER as REWE,
@@ -85,6 +86,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
     manager = EssensplanerManager(hass, entry)
     await manager.async_load(import_starter=entry.data.get(CONF_IMPORT_STARTER, True))
     entry.runtime_data = manager
+    if not manager.products.data.get("seeded"):
+        # 1.5: fill the product database once from what is stored already (no requests)
+        entry.async_create_background_task(
+            hass, async_seed_safe(manager), "essensplaner_products_seed"
+        )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -315,16 +321,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry
         await manager.async_save_now()
         await manager.catalog.async_save()
         await manager.receipts.async_save()
+        await manager.products.async_save()
         # refreshes still running (services, panel) must not write over the new manager's data
         manager.unloaded = True
         manager.catalog.unloaded = True
         manager.receipts.unloaded = True
+        manager.products.unloaded = True
     return unload_ok
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove stored data when the integration is deleted (also the offer catalog, the
-    receipts and their image files – nothing else of the media folder)."""
+    receipts and their image files – nothing else of the media folder – and the product
+    database)."""
     await Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}.{entry.entry_id}").async_remove()
     await OfferCatalog(hass, entry.entry_id).async_remove()
     await ReceiptStore(hass, entry.entry_id).async_remove()
+    await ProductStore(hass, entry.entry_id).async_remove()

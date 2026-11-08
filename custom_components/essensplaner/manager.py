@@ -62,6 +62,7 @@ from .ingredients import (
     to_base,
 )
 from .pricing import COUNT_UNITS, offer_pack, unit_price
+from .products import product_counts
 from .stores import REMATCH_CHANGES, StoresMixin
 
 _LOGGER = logging.getLogger(__name__)
@@ -243,6 +244,8 @@ ERROR_MESSAGES_DE = {
     "receipt_media_invalid": (
         "„{media}“ ist kein Kassenzettel-Bild aus dem Medienordner (JPG, PNG, WebP oder PDF)."
     ),
+    # product database (1.5, products.py)
+    "product_not_found": "Den Artikel „{id}“ gibt es nicht in der Artikel-Datenbank.",
     # AI via Home Assistant (1.5, ai.py)
     "ai_not_configured": (
         "Dafür brauche ich eine KI: wähle unter Essensplaner-Panel → Einstellungen → 🤖 KI "
@@ -352,6 +355,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
         # stored receipts (Kassenzettel) and their images (own file, 1.4)
         self.receipts = ReceiptStore(hass, entry.entry_id)
+        from .products import ProductStore
+
+        # every real product with a real price that was seen (own file, 1.5)
+        self.products = ProductStore(hass, entry.entry_id)
         self._init_store_data()
         self._init_article_data()
 
@@ -453,6 +460,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
         dropped = drop_disabled_sources(self)
         await self.receipts.async_load()
+        # after the catalog and the receipts (seeding reads them, see products.async_seed)
+        await self.products.async_load()
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
         migrated = self._migrate_v2()
         expired = self.cleanup_offers()
@@ -467,6 +476,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             self._save_later()
         if dropped:
             self.catalog.save_later()
+        from .products import drop_disabled_products, prune_products
+
+        # offers of sources switched off, ended offers and products nobody needs any more
+        drop_disabled_products(self)
+        prune_products(self)
 
     async def async_save_now(self) -> None:
         """Write data to disk immediately."""
@@ -1432,6 +1446,16 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if chosen is not None:
             chosen["retailer"] = retailer or self.main_retailer
             item["chosen"] = chosen
+        if offer is not None:
+            # the product of the picked offer (a live leaflet offer is stored now) is
+            # remembered for this ingredient (product database, 1.5)
+            from .products import PICK_PICKED, product_for_offer, record_pick
+
+            product_id = product_for_offer(self, offer, item["key"])
+            if product_id is not None:
+                if chosen is not None:
+                    chosen["product_id"] = product_id
+                record_pick(self, item["key"], product_id, PICK_PICKED)
         if branch is not None and (store or branch["id"] != self.main_branch):
             # an offer of the main store is no store choice: the item stays automatic
             item["store_override"] = branch["id"]
@@ -1565,10 +1589,13 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         for item in self.shopping:
             if item["uid"] == uid:
                 renamed = summary is not None and summary.strip() != item.get("summary")
+                bought = status == "completed" and item.get("status") != "completed"
                 if summary is not None:
                     item["summary"] = summary
                 if status is not None:
                     item["status"] = status
+                if bought:
+                    self._product_bought(item)
                 if description is not None:
                     item["description"] = description
                 if renamed and "amounts" in item:
@@ -1576,6 +1603,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 self._changed("shopping")
                 return item
         raise _error("shopping_item_not_found")
+
+    def _product_bought(self, item: dict[str, Any]) -> None:
+        """A ticked-off item: its product counts as bought for the ingredient (1.5)."""
+        from .products import PICK_BOUGHT, product_for_item, record_pick
+
+        product_id = product_for_item(self, item)
+        if product_id is not None and item.get("key"):
+            record_pick(self, str(item["key"]), product_id, PICK_BOUGHT)
 
     def _reparse_shopping_item(self, item: dict[str, Any]) -> None:
         """Amount, product and price after the text of an item (1.3 item) was changed."""
@@ -1754,6 +1789,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "recipe_costs": {
                 rid: self.recipe_cost(recipe)["per_serving"] for rid, recipe in self.recipes.items()
             },
+            # the product database (1.5): counts only, the products come page by page
+            # (websocket essensplaner/products)
+            "products": product_counts(self),
         }
 
 

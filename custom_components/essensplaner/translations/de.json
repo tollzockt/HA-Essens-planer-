@@ -89,6 +89,23 @@
         "aldi": "ALDI-SÜD-Onlinepreise (experimentell)",
         "edeka": "EDEKA-Angebote deines Markts"
       }
+    },
+    "product_filter": {
+      "options": {
+        "favorites": "⭐ Favoriten",
+        "offers": "🏷️ Angebote",
+        "bought": "🧾 Gekauft",
+        "manual": "✍️ Eigene"
+      }
+    },
+    "product_sort": {
+      "options": {
+        "price": "Preis",
+        "unit_price": "Grundpreis",
+        "saving": "Ersparnis",
+        "name": "Name",
+        "recent": "Zuletzt gesehen"
+      }
     }
   },
   "entity": {
@@ -332,6 +349,9 @@
     },
     "ai_busy": {
       "message": "Die KI arbeitet gerade an einer anderen Essensplaner-Anfrage – bitte gleich noch einmal versuchen."
+    },
+    "product_not_found": {
+      "message": "Den Artikel „{id}“ gibt es nicht in der Artikel-Datenbank."
     }
   },
   "services": {
@@ -1228,6 +1248,74 @@
         "remove_prices": {
           "name": "Preise entfernen",
           "description": "Auch die eigenen Preise entfernen, die dieser Kassenzettel gesetzt hat."
+        }
+      }
+    },
+    "search_products": {
+      "name": "Artikel suchen",
+      "description": "Sucht in der Artikel-Datenbank: Produkte mit echtem Preis aus Angeboten, Onlinepreisen, Kassenzetteln und eigenen Artikeln deiner Läden (ohne Abfrage).",
+      "fields": {
+        "query": {
+          "name": "Suche",
+          "description": "Marke, Name oder Zutat, z. B. „Butter“."
+        },
+        "store": {
+          "name": "Laden",
+          "description": "Optional: nur Artikel dieser Kette oder Filiale."
+        },
+        "only": {
+          "name": "Nur",
+          "description": "Optional: nur Favoriten, aktuelle Angebote, gekaufte oder eigene Artikel."
+        },
+        "sort": {
+          "name": "Sortierung",
+          "description": "Nach Preis, Grundpreis, Ersparnis, Name oder zuletzt gesehen."
+        },
+        "count": {
+          "name": "Anzahl",
+          "description": "Höchstens so viele Artikel."
+        }
+      }
+    },
+    "save_product": {
+      "name": "Eigenen Artikel speichern",
+      "description": "Legt einen eigenen Artikel in der Artikel-Datenbank an oder ändert ihn (mit Laden, Packung, Preis und Bild-Link). Eigene Artikel werden nie aufgeräumt.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "Optional: ID eines Artikels, der geändert wird (aus „Artikel suchen“)."
+        },
+        "store": {
+          "name": "Laden",
+          "description": "Kette oder Filiale, in der es den Artikel gibt (für neue Artikel nötig)."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name des Artikels."
+        },
+        "brand": {
+          "name": "Marke",
+          "description": "Optional: Marke bzw. Hersteller."
+        },
+        "pack": {
+          "name": "Packung",
+          "description": "Optional: Packungsgröße, z. B. 350 g, 1 l oder 10 Stück."
+        },
+        "price": {
+          "name": "Preis",
+          "description": "Optional: Normalpreis einer Packung in diesem Laden."
+        },
+        "image": {
+          "name": "Bild",
+          "description": "Optional: Internetadresse eines Produktbilds (https); leer entfernt das Bild."
+        },
+        "ingredient": {
+          "name": "Zutat",
+          "description": "Optional: Zutat, für die der Artikel gekauft wird (sonst aus dem Namen)."
+        },
+        "favorite": {
+          "name": "Lieblingsprodukt",
+          "description": "Den Artikel als ⭐ Lieblingsprodukt dieser Zutat merken (aus: Stern entfernen)."
         }
       }
     }

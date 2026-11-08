@@ -313,6 +313,22 @@ def default_base(manager: EssensplanerManager, key: str) -> str | None:
     return per[1] if per else None
 
 
+def _ingest_products(
+    manager: EssensplanerManager,
+    retailer: str,
+    products: list[dict[str, Any]],
+    key: str,
+    source: str,
+) -> None:
+    """Store a search's products in the product database (never fails the refresh)."""
+    from .products import ingest_shop_products  # the product database imports this module
+
+    try:
+        ingest_shop_products(manager, retailer, products, key, source)
+    except Exception:
+        _LOGGER.exception("Storing the products of %s failed", source)
+
+
 # ----------------------------------------------------------------------
 # Time texts
 # ----------------------------------------------------------------------
@@ -720,6 +736,8 @@ class OnlinePriceSource:
                         offers[product["id"]] = self.as_offer(manager, product, key)
                     elif key not in offer["keys"]:
                         offer["keys"].append(key)
+            # the fitting products of the search go into the product database (1.5)
+            _ingest_products(manager, self.retailer, products, key, self.source)
             product = best_product(products, key, default_base(manager, key))
             if product is None:
                 continue

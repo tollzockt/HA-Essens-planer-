@@ -243,13 +243,18 @@ def normalize_ingredient(data: Any) -> dict[str, Any]:
             amount = None
     if not name:
         return parse_ingredient(str(data.get("text", "")))
-    return {
+    result = {
         "name": name,
         "amount": amount,
         "unit": normalize_unit(data.get("unit")),
         "note": str(data.get("note") or "").strip(),
         "category": str(data.get("category") or "").strip() or guess_category(name),
     }
+    # 1.5: the product of the product database this ingredient is bought as
+    product_id = data.get("product_id")
+    if isinstance(product_id, str) and product_id.strip():
+        result["product_id"] = product_id.strip()[:80]
+    return result
 
 
 # --------------------------------------------------------------------------

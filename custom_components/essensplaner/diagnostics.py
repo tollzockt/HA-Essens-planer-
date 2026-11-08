@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -81,6 +82,8 @@ async def async_get_config_entry_diagnostics(
         "offer_catalog": _catalog_counts(manager),
         # receipts: counts only (no articles, prices, stores or images)
         "receipts": _receipt_counts(manager),
+        # the product database (1.5): counts and the file size only (no products)
+        "products": await _product_counts(hass, manager),
         # AI via Home Assistant (1.5): mode and state only (never prompts or answers)
         "ai": _ai_info(hass, manager),
         "branch_search": async_redact_data(
@@ -113,6 +116,40 @@ def _receipt_counts(manager: EssensplanerManager) -> dict[str, Any]:
         ),
         "ai_configured": ai_entity(manager) is not None,
         "ai_available": ai_available(manager.hass, ai_entity(manager)),
+    }
+
+
+async def _product_counts(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, Any]:
+    """How many products (per chain, kind and source), offers, own products, favourites and
+    picks the product database holds and how big its file is."""
+    from .products import MAX_PRODUCTS, product_counts
+
+    store = manager.products
+    counts = product_counts(manager)
+
+    def count(values: list[str]) -> dict[str, int]:
+        result: dict[str, int] = {}
+        for value in values:
+            result[value] = result.get(value, 0) + 1
+        return dict(sorted(result.items()))
+
+    def file_size() -> int | None:
+        try:
+            return Path(store.path).stat().st_size
+        except OSError:
+            return None
+
+    products = list(store.products.values())
+    return {
+        **counts,
+        "max_products": MAX_PRODUCTS,
+        "by_kind": count([str(p.get("kind") or "?") for p in products]),
+        "by_source": count([str((p.get("sources") or ["?"])[-1]) for p in products]),
+        "with_regular": sum(1 for p in products if p.get("regular")),
+        "with_image": sum(1 for p in products if p.get("image")),
+        "stable_ids": sum(1 for p in products if p.get("stable_id")),
+        "picks": sum(len(v) for v in store.picks.values()),
+        "file_bytes": await hass.async_add_executor_job(file_size),
     }
 
 

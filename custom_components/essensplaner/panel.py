@@ -1024,6 +1024,237 @@ async def ws_ai_test(
     )
 
 
+# ----------------------------------------------------------------------
+# Product database (1.5, products.py)
+# ----------------------------------------------------------------------
+
+
+def _product_error(
+    connection: websocket_api.ActiveConnection, msg: dict[str, Any], err: HomeAssistantError
+) -> None:
+    from .manager import error_message
+
+    code = getattr(err, "translation_key", None) or "product_failed"
+    connection.send_error(msg["id"], code, error_message(err))
+
+
+def _products_changed(hass: HomeAssistant) -> None:
+    """Tell open panels that products changed (their list, ⭐) – nothing else is saved."""
+    hass.bus.async_fire(EVENT_UPDATED, {"change": "products"})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/products",
+        vol.Optional("query"): vol.Any(None, str),
+        vol.Optional("retailers"): vol.Any(None, [str]),
+        vol.Optional("branch_ids"): vol.Any(None, [str]),
+        vol.Optional("category"): vol.Any(None, str),
+        vol.Optional("kind", default="all"): vol.In(
+            ["food", "drugstore", "household", "nonfood", "all"]
+        ),
+        vol.Optional("only"): vol.Any(None, vol.In(["favorites", "offers", "bought", "manual"])),
+        vol.Optional("sort", default="price"): vol.In(
+            ["price", "unit_price", "saving", "name", "recent"]
+        ),
+        vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("limit", default=60): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+    }
+)
+@callback
+def ws_products(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The product database ("📦 Artikel"), page by page.
+
+    query: brand, name or ingredient; retailers / branch_ids: only these chains /
+    branches; category: an aisle; kind: food | drugstore | household | nonfood | all; only:
+    favorites | offers | bought | manual; sort: price | unit_price | saving | name | recent;
+    offset / limit (≤ 100). Result {total, offset, limit, products: [{id, title, product,
+    brand, description, image, price, regular_price, regular_source, regular_seen,
+    old_price, stale, unit_price, base_unit, pack_amount, pack_unit, pack, on_offer,
+    current, offer_price, valid_from, valid_to, offer_source, loyalty, loyalty_note,
+    app_price, deposit, saving, discount, kind, category, retailer, store, branch_ids,
+    keys, source, sources, favorite, favorite_keys, bought, manual, first_seen,
+    last_seen}], stores: [{branch_id, label, retailer, store, main, count}], categories:
+    [{name, count}], counts}. Nothing is fetched.
+    """
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import products_view
+
+    connection.send_result(
+        msg["id"],
+        products_view(
+            manager,
+            query=msg.get("query"),
+            retailers=msg.get("retailers") or None,
+            branch_ids=msg.get("branch_ids") or None,
+            category=msg.get("category") or None,
+            kind=msg["kind"],
+            only=msg.get("only"),
+            sort=msg["sort"],
+            offset=msg["offset"],
+            limit=msg["limit"],
+        ),
+    )
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/product_detail", vol.Required("product_id"): str}
+)
+@callback
+def ws_product_detail(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """One product: {product (card), history: [{date, price, kind: regular | offer}], twins
+    (the same branded product at other chains), keys: [{key, name}], favorite_for,
+    picks: [{key, count, last, kind}]}. Error product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import product_detail
+
+    try:
+        connection.send_result(msg["id"], product_detail(manager, msg["product_id"]))
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/product_save", vol.Required("product"): dict}
+)
+@callback
+def ws_product_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Create or change an own product ("＋ Eigener Artikel"): product {id?, store, name,
+    brand?, pack?, price?, image? (https URL), ingredient?, category?, favorite?}. Result
+    {product (card)}. Errors name_required, store_required, unknown_store, invalid_price,
+    invalid_url, product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import product_card, save_manual
+
+    try:
+        product = save_manual(manager, dict(msg["product"]))
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    _products_changed(hass)
+    connection.send_result(msg["id"], {"product": product_card(manager, product)})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/product_delete", vol.Required("product_id"): str}
+)
+@callback
+def ws_product_delete(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Delete a product (also its ⭐ and picks): {deleted: id}. Error product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import delete_product
+
+    try:
+        product = delete_product(manager, msg["product_id"])
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    _products_changed(hass)
+    connection.send_result(msg["id"], {"deleted": product["id"]})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/product_favorite",
+        vol.Required("product_id"): str,
+        vol.Optional("key"): vol.Any(None, str),
+        vol.Optional("favorite", default=True): bool,
+    }
+)
+@callback
+def ws_product_favorite(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """⭐ a product for an ingredient (key; default its first ingredient) or take the ⭐
+    away (favorite false; without key from every ingredient). Result {key, product_id,
+    favorites: {key: product id}}. Error product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import set_favorite
+
+    try:
+        result = set_favorite(manager, msg["product_id"], msg.get("key"), msg["favorite"])
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    _products_changed(hass)
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/product_alternatives",
+        vol.Exclusive("key", "what"): str,
+        vol.Exclusive("uid", "what"): str,
+        vol.Exclusive("product_id", "what"): str,
+        vol.Optional("limit", default=20): vol.All(vol.Coerce(int), vol.Range(min=1, max=50)),
+    }
+)
+@callback
+def ws_product_alternatives(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Products for an ingredient at all saved chains ("Produkt wechseln"): of a shopping
+    item (uid), a product (product_id) or an ingredient (key), cheapest for the needed
+    amount first. Result {key, name, item_uid, amounts, current, favorite, alternatives:
+    [card + {cost, packs, needed, cost_text}]}. Errors shopping_item_not_found,
+    product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import product_alternatives
+
+    try:
+        result = product_alternatives(
+            manager,
+            key=msg.get("key"),
+            uid=msg.get("uid"),
+            product_id=msg.get("product_id"),
+            limit=msg["limit"],
+        )
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/product_to_recipe",
+        vol.Required("product_id"): str,
+        vol.Optional("tags"): vol.Any(None, str, [str]),
+    }
+)
+@callback
+def ws_product_to_recipe(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ "Als Rezept speichern" (a ready meal): a recipe with the product as its one
+    ingredient, "Nach Packungsanleitung zubereiten." and the product's image; tags default
+    ["Fertiggericht"]. Result {recipe: summary}. Errors product_not_found, recipe_exists."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .products import product_to_recipe
+
+    try:
+        recipe = product_to_recipe(manager, msg["product_id"], msg.get("tags"))
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], {"recipe": manager.recipe_summary(recipe)})
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -1049,3 +1280,10 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_settings)
     websocket_api.async_register_command(hass, ws_ai_status)
     websocket_api.async_register_command(hass, ws_ai_test)
+    websocket_api.async_register_command(hass, ws_products)
+    websocket_api.async_register_command(hass, ws_product_detail)
+    websocket_api.async_register_command(hass, ws_product_save)
+    websocket_api.async_register_command(hass, ws_product_delete)
+    websocket_api.async_register_command(hass, ws_product_favorite)
+    websocket_api.async_register_command(hass, ws_product_alternatives)
+    websocket_api.async_register_command(hass, ws_product_to_recipe)

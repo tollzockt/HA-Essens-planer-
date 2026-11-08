@@ -3137,6 +3137,9 @@ class StoresMixin:
         started = any(str(o.get("valid_from") or "")[:10] == today for o in self.offers)
         if started:
             self._invalidate_prices()
+        from .products import prune_products  # the product database (1.5)
+
+        prune_products(self)
         if removed or expired or started:
             self._after_price_change("offers")
 

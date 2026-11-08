@@ -89,6 +89,23 @@
         "aldi": "ALDI SÜD online prices (experimental)",
         "edeka": "EDEKA offers of your market"
       }
+    },
+    "product_filter": {
+      "options": {
+        "favorites": "⭐ Favourites",
+        "offers": "🏷️ Offers",
+        "bought": "🧾 Bought",
+        "manual": "✍️ Own"
+      }
+    },
+    "product_sort": {
+      "options": {
+        "price": "Price",
+        "unit_price": "Unit price",
+        "saving": "Saving",
+        "name": "Name",
+        "recent": "Last seen"
+      }
     }
   },
   "entity": {
@@ -332,6 +349,9 @@
     },
     "ai_busy": {
       "message": "The AI is busy with another Essensplaner request – please try again in a moment."
+    },
+    "product_not_found": {
+      "message": "The product {id} is not in the product database."
     }
   },
   "services": {
@@ -1228,6 +1248,74 @@
         "remove_prices": {
           "name": "Remove prices",
           "description": "Also remove the own prices this receipt set."
+        }
+      }
+    },
+    "search_products": {
+      "name": "Search products",
+      "description": "Searches the product database: products with a real price from offers, online prices, receipts and own products of your stores (no request).",
+      "fields": {
+        "query": {
+          "name": "Search",
+          "description": "Brand, name or ingredient, e.g. 'Butter'."
+        },
+        "store": {
+          "name": "Store",
+          "description": "Optional: only products of this chain or branch."
+        },
+        "only": {
+          "name": "Only",
+          "description": "Optional: only favourites, current offers, bought or own products."
+        },
+        "sort": {
+          "name": "Sort",
+          "description": "By price, unit price, saving, name or last seen."
+        },
+        "count": {
+          "name": "Count",
+          "description": "At most this many products."
+        }
+      }
+    },
+    "save_product": {
+      "name": "Save own product",
+      "description": "Creates or changes an own product in the product database (with store, pack, price and image link). Own products are never pruned.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "Optional: ID of a product to change (from 'Search products')."
+        },
+        "store": {
+          "name": "Store",
+          "description": "Chain or branch selling the product (needed for new products)."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the product."
+        },
+        "brand": {
+          "name": "Brand",
+          "description": "Optional: brand or maker."
+        },
+        "pack": {
+          "name": "Pack",
+          "description": "Optional: pack size, e.g. 350 g, 1 l or 10 Stück."
+        },
+        "price": {
+          "name": "Price",
+          "description": "Optional: regular price of one pack at this store."
+        },
+        "image": {
+          "name": "Image",
+          "description": "Optional: web address of a product image (https); empty removes the image."
+        },
+        "ingredient": {
+          "name": "Ingredient",
+          "description": "Optional: ingredient the product is bought for (else from the name)."
+        },
+        "favorite": {
+          "name": "Favourite product",
+          "description": "Remember the product as ⭐ favourite of this ingredient (off: remove the star)."
         }
       }
     }

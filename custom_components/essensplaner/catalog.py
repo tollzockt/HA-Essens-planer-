@@ -1198,6 +1198,10 @@ class OfferCatalog:
             offer["keys"] = manager.offer_keys({**offer, "keys": found}) if found else []
         self.set_bucket(source, retailer, None, copies, status, error)
         self.save_later()
+        # the product database (1.5) keeps the products of the list (in the background)
+        from .products import schedule_ingest
+
+        schedule_ingest(manager, copies)
 
     # -- views --------------------------------------------------------------------
 
@@ -1519,10 +1523,8 @@ def catalog_untried(manager: EssensplanerManager) -> bool:
     return catalog_plan(manager)["direct"] != manager.catalog.data.get("tried_direct")
 
 
-def drop_disabled_sources(manager: EssensplanerManager) -> bool:
-    """Forget the offers of sources switched off (catalog buckets and planning offers): an
-    offer of marktguru must not stay listed after the user switched it off. Returns True
-    if something was removed."""
+def disabled_sources(manager: EssensplanerManager) -> set[str]:
+    """The offer sources the user switched off (marktguru, ALDI SÜD, EDEKA)."""
     from .aldi import SOURCE as ALDI_ONLINE, aldi_enabled
     from .edeka import edeka_enabled
 
@@ -1533,6 +1535,14 @@ def drop_disabled_sources(manager: EssensplanerManager) -> bool:
         off |= {SOURCE_ALDI, ALDI_ONLINE}
     if not edeka_enabled(manager):
         off.add(SOURCE_EDEKA)
+    return off
+
+
+def drop_disabled_sources(manager: EssensplanerManager) -> bool:
+    """Forget the offers of sources switched off (catalog buckets and planning offers): an
+    offer of marktguru must not stay listed after the user switched it off. Returns True
+    if something was removed."""
+    off = disabled_sources(manager)
     catalog = manager.catalog
     count = len(catalog.buckets)
     catalog.drop_buckets({k for k in catalog.buckets if k.split("|", 1)[0] not in off})
@@ -1819,6 +1829,11 @@ async def _async_run(
             manager._after_price_change("prices")  # learned prices can move open items
         else:
             manager._changed("catalog")
+    if succeeded:
+        # every product of the catalog goes into the product database (1.5, no request)
+        from .products import async_ingest_safe
+
+        await async_ingest_safe(manager, offers)
     if mg_meta is not None:
         return _result(manager, **mg_meta)
     return _result(manager, status=status, errors=errors[:MAX_ERRORS], learned=learned)
@@ -1890,15 +1905,27 @@ async def async_rematch_catalog(manager: EssensplanerManager, force: bool = Fals
     signature = _match_signature(keys, planning)
     if not force and signature == catalog.match_signature:
         return False
+    rekeyed: set[str] = set()
     for bucket in list(catalog.buckets.values()):
         if bucket.get("offers"):
+            before = [tuple(o.get("keys") or ()) for o in bucket["offers"]]
             await async_match_offers(manager, bucket["offers"], keys)
             if manager.unloaded:
                 return False
+            rekeyed |= {
+                str(o.get("id"))
+                for o, old in zip(bucket["offers"], before, strict=False)
+                if tuple(o.get("keys") or ()) != old
+            }
     catalog._touch()
     catalog.save_later()
     today = manager.today()
     offers = catalog.current_offers(today)
+    if rekeyed:
+        # the products of offers with new ingredient keys get them too (1.5)
+        from .products import async_ingest_safe
+
+        await async_ingest_safe(manager, [o for o in offers if str(o.get("id")) in rekeyed])
     learned = manager.learn_from_offers(
         [o for o in offers if not o.get("online_only") and o.get("keys")]
     )

@@ -195,6 +195,9 @@ SERVICE_RECEIPT_SCAN: Final = "receipt_scan"
 SERVICE_RECEIPT_SAVE: Final = "receipt_save"
 SERVICE_GET_RECEIPTS: Final = "get_receipts"
 SERVICE_DELETE_RECEIPT: Final = "delete_receipt"
+# product database (1.5)
+SERVICE_SEARCH_PRODUCTS: Final = "search_products"
+SERVICE_SAVE_PRODUCT: Final = "save_product"
 # sources of refresh_prices
 PRICE_SOURCE_OFFERS: Final = "offers"
 PRICE_SOURCE_REWE: Final = "rewe"

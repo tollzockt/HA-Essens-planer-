@@ -289,6 +289,26 @@ Angebote, die zu deinen Rezepten, der Merkliste, der Einkaufsliste oder deinen e
 
 Gespeichert wird der Katalog in einer eigenen Datei (`/config/.storage/essensplaner.catalog.<entry_id>`); für das Panel gibt es den Websocket `essensplaner/store_offers` (Filter nach Laden, aktuell/kommend, Art, Suche, „nur meine Zutaten“, Sortierung, Seiten).
 
+## 📦 Artikel-Datenbank
+
+Der Essensplaner merkt sich **jedes Produkt mit echtem Preis**, das er ohnehin sieht – je Kette, mit Bild (nur als Link), Marke, Packung, Normalpreis, Angebot, Grundpreis und Preisverlauf: die Angebote deiner Läden (EDEKA, ALDI-SÜD-Wochenangebote, marktguru), die passenden Treffer der REWE- und ALDI-SÜD-Onlinepreise und der Artikelsuche, die Zeilen deiner Kassenzettel und eigene Artikel. **Dafür gibt es keine zusätzliche Abfrage**, und es kommen nur echte Preise hinein (Onlineshop, Prospekt, Kassenzettel, eigene Eingabe) – nie geschätzte Preise oder Preise einer anderen Kette. Beim ersten Start nach dem Update wird sie einmal aus dem Gespeicherten gefüllt (aktuelle Angebote, REWE-/ALDI-Onlinepreise, Kassenzettel der letzten 90 Tage, Angebote auf der Einkaufsliste).
+
+- **Ein Produkt je Kette:** REWE- und ALDI-SÜD-Artikel erkennt der Essensplaner an ihrer Artikelnummer, alle anderen an Marke + Name + Packung („Kerrygold Irische Butter 250 g“) – auch wenn das Angebot nächste Woche eine neue Nummer hat. Derselbe Markenartikel bei einer anderen Kette erscheint als „auch bei …“ (nie für Eigenmarken wie ja!, Milsani, Milbona, K-Classic oder GUT&GÜNSTIG).
+- **Kassenzettel:** eine Zeile gehört zu einem bekannten Produkt der Kette, wenn Zutat und Preis (±15 %) passen; sonst entsteht ein Kassenzettel-Produkt. Jede Zeile zählt als „gekauft“.
+- **⭐ Lieblingsprodukt und gemerkte Käufe:** je Zutat kannst du ein Lieblingsprodukt festlegen; was du aus einem Angebot auf die Einkaufsliste setzt oder abhakst, merkt sich der Essensplaner (höchstens drei Produkte je Zutat).
+- **Klein und schnell:** höchstens 3000 Produkte, Verlauf mit höchstens 8 Preisen, Bilder nur als Links, gespeichert in einer eigenen Datei (`/config/.storage/essensplaner.products.<entry_id>`, etwa 1–2 MB). Täglich wird aufgeräumt: Produkte, die 120 Tage nicht mehr vorkamen, gehen; eigene Artikel, Lieblingsprodukte, gemerkte Käufe und Produkte auf der Einkaufsliste, in Rezepten oder Anlässen bleiben, Produkte mit gültigem Angebot ebenso. Non-Food (Kleidung, Technik) wird nicht gespeichert. Ein Normalpreis gilt 90 Tage.
+- **Eigene Artikel:** mit Laden, Name, Marke, Packung, Preis und Bild-Link (`https://…`); sie werden nie aufgeräumt. Ein Fertiggericht (TK-Pizza …) lässt sich als Rezept speichern („Nach Packungsanleitung zubereiten.“, mit Bild).
+
+Aktionen: `search_products` (Suche nach Marke, Name oder Zutat, optional Laden, nur Favoriten / Angebote / gekauft / eigene, Sortierung) und `save_product` (eigenen Artikel anlegen oder ändern). Für das Panel (Tab „📦 Artikel“) und eigene Oberflächen gibt es die Websockets `essensplaner/products` (Seiten mit Filtern für Laden, Kategorie, Art, Favoriten, Angebote, gekauft, eigene und Sortierung nach Preis, Grundpreis, Ersparnis, Name, zuletzt gesehen), `essensplaner/product_detail` (Preisverlauf, „auch bei …“, Zutaten), `essensplaner/product_save`, `essensplaner/product_delete`, `essensplaner/product_favorite`, `essensplaner/product_alternatives` (Produkte einer Zutat in allen Läden, günstigste für die benötigte Menge zuerst) und `essensplaner/product_to_recipe`.
+
+```yaml
+action: essensplaner.search_products
+data:
+  query: Butter
+  only: offers
+response_variable: artikel   # artikel.products: Marke, Name, Packung, Preis, Laden, Bild
+```
+
 ## 🧾 Kassenzettel
 
 Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deiner Kassenzettel** als eigene Preise des Ladens:
@@ -340,7 +360,7 @@ Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.5 (+https://github.
 
 **Kassenzettel:** Fotos und PDFs bleiben in einem eigenen Ordner deiner Home-Assistant-Installation (`/config/.storage/essensplaner_receipts/`, nicht im Medienordner) und sind nur für Administratoren sichtbar, eingefügter Text wird lokal gelesen. Eine KI bekommt ein Bild nur, wenn du selbst eine KI-Aufgabe gewählt hast und „Mit KI auslesen“ antippst. Achtung: Die KI-Aufgabe kann ein **Cloud-Dienst** sein (z. B. OpenAI oder Google) – dann geht das Foto des Kassenzettels an diesen Anbieter; eine lokale KI wie Ollama bleibt im Haus. Mit der Integration werden auch alle Kassenzettel und ihre Fotos gelöscht (andere Dateien nicht).
 
-Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Postleitzahlen, Orte, Namen, Bezeichnungen, Entfernungen, Zonen-Namen, Filial- und Markt-IDs geschwärzt; übrig bleiben Kette, Hauptladen-Markierung und Anzahlen (vom Angebotskatalog und den Kassenzetteln nur Anzahlen).
+Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinaten, Straßen, Postleitzahlen, Orte, Namen, Bezeichnungen, Entfernungen, Zonen-Namen, Filial- und Markt-IDs geschwärzt; übrig bleiben Kette, Hauptladen-Markierung und Anzahlen (vom Angebotskatalog, der Artikel-Datenbank und den Kassenzetteln nur Anzahlen).
 
 ## 🧩 Blueprints
 
@@ -400,6 +420,7 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.add_offer` / `remove_offer` | Angebot eintragen / löschen |
 | `essensplaner.receipt_parse_text` / `receipt_scan` | Kassenzettel-Text lokal lesen / Foto oder PDF von der KI-Aufgabe lesen lassen (Vorschlag zum Prüfen) |
 | `essensplaner.receipt_save` / `get_receipts` / `delete_receipt` | Kassenzettel speichern (Preise werden eigene Ladenpreise) / abrufen / löschen |
+| `essensplaner.search_products` / `save_product` | In der [Artikel-Datenbank](#-artikel-datenbank) suchen / eigenen Artikel anlegen oder ändern |
 
 ```yaml
 action: essensplaner.plan_meal
@@ -427,7 +448,7 @@ response_variable: einkauf   # einkauf.selection: Artikel, Zwischensumme, Erspar
 Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`, die Kassenzettel in `essensplaner.receipts.<entry_id>` und ihre Fotos in `/config/.storage/essensplaner_receipts/`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Einstellungen ist geschwärzt.
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`, die Artikel-Datenbank in `essensplaner.products.<entry_id>`, die Kassenzettel in `essensplaner.receipts.<entry_id>` und ihre Fotos in `/config/.storage/essensplaner_receipts/`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Einstellungen ist geschwärzt.
 
 ## Entwicklung
 

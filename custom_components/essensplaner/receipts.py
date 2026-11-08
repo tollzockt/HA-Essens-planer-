@@ -1941,6 +1941,14 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
     elif previous is not None and previous.get("content_type"):
         receipt["content_type"] = previous["content_type"]
     dropped = store.put(receipt)
+    # its products (linked to known ones of the chain, else receipt products) and a
+    # "bought" pick each – once, not again when the receipt is corrected (1.5)
+    from .products import ingest_receipt
+
+    try:
+        ingest_receipt(manager, receipt, record=previous is None)
+    except Exception:
+        _LOGGER.exception("Storing the products of a receipt failed")
     replaced = (previous or {}).get("image")
     if upload is not None and replaced and replaced != receipt["image"]:
         dropped.append({"image": replaced})  # a new photo of a saved receipt

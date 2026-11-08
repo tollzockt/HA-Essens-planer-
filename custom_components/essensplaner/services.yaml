@@ -818,3 +818,84 @@ delete_receipt:
       default: false
       selector:
         boolean:
+
+search_products:
+  fields:
+    query:
+      example: "Butter"
+      selector:
+        text:
+    store:
+      example: "Lidl"
+      selector:
+        text:
+    only:
+      selector:
+        select:
+          translation_key: product_filter
+          options:
+            - favorites
+            - offers
+            - bought
+            - manual
+    sort:
+      default: price
+      selector:
+        select:
+          translation_key: product_sort
+          options:
+            - price
+            - unit_price
+            - saving
+            - name
+            - recent
+    count:
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+save_product:
+  fields:
+    id:
+      example: "rewe:s1a2b3c4d5"
+      selector:
+        text:
+    store:
+      example: "REWE"
+      selector:
+        text:
+    name:
+      example: "Steinofen-Pizza Salami"
+      selector:
+        text:
+    brand:
+      example: "Mustermarke"
+      selector:
+        text:
+    pack:
+      example: "350 g"
+      selector:
+        text:
+    price:
+      example: 2.79
+      selector:
+        number:
+          min: 0.01
+          max: 10000
+          step: 0.01
+          mode: box
+          unit_of_measurement: "€"
+    image:
+      example: "https://example.org/bilder/pizza.jpg"
+      selector:
+        text:
+    ingredient:
+      example: "Pizza"
+      selector:
+        text:
+    favorite:
+      selector:
+        boolean:

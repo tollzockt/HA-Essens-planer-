@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
+import logging
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -42,6 +43,8 @@ from .stores import valid_postcode
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
+
+_LOGGER = logging.getLogger(__name__)
 
 ARTICLE_HISTORY_MAX = 200
 # live search: cache lifetime, minimum seconds between requests, minimum query length
@@ -492,6 +495,15 @@ class ArticlesMixin:
         response["error"] = "; ".join(errors) or None
         folded = fold(str(query)).strip()
         key = ingredient_key(str(query))
+        if key and offers:
+            # the shop hits (REWE, ALDI SÜD) that fit go into the product database (1.5);
+            # leaflet hits only when one is picked
+            from .products import ingest_live_results
+
+            try:
+                ingest_live_results(self, offers, key)
+            except Exception:
+                _LOGGER.exception("Storing the products of the article search failed")
         defaults = self.defaults_index()
         # the query names an article: hits that are no such article are ranked last
         article = bool(key) and (

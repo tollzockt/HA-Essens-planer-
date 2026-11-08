@@ -189,6 +189,12 @@
     },
     "delete_receipt": {
       "service": "mdi:receipt-text-remove"
+    },
+    "search_products": {
+      "service": "mdi:package-variant-closed-check"
+    },
+    "save_product": {
+      "service": "mdi:package-variant-plus"
     }
   }
 }
