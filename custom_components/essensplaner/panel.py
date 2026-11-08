@@ -1342,6 +1342,185 @@ def ws_product_to_recipe(
     connection.send_result(msg["id"], {"recipe": manager.recipe_summary(recipe)})
 
 
+# ----------------------------------------------------------------------
+# Occasions and drinks (1.5, occasions.py, drinks.py)
+# ----------------------------------------------------------------------
+
+
+def _occasion_error(
+    connection: websocket_api.ActiveConnection, msg: dict[str, Any], err: HomeAssistantError
+) -> None:
+    from .manager import error_message
+
+    code = getattr(err, "translation_key", None) or "occasion_failed"
+    connection.send_error(msg["id"], code, error_message(err))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/occasion_save", vol.Required("occasion"): dict}
+)
+@callback
+def ws_occasion_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Create (no id) or change an occasion: occasion {id?, title?, template?, date?
+    (ISO or words), time? ("" = all day), duration_h?, guests?, children?, notes?, items?
+    (replaces all: [{uid?, course, recipe_id? | product_id? | title, servings?, quantity?,
+    unit?, alcohol?, note?}]), add_items?, remove_items? (uids), auto_fill? (new: dishes,
+    drinks and extras by the rules)}. Result {occasion (occasion_view)}. Errors
+    occasion_not_found, name_required, invalid_template, invalid_date, invalid_time,
+    invalid_course, recipe_not_found, product_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .occasions import occasion_view, save_occasion
+
+    try:
+        occasion = save_occasion(manager, dict(msg["occasion"]))
+    except HomeAssistantError as err:
+        _occasion_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], {"occasion": occasion_view(manager, occasion)})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/occasion_delete", vol.Required("occasion_id"): str}
+)
+@callback
+def ws_occasion_delete(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Delete an occasion (its shopping items stay): {deleted: id}. Error
+    occasion_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .occasions import delete_occasion
+
+    try:
+        occasion = delete_occasion(manager, msg["occasion_id"])
+    except HomeAssistantError as err:
+        _occasion_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], {"deleted": occasion["id"]})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/occasion_suggest",
+        vol.Required("occasion_id"): str,
+        vol.Optional("course"): vol.Any(
+            None, vol.In(["starter", "main", "side", "dessert", "snack", "drink", "extra"])
+        ),
+        vol.Optional("count", default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=20)),
+        vol.Optional("exclude"): vol.Any(None, [str]),
+        vol.Optional("ai", default=False): bool,
+        vol.Optional("apply", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_occasion_suggest(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Suggestions for an occasion ("＋ Gericht", "🤖 KI-Menü"): per course (or one course)
+    recipes by the planning rules and the template, drinks and missing extras; ai: the AI's
+    menu first (feature "occasions"; a failing AI keeps the rule suggestions and reports
+    ai {ok: false, code, error}); apply: put the best ones into the occasion. Result
+    {occasion, suggestions: {course: [{recipe_id, title, course, cost?, reasons?, …}]},
+    applied: [titles], ai: None | {ok, code?, error?}}. Error occasion_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .occasions import async_suggest_menu, require_occasion
+
+    try:
+        occasion = require_occasion(manager, msg["occasion_id"])
+        result = await async_suggest_menu(
+            hass,
+            manager,
+            occasion,
+            course=msg.get("course"),
+            count=msg["count"],
+            ai=msg["ai"],
+            apply=msg["apply"],
+            exclude=set(msg.get("exclude") or []),
+        )
+    except HomeAssistantError as err:
+        _occasion_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/drinks_suggest",
+        vol.Optional("recipe_ids"): vol.Any(None, [str]),
+        vol.Optional("titles"): vol.Any(None, [str]),
+        vol.Optional("occasion_id"): vol.Any(None, str),
+        vol.Optional("date"): vol.Any(None, str),
+        vol.Optional("alcohol"): vol.Any(None, bool),
+        vol.Optional("guests"): vol.Any(None, vol.All(vol.Coerce(int), vol.Range(min=1, max=200))),
+        vol.Optional("children"): vol.Any(
+            None, vol.All(vol.Coerce(int), vol.Range(min=0, max=100))
+        ),
+        vol.Optional("hours"): vol.Any(
+            None, vol.All(vol.Coerce(float), vol.Range(min=0.5, max=48))
+        ),
+        vol.Optional("kind"): vol.Any(
+            None,
+            vol.In(["wine", "sparkling", "beer", "mixed", "soft", "juice", "hot", "water", "free"]),
+        ),
+        vol.Optional("ai", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_drinks_suggest(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ "🍷 Passt dazu": drinks for recipes (recipe_ids) / dish titles and/or an occasion,
+    always at least two without alcohol, with alcohol only when allowed (alcohol, default
+    the option drinks_alcohol), drinks for children, quantities for guests; ai: the AI's
+    drinks first (feature "drinks"). Result {drinks: [{id, title, name, hint, alcohol,
+    kids, kind, reason, score, offer?, recipe_id?, liters?, quantity?, unit?, bottles?,
+    ai?}], alcohol, reasons, quantities, ai: None | {ok, code?, error?}}. Errors
+    recipe_not_found, occasion_not_found, invalid_date."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .dates import DateParseError, parse_date
+    from .manager import _error
+    from .occasions import async_suggest_drinks, require_occasion
+
+    try:
+        recipes = []
+        for recipe_id in msg.get("recipe_ids") or []:
+            recipe = manager.recipes.get(recipe_id)
+            if recipe is None:
+                raise _error("recipe_not_found", name=recipe_id)
+            recipes.append(recipe)
+        occasion = require_occasion(manager, msg["occasion_id"]) if msg.get("occasion_id") else None
+        day = None
+        if msg.get("date"):
+            try:
+                day = parse_date(msg["date"], manager.today())[0]
+            except DateParseError as err:
+                raise _error("invalid_date", date=msg["date"]) from err
+        result = await async_suggest_drinks(
+            hass,
+            manager,
+            recipes=recipes,
+            titles=[t for t in msg.get("titles") or [] if t],
+            occasion=occasion,
+            day=day,
+            alcohol=msg.get("alcohol"),
+            guests=msg.get("guests"),
+            children=msg.get("children"),
+            hours=msg.get("hours"),
+            ai=msg["ai"],
+            kind=msg.get("kind"),
+        )
+    except HomeAssistantError as err:
+        _occasion_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -1376,3 +1555,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_product_alternatives)
     websocket_api.async_register_command(hass, ws_product_to_recipe)
     websocket_api.async_register_command(hass, ws_shopping_set_product)
+    websocket_api.async_register_command(hass, ws_occasion_save)
+    websocket_api.async_register_command(hass, ws_occasion_delete)
+    websocket_api.async_register_command(hass, ws_occasion_suggest)
+    websocket_api.async_register_command(hass, ws_drinks_suggest)

@@ -268,6 +268,76 @@ def test_all_intents_exist(intents: Intents) -> None:
             {"when": "nächste woche"},
         ),
         ("was kostet der essensplan", "essensplaner_get_costs", {}),
+        # 1.5: occasions and drinks
+        (
+            "plane einen filmabend am samstag für 4",
+            "essensplaner_plan_occasion",
+            {"occasion": "filmabend", "date": "am samstag", "guests": 4},
+        ),
+        (
+            "plane einen grillabend für samstag für 6 personen",
+            "essensplaner_plan_occasion",
+            {"occasion": "grillabend", "date": "samstag", "guests": 6},
+        ),
+        (
+            "plane ein weihnachtsessen an heiligabend für 8 personen",
+            "essensplaner_plan_occasion",
+            {"occasion": "weihnachtsessen", "date": "heiligabend", "guests": 8},
+        ),
+        (
+            "wir machen am samstag einen grillabend mit 8 leuten",
+            "essensplaner_plan_occasion",
+            {"date": "am samstag", "occasion": "grillabend", "guests": 8},
+        ),
+        ("plane eine party", "essensplaner_plan_occasion", {"occasion": "party"}),
+        ("was gibt es weihnachten", "essensplaner_get_occasion", {"date": "weihnachten"}),
+        (
+            "was gibt es an heiligabend zu essen",
+            "essensplaner_get_occasion",
+            {"date": "heiligabend"},
+        ),
+        ("was essen wir an silvester", "essensplaner_get_occasion", {"date": "silvester"}),
+        ("was gibt es beim grillabend", "essensplaner_get_occasion", {"occasion": "grillabend"}),
+        ("wann ist der nächste anlass", "essensplaner_get_occasion", {}),
+        (
+            "füge kartoffelsalat zum grillabend hinzu",
+            "essensplaner_edit_occasion",
+            {"dish": "kartoffelsalat", "occasion": "grillabend"},
+        ),
+        (
+            "streiche das tiramisu vom weihnachtsessen",
+            "essensplaner_edit_occasion",
+            {"dish": "das tiramisu", "occasion": "weihnachtsessen", "action": "entfernen"},
+        ),
+        (
+            "zum grillabend kommen 8 personen",
+            "essensplaner_edit_occasion",
+            {"occasion": "grillabend", "guests": 8},
+        ),
+        (
+            "welcher wein passt zur lasagne",
+            "essensplaner_suggest_drinks",
+            {"kind": "wein", "dish": "lasagne"},
+        ),
+        ("was trinken wir zum grillen", "essensplaner_suggest_drinks", {"occasion": "grillen"}),
+        ("was trinken wir zur lasagne", "essensplaner_suggest_drinks", {"dish": "lasagne"}),
+        (
+            "welches bier passt zum filmabend",
+            "essensplaner_suggest_drinks",
+            {"kind": "bier", "occasion": "filmabend"},
+        ),
+        (
+            "welche getränke passen zum raclette abend",
+            "essensplaner_suggest_drinks",
+            {"occasion": "Raclette-Abend"},
+        ),
+        # the meals of a day stay with get_meals / plan_meal
+        (
+            "plane lasagne für samstag",
+            "essensplaner_plan_meal",
+            {"dish": "lasagne", "date": "samstag"},
+        ),
+        ("was gibt es zum abendessen", "essensplaner_get_meals", {"meal": "abendessen"}),
     ],
 )
 def test_sentences(intents: Intents, sentence: str, intent_name: str, slots: dict) -> None:
@@ -293,3 +363,17 @@ def test_store_list(intents: Intents) -> None:
     for value in values:
         if value != "hauptladen":
             assert resolve_retailer(value, zip_code="80331"), value
+
+
+def test_occasion_and_holiday_lists(intents: Intents) -> None:
+    """Every occasion word names a template, every holiday is a date (1.5)."""
+    from datetime import date
+
+    from custom_components.essensplaner.dates import parse_date
+    from custom_components.essensplaner.occasions import TEMPLATES, resolve_template
+
+    for value in intents.slot_lists["occasion"].values:
+        assert resolve_template(value.value_out) in TEMPLATES, value.value_out
+    for value in intents.slot_lists["holiday"].values:
+        day, _ = parse_date(value.value_out, date(2026, 11, 4))
+        assert day >= date(2026, 11, 4), value.value_out

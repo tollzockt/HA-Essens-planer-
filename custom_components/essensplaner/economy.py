@@ -94,6 +94,9 @@ _OFFER_CATEGORIES = {
     "Nüsse & Trockenobst",
 }
 
+# the drinks aisle: searched only for drinks that are planned (1.5)
+DRINKS_CATEGORY = "Getränke"
+
 # strategy -> (offer factor, over-budget penalty, cheapness exponent, variety penalty)
 _STRATEGY_WEIGHTS = {
     STRATEGY_BALANCED: (1.2, 2.0, 0.4, 0.35),
@@ -406,14 +409,34 @@ class EconomyMixin:
         return result
 
     def plan_costs(self: EssensplanerManager, start: date, days: int) -> dict[str, Any]:
-        """Cost of the planned meals in a date range."""
+        """Cost of the planned meals in a date range.
+
+        1.5: the occasions of a day are part of its total ({id, title, emoji, cost});
+        occasions_total is their share (see week_overview() for the budget).
+        """
+        from .occasions import occasion_cost, occasions_on, template_info
+
         out_days = []
         total = 0.0
         savings = 0.0
+        occasions_total = 0.0
         for offset in range(max(1, days)):
             day = start + timedelta(days=offset)
             day_total = 0.0
             meals = []
+            occasions = []
+            for occasion in occasions_on(self, day):
+                cost = occasion_cost(self, occasion)["total"]
+                day_total += cost
+                occasions_total += cost
+                occasions.append(
+                    {
+                        "id": occasion["id"],
+                        "title": occasion["title"],
+                        "emoji": template_info(occasion.get("template"))["emoji"],
+                        "cost": cost,
+                    }
+                )
             for view in self.day_meals(day):
                 recipe = self.recipes.get(view.get("recipe_id") or "")
                 if recipe is None:
@@ -430,12 +453,20 @@ class EconomyMixin:
                     }
                 )
             total += day_total
-            out_days.append({"date": day.isoformat(), "total": round(day_total, 2), "meals": meals})
+            out_days.append(
+                {
+                    "date": day.isoformat(),
+                    "total": round(day_total, 2),
+                    "meals": meals,
+                    "occasions": occasions,
+                }
+            )
         return {
             "start": start.isoformat(),
             "days": out_days,
             "total": round(total, 2),
             "savings": round(savings, 2),
+            "occasions_total": round(occasions_total, 2),
         }
 
     def week_overview(self: EssensplanerManager, day: date | None = None) -> dict[str, Any]:
@@ -444,10 +475,16 @@ class EconomyMixin:
         start = day - timedelta(days=day.weekday())
         costs = self.plan_costs(start, 7)
         budget = self.weekly_budget
+        # 1.5: occasions count toward the budget unless switched off (occasions_in_budget)
+        counted = costs["total"]
+        if not self.occasions_in_budget:
+            counted = round(counted - costs["occasions_total"], 2)
         costs["end"] = (start + timedelta(days=6)).isoformat()
         costs["budget"] = budget
-        costs["remaining"] = round(budget - costs["total"], 2) if budget else None
-        costs["over_budget"] = bool(budget and costs["total"] > budget)
+        costs["budget_total"] = round(counted, 2)
+        costs["occasions_in_budget"] = self.occasions_in_budget
+        costs["remaining"] = round(budget - counted, 2) if budget else None
+        costs["over_budget"] = bool(budget and counted > budget)
         return costs
 
     # ------------------------------------------------------------------
@@ -540,7 +577,7 @@ class EconomyMixin:
                 continue
             planned = len(self.plan.get(current.isoformat(), {}))
             free += max(0, meals_per_day - planned)
-        remaining = budget - week["total"]
+        remaining = budget - week["budget_total"]
         return max(remaining, 0.5) / max(free, 1)
 
     # ------------------------------------------------------------------
@@ -768,15 +805,20 @@ class EconomyMixin:
 
     def offer_search_terms(self: EssensplanerManager, limit: int = 40) -> list[tuple[str, str]]:
         """Ingredients worth looking up: watchlist, open items added by hand (up to
-        MAX_SHOPPING_TERMS, any aisle), planned, favourites, frequent."""
+        MAX_SHOPPING_TERMS, any aisle), planned (also the occasions of the next 14 days),
+        favourites, frequent. Drinks only when planned (a meal's drinks, an occasion's
+        drinks or ingredients) or on the watchlist (1.5)."""
+        from .occasions import occasion_entries, occasions_between
+
         scores: dict[str, float] = {}
         names: dict[str, str] = {}
 
-        def add(name: str, score: float) -> None:
+        def add(name: str, score: float, drinks: bool = False) -> None:
             key = ingredient_key(name)
             if not key or is_pantry_item(name, self.pantry):
                 return
-            if guess_category(name) not in _OFFER_CATEGORIES:
+            category = guess_category(name)
+            if category not in _OFFER_CATEGORIES and not (drinks and category == DRINKS_CATEGORY):
                 return
             scores[key] = scores.get(key, 0) + score
             names.setdefault(key, name)
@@ -786,7 +828,13 @@ class EconomyMixin:
             for entry in self.plan.get((today + timedelta(days=offset)).isoformat(), {}).values():
                 recipe = self.recipes.get(entry.get("recipe_id") or "")
                 for ingredient in (recipe or {}).get("ingredients", []):
-                    add(ingredient.get("name", ""), 5)
+                    add(ingredient.get("name", ""), 5, drinks=True)
+                for drink in entry.get("drinks") or []:
+                    if isinstance(drink, dict) and drink.get("title"):
+                        add(str(drink["title"]), 5, drinks=True)
+        for occasion in occasions_between(self, today, today + timedelta(days=13)):
+            for ingredient, _label in occasion_entries(self, occasion)[0]:
+                add(str(ingredient.get("name") or ""), 6, drinks=True)
         for recipe in self.recipes.values():
             bonus = 2 if recipe.get("favorite") else 0
             for ingredient in recipe.get("ingredients", []):

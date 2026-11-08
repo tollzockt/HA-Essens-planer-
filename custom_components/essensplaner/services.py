@@ -68,6 +68,7 @@ from .const import (
     SERVICE_CLEAR_SHOPPING,
     SERVICE_COMPARE_PRICES,
     SERVICE_COPY_PLAN,
+    SERVICE_DELETE_OCCASION,
     SERVICE_DELETE_RECEIPT,
     SERVICE_DELETE_RECIPE,
     SERVICE_EXPORT_RECIPES,
@@ -79,6 +80,7 @@ from .const import (
     SERVICE_GET_BRANCHES,
     SERVICE_GET_COSTS,
     SERVICE_GET_LEAFLETS,
+    SERVICE_GET_OCCASIONS,
     SERVICE_GET_OFFERS,
     SERVICE_GET_PLAN,
     SERVICE_GET_RECEIPTS,
@@ -101,6 +103,7 @@ from .const import (
     SERVICE_REMOVE_MEAL,
     SERVICE_REMOVE_OFFER,
     SERVICE_SAVE_BRANCH,
+    SERVICE_SAVE_OCCASION,
     SERVICE_SAVE_PRODUCT,
     SERVICE_SEARCH_OFFERS,
     SERVICE_SEARCH_PRODUCTS,
@@ -109,12 +112,27 @@ from .const import (
     SERVICE_SET_SHOPPING_STORE,
     SERVICE_SHOPPING_LIST,
     SERVICE_SUGGEST,
+    SERVICE_SUGGEST_DRINKS,
+    SERVICE_SUGGEST_OCCASION_MENU,
     SERVICE_UPDATE_RECIPE,
     STRATEGIES,
 )
 from .dates import DateParseError, parse_date, parse_meal, week_start
 from .edeka import SOURCE_EDEKA, async_find_edeka_markets, async_refresh_edeka_offers
 from .ingredients import fold
+from .occasions import (
+    COURSES,
+    TEMPLATES,
+    async_suggest_drinks,
+    async_suggest_menu,
+    delete_occasion,
+    items_from_text,
+    occasion_view,
+    occasions_between,
+    resolve_course,
+    resolve_occasion,
+    save_occasion,
+)
 from .offers import OfferBlocked, async_refresh_offers, async_search_target_offers
 from .products import product_card, products_view, save_manual
 from .receipts import (
@@ -183,6 +201,7 @@ PLAN_MEAL_SCHEMA = vol.Schema(
         vol.Optional(ATTR_TITLE): cv.string,
         vol.Optional(ATTR_SERVINGS): _POSITIVE,
         vol.Optional(ATTR_NOTE): cv.string,
+        vol.Optional("drinks"): vol.Any(cv.string, [vol.Any(cv.string, dict)]),
     }
 )
 REMOVE_MEAL_SCHEMA = vol.Schema(
@@ -219,6 +238,8 @@ SHOPPING_SCHEMA = vol.Schema(
         vol.Optional(ATTR_DAYS, default=7): _DAYS,
         vol.Optional("replace", default=True): cv.boolean,
         vol.Optional(ATTR_SYNC, default=True): cv.boolean,
+        vol.Optional("include_occasions", default=True): cv.boolean,
+        vol.Optional("occasion"): cv.string,
     }
 )
 MARK_COOKED_SCHEMA = vol.Schema(
@@ -411,6 +432,53 @@ SAVE_PRODUCT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_IMAGE): cv.string,
         vol.Optional("ingredient"): cv.string,
         vol.Optional(ATTR_FAVORITE): cv.boolean,
+    }
+)
+_GUESTS = vol.All(vol.Coerce(int), vol.Range(min=1, max=200))
+_CHILDREN = vol.All(vol.Coerce(int), vol.Range(min=0, max=100))
+SAVE_OCCASION_SCHEMA = vol.Schema(
+    {
+        vol.Optional("occasion"): cv.string,
+        vol.Optional(ATTR_TITLE): cv.string,
+        vol.Optional("template"): vol.In(list(TEMPLATES)),
+        vol.Optional(ATTR_DATE): cv.string,
+        vol.Optional("time"): cv.string,
+        vol.Optional("duration"): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=48)),
+        vol.Optional("guests"): _GUESTS,
+        vol.Optional("children"): _CHILDREN,
+        vol.Optional("items"): vol.Any(cv.string, [vol.Any(cv.string, dict)]),
+        vol.Optional("course"): vol.In(list(COURSES)),
+        vol.Optional("remove"): vol.Any(cv.string, [cv.string]),
+        vol.Optional(ATTR_NOTES): cv.string,
+        vol.Optional("auto_fill", default=False): cv.boolean,
+    }
+)
+OCCASION_SCHEMA = vol.Schema({vol.Required("occasion"): cv.string})
+GET_OCCASIONS_SCHEMA = vol.Schema(
+    {
+        vol.Optional("occasion"): cv.string,
+        vol.Optional(ATTR_START_DATE): cv.string,
+        vol.Optional(ATTR_DAYS, default=365): vol.All(vol.Coerce(int), vol.Range(min=1, max=400)),
+    }
+)
+SUGGEST_OCCASION_MENU_SCHEMA = vol.Schema(
+    {
+        vol.Required("occasion"): cv.string,
+        vol.Optional("course"): vol.In(list(COURSES)),
+        vol.Optional(ATTR_COUNT, default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=20)),
+        vol.Optional("ai", default=False): cv.boolean,
+        vol.Optional("apply", default=False): cv.boolean,
+    }
+)
+SUGGEST_DRINKS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_RECIPE): cv.string,
+        vol.Optional("occasion"): cv.string,
+        vol.Optional(ATTR_DATE): cv.string,
+        vol.Optional("guests"): _GUESTS,
+        vol.Optional("children"): _CHILDREN,
+        vol.Optional("alcohol"): cv.boolean,
+        vol.Optional("ai", default=False): cv.boolean,
     }
 )
 IMPORT_RECIPES_SCHEMA = vol.Schema(
@@ -690,6 +758,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             recipe = manager.find_recipe(name)
             if recipe is None and not title:
                 title = name
+        drinks = call.data.get("drinks")
         entry = manager.plan_meal(
             day,
             meal,
@@ -697,6 +766,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             title=title,
             servings=call.data.get(ATTR_SERVINGS),
             note=call.data.get(ATTR_NOTE),
+            drinks=split_list(drinks) if isinstance(drinks, str) else drinks,
         )
         return {"entry": entry, "recipe_found": recipe is not None}
 
@@ -748,8 +818,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def shopping_list(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         start, _ = resolve_day(manager, call.data.get(ATTR_START_DATE))
+        occasion_id = None
+        if call.data.get("occasion"):
+            occasion_id = resolve_occasion(manager, call.data["occasion"])["id"]
         result = manager.generate_shopping_list(
-            start, call.data[ATTR_DAYS], replace=call.data["replace"]
+            start,
+            call.data[ATTR_DAYS],
+            replace=call.data["replace"],
+            include_occasions=call.data["include_occasions"],
+            occasion_id=occasion_id,
         )
         result["synced_to"] = None
         result["synced_items"] = 0
@@ -1106,6 +1183,90 @@ def async_setup_services(hass: HomeAssistant) -> None:
         hass.bus.async_fire(EVENT_UPDATED, {"change": "products"})
         return {"product": product_card(manager, product)}
 
+    async def save_occasion_service(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        data: dict[str, Any] = {}
+        for key in (ATTR_TITLE, "template", "time", "guests", "children", ATTR_NOTES):
+            if key in call.data:
+                data[key] = call.data[key]
+        if "duration" in call.data:
+            data["duration_h"] = call.data["duration"]
+        if call.data.get(ATTR_DATE):
+            data["date"] = resolve_day(manager, call.data[ATTR_DATE])[0]
+        if "items" in call.data:
+            values = call.data["items"]
+            data["add_items"] = items_from_text(
+                manager,
+                split_list(values) if isinstance(values, str) else values,
+                call.data.get("course"),
+            )
+        if call.data.get("remove"):
+            remove = call.data["remove"]
+            data["remove_items"] = split_list(remove) if isinstance(remove, str) else remove
+        if call.data.get("occasion"):
+            data["id"] = resolve_occasion(manager, call.data["occasion"])["id"]
+        else:
+            data["auto_fill"] = call.data["auto_fill"]
+        occasion = save_occasion(manager, data)
+        return {"occasion": occasion_view(manager, occasion)}
+
+    async def delete_occasion_service(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        occasion = delete_occasion(manager, resolve_occasion(manager, call.data["occasion"])["id"])
+        return {
+            "deleted": {"id": occasion["id"], "title": occasion["title"], "date": occasion["date"]}
+        }
+
+    async def get_occasions(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        if call.data.get("occasion"):
+            found = [resolve_occasion(manager, call.data["occasion"])]
+        else:
+            start, _ = resolve_day(manager, call.data.get(ATTR_START_DATE))
+            end = start + timedelta(days=call.data[ATTR_DAYS] - 1)
+            found = occasions_between(manager, start, end)
+        return {"occasions": [occasion_view(manager, o) for o in found]}
+
+    async def suggest_occasion_menu(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        occasion = resolve_occasion(manager, call.data["occasion"])
+        return await async_suggest_menu(
+            hass,
+            manager,
+            occasion,
+            course=resolve_course(call.data.get("course")),
+            count=call.data[ATTR_COUNT],
+            ai=call.data["ai"],
+            apply=call.data["apply"],
+        )
+
+    async def suggest_drinks_service(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        recipes = []
+        titles = []
+        if dish := call.data.get(ATTR_RECIPE):
+            recipe = manager.find_recipe(dish)
+            if recipe is not None:
+                recipes.append(recipe)
+            else:
+                titles.append(dish)
+        occasion = None
+        if call.data.get("occasion"):
+            occasion = resolve_occasion(manager, call.data["occasion"])
+        day = resolve_day(manager, call.data[ATTR_DATE])[0] if call.data.get(ATTR_DATE) else None
+        return await async_suggest_drinks(
+            hass,
+            manager,
+            recipes=recipes,
+            titles=titles,
+            occasion=occasion,
+            day=day,
+            alcohol=call.data.get("alcohol"),
+            guests=call.data.get("guests"),
+            children=call.data.get("children"),
+            ai=call.data["ai"],
+        )
+
     async def get_costs(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         if call.data.get(ATTR_START_DATE) or call.data.get(ATTR_DAYS):
@@ -1161,6 +1322,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SAVE_PRODUCT, save_product, SAVE_PRODUCT_SCHEMA),
         (SERVICE_SET_SHOPPING_PRODUCT, set_shopping_product, SET_SHOPPING_PRODUCT_SCHEMA),
         (SERVICE_GET_LEAFLETS, get_leaflets, GET_LEAFLETS_SCHEMA),
+        (SERVICE_SAVE_OCCASION, save_occasion_service, SAVE_OCCASION_SCHEMA),
+        (SERVICE_DELETE_OCCASION, delete_occasion_service, OCCASION_SCHEMA),
+        (SERVICE_GET_OCCASIONS, get_occasions, GET_OCCASIONS_SCHEMA),
+        (SERVICE_SUGGEST_OCCASION_MENU, suggest_occasion_menu, SUGGEST_OCCASION_MENU_SCHEMA),
+        (SERVICE_SUGGEST_DRINKS, suggest_drinks_service, SUGGEST_DRINKS_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

@@ -10,6 +10,9 @@
       "next_meal": {
         "default": "mdi:food"
       },
+      "next_occasion": {
+        "default": "mdi:party-popper"
+      },
       "week_plan": {
         "default": "mdi:calendar-week"
       },
@@ -201,6 +204,21 @@
     },
     "get_leaflets": {
       "service": "mdi:newspaper-variant-multiple-outline"
+    },
+    "save_occasion": {
+      "service": "mdi:party-popper"
+    },
+    "delete_occasion": {
+      "service": "mdi:calendar-remove"
+    },
+    "get_occasions": {
+      "service": "mdi:calendar-star"
+    },
+    "suggest_occasion_menu": {
+      "service": "mdi:silverware-variant"
+    },
+    "suggest_drinks": {
+      "service": "mdi:glass-wine"
     }
   }
 }

@@ -58,6 +58,15 @@ async def async_get_config_entry_diagnostics(
             "store_prices_learned": {r: len(v) for r, v in manager.store_prices_learned.items()},
             "store_preferences": len(manager.store_preferences),
             "article_history": len(manager.article_history),
+            # occasions (1.5): counts and templates only (titles and notes may name people)
+            "occasions": len(manager.occasions),
+            "occasions_upcoming": sum(
+                1 for o in manager.occasions.values() if str(o.get("date")) >= today.isoformat()
+            ),
+            "occasion_templates": sorted(
+                {str(o.get("template")) for o in manager.occasions.values()}
+            ),
+            "occasion_items": sum(len(o.get("items") or []) for o in manager.occasions.values()),
         },
         "enabled_meals": manager.enabled_meals,
         "meal_times": {m: manager.meal_time(m).strftime("%H:%M") for m in manager.enabled_meals},

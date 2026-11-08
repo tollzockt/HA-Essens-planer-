@@ -64,6 +64,10 @@ INTENT_COMPARE_PRICES = "essensplaner_compare_prices"
 INTENT_SET_SHOPPING_STORE = "essensplaner_set_shopping_store"
 INTENT_ADD_SHOPPING_ITEM = "essensplaner_add_shopping_item"
 INTENT_SET_PRICE = "essensplaner_set_price"
+INTENT_PLAN_OCCASION = "essensplaner_plan_occasion"
+INTENT_GET_OCCASION = "essensplaner_get_occasion"
+INTENT_EDIT_OCCASION = "essensplaner_edit_occasion"
+INTENT_SUGGEST_DRINKS = "essensplaner_suggest_drinks"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -73,6 +77,14 @@ _MEAL_DESC = "Mahlzeit/meal: 'Frühstück', 'Mittagessen', 'Abendessen' oder 'Sn
 _INT_1_14 = vol.All(vol.Coerce(int), vol.Range(min=1, max=14))
 _INT_1_30 = vol.All(vol.Coerce(int), vol.Range(min=1, max=30))
 _INT_MIN = vol.All(vol.Coerce(int), vol.Range(min=1, max=1440))
+_OCCASION_DESC = (
+    "Anlass/occasion: Vorlage wie 'Filmabend', 'Grillabend', 'Familienessen', "
+    "'Weihnachtsessen', 'Silvester', 'Geburtstag', 'Brunch', 'Raclette', 'Fondue', 'Party', "
+    "'Osteressen' oder der Name eines geplanten Anlasses."
+)
+_HOLIDAY_DATE_DESC = (
+    _DATE_DESC + " Auch Feiertage: 'Heiligabend', 'Weihnachten', 'Silvester', 'Ostern'."
+)
 _STORE_DESC = (
     "Laden/Filiale/store: Supermarkt wie 'Aldi Süd', 'Lidl', 'REWE', Drogerie wie "
     "'Rossmann' oder 'dm', eine eigene "
@@ -1195,14 +1207,22 @@ class GetCostsIntent(_EssensplanerIntent):
         week = manager.week_overview(day)
         meals = sum(1 for d in week["days"] for m in d["meals"] if m.get("cost") is not None)
         label = "nächste Woche" if day != manager.today() else "diese Woche"
+        occasions = [o for d in week["days"] for o in d.get("occasions") or []]
+        meals_total = round(week["total"] - week.get("occasions_total", 0.0), 2)
         if not meals:
             speech = f"Für {label} sind noch keine Rezepte geplant."
         else:
             speech = (
-                f"Die {meals} geplanten Mahlzeiten kosten {label} etwa {format_eur(week['total'])}."
+                f"Die {meals} geplanten Mahlzeiten kosten {label} etwa {format_eur(meals_total)}."
             )
             if week.get("savings"):
                 speech += f" Durch Angebote sparst du ungefähr {format_eur(week['savings'])}."
+        if occasions:
+            # 1.5: occasions of the week ("Dazu kommt der Filmabend mit etwa 23 €")
+            names = _join([o["title"] for o in occasions])
+            speech += f" Dazu {'kommt' if len(occasions) == 1 else 'kommen'} {names} mit etwa "
+            speech += format_eur(week.get("occasions_total"))
+            speech += "." if week.get("occasions_in_budget", True) else " (nicht im Budget)."
         if week.get("budget"):
             remaining = week["remaining"]
             if remaining is not None and remaining < 0:
@@ -1477,6 +1497,413 @@ class AddShoppingItemIntent(_EssensplanerIntent):
         return speech, {"item": item}
 
 
+# ----------------------------------------------------------------------
+# Occasions and drinks (1.5)
+# ----------------------------------------------------------------------
+
+_GUESTS = vol.All(vol.Coerce(int), vol.Range(min=1, max=200))
+_CHILDREN = vol.All(vol.Coerce(int), vol.Range(min=0, max=100))
+_KIND_WORDS = (
+    ("alkoholfrei", "free"),
+    ("ohne alkohol", "free"),
+    ("kinder", "free"),
+    ("rotwein", "wine"),
+    ("weisswein", "wine"),
+    ("wein", "wine"),
+    ("sekt", "sparkling"),
+    ("prosecco", "sparkling"),
+    ("bier", "beer"),
+    ("cocktail", "mixed"),
+    ("saft", "juice"),
+    ("heiss", "hot"),
+    ("kaffee", "hot"),
+)
+
+
+def _to_occasion(occasion: dict[str, Any]) -> str:
+    """'zum Filmabend', 'zur Party', 'zu Silvester', 'zu Omas Geburtstag'."""
+    from .occasions import template_info
+
+    info = template_info(occasion.get("template"))
+    title = str(occasion.get("title") or info["title"])
+    if title == info["title"]:
+        return str(info["to"])
+    return f"zu {title}"
+
+
+def _people(occasion: dict[str, Any]) -> str:
+    """'4 Personen', '2 Erwachsene und 2 Kinder'."""
+    guests = int(occasion.get("guests") or 0)
+    children = int(occasion.get("children") or 0)
+    if not children:
+        return f"{guests} {'Person' if guests == 1 else 'Personen'}"
+    adults = f"{guests} {'Erwachsenen' if guests == 1 else 'Erwachsene'}"
+    return f"{adults} und {children} {'Kind' if children == 1 else 'Kinder'}"
+
+
+def _menu_speech(occasion: dict[str, Any], extras: bool = False) -> str:
+    """'Hauptgang: Pizza Margherita; Snacks: Popcorn und Chips; Getränke: Cola, Bier und
+    Apfelschorle' (without the extras unless asked)."""
+    from .occasions import COURSE_EXTRA, COURSE_LABELS, COURSES
+
+    parts = []
+    for course in COURSES:
+        if course == COURSE_EXTRA and not extras:
+            continue
+        titles = [
+            str(i["title"])
+            for i in occasion.get("items") or []
+            if i.get("course") == course and i.get("title")
+        ]
+        if titles:
+            parts.append(f"{COURSE_LABELS[course]}: {_join(titles)}")
+    return "; ".join(parts)
+
+
+def _occasion_when(manager: EssensplanerManager, occasion: dict[str, Any]) -> str:
+    from .occasions import occasion_date
+
+    when = describe_date(occasion_date(occasion), manager.today())
+    if occasion.get("time"):
+        when += f" um {occasion['time']} Uhr"
+    return when
+
+
+def _guest_numbers(values: dict[str, Any]) -> tuple[int | None, int | None]:
+    guests = values.get("guests")
+    children = values.get("children")
+    return (
+        int(guests) if guests is not None else None,
+        int(children) if children is not None else None,
+    )
+
+
+class PlanOccasionIntent(_EssensplanerIntent):
+    """Plan an occasion with menu, drinks and extras."""
+
+    intent_type = INTENT_PLAN_OCCASION
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: plant einen Anlass wie Filmabend, Grillabend, Familienessen, "
+        "Weihnachtsessen oder Geburtstag mit Menü, Getränken (immer auch alkoholfrei) und "
+        "Zubehör nach Regeln ('Plane einen Filmabend am Samstag für 4'). Plans an occasion."
+    )
+    slot_schema = {
+        vol.Required("occasion", description=_OCCASION_DESC): cv.string,
+        vol.Optional("date", description=_HOLIDAY_DATE_DESC): cv.string,
+        vol.Optional("guests", description="Anzahl Gäste/Erwachsene (1-200)"): _GUESTS,
+        vol.Optional("children", description="Anzahl Kinder (0-100)"): _CHILDREN,
+        vol.Optional("time", description="Uhrzeit, z. B. '19:30' oder '20 Uhr'"): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        from .occasions import (
+            create_occasion,
+            occasion_cost,
+            occasions_on,
+            resolve_template,
+            template_info,
+            update_occasion,
+        )
+
+        text = strip_article(str(values["occasion"]))
+        day, _ = resolve_day(manager, values.get("date"))
+        template = resolve_template(text)
+        guests, children = _guest_numbers(values)
+        info = template_info(template)
+        # "Filmabend" / "grillen": the template's title; "Omas Geburtstag": as said
+        plain = {template or "", fold(info["title"]), "grillen", "bbq", "film", "anlass"}
+        title = info["title"] if template and fold(text) in plain else _cap(text)
+        existing = next(
+            (
+                o
+                for o in occasions_on(manager, day)
+                if (template and o.get("template") == template)
+                or fold(o.get("title") or "") == fold(title)
+            ),
+            None,
+        )
+        if existing is not None:
+            changes: dict[str, Any] = {}
+            if guests:
+                changes["guests"] = guests
+            if children is not None:
+                changes["children"] = children
+            if values.get("time"):
+                changes["time"] = values["time"]
+            if changes:
+                update_occasion(manager, existing["id"], changes)
+            speech = (
+                f"{_cap(existing['title'])} ist {_occasion_when(manager, existing)} schon geplant"
+            )
+            speech += f" – jetzt für {_people(existing)}." if changes else "."
+            if menu := _menu_speech(existing):
+                speech += f" {menu}."
+            return speech, {"occasion": existing}
+        occasion = create_occasion(
+            manager,
+            template=template,
+            day=day,
+            time_text=values.get("time"),
+            guests=guests,
+            children=children,
+            title=title,
+            auto_fill=True,
+        )
+        speech = (
+            f"Ich habe {occasion['title']} {_occasion_when(manager, occasion)} für "
+            f"{_people(occasion)} geplant."
+        )
+        if menu := _menu_speech(occasion):
+            speech += f" {menu}."
+        if cost := occasion_cost(manager, occasion)["total"]:
+            speech += f" Das kostet ungefähr {format_eur(cost)}."
+        return speech, {"occasion": occasion}
+
+
+class GetOccasionIntent(_EssensplanerIntent):
+    """What is planned for an occasion or a holiday?"""
+
+    intent_type = INTENT_GET_OCCASION
+    description = (
+        "Essensplaner: sagt, was für einen Anlass oder Feiertag geplant ist – Menü, "
+        "Getränke, Gäste, Kosten ('Was gibt es Weihnachten?', 'Was gibt es beim "
+        "Grillabend?'); ohne Angabe den nächsten Anlass. Returns a planned occasion."
+    )
+    slot_schema = {
+        vol.Optional("occasion", description=_OCCASION_DESC): cv.string,
+        vol.Optional("date", description=_HOLIDAY_DATE_DESC): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        from .occasions import next_occasion, occasion_cost, resolve_occasion
+
+        text = strip_article(str(values.get("occasion") or "")) or None
+        day = resolve_day(manager, values["date"])[0] if values.get("date") else None
+        if text is None and day is None:
+            occasion = next_occasion(manager)
+            if occasion is None:
+                return "Es ist gerade kein Anlass geplant.", {"occasion": None}
+        else:
+            try:
+                occasion = resolve_occasion(manager, text, day)
+            except ServiceValidationError:
+                if day is None:
+                    raise
+                when = describe_date(day, manager.today()).removeprefix("am ")
+                meals = manager.day_meals(day)
+                if not meals:
+                    return f"Für {when} ist noch nichts geplant.", {"occasion": None}
+                parts = [f"{_PREPOSITION[m['meal']]} {m['title']}" for m in meals]
+                return (
+                    f"Für {when} ist kein Anlass geplant, aber es gibt {_join(parts)}.",
+                    {"occasion": None, "meals": meals},
+                )
+        speech = (
+            f"{_cap(occasion['title'])} {_occasion_when(manager, occasion)} für {_people(occasion)}"
+        )
+        menu = _menu_speech(occasion)
+        speech += f": {menu}." if menu else " – das Menü ist noch leer."
+        if cost := occasion_cost(manager, occasion)["total"]:
+            speech += f" Geschätzt etwa {format_eur(cost)}."
+        return speech, {"occasion": occasion}
+
+
+class EditOccasionIntent(_EssensplanerIntent):
+    """Add or remove a dish, drink or extra of an occasion; change the guests."""
+
+    intent_type = INTENT_EDIT_OCCASION
+    response_type = intent.IntentResponseType.ACTION_DONE
+    description = (
+        "Essensplaner: ändert einen geplanten Anlass – Gericht, Getränk oder Zubehör "
+        "hinzufügen oder entfernen, Gästezahl ändern ('Füge Kartoffelsalat zum Grillabend "
+        "hinzu', 'Streiche das Tiramisu vom Weihnachtsessen'). Edits an occasion."
+    )
+    slot_schema = {
+        vol.Optional(
+            "dish", description="Gericht, Getränk oder Zubehör, z. B. 'Kartoffelsalat'"
+        ): cv.string,
+        vol.Optional(
+            "occasion", description=_OCCASION_DESC + " Leer = nächster Anlass."
+        ): cv.string,
+        vol.Optional("action", description="'hinzufügen' (Standard) oder 'entfernen'"): cv.string,
+        vol.Optional(
+            "course",
+            description=(
+                "Gang: 'Vorspeise', 'Hauptgang', 'Beilagen', 'Dessert', 'Snacks', "
+                "'Getränke' oder 'Zubehör'. Leer = automatisch."
+            ),
+        ): cv.string,
+        vol.Optional("guests", description="Neue Anzahl Gäste/Erwachsene"): _GUESTS,
+        vol.Optional("children", description="Neue Anzahl Kinder"): _CHILDREN,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        from .occasions import (
+            COURSE_LABELS,
+            add_item,
+            items_from_text,
+            next_occasion,
+            remove_item,
+            resolve_course,
+            resolve_occasion,
+            update_occasion,
+        )
+
+        text = strip_article(str(values.get("occasion") or "")) or None
+        occasion = resolve_occasion(manager, text) if text else next_occasion(manager)
+        if occasion is None:
+            raise _SpokenError(
+                "Es ist kein Anlass geplant – plane zuerst einen, z. B. einen Filmabend."
+            )
+        guests, children = _guest_numbers(values)
+        dish = strip_article(str(values.get("dish") or "")).strip()
+        if not dish and guests is None and children is None:
+            raise _SpokenError(f"Was soll ich {_to_occasion(occasion)} ändern?")
+        parts: list[str] = []
+        data: dict[str, Any] = {}
+        if dish:
+            action = fold(str(values.get("action") or ""))
+            course = None
+            if values.get("course"):
+                course = resolve_course(str(values["course"]))
+                if course is None:
+                    raise _SpokenError(f"Den Gang „{values['course']}“ kenne ich nicht.")
+            if any(word in action for word in ("entfern", "streich", "loesch", "weg", "remove")):
+                removed = remove_item(manager, occasion["id"], dish)
+                parts.append(f"Ich habe {removed['title']} {_from_occasion(occasion)} gestrichen")
+                data["removed"] = removed
+            else:
+                raw = items_from_text(manager, [dish], course)[0]
+                item = add_item(manager, occasion["id"], raw)
+                parts.append(
+                    f"Ich habe {item['title']} {_to_occasion(occasion)} hinzugefügt "
+                    f"({COURSE_LABELS[item['course']]})"
+                )
+                data["item"] = item
+        if guests is not None or children is not None:
+            changes = {}
+            if guests is not None:
+                changes["guests"] = guests
+            if children is not None:
+                changes["children"] = children
+            occasion = update_occasion(manager, occasion["id"], changes)
+            parts.append(f"{_cap(_to_occasion(occasion))} kommen jetzt {_people(occasion)}")
+        data["occasion"] = occasion
+        return ". ".join(_cap(p) for p in parts) + ".", data
+
+
+def _from_occasion(occasion: dict[str, Any]) -> str:
+    """'vom Filmabend', 'von der Party', 'von Silvester'."""
+    to = _to_occasion(occasion)
+    for old, new in (("zum ", "vom "), ("zur ", "von der "), ("zu ", "von ")):
+        if to.startswith(old):
+            return new + to[len(old) :]
+    return to
+
+
+class SuggestDrinksIntent(_EssensplanerIntent):
+    """Which drinks go with a dish or an occasion?"""
+
+    intent_type = INTENT_SUGGEST_DRINKS
+    description = (
+        "Essensplaner: schlägt passende Getränke zu einem Gericht oder Anlass vor – Wein, "
+        "Bier, Sekt und immer auch alkoholfreie ('Welcher Wein passt zur Lasagne?', 'Was "
+        "trinken wir zum Grillen?'); ohne Angabe zur nächsten Mahlzeit. Suggests drinks."
+    )
+    slot_schema = {
+        vol.Optional("dish", description="Gericht/Rezept, z. B. 'Lasagne'"): cv.string,
+        vol.Optional("occasion", description=_OCCASION_DESC): cv.string,
+        vol.Optional(
+            "kind",
+            description="Art: 'Wein', 'Bier', 'Sekt', 'Cocktail' oder 'alkoholfrei'",
+        ): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        from .drinks import drink_text, suggest_drinks
+        from .occasions import (
+            _occasion_dishes,
+            occasion_date,
+            resolve_occasion,
+            resolve_template,
+            template_info,
+        )
+
+        dish = strip_article(str(values.get("dish") or "")).strip()
+        occasion_text = strip_article(str(values.get("occasion") or "")).strip()
+        if (
+            dish
+            and not occasion_text
+            and resolve_template(dish)
+            and not manager.get_recipe_by_name(dish)
+        ):
+            occasion_text, dish = dish, ""  # "Was trinken wir zum Grillen?"
+        kind_text = fold(str(values.get("kind") or ""))
+        kind = next((k for word, k in _KIND_WORDS if word in kind_text), None)
+        recipes: list[dict[str, Any]] = []
+        titles: list[str] = []
+        template = None
+        day = None
+        guests = None
+        children = 0
+        target = ""
+        if occasion_text:
+            try:
+                occasion = resolve_occasion(manager, occasion_text)
+            except ServiceValidationError:
+                occasion = None
+            if occasion is not None:
+                found, free, _courses = _occasion_dishes(manager, occasion)
+                recipes, titles = found, free
+                template = occasion.get("template")
+                day = occasion_date(occasion)
+                guests = int(occasion.get("guests") or 0) or None
+                children = int(occasion.get("children") or 0)
+                target = _to_occasion(occasion)
+            else:
+                template = resolve_template(occasion_text)
+                if template is None:
+                    raise _SpokenError(f"Den Anlass „{occasion_text}“ kenne ich nicht.")
+                target = str(template_info(template)["to"])
+        if dish:
+            recipe = manager.find_recipe(dish)
+            if recipe is not None:
+                recipes = [recipe]
+                target = f"zu {recipe['name']}"
+            else:
+                titles = [dish]
+                target = f"zu {dish}"
+        if not recipes and not titles and template is None:
+            upcoming = manager.next_meal()
+            recipe = manager.recipes.get((upcoming or {}).get("recipe_id") or "")
+            if recipe is None:
+                raise _SpokenError("Zu welchem Gericht oder Anlass suchst du ein Getränk?")
+            recipes = [recipe]
+            target = f"zu {recipe['name']}"
+        result = suggest_drinks(
+            manager,
+            recipes=recipes,
+            titles=titles,
+            template=template,
+            day=day,
+            guests=guests,
+            children=children,
+            kind=kind,
+        )
+        drinks = result["drinks"]
+        alcoholic = [d for d in drinks if d["alcohol"]]
+        free = [d for d in drinks if not d["alcohol"]]
+        if alcoholic:
+            speech = f"{_cap(target)} passt {_join([drink_text(d) for d in alcoholic], 'oder')}."
+            speech += f" Ohne Alkohol: {_join([d['title'] for d in free[:3]], 'oder')}."
+        else:
+            speech = f"{_cap(target)} passt {_join([d['title'] for d in free[:3]], 'oder')}."
+            if kind not in (None, "free") and not result["alcohol"]:
+                speech += " Getränke mit Alkohol schlage ich nicht vor – das ist in den Einstellungen ausgeschaltet."
+        return speech, result
+
+
 INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetMealsIntent,
     GetWeekPlanIntent,
@@ -1501,6 +1928,10 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     SetShoppingStoreIntent,
     AddShoppingItemIntent,
     SetPriceIntent,
+    PlanOccasionIntent,
+    GetOccasionIntent,
+    EditOccasionIntent,
+    SuggestDrinksIntent,
 ]
 
 

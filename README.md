@@ -4,7 +4,7 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 
 > „Hey Jarvis, was gibt es heute zu essen?“ · „Plane mir die Woche günstig.“ · „Welche Angebote gibt es diese Woche?“ · „Wie viel Budget habe ich noch?“ · „Was kann ich mit Hähnchen und Reis kochen?“ · „Erstelle die Einkaufsliste.“ · „Was muss ich bei Aldi kaufen?“ · „Was kaufe ich bei Rossmann?“ · „Wo ist Butter am günstigsten?“
 
-**Inhalt:** [Funktionen](#funktionen) · [Installation](#installation) · [Einstellungen](#️-einstellungen) · [Jarvis](#-jarvis--andere-sprachassistenten) · [Dashboard-Karte](#️-dashboard-karte) · [Preise, Budget & Angebote](#-preise-budget--angebote) · [Läden, Filialen & Preise](#-läden-filialen--preise) · [Angebote deiner Läden](#️-angebote-deiner-läden) · [Kassenzettel](#-kassenzettel) · [Datenschutz](#-datenschutz) · [Blueprints](#-blueprints) · [Entitäten](#entitäten) · [Aktionen](#aktionen-services)
+**Inhalt:** [Funktionen](#funktionen) · [Installation](#installation) · [Einstellungen](#️-einstellungen) · [Jarvis](#-jarvis--andere-sprachassistenten) · [Dashboard-Karte](#️-dashboard-karte) · [Preise, Budget & Angebote](#-preise-budget--angebote) · [Läden, Filialen & Preise](#-läden-filialen--preise) · [Angebote deiner Läden](#️-angebote-deiner-läden) · [Anlässe & Getränke](#-anlässe--getränke) · [Kassenzettel](#-kassenzettel) · [Datenschutz](#-datenschutz) · [Blueprints](#-blueprints) · [Entitäten](#entitäten) · [Aktionen](#aktionen-services)
 
 ![Wochenplan](docs/images/wochenplan.png)
 
@@ -17,11 +17,12 @@ Ein Essensplaner mit **107 Rezepten, Wochenplan, Kochmodus, Einkaufsliste mit Pr
 | 💶 **Preise & Budget** | Richtpreise für über 200 Zutaten, eigene Preise – auch **je Laden** (Preisliste Aldi, Lidl, REWE … nebeneinander), die **echten Preise deiner Kassenzettel**, **gelernte Normalpreise** aus Prospekten mit Verlauf, optional REWE- und ALDI-SÜD-Onlinepreise (experimentell). Preise einer Kette werden nie auf eine andere übertragen. Kosten pro Rezept/Portion/Woche, **Wochenbudget** mit Restbudget. |
 | 🏪 **Läden & Filialen** | Deine Filialen per **OpenStreetMap-Suche** rund um Zuhause und Arbeit, **auf dem Arbeitsweg** oder von Hand – Supermärkte und **Drogerien (Rossmann, dm, Müller, Budni)**. **Hauptladen + Ausnahmen**: alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden, Drogerieartikel in deine Drogerie. |
 | 🏷️ **Angebote** | **Alle aktuellen und kommenden Angebote deiner Läden** – EDEKA (dein Markt) und ALDI SÜD direkt von den Ketten, Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm … optional über marktguru.de (auf eigenes Risiko), bei NORMA die Prospektseiten als Bilder – oder selbst eingetragen. **📰 Prospekte aller Filialen** (aktuelle und nächste Woche, mit marktguru als Seitenbilder, sonst als Link zur Kette). Passende Angebote fließen in Rezeptkosten, Planung und Einkaufsliste ein. „➕ Auf die Einkaufsliste“ direkt vom Angebot. |
+| 🎉 **Anlässe & Getränke** | Filmabend, Grillabend, Familienessen, Weihnachtsessen, Silvester, Geburtstag, Brunch, Raclette, Fondue, Party oder Osteressen als **eigener Anlass** im Wochenplan: Gänge mit Rezepten, Produkten oder Freitext, **Zubehör je Gäste** (Grillkohle, Popcorn, Servietten …), passende **Getränke mit und ohne Alkohol** (alkoholfreie immer dabei, Mengen je Gäste), Kosten, eigene Einkaufsliste, Kalender-Termin und Sensor „Nächster Anlass“. Vorschläge nach Regeln, optional mit KI. |
 | 🧾 **Kassenzettel** | Text des Kassenzettels einfügen (lokal gelesen) oder Foto/PDF von deiner KI-Aufgabe lesen lassen, prüfen – und die Preise werden **eigene Preise des Ladens** (mit Datum und Verlauf). |
 | 👩‍🍳 **Kochmodus** | Vollbild Schritt für Schritt mit großer Schrift, Zutaten zum Abhaken, **Timer aus dem Rezepttext** („15 Minuten köcheln“ → ⏱ mit Signalton). Der Bildschirm bleibt an. Blättern per Wischen oder Pfeiltasten. |
 | 🧊 **Was kann ich kochen?** | Rezepte zu den Zutaten, die du da hast, mit Angabe, was noch fehlt. |
 | 🛒 **Einkaufsliste** | Wird aus dem Plan erzeugt: Zutaten werden **zusammengefasst** (500 g + 0,7 kg → 1,2 kg), auf Portionen skaliert, **nach Supermarkt-Abteilung sortiert**, Vorratszutaten (Salz, Pfeffer …) weggelassen. Abgehakte Einträge bleiben beim Neuerstellen abgehakt. **Preis je Artikel und Gesamtsumme**, Angebots-Hinweise („🏷️ Lidl 4,99 €“), **nach Laden** mit Zwischensumme oder nach Abteilung, **Ladenwahl je Artikel**, **Artikelsuche beim Tippen** (Preis, Packung, Angebot), **Liste leeren**, Fortschrittsbalken, Teilen (Teilen-Menü des Geräts) bzw. Kopieren als Text, optional Kopie in eine andere To-do-Liste (z. B. Bring!). |
-| 🗣️ **Jarvis / Assist / LLM** | 23 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
+| 🗣️ **Jarvis / Assist / LLM** | 27 Intents, die automatisch als **Tools für LLM-Agenten** (inkl. MCP-Server) erscheinen, plus deutsche Sätze für den eingebauten Sprachagenten. |
 | 📱 **App in der Seitenleiste** | Panel „Essensplaner“ mit Heute-Karte, Wochenplan, Rezepten, Einkaufsliste, Angeboten, „🏪 Läden & Preise“ und allen **Einstellungen (⚙️)**, passend zu Hell/Dunkel-Theme und Handy. |
 | 🖼️ **Dashboard-Karte** | `custom:essensplaner-card` (Heute · Nächste Mahlzeit · Woche), ideal fürs Küchen- oder Esszimmer-Tablet. |
 | 🏠 **Entitäten & Blueprints** | Sensoren, Kalender, To-do-Liste und Buttons, dazu fertige Blueprints für Essens-Erinnerung und Wochen-Routine. |
@@ -108,7 +109,7 @@ Der Essensplaner registriert **Intents**. Home Assistant stellt jeden registrier
 ### Empfohlene Einrichtung für Jarvis
 1. Integration installieren (Intents sind standardmäßig aktiv, Einstellung „Sprachbefehle registrieren“ unter ⚙️ → Allgemein).
 2. Unter **Einstellungen → Sprachassistenten → Entitäten freigeben** diese Entitäten für Assist freigeben, damit Jarvis den Plan auch „sieht“:
-   `sensor.essensplaner_today`, `sensor.essensplaner_tomorrow`, `sensor.essensplaner_next_meal`, `sensor.essensplaner_week_plan`, `todo.essensplaner_shopping_list`, `calendar.essensplaner_meal_plan` – und für den Einkauf nach Laden `sensor.essensplaner_shopping_stores` und `sensor.essensplaner_shopping_total`.
+   `sensor.essensplaner_today`, `sensor.essensplaner_tomorrow`, `sensor.essensplaner_next_meal`, `sensor.essensplaner_week_plan`, `todo.essensplaner_shopping_list`, `calendar.essensplaner_meal_plan` – für den Einkauf nach Laden `sensor.essensplaner_shopping_stores` und `sensor.essensplaner_shopping_total`, für Anlässe `sensor.essensplaner_next_occasion`.
 3. Fertig. Wenn Jarvis über den MCP-Server auf Home Assistant zugreift, tauchen die Tools `essensplaner_*` nach einem Neuladen der Tool-Liste auf.
 
 Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Wochenplan und Einkaufsliste nutze die Tools `essensplaner_*`.“*
@@ -140,10 +141,14 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_add_recipe` | „Speichere ein Rezept Rührei mit 3 Eiern, Butter und Salz.“ |
 | `essensplaner_import_recipe` | „Importiere das Rezept von https://www.chefkoch.de/…“ |
 | `essensplaner_mark_cooked` | „Wir haben heute Linsensuppe gekocht.“ |
+| `essensplaner_plan_occasion` | „Plane einen Filmabend am Samstag für 4.“ · „Plane ein Weihnachtsessen an Heiligabend für 8 Personen.“ (Menü, Getränke und Zubehör nach Regeln) |
+| `essensplaner_get_occasion` | „Was gibt es Weihnachten?“ · „Was gibt es beim Grillabend?“ · „Wann ist der nächste Anlass?“ |
+| `essensplaner_edit_occasion` | „Füge Kartoffelsalat zum Grillabend hinzu.“ · „Streiche das Tiramisu vom Weihnachtsessen.“ · „Zum Grillabend kommen 8 Personen.“ |
+| `essensplaner_suggest_drinks` | „Welcher Wein passt zur Lasagne?“ · „Was trinken wir zum Grillen?“ (immer auch alkoholfrei) |
 
 Antworten klingen z. B. so: *„Bei Aldi Süd kaufst du 3 Artikel für ungefähr 7,47 €: …“* · *„Am günstigsten gibt es Butter bei Lidl: 1,59 € (250 g).“* · *„Ich habe Butter auf die Einkaufsliste gesetzt – bei Aldi Süd etwa 1,79 €.“* Läden versteht Jarvis als Kette (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Penny, Netto, Kaufland, Norma, Globus, Marktkauf, Rossmann, dm, Müller, Budni), als eigene Bezeichnung („Lidl Arbeit“), als „Hauptladen“ oder als „Drogerie“ (deine gespeicherte Drogerie: „Was kaufe ich in der Drogerie?“) – auch bei Angeboten. Fragst du nach einem Laden oder Produkt („Was hat Rossmann im Angebot?“, „Wo ist Duschgel im Angebot?“), antwortet Jarvis aus allen Angeboten deiner Läden, nicht nur aus denen zu deinen Rezepten; beginnt die neue Prospektwoche erst, sagt er das („Gerade nicht, aber am Montag gibt es 10 Angebote …“). Mengen dürfen in Worten kommen („zwei Liter Milch“, „drei Packungen Butter“); „Hackfleisch“ findet auf der Liste auch „Rinderhackfleisch“ und „Tomaten“ die „Cherrytomaten“, wenn es das einzige dieser Art ist – „Milch“ aber nicht „Buttermilch“ oder „Kokosmilch“.
 
-Datumsangaben werden in natürlicher Sprache verstanden: *heute, morgen, übermorgen, heute Abend, morgen früh, Freitag, nächsten Montag, nächste Woche, in 3 Tagen, 24.12., 2026-11-20*.
+Datumsangaben werden in natürlicher Sprache verstanden: *heute, morgen, übermorgen, heute Abend, morgen früh, Freitag, nächsten Montag, nächste Woche, in 3 Tagen, 24.12., 2026-11-20* – und Feiertage: *Heiligabend, Weihnachten (25.12.), 1./2. Weihnachtstag, Silvester, Neujahr, Ostern, Ostermontag, Karfreitag, Pfingsten, Nikolaus, Valentinstag, Muttertag, Vatertag* (immer der nächste).
 
 ### Eingebauter Sprachagent (ohne LLM)
 Datei [`custom_sentences/de/essensplaner.yaml`](custom_sentences/de/essensplaner.yaml) nach `/config/custom_sentences/de/` kopieren und Home Assistant neu starten.
@@ -358,6 +363,46 @@ data:
   remember: favorite              # ⭐ ab jetzt immer dieses
 ```
 
+## 🎉 Anlässe & Getränke
+
+Ein **Anlass** ist ein eigener Eintrag im Wochenplan – mit Datum, Uhrzeit, Gästen und Kindern und Gängen (Vorspeise, Hauptgang, Beilagen, Dessert, Snacks, Getränke, Zubehör). Jeder Eintrag ist ein Rezept, ein Produkt der Artikel-Datenbank oder Freitext mit Menge („2,5 kg Grillkohle“).
+
+| Vorlage | Uhrzeit · Dauer | Gänge | Zubehör (je Gäste) |
+|---|---|---|---|
+| 🎬 Filmabend | 20:00 · 3 h | Hauptgang, Snacks | Popcorn (100 g je 2), Chips, Servietten |
+| 🔥 Grillabend | 18:00 · 4 h | 2 × Hauptgang, 2 × Beilage, Dessert | Grillkohle (2,5 kg je 6), Anzünder, Grillsoße, Servietten |
+| 👨‍👩‍👧‍👦 Familienessen | 12:30 · 3 h | Hauptgang, Beilage, Dessert | Servietten |
+| 🎄 Weihnachtsessen | 18:00 · 4 h | Vorspeise, Hauptgang, 2 × Beilage, Dessert | Servietten, Kerzen |
+| 🎆 Silvester | 19:00 · 6 h | Hauptgang, 2 × Snacks | Berliner, Wunderkerzen, Servietten |
+| 🎂 Geburtstag | 15:00 · 4 h | Hauptgang, Kuchen, Snacks | Kerzen, Servietten, Pappteller |
+| 🥐 Brunch | 10:30 · 3 h | 2 × Hauptgang, Snacks | Brötchen (2 je Person), Servietten |
+| 🧀 Raclette-Abend | 19:00 · 4 h | Beilage, Dessert | Raclettekäse (200 g je Person), Kartoffeln, Schinken, Champignons, Gurken, Silberzwiebeln |
+| 🫕 Fondue | 19:00 · 4 h | 2 × Beilage, Dessert | Fondue-Fleisch (200 g je Person), Baguette, Brennpaste |
+| 🎉 Party | 19:00 · 5 h | Hauptgang, 3 × Snacks | Chips, Salzstangen, Servietten, Eiswürfel |
+| 🐣 Osteressen | 12:30 · 4 h | Vorspeise, Hauptgang, Beilage, Dessert | Eier zum Färben, Servietten |
+
+- **Vorschläge je Gang** nach denselben Regeln wie der Wochenplan (Favoriten, Bewertung, lange nicht gekocht, Angebote) und passend zur Vorlage (zum Grillabend Gegrilltes, zum Filmabend Pizza und Fingerfood); Kinder zählen als halbe Portion. Ein Rezept kommt in den Gang, den seine Kategorien sagen (Vorspeise, Beilage, Dessert, Snack, Getränk; sonst Hauptgang). Getränke-, Beilagen-, Vorspeisen-, Dip- und Saucen-Rezepte landen **nie als Hauptgericht im Wochenplan** – auch nicht beim automatischen Planen.
+- **🤖 KI-Menü** (optional, ⚙️ → 🤖 KI, Funktion „Anlässe“): die KI ordnet und ergänzt die Vorschläge; ihre Gerichte werden gegen deine Rezepte geprüft, Unbekanntes wird Freitext (🤖). Ohne KI oder bei einem Fehler bleiben die Vorschläge nach Regeln.
+- **Kosten** (Rezepte für die Gäste, Produkte, Getränke und Zubehör mit dem Preis deines Ladens bzw. Richtwert) stehen beim Anlass und im Tag des Wochenplans und zählen zum **Wochenbudget** (abschaltbar: ⚙️ → Budget & Planung → „Anlässe im Wochenbudget“).
+- **Einkaufsliste:** die Einkaufsliste der Woche schließt die Anlässe dieser Tage ein (zusammengefasst mit den Zutaten des Plans); `generate_shopping_list` mit `occasion` erzeugt eine **eigene Liste nur für den Anlass** (ersetzt nur deren Einträge und nimmt den Anteil des Anlasses aus der Wochenliste heraus). Hat das Einkaufen für einen Anlass schon begonnen (ein Eintrag abgehakt), bleibt seine Liste getrennt.
+- **Kalender, Sensor, Wochenplan:** jeder Anlass ist ein Termin im Kalender („🎬 Filmabend“, mit Gängen, Gästen und Kosten); ein neuer Termin „Anlass: Grillabend“ plant einen Anlass, Löschen des Termins löscht ihn. `sensor.essensplaner_next_occasion` zeigt den nächsten Anlass, `sensor.essensplaner_today` / `_tomorrow` haben das Attribut `occasions`. Der automatische Wochenplan lässt die Mahlzeit frei, die ein Anlass mit Hauptgang ersetzt. Anlässe werden ein Jahr nach ihrem Datum gelöscht.
+
+**Getränke** passen zu Gericht, Anlass und Jahreszeit: Rotwein zu Braten und Wild, leichter Rotwein zu Pasta mit Tomate und Pizza, Weißwein zu Fisch und Geflügel, Silvaner zu Spargel, Bier zum Grillen, Riesling feinherb zu asiatisch und scharf, Sekt zum Anstoßen, Kaffee und Kakao zum Dessert, Glühwein und Kinderpunsch im Advent, Hugo und Bowle im Sommer. **Immer sind mindestens zwei alkoholfreie dabei** (Traubensaft, Schorlen, alkoholfreies Bier und Wein, Kindersekt, Traubensecco, Ingwer-Limonade …), mit Kindern auch Kindergetränke; Getränke mit Alkohol schaltest du unter ⚙️ → Budget & Planung → „Getränkevorschläge mit Alkohol“ ab. Mengen richten sich nach Gästen, Kindern und Dauer (Flaschen à 0,75 l bzw. 0,5 l), Getränke im Angebot deiner Läden stehen weiter vorn. Angebote für Getränke werden nur für geplante Getränke gesucht (Mahlzeiten, Anlässe, Merkliste). Zu einer Mahlzeit lassen sich Getränke merken (`plan_meal` mit `drinks`).
+
+Aktionen: `save_occasion` (planen oder ändern, `auto_fill` füllt Gerichte, Getränke und Zubehör nach Regeln), `delete_occasion`, `get_occasions`, `suggest_occasion_menu` (`ai`, `apply`), `suggest_drinks` (`recipe` und/oder `occasion`, `alcohol`, `ai`) und `generate_shopping_list` mit `occasion` bzw. `include_occasions`. Für das Panel die Websockets `essensplaner/occasion_save`, `essensplaner/occasion_delete`, `essensplaner/occasion_suggest` (Vorschläge je Gang, `ai`, `apply`) und `essensplaner/drinks_suggest`; `essensplaner/data` liefert die Anlässe ab 30 Tage zurück (`occasions`) und die Vorlagen (`occasion_meta`).
+
+```yaml
+action: essensplaner.save_occasion
+data:
+  template: grillen
+  date: Samstag
+  guests: 6
+  children: 2
+  items: Kartoffelsalat, Bratwurst
+  auto_fill: true
+response_variable: anlass   # anlass.occasion: Gänge, Getränke, Zubehör, Kosten
+```
+
 ## 🧾 Kassenzettel
 
 Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deiner Kassenzettel** als eigene Preise des Ladens:
@@ -423,11 +468,12 @@ Daten © OpenStreetMap-Mitwirkende (ODbL). In den Diagnose-Daten sind Koordinate
 
 | Entität | Inhalt |
 |---|---|
-| `sensor.essensplaner_today` / `_tomorrow` | Geplante Gerichte; Attribute je Mahlzeit (`fruehstueck`, `mittagessen`, `abendessen` …), Bild als Entity-Picture |
+| `sensor.essensplaner_today` / `_tomorrow` | Geplante Gerichte; Attribute je Mahlzeit (`fruehstueck`, `mittagessen`, `abendessen` …) und die Anlässe des Tags (`occasions`), Bild als Entity-Picture |
 | `sensor.essensplaner_next_meal` | Nächste Mahlzeit mit Zutaten (auf Portionen skaliert) und Zubereitung |
+| `sensor.essensplaner_next_occasion` | Nächster Anlass („Filmabend“) mit Datum, Uhrzeit, Gästen, Gängen und geschätzten Kosten |
 | `sensor.essensplaner_week_plan` | Anzahl geplanter Mahlzeiten (7 Tage), Plan als Attribut `days` / `summary` |
 | `sensor.essensplaner_recipes` | Anzahl Rezepte; Namen, Favoriten, Kategorien |
-| `calendar.essensplaner_meal_plan` | Alle Mahlzeiten als Termine (Termine anlegen/löschen plant bzw. entfernt Mahlzeiten) |
+| `calendar.essensplaner_meal_plan` | Alle Mahlzeiten und Anlässe als Termine (Termine anlegen/löschen plant bzw. entfernt Mahlzeiten; „Anlass: …“ plant einen Anlass) |
 | `todo.essensplaner_shopping_list` | Die Einkaufsliste |
 | `button.essensplaner_create_shopping_list` | Einkaufsliste für die nächsten 7 Tage erstellen |
 | `button.essensplaner_auto_plan_week` | Freie Plätze der nächsten 7 Tage automatisch füllen |
@@ -447,17 +493,17 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.import_recipe` | Rezept von URL importieren |
 | `essensplaner.get_recipes` / `get_recipe` | Suchen / Rezept (skaliert) abrufen |
 | `essensplaner.find_by_ingredients` | Rezepte zu vorhandenen Zutaten |
-| `essensplaner.plan_meal` / `remove_meal` / `get_plan` | Wochenplan |
+| `essensplaner.plan_meal` / `remove_meal` / `get_plan` | Wochenplan (optional mit Getränken zur Mahlzeit) |
 | `essensplaner.move_meal` / `copy_plan` | Verschieben/Tauschen, Wochen kopieren |
 | `essensplaner.suggest_recipes` / `auto_plan` | Vorschläge / automatisch planen |
-| `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen (mit Läden) / abrufen (optional nur ein Laden) |
+| `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen (mit Läden und den Anlässen dieser Tage, oder nur für einen Anlass) / abrufen (optional nur ein Laden) |
 | `essensplaner.add_shopping_item` | Artikel mit Laden und Preis auf die Einkaufsliste setzen (auch ein Angebot aus „Alle Angebote meiner Läden“ per `offer_id` oder ein Produkt der Artikel-Datenbank per `product_id`) |
 | `essensplaner.set_shopping_store` / `assign_shopping_stores` | Laden für einen Artikel festlegen („immer hier“) / alle offenen Artikel neu zuordnen |
 | `essensplaner.mark_cooked` | Als gekocht merken (bessere Vorschläge) |
 | `essensplaner.export_recipes` / `import_recipes` | Backup & Teilen |
 | `essensplaner.import_starter_recipes` | Fehlende mitgelieferte Rezepte (107) ergänzen |
 | `essensplaner.clear_shopping_list` | Einkaufsliste leeren (alle / erledigte / aus dem Plan) |
-| `essensplaner.get_costs` | Kosten & Restbudget |
+| `essensplaner.get_costs` | Kosten & Restbudget (mit den Anlässen) |
 | `essensplaner.set_price` | Eigenen Preis für eine Zutat festlegen (optional für einen Laden) |
 | `essensplaner.get_store_prices` / `compare_prices` | Preisliste je Laden / Preis eines Produkts in deinen Läden vergleichen |
 | `essensplaner.find_branches` | Filialen bei OpenStreetMap suchen (Zonen, Umkreis, Arbeitsweg) |
@@ -472,6 +518,8 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.receipt_parse_text` / `receipt_scan` | Kassenzettel-Text lokal lesen / Foto oder PDF von der KI-Aufgabe lesen lassen (Vorschlag zum Prüfen) |
 | `essensplaner.receipt_save` / `get_receipts` / `delete_receipt` | Kassenzettel speichern (Preise werden eigene Ladenpreise) / abrufen / löschen |
 | `essensplaner.search_products` / `save_product` | In der [Artikel-Datenbank](#-artikel-datenbank) suchen / eigenen Artikel anlegen oder ändern |
+| `essensplaner.save_occasion` / `delete_occasion` / `get_occasions` | [Anlässe](#-anlässe--getränke) planen oder ändern / löschen / abrufen |
+| `essensplaner.suggest_occasion_menu` / `suggest_drinks` | Menü für einen Anlass vorschlagen (optional mit KI, auf Wunsch übernehmen) / Getränke zu Gericht oder Anlass vorschlagen |
 | `essensplaner.set_shopping_product` | [Produkt eines Artikels der Einkaufsliste wechseln](#-einkaufsliste-aus-der-artikel-datenbank) (optional als gewählt oder ⭐ Lieblingsprodukt merken) |
 
 ```yaml
@@ -500,7 +548,7 @@ response_variable: einkauf   # einkauf.selection: Artikel, Zwischensumme, Erspar
 Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 
 ## Daten
-Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`, die Artikel-Datenbank in `essensplaner.products.<entry_id>`, die Kassenzettel in `essensplaner.receipts.<entry_id>` und ihre Fotos in `/config/.storage/essensplaner_receipts/`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Einstellungen ist geschwärzt.
+Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (auch die Anlässe; die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`, die Artikel-Datenbank in `essensplaner.products.<entry_id>`, die Kassenzettel in `essensplaner.receipts.<entry_id>` und ihre Fotos in `/config/.storage/essensplaner_receipts/`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Einstellungen ist geschwärzt.
 
 ## Entwicklung
 

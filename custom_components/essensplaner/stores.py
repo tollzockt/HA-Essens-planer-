@@ -132,6 +132,7 @@ REMATCH_CHANGES = frozenset(
         "recipe_updated",
         "recipe_deleted",
         "recipes_imported",
+        "occasions",
     }
 )
 # learned store prices: price history length and minimum distance of unchanged entries

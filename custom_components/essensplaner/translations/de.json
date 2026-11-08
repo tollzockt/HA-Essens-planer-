@@ -113,6 +113,33 @@
         "pick": "Als gewählt merken",
         "favorite": "⭐ Lieblingsprodukt"
       }
+    },
+    "occasion_template": {
+      "options": {
+        "filmabend": "🎬 Filmabend",
+        "grillen": "🔥 Grillabend",
+        "familienessen": "👨‍👩‍👧‍👦 Familienessen",
+        "weihnachten": "🎄 Weihnachtsessen",
+        "silvester": "🎆 Silvester",
+        "geburtstag": "🎂 Geburtstag",
+        "brunch": "🥐 Brunch",
+        "raclette": "🧀 Raclette-Abend",
+        "fondue": "🫕 Fondue",
+        "party": "🎉 Party",
+        "ostern": "🐣 Osteressen",
+        "anlass": "🎉 Anderer Anlass"
+      }
+    },
+    "occasion_course": {
+      "options": {
+        "starter": "Vorspeise",
+        "main": "Hauptgang",
+        "side": "Beilagen",
+        "dessert": "Dessert",
+        "snack": "Snacks",
+        "drink": "Getränke",
+        "extra": "Zubehör"
+      }
     }
   },
   "entity": {
@@ -154,6 +181,9 @@
       },
       "shopping_total": {
         "name": "Einkauf geschätzt"
+      },
+      "next_occasion": {
+        "name": "Nächster Anlass"
       }
     },
     "calendar": {
@@ -362,6 +392,21 @@
     },
     "invalid_remember": {
       "message": "„{remember}“ kenne ich nicht – möglich sind none (nicht merken), pick (als gewählt merken) und favorite (⭐ Lieblingsprodukt)."
+    },
+    "occasion_not_found": {
+      "message": "Den Anlass „{occasion}“ habe ich nicht gefunden."
+    },
+    "occasion_item_not_found": {
+      "message": "„{item}“ steht nicht auf dem Plan für „{occasion}“."
+    },
+    "invalid_course": {
+      "message": "Den Gang „{course}“ kenne ich nicht – möglich sind Vorspeise, Hauptgang, Beilagen, Dessert, Snacks, Getränke und Zubehör."
+    },
+    "invalid_time": {
+      "message": "Die Uhrzeit „{time}“ habe ich nicht verstanden (z. B. 19:30)."
+    },
+    "invalid_template": {
+      "message": "Die Vorlage „{template}“ kenne ich nicht – z. B. Filmabend, Grillabend, Familienessen, Weihnachtsessen, Silvester, Geburtstag, Brunch, Raclette, Fondue, Party oder Osteressen."
     }
   },
   "services": {
@@ -576,6 +621,10 @@
         "note": {
           "name": "Notiz",
           "description": "Notiz zu dieser Mahlzeit."
+        },
+        "drinks": {
+          "name": "Getränke",
+          "description": "Optional: Getränke zu dieser Mahlzeit, z. B. „Rotwein, Apfelschorle“ (leer lassen = unverändert)."
         }
       }
     },
@@ -694,6 +743,14 @@
         "sync": {
           "name": "Synchronisieren",
           "description": "Auch in die eingestellte externe To-do-Liste kopieren."
+        },
+        "include_occasions": {
+          "name": "Anlässe einschließen",
+          "description": "Gerichte, Getränke und Zubehör der Anlässe in diesem Zeitraum kommen mit auf die Liste (Standard: an)."
+        },
+        "occasion": {
+          "name": "Nur für einen Anlass",
+          "description": "Optional: eine eigene Liste nur für diesen Anlass (Name, Vorlage wie „Grillabend“ oder ID); Startdatum und Tage zählen dann nicht."
         }
       }
     },
@@ -1362,6 +1419,152 @@
         "when": {
           "name": "Zeitraum",
           "description": "Aktuelle, kommende oder alle Prospekte."
+        }
+      }
+    },
+    "save_occasion": {
+      "name": "Anlass speichern",
+      "description": "Plant einen Anlass (Filmabend, Grillabend, Weihnachtsessen …) oder ändert einen geplanten: Datum, Uhrzeit, Gäste, Gerichte, Getränke und Zubehör. Mit „Automatisch füllen“ kommen Gerichte, Getränke (immer auch alkoholfreie) und Zubehör nach Regeln dazu.",
+      "fields": {
+        "occasion": {
+          "name": "Anlass",
+          "description": "Zum Ändern: der geplante Anlass (Name, Vorlage wie „Grillabend“ oder ID). Leer = neuer Anlass."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Name des Anlasses (Standard: der Name der Vorlage)."
+        },
+        "template": {
+          "name": "Vorlage",
+          "description": "Art des Anlasses – bestimmt Gänge, Uhrzeit und Zubehör."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Tag, z. B. „Samstag“, „Heiligabend“ oder „24.12.“ (Standard: heute)."
+        },
+        "time": {
+          "name": "Uhrzeit",
+          "description": "Beginn, z. B. „18:30“ (Standard: die Uhrzeit der Vorlage)."
+        },
+        "duration": {
+          "name": "Dauer",
+          "description": "Dauer in Stunden (für Kalender und Getränkemengen)."
+        },
+        "guests": {
+          "name": "Gäste",
+          "description": "Anzahl Erwachsene (Standard: deine Portionen)."
+        },
+        "children": {
+          "name": "Kinder",
+          "description": "Anzahl Kinder (zählen als halbe Portion)."
+        },
+        "items": {
+          "name": "Hinzufügen",
+          "description": "Gerichte, Getränke oder Zubehör, die dazukommen – Rezeptnamen werden erkannt, sonst Freitext."
+        },
+        "course": {
+          "name": "Gang",
+          "description": "Gang für die hinzugefügten Einträge (leer = automatisch)."
+        },
+        "remove": {
+          "name": "Entfernen",
+          "description": "Einträge, die wegfallen (Name)."
+        },
+        "notes": {
+          "name": "Notizen",
+          "description": "Notizen zum Anlass."
+        },
+        "auto_fill": {
+          "name": "Automatisch füllen",
+          "description": "Neuer Anlass: Gerichte, Getränke und Zubehör nach Regeln vorschlagen und eintragen."
+        }
+      }
+    },
+    "delete_occasion": {
+      "name": "Anlass löschen",
+      "description": "Löscht einen geplanten Anlass (Einträge auf der Einkaufsliste bleiben).",
+      "fields": {
+        "occasion": {
+          "name": "Anlass",
+          "description": "Name, Vorlage wie „Grillabend“ oder ID des Anlasses."
+        }
+      }
+    },
+    "get_occasions": {
+      "name": "Anlässe abrufen",
+      "description": "Liefert die geplanten Anlässe mit Gängen, Getränken, Zubehör, Gästen und geschätzten Kosten.",
+      "fields": {
+        "occasion": {
+          "name": "Anlass",
+          "description": "Optional: nur dieser Anlass (Name, Vorlage oder ID)."
+        },
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Erster Tag (Standard: heute)."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Anzahl der Tage (Standard: 365)."
+        }
+      }
+    },
+    "suggest_occasion_menu": {
+      "name": "Menü für einen Anlass vorschlagen",
+      "description": "Schlägt je Gang passende Rezepte vor (Favoriten, lange nicht gekocht, Angebote, passend zur Vorlage), dazu Getränke und fehlendes Zubehör – optional mit der KI aus den Einstellungen und auf Wunsch gleich übernommen.",
+      "fields": {
+        "occasion": {
+          "name": "Anlass",
+          "description": "Name, Vorlage wie „Filmabend“ oder ID des Anlasses."
+        },
+        "course": {
+          "name": "Gang",
+          "description": "Optional: nur Vorschläge für diesen Gang."
+        },
+        "count": {
+          "name": "Anzahl",
+          "description": "Vorschläge je Gang."
+        },
+        "ai": {
+          "name": "Mit KI",
+          "description": "Die KI (Einstellungen → 🤖 KI) ordnet und ergänzt die Vorschläge; ohne KI oder bei einem Fehler bleiben die Vorschläge nach Regeln."
+        },
+        "apply": {
+          "name": "Übernehmen",
+          "description": "Die besten Vorschläge gleich in den Anlass eintragen."
+        }
+      }
+    },
+    "suggest_drinks": {
+      "name": "Getränke vorschlagen",
+      "description": "Schlägt Getränke zu einem Gericht oder Anlass vor – mit und ohne Alkohol (alkoholfreie sind immer dabei), mit Mengen für die Gäste.",
+      "fields": {
+        "recipe": {
+          "name": "Gericht",
+          "description": "Rezept oder Gericht, z. B. „Lasagne“."
+        },
+        "occasion": {
+          "name": "Anlass",
+          "description": "Geplanter Anlass (Name, Vorlage wie „Grillabend“ oder ID) oder eine Vorlage."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Tag für Saison und Angebote (Standard: heute bzw. der Tag des Anlasses)."
+        },
+        "guests": {
+          "name": "Gäste",
+          "description": "Anzahl Erwachsene für die Mengen."
+        },
+        "children": {
+          "name": "Kinder",
+          "description": "Anzahl Kinder (bekommen Kindergetränke)."
+        },
+        "alcohol": {
+          "name": "Mit Alkohol",
+          "description": "Auch Getränke mit Alkohol (Standard: die Einstellung „Getränkevorschläge mit Alkohol“)."
+        },
+        "ai": {
+          "name": "Mit KI",
+          "description": "Die KI (Einstellungen → 🤖 KI) ergänzt die Vorschläge."
         }
       }
     }

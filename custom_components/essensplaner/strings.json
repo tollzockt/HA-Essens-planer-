@@ -113,6 +113,33 @@
         "pick": "Remember as picked",
         "favorite": "⭐ Favourite product"
       }
+    },
+    "occasion_template": {
+      "options": {
+        "filmabend": "🎬 Film night",
+        "grillen": "🔥 Barbecue",
+        "familienessen": "👨‍👩‍👧‍👦 Family dinner",
+        "weihnachten": "🎄 Christmas dinner",
+        "silvester": "🎆 New Year's Eve",
+        "geburtstag": "🎂 Birthday",
+        "brunch": "🥐 Brunch",
+        "raclette": "🧀 Raclette night",
+        "fondue": "🫕 Fondue",
+        "party": "🎉 Party",
+        "ostern": "🐣 Easter dinner",
+        "anlass": "🎉 Other occasion"
+      }
+    },
+    "occasion_course": {
+      "options": {
+        "starter": "Starter",
+        "main": "Main course",
+        "side": "Sides",
+        "dessert": "Dessert",
+        "snack": "Snacks",
+        "drink": "Drinks",
+        "extra": "Extras"
+      }
     }
   },
   "entity": {
@@ -154,6 +181,9 @@
       },
       "shopping_total": {
         "name": "Shopping total"
+      },
+      "next_occasion": {
+        "name": "Next occasion"
       }
     },
     "calendar": {
@@ -362,6 +392,21 @@
     },
     "invalid_remember": {
       "message": "Unknown choice {remember} – possible are none, pick and favorite."
+    },
+    "occasion_not_found": {
+      "message": "Occasion “{occasion}” not found."
+    },
+    "occasion_item_not_found": {
+      "message": "“{item}” is not planned for “{occasion}”."
+    },
+    "invalid_course": {
+      "message": "Unknown course “{course}” – use starter, main, side, dessert, snack, drink or extra."
+    },
+    "invalid_time": {
+      "message": "Could not understand the time “{time}” (e.g. 19:30)."
+    },
+    "invalid_template": {
+      "message": "Unknown template “{template}” – e.g. film night, barbecue, family dinner, Christmas dinner, New Year's Eve, birthday, brunch, raclette, fondue, party or Easter dinner."
     }
   },
   "services": {
@@ -576,6 +621,10 @@
         "note": {
           "name": "Note",
           "description": "Note for this meal."
+        },
+        "drinks": {
+          "name": "Drinks",
+          "description": "Optional: drinks with this meal, e.g. “red wine, apple spritzer” (empty = unchanged)."
         }
       }
     },
@@ -694,6 +743,14 @@
         "sync": {
           "name": "Sync",
           "description": "Also copy to the configured external todo list."
+        },
+        "include_occasions": {
+          "name": "Include occasions",
+          "description": "Dishes, drinks and extras of the occasions in this period go on the list too (default: on)."
+        },
+        "occasion": {
+          "name": "Only for an occasion",
+          "description": "Optional: a list of its own for this occasion only (name, template like “barbecue” or ID); start date and days are ignored then."
         }
       }
     },
@@ -1362,6 +1419,152 @@
         "when": {
           "name": "Period",
           "description": "Current, upcoming or all leaflets."
+        }
+      }
+    },
+    "save_occasion": {
+      "name": "Save occasion",
+      "description": "Plans an occasion (film night, barbecue, Christmas dinner …) or changes a planned one: date, time, guests, dishes, drinks and extras. With “Auto fill” dishes, drinks (always alcohol-free ones too) and extras are added by rules.",
+      "fields": {
+        "occasion": {
+          "name": "Occasion",
+          "description": "To change: the planned occasion (name, template like “Grillabend” or ID). Empty = new occasion."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Name of the occasion (default: the template's name)."
+        },
+        "template": {
+          "name": "Template",
+          "description": "Kind of occasion – sets courses, time and extras."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Day, e.g. “Samstag”, “Heiligabend” or “24.12.” (default: today)."
+        },
+        "time": {
+          "name": "Time",
+          "description": "Start, e.g. “18:30” (default: the template's time)."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Duration in hours (for the calendar and drink quantities)."
+        },
+        "guests": {
+          "name": "Guests",
+          "description": "Number of adults (default: your servings)."
+        },
+        "children": {
+          "name": "Children",
+          "description": "Number of children (count as half a serving)."
+        },
+        "items": {
+          "name": "Add",
+          "description": "Dishes, drinks or extras to add – recipe names are recognized, otherwise free text."
+        },
+        "course": {
+          "name": "Course",
+          "description": "Course of the added items (empty = automatic)."
+        },
+        "remove": {
+          "name": "Remove",
+          "description": "Items to remove (name)."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Notes on the occasion."
+        },
+        "auto_fill": {
+          "name": "Auto fill",
+          "description": "New occasion: suggest and add dishes, drinks and extras by rules."
+        }
+      }
+    },
+    "delete_occasion": {
+      "name": "Delete occasion",
+      "description": "Deletes a planned occasion (its shopping list items stay).",
+      "fields": {
+        "occasion": {
+          "name": "Occasion",
+          "description": "Name, template like “Grillabend” or ID of the occasion."
+        }
+      }
+    },
+    "get_occasions": {
+      "name": "Get occasions",
+      "description": "Returns the planned occasions with courses, drinks, extras, guests and estimated costs.",
+      "fields": {
+        "occasion": {
+          "name": "Occasion",
+          "description": "Optional: only this occasion (name, template or ID)."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "First day (default: today)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days (default: 365)."
+        }
+      }
+    },
+    "suggest_occasion_menu": {
+      "name": "Suggest a menu for an occasion",
+      "description": "Suggests fitting recipes per course (favourites, not cooked lately, offers, matching the template), drinks and missing extras – optionally with the AI from the settings and applied right away.",
+      "fields": {
+        "occasion": {
+          "name": "Occasion",
+          "description": "Name, template like “Filmabend” or ID of the occasion."
+        },
+        "course": {
+          "name": "Course",
+          "description": "Optional: only suggestions for this course."
+        },
+        "count": {
+          "name": "Count",
+          "description": "Suggestions per course."
+        },
+        "ai": {
+          "name": "With AI",
+          "description": "The AI (settings → 🤖 KI) reorders and extends the suggestions; without AI or on an error the rule suggestions stay."
+        },
+        "apply": {
+          "name": "Apply",
+          "description": "Put the best suggestions into the occasion right away."
+        }
+      }
+    },
+    "suggest_drinks": {
+      "name": "Suggest drinks",
+      "description": "Suggests drinks for a dish or an occasion – with and without alcohol (alcohol-free ones are always included), with quantities for the guests.",
+      "fields": {
+        "recipe": {
+          "name": "Dish",
+          "description": "Recipe or dish, e.g. “Lasagne”."
+        },
+        "occasion": {
+          "name": "Occasion",
+          "description": "Planned occasion (name, template like “Grillabend” or ID) or a template."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Day for season and offers (default: today or the occasion's day)."
+        },
+        "guests": {
+          "name": "Guests",
+          "description": "Number of adults for the quantities."
+        },
+        "children": {
+          "name": "Children",
+          "description": "Number of children (get drinks for children)."
+        },
+        "alcohol": {
+          "name": "With alcohol",
+          "description": "Also drinks with alcohol (default: the setting “drink suggestions with alcohol”)."
+        },
+        "ai": {
+          "name": "With AI",
+          "description": "The AI (settings → 🤖 KI) extends the suggestions."
         }
       }
     }

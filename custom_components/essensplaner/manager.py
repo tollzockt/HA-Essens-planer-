@@ -28,11 +28,13 @@ from .const import (
     CONF_ENABLED_MEALS,
     CONF_EXCLUDED,
     CONF_MEAL_TIME_PREFIX,
+    CONF_OCCASIONS_IN_BUDGET,
     CONF_PANTRY,
     CONF_SYNC_TODO,
     DEFAULT_ENABLED_MEALS,
     DEFAULT_MEAL,
     DEFAULT_MEAL_TIMES,
+    DEFAULT_OCCASIONS_IN_BUDGET,
     DEFAULT_PANTRY,
     DEFAULT_SERVINGS,
     DOMAIN,
@@ -61,6 +63,7 @@ from .ingredients import (
     strip_article,
     to_base,
 )
+from .occasions import COMPONENT_TAGS, DRINK_TAGS
 from .pricing import COUNT_UNITS, offer_pack, unit_price
 from .products import product_counts
 from .stores import REMATCH_CHANGES, StoresMixin
@@ -258,6 +261,19 @@ ERROR_MESSAGES_DE = {
         "„{remember}“ kenne ich nicht – möglich sind none (nicht merken), pick (als gewählt "
         "merken) und favorite (⭐ Lieblingsprodukt)."
     ),
+    # occasions (1.5, occasions.py)
+    "occasion_not_found": "Den Anlass „{occasion}“ habe ich nicht gefunden.",
+    "occasion_item_not_found": "„{item}“ steht nicht auf dem Plan für „{occasion}“.",
+    "invalid_course": (
+        "Den Gang „{course}“ kenne ich nicht – möglich sind Vorspeise, Hauptgang, Beilagen, "
+        "Dessert, Snacks, Getränke und Zubehör."
+    ),
+    "invalid_time": "Die Uhrzeit „{time}“ habe ich nicht verstanden (z. B. 19:30).",
+    "invalid_template": (
+        "Die Vorlage „{template}“ kenne ich nicht – z. B. Filmabend, Grillabend, "
+        "Familienessen, Weihnachtsessen, Silvester, Geburtstag, Brunch, Raclette, Fondue, "
+        "Party oder Osteressen."
+    ),
     # AI via Home Assistant (1.5, ai.py)
     "ai_not_configured": (
         "Dafür brauche ich eine KI: wähle unter Essensplaner-Panel → Einstellungen → 🤖 KI "
@@ -371,6 +387,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
         # every real product with a real price that was seen (own file, 1.5)
         self.products = ProductStore(hass, entry.entry_id)
+        # occasions ("Anlässe", 1.5, occasions.py): {id: occasion}, stored in the main file
+        self.occasions: dict[str, dict[str, Any]] = {}
         self._init_store_data()
         self._init_article_data()
 
@@ -419,6 +437,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         return bool(self.options.get(CONF_AUTO_COOKED, True))
 
     @property
+    def occasions_in_budget(self) -> bool:
+        """Occasions count toward the weekly budget (their costs always show)."""
+        return bool(self.options.get(CONF_OCCASIONS_IN_BUDGET, DEFAULT_OCCASIONS_IN_BUDGET))
+
+    @property
     def sync_entity(self) -> str | None:
         """External todo list the shopping list is copied to."""
         return self.options.get(CONF_SYNC_TODO) or None
@@ -464,6 +487,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self.prices_learned = data.get("prices_learned", {})
         self.offers = data.get("offers", [])
         self.offers_meta = data.get("offers_meta", {})
+        from .occasions import load_occasions, prune_occasions
+
+        self.occasions = load_occasions(data.get("occasions"))
+        pruned_occasions = prune_occasions(self)
         self._load_store_data(data)
         await self.catalog.async_load()
         self.catalog.prune(self.today())
@@ -484,7 +511,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._reassign_open_items()
         if migrated:
             await self.async_save_now()
-        elif expired or dropped or self.shopping != before:
+        elif expired or dropped or pruned_occasions or self.shopping != before:
             self._save_later()
         if dropped:
             self.catalog.save_later()
@@ -526,6 +553,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "prices_learned": self.prices_learned,
             "offers": self.offers,
             "offers_meta": self.offers_meta,
+            "occasions": self.occasions,
             **self._store_data(),
         }
 
@@ -558,6 +586,12 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         for update_callback in list(self._listeners):
             update_callback()
         self.hass.bus.async_fire(EVENT_UPDATED, {"change": change})
+
+    @callback
+    def occasions_changed(self) -> None:
+        """Occasions changed: save, update entities and the panel (offers are matched again
+        for their dishes and drinks)."""
+        self._changed("occasions")
 
     @callback
     def _save_later(self) -> None:
@@ -912,8 +946,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         title: str | None = None,
         servings: int | None = None,
         note: str | None = None,
+        drinks: Any = None,
     ) -> dict[str, Any]:
-        """Put a recipe (or free text) into the meal plan."""
+        """Put a recipe (or free text) into the meal plan.
+
+        drinks (1.5, optional): what is drunk with it ("🍷 Passt dazu") – texts or dicts
+        {title, alcohol?, recipe_id?, product_id?}; None keeps the drinks of the meal that
+        was planned in this slot with the same dish, [] removes them.
+        """
         if meal not in ALL_MEALS:
             raise _error("invalid_meal", meal=meal)
         if recipe is None and not (title or "").strip():
@@ -926,10 +966,44 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "cooked": False,
             "added": dt_util.utcnow().isoformat(),
         }
+        previous = self.plan.get(day.isoformat(), {}).get(meal) or {}
+        if drinks is not None:
+            if cleaned := self._plan_drinks(drinks):
+                entry["drinks"] = cleaned
+        elif previous.get("drinks") and previous.get("title") == entry["title"]:
+            entry["drinks"] = previous["drinks"]
         self.plan.setdefault(day.isoformat(), {})[meal] = entry
         self._cleanup_plan()
         self._changed("plan")
         return self.entry_view(day, meal, entry)
+
+    @staticmethod
+    def _plan_drinks(value: Any) -> list[dict[str, Any]]:
+        """Drinks of a plan entry: [{title, alcohol, recipe_id?, product_id?}] (≤ 6)."""
+        from .drinks import is_alcoholic
+
+        items = value if isinstance(value, list) else [value]
+        drinks: list[dict[str, Any]] = []
+        for raw in items:
+            if isinstance(raw, str):
+                raw = {"title": raw}
+            if not isinstance(raw, dict):
+                continue
+            title = " ".join(str(raw.get("title") or "").split())[:80]
+            if not title or any(fold(d["title"]) == fold(title) for d in drinks):
+                continue
+            said = raw.get("alcohol")
+            drink: dict[str, Any] = {
+                "title": title,
+                "alcohol": said if isinstance(said, bool) else is_alcoholic(title),
+            }
+            for key in ("recipe_id", "product_id"):
+                if isinstance(raw.get(key), str) and raw[key].strip():
+                    drink[key] = raw[key].strip()[:80]
+            drinks.append(drink)
+            if len(drinks) >= 6:
+                break
+        return drinks
 
     def remove_meal(self, day: date, meal: str | None = None) -> list[dict[str, Any]]:
         """Remove one meal or a whole day from the plan."""
@@ -1034,6 +1108,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "cooked": entry.get("cooked", False),
             "total_time": recipe.get("total_time") if recipe else None,
             "image": (recipe.get("image") or None) if recipe else None,
+            # 1.5: drinks with the meal (empty for older entries)
+            "drinks": list(entry.get("drinks") or []),
         }
 
     def day_meals(self, day: date) -> list[dict[str, Any]]:
@@ -1078,6 +1154,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         tags = self.recipe_tags_folded(recipe)
         is_breakfast = bool(tags & BREAKFAST_TAGS)
         is_snack = bool(tags & SNACK_TAGS)
+        if tags & DRINK_TAGS:
+            return False  # a drink never fills a meal slot (1.5)
+        if tags & COMPONENT_TAGS and not tags & MAIN_TAGS:
+            # a side, starter, dip or sauce is no meal of its own – unless it is a snack
+            return meal == MEAL_SNACK and is_snack
         if meal == MEAL_BREAKFAST:
             return is_breakfast
         if meal == MEAL_SNACK:
@@ -1146,6 +1227,69 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         )
         return results[: max(1, count)]
 
+    def _suggest_context(
+        self,
+        around: date,
+        strategy: str | None = None,
+        target_cost: float | None = None,
+        servings: int | None = None,
+        budget: bool = True,
+        variety: bool = True,
+    ) -> dict[str, Any]:
+        """What the suggestion weights of one day depend on (computed once per day):
+        recipes planned nearby, the budget target, the median cost (strategy cheap) and the
+        dishes of the neighbouring days. budget / variety False: no budget target / no
+        variety penalty (occasions: a party menu is no everyday meal)."""
+        recently_planned: set[str] = set()
+        for offset in range(-6, 7):
+            for entry in self.plan.get((around + timedelta(days=offset)).isoformat(), {}).values():
+                if entry.get("recipe_id"):
+                    recently_planned.add(entry["recipe_id"])
+        if target_cost is None and budget and self.weekly_budget:
+            target_cost = self.budget_target(around)
+        return {
+            "around": around,
+            "recent": recently_planned,
+            "strategy": strategy,
+            "target_cost": target_cost,
+            "median": self.median_cost(around, servings) if strategy == STRATEGY_CHEAP else None,
+            "servings": servings,
+            "neighbours": self._neighbour_signatures(around) if variety else None,
+        }
+
+    def _suggest_weight(self, recipe: dict[str, Any], ctx: dict[str, Any]) -> float:
+        """Weight of a recipe for suggestions (shared by suggest() and the occasions):
+        favourites, rating, not cooked lately, not planned nearby, and offers, budget and
+        variety (economy_weight())."""
+        around: date = ctx["around"]
+        weight = 1.0
+        last = recipe.get("last_cooked")
+        if not last:
+            weight += 1.5
+        else:
+            try:
+                days_ago = (around - date.fromisoformat(last)).days
+                weight += min(max(days_ago, 0), 60) / 15
+                if days_ago < 5:
+                    weight *= 0.2
+            except ValueError:
+                pass
+        if recipe.get("favorite"):
+            weight += 2
+        weight += (recipe.get("rating") or 0) * 0.4
+        if recipe["id"] in ctx["recent"]:
+            weight *= 0.1
+        weight *= self.economy_weight(
+            recipe,
+            around,
+            strategy=ctx["strategy"],
+            target_cost=ctx["target_cost"],
+            median_cost=ctx["median"],
+            servings=ctx["servings"],
+            neighbours=ctx["neighbours"],
+        )
+        return weight
+
     def suggest(
         self,
         count: int = 3,
@@ -1173,45 +1317,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             for r in self.search_recipes(tag=tag, max_time=max_time)
             if r["id"] not in exclude and self._fits_meal(r, meal) and not self.is_excluded(r)
         ]
-        recently_planned: set[str] = set()
-        for offset in range(-6, 7):
-            for entry in self.plan.get((around + timedelta(days=offset)).isoformat(), {}).values():
-                if entry.get("recipe_id"):
-                    recently_planned.add(entry["recipe_id"])
-
-        if target_cost is None and self.weekly_budget:
-            target_cost = self.budget_target(around)
-        median = self.median_cost(around, servings) if strategy == STRATEGY_CHEAP else None
-        neighbours = self._neighbour_signatures(around)
-        weights = []
-        for recipe in candidates:
-            weight = 1.0
-            last = recipe.get("last_cooked")
-            if not last:
-                weight += 1.5
-            else:
-                try:
-                    days_ago = (around - date.fromisoformat(last)).days
-                    weight += min(max(days_ago, 0), 60) / 15
-                    if days_ago < 5:
-                        weight *= 0.2
-                except ValueError:
-                    pass
-            if recipe.get("favorite"):
-                weight += 2
-            weight += (recipe.get("rating") or 0) * 0.4
-            if recipe["id"] in recently_planned:
-                weight *= 0.1
-            weight *= self.economy_weight(
-                recipe,
-                around,
-                strategy=strategy,
-                target_cost=target_cost,
-                median_cost=median,
-                servings=servings,
-                neighbours=neighbours,
-            )
-            weights.append(weight)
+        ctx = self._suggest_context(
+            around, strategy=strategy, target_cost=target_cost, servings=servings
+        )
+        weights = [self._suggest_weight(recipe, ctx) for recipe in candidates]
 
         chosen: list[dict[str, Any]] = []
         pool = list(zip(candidates, weights, strict=True))
@@ -1252,11 +1361,15 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 replaced = overwrite and 0 <= offset < max(1, days) and meal in meals
                 if entry.get("recipe_id") and not replaced:
                     nearby.add(entry["recipe_id"])
+        from .occasions import occasion_meals
+
         for offset in range(max(1, days)):
             day = start + timedelta(days=offset)
             existing = self.plan.get(day.isoformat(), {})
+            # an occasion with dishes that day (a barbecue at 18:00) is the dinner (1.5)
+            covered = occasion_meals(self, day)
             for meal in meals:
-                if meal in existing and not overwrite:
+                if (meal in existing and not overwrite) or meal in covered:
                     continue
                 target = self.budget_target(day, len(meals)) if self.weekly_budget else None
                 options = {
@@ -1294,9 +1407,26 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
     # ------------------------------------------------------------------
 
     def generate_shopping_list(
-        self, start: date, days: int, replace: bool = True
+        self,
+        start: date,
+        days: int,
+        replace: bool = True,
+        include_occasions: bool = True,
+        occasion_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create shopping list items from the planned recipes."""
+        """Create shopping list items from the planned recipes.
+
+        include_occasions (1.5): the occasions of these days join the list (their dishes,
+        drinks and extras are merged with the plan's items; a list of their own for such an
+        occasion is taken over, unless shopping for it has begun – an item is ticked off –
+        or replace is False). occasion_id: a list only for this occasion (its own items,
+        source "plan" with occasion_id; replaces only them, and takes its share out of the
+        week's items that included it).
+        """
+        if occasion_id:
+            return self._occasion_shopping_list(occasion_id, replace)
+        from .occasions import occasion_entries, occasions_between
+
         entries: list[tuple[dict[str, Any], str]] = []
         meal_count = 0
         free_text: list[str] = []
@@ -1315,13 +1445,72 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                     (scale_ingredient(i, factor), recipe["name"])
                     for i in recipe.get("ingredients", [])
                 )
+        absorbed: list[dict[str, Any]] = []
+        separate: list[dict[str, Any]] = []
+        shares: dict[str, dict[str, dict[str, float]]] = {}
+        if include_occasions:
+            end = start + timedelta(days=max(1, days) - 1)
+            for occasion in occasions_between(self, start, end):
+                own = [i for i in self.shopping if i.get("occasion_id") == occasion["id"]]
+                if own and (not replace or any(i.get("status") == "completed" for i in own)):
+                    separate.append(occasion)  # its own list is in use: keep it apart
+                    continue
+                found, without, dishes = occasion_entries(self, occasion)
+                absorbed.append(occasion)
+                entries.extend(found)
+                free_text.extend(without)
+                meal_count += dishes
+                for share in aggregate(found, self.pantry):
+                    shares.setdefault(share["key"], {})[occasion["id"]] = dict(share["amounts"])
 
         aggregated = aggregate(entries, self.pantry)
-        total_price = self.price_shopping_items(aggregated, start)
-        previous = {i.get("key"): i for i in self.shopping if i.get("source") == "plan"}
+        self.price_shopping_items(aggregated, start)
+        weekly = [
+            i for i in self.shopping if i.get("source") == "plan" and not i.get("occasion_id")
+        ]
+        previous = {i.get("key"): i for i in weekly}
         if replace:
-            self.shopping = [i for i in self.shopping if i.get("source") != "plan"]
+            absorbed_ids = {o["id"] for o in absorbed}
+            drop = {id(i) for i in weekly}
+            self.shopping = [
+                i
+                for i in self.shopping
+                if id(i) not in drop and i.get("occasion_id") not in absorbed_ids
+            ]
+        new_items, total_price = self._new_plan_items(aggregated, previous, start, shares=shares)
+        self.shopping.extend(new_items)
+        self._changed("shopping")
+        result = {
+            "start_date": start.isoformat(),
+            "days": days,
+            "meals": meal_count,
+            "meals_without_recipe": free_text,
+            "total_price": total_price,
+            "items": self._shopping_result_items(new_items),
+            "stores": self.stores_summary(),
+        }
+        if absorbed or separate:
+            result["occasions"] = [
+                {"id": o["id"], "title": o["title"], "date": o["date"]} for o in absorbed
+            ]
+            result["occasions_separate"] = [
+                {"id": o["id"], "title": o["title"], "date": o["date"]} for o in separate
+            ]
+        return result
 
+    def _new_plan_items(
+        self,
+        aggregated: list[dict[str, Any]],
+        previous: dict[Any, dict[str, Any]],
+        day: date,
+        extra: dict[str, Any] | None = None,
+        shares: dict[str, dict[str, dict[str, float]]] | None = None,
+    ) -> tuple[list[dict[str, Any]], float]:
+        """Shopping items of aggregated (and priced) ingredients: ticked off again when the
+        same item was ticked off before, own store choices and picked products kept; store,
+        product and description. extra: fields of every item (occasion_id); shares: the
+        occasions' amounts per item key (occasion_amounts, to take an occasion out later).
+        Returns (items, total price)."""
         new_items: list[dict[str, Any]] = []
         for item in aggregated:
             old = previous.get(item["key"])
@@ -1355,48 +1544,119 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             product_id = item.get("product_id") or (old or {}).get("product_id")
             if product_id:
                 shopping_item["product_id"] = product_id
+            if extra:
+                shopping_item.update(extra)
+            if shares and (share := shares.get(item["key"])):
+                shopping_item["occasion_amounts"] = share
             new_items.append(shopping_item)
-        if self.assign_stores(new_items, start):
-            total_price = round(sum(i["price"] for i in new_items if i.get("price") is not None), 2)
-        else:
+        if not self.assign_stores(new_items, day):
             # no store split: the products of the main store (or of the priced offer)
-            self.attach_products(new_items, start)
-            total_price = round(sum(i["price"] for i in new_items if i.get("price") is not None), 2)
+            self.attach_products(new_items, day)
+        total_price = round(sum(i["price"] for i in new_items if i.get("price") is not None), 2)
         for shopping_item in new_items:
             self.update_shopping_description(shopping_item)
+        return new_items, total_price
+
+    @staticmethod
+    def _shopping_result_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """The items of a generated list for service / intent answers."""
+        return [
+            {
+                "summary": i["summary"],
+                "category": i["category"],
+                "description": i["description"],
+                "status": i["status"],
+                "price": i.get("price"),
+                "offer": i.get("offer"),
+                **{
+                    field: i.get(field)
+                    for field in (
+                        "branch_id",
+                        "retailer",
+                        "store_label",
+                        "store_reason",
+                        "product",
+                        "product_reason",
+                        "occasion_id",
+                    )
+                    if field in i
+                },
+            }
+            for i in items
+        ]
+
+    def _occasion_shopping_list(self, occasion_id: str, replace: bool = True) -> dict[str, Any]:
+        """generate_shopping_list() for one occasion ("🛒 Einkaufsliste für den Anlass")."""
+        from .occasions import occasion_date, occasion_entries, require_occasion
+
+        occasion = require_occasion(self, occasion_id)
+        day = occasion_date(occasion)
+        entries, without, dishes = occasion_entries(self, occasion)
+        aggregated = aggregate(entries, self.pantry)
+        self.price_shopping_items(aggregated, day)
+        own = [i for i in self.shopping if i.get("occasion_id") == occasion["id"]]
+        previous = {i.get("key"): i for i in own}
+        if replace:
+            self.shopping = [i for i in self.shopping if i.get("occasion_id") != occasion["id"]]
+            changed = self._take_out_occasion(occasion)  # it was part of the week's list
+        else:
+            changed = []
+        new_items, total_price = self._new_plan_items(
+            aggregated, previous, day, extra={"occasion_id": occasion["id"]}
+        )
         self.shopping.extend(new_items)
+        for item in changed:
+            self._price_shopping_item(item)
         self._changed("shopping")
         return {
-            "start_date": start.isoformat(),
-            "days": days,
-            "meals": meal_count,
-            "meals_without_recipe": free_text,
+            "start_date": day.isoformat(),
+            "days": 1,
+            "meals": dishes,
+            "meals_without_recipe": without,
             "total_price": total_price,
-            "items": [
-                {
-                    "summary": i["summary"],
-                    "category": i["category"],
-                    "description": i["description"],
-                    "status": i["status"],
-                    "price": i.get("price"),
-                    "offer": i.get("offer"),
-                    **{
-                        field: i.get(field)
-                        for field in (
-                            "branch_id",
-                            "retailer",
-                            "store_label",
-                            "store_reason",
-                            "product",
-                            "product_reason",
-                        )
-                        if field in i
-                    },
-                }
-                for i in new_items
-            ],
+            "items": self._shopping_result_items(new_items),
             "stores": self.stores_summary(),
+            "occasion": {"id": occasion["id"], "title": occasion["title"], "date": day.isoformat()},
         }
+
+    def _take_out_occasion(self, occasion: dict[str, Any]) -> list[dict[str, Any]]:
+        """An occasion that joined the week's list gets a list of its own: its amounts go
+        out of the open week items (items only it needed are removed). Returns the changed
+        items (to be priced again)."""
+        from .occasions import occasion_label
+
+        label = occasion_label(occasion)
+        changed: list[dict[str, Any]] = []
+        for item in list(self.shopping):
+            shares = item.get("occasion_amounts")
+            if (
+                not isinstance(shares, dict)
+                or occasion["id"] not in shares
+                or item.get("status") == "completed"
+            ):
+                continue
+            share = shares.pop(occasion["id"]) or {}
+            if not shares:
+                item.pop("occasion_amounts", None)
+            recipes = [r for r in item.get("recipes") or [] if r != label]
+            if not recipes:
+                self.shopping.remove(item)  # only the occasion needed it
+                continue
+            amounts = {
+                unit: round(float(amount) - float(share.get(unit) or 0), 4)
+                for unit, amount in (item.get("amounts") or {}).items()
+            }
+            amounts = {unit: amount for unit, amount in amounts.items() if amount > 1e-6}
+            item["recipes"] = recipes
+            item["amounts"] = amounts
+            rebuilt = aggregate(
+                [({"name": item["name"], "amount": a, "unit": u}, "") for u, a in amounts.items()]
+                or [({"name": item["name"]}, "")]
+            )
+            if rebuilt:
+                item["summary"] = rebuilt[0]["summary"]
+            changed.append(item)
+        return changed
 
     def shopping_clear(self, mode: str = "all") -> int:
         """Empty the shopping list. mode: all | completed | plan (generated items)."""
@@ -2017,6 +2277,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
     def export(self) -> dict[str, Any]:
         """All data for the frontend panel."""
+        from .drinks import alcohol_allowed
+        from .occasions import occasion_meta, occasions_export
+
         return {
             "recipes": sorted(self.recipes.values(), key=lambda r: fold(r["name"])),
             "plan": self.plan,
@@ -2057,6 +2320,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             # the product database (1.5): counts only, the products come page by page
             # (websocket essensplaner/products)
             "products": product_counts(self),
+            # occasions (1.5) from 30 days back with items, costs and labels; templates,
+            # courses and whether drink suggestions may have alcohol
+            "occasions": occasions_export(self),
+            "occasion_meta": {**occasion_meta(), "alcohol": alcohol_allowed(self)},
         }
 
 

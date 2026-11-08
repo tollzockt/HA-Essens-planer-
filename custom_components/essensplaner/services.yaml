@@ -167,6 +167,11 @@ plan_meal:
       example: "Oma kommt zu Besuch"
       selector:
         text:
+    drinks:
+      example: "Rotwein, Apfelschorle"
+      selector:
+        text:
+          multiple: true
 
 remove_meal:
   fields:
@@ -245,6 +250,14 @@ generate_shopping_list:
       default: true
       selector:
         boolean:
+    include_occasions:
+      default: true
+      selector:
+        boolean:
+    occasion: &occasion
+      example: "Grillabend"
+      selector:
+        text:
 
 mark_cooked:
   fields:
@@ -940,3 +953,158 @@ get_leaflets:
             - all
             - current
             - upcoming
+
+save_occasion:
+  fields:
+    occasion: *occasion
+    title:
+      example: "Grillabend mit den Nachbarn"
+      selector:
+        text:
+    template:
+      example: "grillen"
+      selector:
+        select:
+          translation_key: occasion_template
+          options: &occasion_templates
+            - filmabend
+            - grillen
+            - familienessen
+            - weihnachten
+            - silvester
+            - geburtstag
+            - brunch
+            - raclette
+            - fondue
+            - party
+            - ostern
+            - anlass
+    date:
+      example: "Samstag"
+      selector:
+        text:
+    time:
+      example: "18:30"
+      selector:
+        text:
+    duration:
+      example: 4
+      selector:
+        number:
+          min: 0.5
+          max: 48
+          step: 0.5
+          unit_of_measurement: h
+    guests: &guests
+      example: 6
+      selector:
+        number:
+          min: 1
+          max: 200
+          mode: box
+    children: &children
+      example: 2
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: box
+    items:
+      example: "Kartoffelsalat, Bratwurst"
+      selector:
+        text:
+          multiple: true
+    course: &occasion_course
+      selector:
+        select:
+          translation_key: occasion_course
+          options:
+            - starter
+            - main
+            - side
+            - dessert
+            - snack
+            - drink
+            - extra
+    remove:
+      example: "Tiramisu"
+      selector:
+        text:
+          multiple: true
+    notes:
+      example: "Den Nachtisch bringen die Gäste mit"
+      selector:
+        text:
+          multiline: true
+    auto_fill:
+      default: false
+      selector:
+        boolean:
+
+delete_occasion:
+  fields:
+    occasion:
+      required: true
+      example: "Grillabend"
+      selector:
+        text:
+
+get_occasions:
+  fields:
+    occasion:
+      example: "Weihnachtsessen"
+      selector:
+        text:
+    start_date: *start_date
+    days:
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 400
+          mode: box
+
+suggest_occasion_menu:
+  fields:
+    occasion:
+      required: true
+      example: "Filmabend"
+      selector:
+        text:
+    course: *occasion_course
+    count:
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 20
+          mode: box
+    ai:
+      default: false
+      selector:
+        boolean:
+    apply:
+      default: false
+      selector:
+        boolean:
+
+suggest_drinks:
+  fields:
+    recipe:
+      example: "Lasagne"
+      selector:
+        text:
+    occasion: *occasion
+    date:
+      example: "Samstag"
+      selector:
+        text:
+    guests: *guests
+    children: *children
+    alcohol:
+      selector:
+        boolean:
+    ai:
+      default: false
+      selector:
+        boolean:

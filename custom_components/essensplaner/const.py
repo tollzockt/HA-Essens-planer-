@@ -200,6 +200,12 @@ SERVICE_SEARCH_PRODUCTS: Final = "search_products"
 SERVICE_SAVE_PRODUCT: Final = "save_product"
 SERVICE_SET_SHOPPING_PRODUCT: Final = "set_shopping_product"
 SERVICE_GET_LEAFLETS: Final = "get_leaflets"
+# occasions and drinks (1.5)
+SERVICE_SAVE_OCCASION: Final = "save_occasion"
+SERVICE_DELETE_OCCASION: Final = "delete_occasion"
+SERVICE_GET_OCCASIONS: Final = "get_occasions"
+SERVICE_SUGGEST_OCCASION_MENU: Final = "suggest_occasion_menu"
+SERVICE_SUGGEST_DRINKS: Final = "suggest_drinks"
 # sources of refresh_prices
 PRICE_SOURCE_OFFERS: Final = "offers"
 PRICE_SOURCE_REWE: Final = "rewe"

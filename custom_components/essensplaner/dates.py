@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 import re
 
@@ -122,6 +123,88 @@ class DateParseError(ValueError):
     """Raised when a date could not be understood."""
 
 
+def easter(year: int) -> date:
+    """Easter Sunday of a year (Gregorian calendar, anonymous algorithm)."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    m = (32 + 2 * e + 2 * i - h - k) % 7
+    n = (a + 11 * h + 22 * m) // 451
+    month, day = divmod(h + m - 7 * n + 114, 31)
+    return date(year, month, day + 1)
+
+
+def advent_start(year: int) -> date:
+    """First Sunday of Advent (four Sundays before Christmas)."""
+    christmas = date(year, 12, 25)
+    fourth = christmas - timedelta(days=(christmas.weekday() + 1) % 7 or 7)
+    return fourth - timedelta(days=21)
+
+
+def _nth_sunday(year: int, month: int, nth: int) -> date:
+    first = date(year, month, 1)
+    return first + timedelta(days=(6 - first.weekday()) % 7 + 7 * (nth - 1))
+
+
+# folded holiday phrase -> its date in a year (1.5: "Was gibt es Weihnachten?", "Plane ein
+# Weihnachtsessen an Heiligabend"); longer phrases are tried first
+HOLIDAYS: dict[str, Callable[[int], date]] = {
+    "heiligabend": lambda y: date(y, 12, 24),
+    "heiliger abend": lambda y: date(y, 12, 24),
+    "heiligen abend": lambda y: date(y, 12, 24),
+    "weihnachten": lambda y: date(y, 12, 25),
+    "weihnachtsabend": lambda y: date(y, 12, 24),
+    "1 weihnachtstag": lambda y: date(y, 12, 25),
+    "1 weihnachtsfeiertag": lambda y: date(y, 12, 25),
+    "erster weihnachtstag": lambda y: date(y, 12, 25),
+    "ersten weihnachtstag": lambda y: date(y, 12, 25),
+    "erster weihnachtsfeiertag": lambda y: date(y, 12, 25),
+    "ersten weihnachtsfeiertag": lambda y: date(y, 12, 25),
+    "2 weihnachtstag": lambda y: date(y, 12, 26),
+    "2 weihnachtsfeiertag": lambda y: date(y, 12, 26),
+    "zweiter weihnachtstag": lambda y: date(y, 12, 26),
+    "zweiten weihnachtstag": lambda y: date(y, 12, 26),
+    "zweiter weihnachtsfeiertag": lambda y: date(y, 12, 26),
+    "zweiten weihnachtsfeiertag": lambda y: date(y, 12, 26),
+    "silvester": lambda y: date(y, 12, 31),
+    "neujahr": lambda y: date(y, 1, 1),
+    "neujahrstag": lambda y: date(y, 1, 1),
+    "nikolaus": lambda y: date(y, 12, 6),
+    "nikolaustag": lambda y: date(y, 12, 6),
+    "valentinstag": lambda y: date(y, 2, 14),
+    "halloween": lambda y: date(y, 10, 31),
+    "karfreitag": lambda y: easter(y) - timedelta(days=2),
+    "ostern": easter,
+    "ostersonntag": easter,
+    "ostermontag": lambda y: easter(y) + timedelta(days=1),
+    "christi himmelfahrt": lambda y: easter(y) + timedelta(days=39),
+    "himmelfahrt": lambda y: easter(y) + timedelta(days=39),
+    "vatertag": lambda y: easter(y) + timedelta(days=39),
+    "pfingsten": lambda y: easter(y) + timedelta(days=49),
+    "pfingstsonntag": lambda y: easter(y) + timedelta(days=49),
+    "pfingstmontag": lambda y: easter(y) + timedelta(days=50),
+    "muttertag": lambda y: _nth_sunday(y, 5, 2),
+}
+_HOLIDAY_ORDER = sorted(HOLIDAYS, key=lambda h: (-len(h.split()), -len(h)))
+
+
+def holiday_date(text: str | None, today: date) -> date | None:
+    """The next date of a holiday named in a text ('an Heiligabend', 'Ostern') – this
+    year's while it has not passed, else next year's; None without a holiday."""
+    folded = f" {fold(str(text or ''))} "
+    for phrase in _HOLIDAY_ORDER:
+        if f" {phrase} " in folded:
+            found = HOLIDAYS[phrase](today.year)
+            if found < today:
+                found = HOLIDAYS[phrase](today.year + 1)
+            return found
+    return None
+
+
 def parse_meal(text: str | None) -> str | None:
     """Return the meal slot for a text like 'Abendessen' / 'mittags'."""
     if not text:
@@ -184,6 +267,10 @@ def parse_date(text: str | date | datetime | None, today: date) -> tuple[date, s
             meal_hint = MEAL_BREAKFAST
         elif token in MEAL_ALIASES and token not in ("kaffee",):
             meal_hint = MEAL_ALIASES[token]
+
+    # holidays (1.5): "Heiligabend", "an Weihnachten", "Ostermontag abend"
+    if (holiday := holiday_date(folded, today)) is not None:
+        return holiday, meal_hint
 
     if match := _IN_DAYS_RE.search(folded):
         value = match.group(1)

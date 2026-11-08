@@ -237,12 +237,58 @@ intents:
           - "was kostet der (essensplan|speiseplan|wochenplan) nächste woche"
         slots:
           week: "nächste"
+  # occasions and drinks (1.5): templates from the list "occasion", holidays from "holiday"
+  essensplaner_plan_occasion:
+    data:
+      - sentences:
+          - "plane (einen|eine|ein|unseren|unsere|unser) {occasion} [(für|an|zu)] {date} [für {guests} [<ep_personen>]]"
+          - "plane (einen|eine|ein|unseren|unsere|unser) {occasion} [(an|zu)] {holiday:date} [für {guests} [<ep_personen>]]"
+          - "plane (einen|eine|ein) {occasion} für {guests} [<ep_personen>] [(für|an|zu)] {date}"
+          - "plane (einen|eine|ein) {occasion} für {guests} [<ep_personen>] [(an|zu)] {holiday:date}"
+          - "plane (einen|eine|ein) {occasion} [für {guests} [<ep_personen>]]"
+          - "wir (machen|feiern) {date} (einen|eine|ein) {occasion} [mit {guests} [<ep_personen_dat>]]"
+          - "wir (machen|feiern) [(an|zu)] {holiday:date} (einen|eine|ein) {occasion} [mit {guests} [<ep_personen_dat>]]"
+          - "wir (machen|feiern) (einen|eine|ein) {occasion} {date} [mit {guests} [<ep_personen_dat>]]"
+  essensplaner_get_occasion:
+    data:
+      - sentences:
+          - "was gibt [es|'s] [(an|zu)] {holiday:date} [zu essen]"
+          - "was (essen|kochen) wir [(an|zu)] {holiday:date}"
+          - "was ist [(an|zu)] {holiday:date} geplant"
+          - "was gibt [es|'s] (beim|zum|bei der|zur) {occasion} [zu essen]"
+          - "was (essen|kochen) wir (beim|zum|bei der|zur) {occasion}"
+          - "was ist (beim|für den|für das|für die|zum|zur) {occasion} geplant"
+          - "(wann|was) ist [der] nächste anlass"
+          - "welcher anlass (ist|steht) [als nächstes] (an|geplant)"
+  essensplaner_edit_occasion:
+    data:
+      - sentences:
+          - "(füge|füg) {dish} (zum|zur) {occasion} hinzu"
+          - "{dish} (zum|zur) {occasion} hinzufügen"
+      - sentences:
+          - "(streiche|streich|entferne|entfern|lösche|lösch) {dish} (vom|von der|beim|bei der) {occasion}"
+        slots:
+          action: "entfernen"
+      - sentences:
+          - "(zum|zur) {occasion} kommen {guests} <ep_personen>"
+          - "wir sind (beim|bei der|zum|zur) {occasion} {guests} <ep_personen>"
+  essensplaner_suggest_drinks:
+    data:
+      - sentences:
+          - "(welcher|welches|welche) {kind} passt (zu|zur|zum) {dish}"
+          - "was (trinken|trinkt) (wir|man) (zu|zur|zum) {dish}"
+          - "welche getränke passen (zu|zur|zum) {dish}"
+          - "(welcher|welches|welche) {kind} passt (zum|zur) {occasion}"
+          - "was (trinken|trinkt) (wir|man) (beim|zum|bei der|zur) {occasion}"
+          - "welche getränke (passen|brauchen wir|brauche ich) (zum|zur|für den|für das|für die) {occasion}"
 expansion_rules:
   # verbs incl. the forms speech recognition often writes ("setzt", "schreibt")
   ep_setzen: "(setz|setze|setzt|schreib|schreibe|schreibt|nimm|nehme|pack|packe)"
   ep_liste_akk: "[(meine|unsere|die) ][einkaufs[ ]]liste"
   ep_liste_dat: "[(meiner|unserer|der) ][einkaufs[ ]]liste"
   ep_einkauf_dat: "[(meinem|unserem|dem) ]einkauf"
+  ep_personen: "(personen|leute|gäste)"
+  ep_personen_dat: "(personen|leuten|gästen)"
 lists:
   date:
     values:
@@ -388,6 +434,78 @@ lists:
       - "budni"
       - "budnikowsky"
       - "hauptladen"
+  occasion:
+    values:
+      - "filmabend"
+      - "kinoabend"
+      - "serienabend"
+      - "grillabend"
+      - "grillen"
+      - "grillparty"
+      - "familienessen"
+      - "sonntagsessen"
+      - "weihnachtsessen"
+      - in: "weihnachtsmenü"
+        out: "Weihnachtsmenü"
+      - "silvesterparty"
+      - "geburtstag"
+      - "geburtstagsfeier"
+      - "geburtstagsparty"
+      - "kindergeburtstag"
+      - "brunch"
+      - "raclette"
+      - in: "raclette abend"
+        out: "Raclette-Abend"
+      - "fondue"
+      - in: "fondue abend"
+        out: "Fondue"
+      - "party"
+      - "osteressen"
+      - "osterbrunch"
+  holiday:
+    values:
+      - "weihnachten"
+      - "heiligabend"
+      - "heiligen abend"
+      - "erster weihnachtstag"
+      - "ersten weihnachtstag"
+      - "zweiter weihnachtstag"
+      - "zweiten weihnachtstag"
+      - "erster weihnachtsfeiertag"
+      - "ersten weihnachtsfeiertag"
+      - "zweiter weihnachtsfeiertag"
+      - "zweiten weihnachtsfeiertag"
+      - "silvester"
+      - "neujahr"
+      - "ostern"
+      - "ostersonntag"
+      - "ostermontag"
+      - "karfreitag"
+      - "pfingsten"
+      - "pfingstmontag"
+      - "nikolaus"
+      - "valentinstag"
+      - "muttertag"
+      - "vatertag"
+  kind:
+    values:
+      - "wein"
+      - "rotwein"
+      - in: "weißwein"
+        out: "weisswein"
+      - "sekt"
+      - "bier"
+      - "cocktail"
+      - in: "getränk"
+        out: "getraenk"
+      - in: "alkoholfreie getränk"
+        out: "alkoholfrei"
+      - in: "alkoholfreies getränk"
+        out: "alkoholfrei"
+  guests:
+    range:
+      from: 1
+      to: 50
   store_name:
     wildcard: true
   item:

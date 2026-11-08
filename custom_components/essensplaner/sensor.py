@@ -13,6 +13,15 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .dates import WEEKDAY_NAMES
 from .entity import EssensplanerEntity
 from .manager import EssensplanerManager
+from .occasions import (
+    COURSE_LABELS,
+    COURSES,
+    next_occasion,
+    occasion_cost,
+    occasion_date,
+    occasions_on,
+    template_info,
+)
 
 MAX_STATE = 255
 
@@ -33,6 +42,7 @@ async def async_setup_entry(
             DaySensor(manager, "today", 0),
             DaySensor(manager, "tomorrow", 1),
             NextMealSensor(manager),
+            NextOccasionSensor(manager),
             WeekPlanSensor(manager),
             RecipesSensor(manager),
             WeekCostSensor(manager),
@@ -48,7 +58,7 @@ class DaySensor(EssensplanerEntity, SensorEntity):
     """Meals planned for today / tomorrow."""
 
     _attr_icon = "mdi:silverware-fork-knife"
-    _unrecorded_attributes = frozenset({"meals"})
+    _unrecorded_attributes = frozenset({"meals", "occasions"})
 
     def __init__(self, manager: EssensplanerManager, key: str, offset: int) -> None:
         """Initialize the sensor."""
@@ -84,6 +94,18 @@ class DaySensor(EssensplanerEntity, SensorEntity):
             "date": day.isoformat(),
             "weekday": WEEKDAY_NAMES[day.weekday()],
             "meals": meals,
+            # 1.5: occasions of the day ("🎬 Filmabend")
+            "occasions": [
+                {
+                    "id": o["id"],
+                    "title": o["title"],
+                    "emoji": template_info(o.get("template"))["emoji"],
+                    "time": o.get("time"),
+                    "guests": o.get("guests"),
+                    "children": o.get("children"),
+                }
+                for o in occasions_on(self.manager, day)
+            ],
         }
         for meal in self.manager.enabled_meals:
             attrs[meal] = next((m["title"] for m in meals if m["meal"] == meal), None)
@@ -126,6 +148,65 @@ class NextMealSensor(EssensplanerEntity, SensorEntity):
             attrs["steps"] = view.get("steps", [])
             attrs["source_url"] = recipe.get("source_url") or None
         return attrs
+
+
+class NextOccasionSensor(EssensplanerEntity, SensorEntity):
+    """The next (or running) occasion ("Nächster Anlass", 1.5)."""
+
+    _attr_icon = "mdi:party-popper"
+    _unrecorded_attributes = frozenset({"courses", "notes"})
+
+    def __init__(self, manager: EssensplanerManager) -> None:
+        """Initialize the sensor."""
+        super().__init__(manager, "next_occasion")
+
+    @property
+    def native_value(self) -> str | None:
+        """Title of the next occasion (None without one)."""
+        occasion = next_occasion(self.manager)
+        return _truncate(occasion["title"]) if occasion else None
+
+    @property
+    def entity_picture(self) -> str | None:
+        """Image of its main dish."""
+        occasion = next_occasion(self.manager)
+        for item in (occasion or {}).get("items") or []:
+            recipe = self.manager.recipes.get(item.get("recipe_id") or "")
+            if recipe and recipe.get("image") and item.get("course") == "main":
+                return str(recipe["image"])
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Date, time, guests, courses and the estimated cost."""
+        occasion = next_occasion(self.manager)
+        if occasion is None:
+            return {}
+        day = occasion_date(occasion)
+        info = template_info(occasion.get("template"))
+        courses = {
+            COURSE_LABELS[course]: [
+                str(i.get("title"))
+                for i in occasion.get("items") or []
+                if i.get("course") == course and i.get("title")
+            ]
+            for course in COURSES
+        }
+        return {
+            "id": occasion["id"],
+            "date": day.isoformat(),
+            "weekday": WEEKDAY_NAMES[day.weekday()],
+            "time": occasion.get("time"),
+            "days_until": (day - self.manager.today()).days,
+            "template": occasion.get("template"),
+            "emoji": info["emoji"],
+            "guests": occasion.get("guests"),
+            "children": occasion.get("children"),
+            "courses": {label: titles for label, titles in courses.items() if titles},
+            "cost": occasion_cost(self.manager, occasion)["total"],
+            "notes": occasion.get("notes") or None,
+            "estimate": True,
+        }
 
 
 class WeekPlanSensor(EssensplanerEntity, SensorEntity):
