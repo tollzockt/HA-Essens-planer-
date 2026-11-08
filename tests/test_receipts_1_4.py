@@ -57,7 +57,7 @@ HACKFL.GEM.                      5,98 B
 BANANE                           1,10 B
           0,856 kg x    1,29 EUR/kg
 PFAND 0,25 EURO                  0,25 A *
-COCA COLA 1,0L                   1,49 A
+FRITZ KOLA 1,0L                   1,49 A
 --------------------------------------
 SUMME                    EUR     15,19
 ======================================
@@ -83,7 +83,7 @@ Bananen                          1,12 A
 Joghurt mild 3,5%                0,98 A
   2 x 0,49
 Pfand 0,25 EW                    0,25 B
-Coca-Cola 1,5l                   1,59 B
+Fritz-Kola 1,5l                   1,59 B
 Preisvorteil                    -0,30
 Toilettenpapier 3-lagig          2,45 B
 ----------------------------------------
@@ -240,7 +240,7 @@ def test_parse_rewe_header_quantity_weight_deposit() -> None:
         ("HACKFL.GEM.", 5.98, 2.0, None, "article", False),
         ("BANANE", 1.1, 1.0, 0.856, "article", False),
         ("PFAND 0,25 EURO", 0.25, 1.0, None, "deposit", True),
-        ("COCA COLA 1,0L", 1.49, 1.0, None, "article", False),
+        ("FRITZ KOLA 1,0L", 1.49, 1.0, None, "article", False),
     ]
     hack = parsed["items"][3]
     assert hack["unit_price"] == 2.99 and "2 Stk x" in hack["line"]
@@ -255,7 +255,7 @@ def test_parse_lidl_discount_and_payment() -> None:
     assert parsed["postcode"] == "56501"
     assert parsed["date"] == "2026-11-02"
     assert (parsed["total"], parsed["checked"]) == (8.87, True)
-    cola = next(i for i in parsed["items"] if i["name"].startswith("Coca"))
+    cola = next(i for i in parsed["items"] if i["name"].startswith("Fritz"))
     assert (cola["price"], cola["discount"]) == (1.29, 0.3)
     joghurt = next(i for i in parsed["items"] if i["name"].startswith("Joghurt"))
     assert (joghurt["quantity"], joghurt["unit_price"]) == (2.0, 0.49)
@@ -446,7 +446,7 @@ AI_RECEIPT = {
         {"name": "Bananen", "quantity": 0.868, "unit_price": 1.29, "total": 1.12},
         {"name": "Joghurt mild", "quantity": 2, "unit_price": "0,49", "total": "0,98"},
         {"name": "Pfand", "quantity": 1, "unit_price": 0.25, "total": 0.25},
-        {"name": "Coca-Cola 1,5l", "quantity": 1, "unit_price": 1.59, "total": 1.59},
+        {"name": "Fritz-Kola 1,5l", "quantity": 1, "unit_price": 1.59, "total": 1.59},
         {"name": "Preisvorteil", "quantity": 1, "unit_price": None, "total": -0.30},
         {"name": None, "total": 3},
         {"name": "???", "total": None},
@@ -490,7 +490,7 @@ def test_parse_ai_receipt() -> None:
             ("Bananen", 1.12, 1.0, 0.868, "article", False),
             ("Joghurt mild", 0.98, 2.0, None, "article", False),
             ("Pfand", 0.25, 1.0, None, "deposit", True),
-            ("Coca-Cola 1,5l", 1.29, 1.0, None, "article", False),
+            ("Fritz-Kola 1,5l", 1.29, 1.0, None, "article", False),
         ]
     for garbage in ({"data": "Das Bild ist unscharf."}, {"data": {"items": []}}, {"data": 3}):
         with pytest.raises(ValueError):
@@ -595,7 +595,7 @@ async def test_proposal_detects_branch_and_packs(hass: HomeAssistant, receipts_s
     banana = items["BANANE"]
     assert banana["own_price"] == {"price": 1.29, "amount": 1000.0, "unit": "g"}
     assert items["PFAND 0,25 EURO"]["status"] == "ignored"
-    assert items["COCA COLA 1,0L"]["status"] == "unknown"
+    assert items["FRITZ KOLA 1,0L"]["status"] == "unknown"
     assert (proposal["mapped"], proposal["unknown"], proposal["ignored"]) == (5, 1, 1)
     # Lidl and the drugstore at the same postcode: each receipt finds its own branch
     lidl = await _call(hass, "receipt_parse_text", text=LIDL)
@@ -641,7 +641,7 @@ async def test_save_sets_own_prices_and_matrix_source(
         "unit": "ml",
         "name": "Milch",
     }
-    # the discount is no regular price: Coca-Cola is unknown, the yoghurt per piece
+    # the discount is no regular price: Fritz-Kola is unknown, the yoghurt per piece
     assert manager.store_prices_user["lidl"]["joghurt"]["price"] == 0.49
     assert manager.store_prices_user["lidl"]["banane"]["price"] == 1.29  # per kg
     matrix = manager.store_price_matrix("Milch")
@@ -699,14 +699,14 @@ async def test_assigned_names_are_remembered(hass: HomeAssistant, receipts_setup
     """An unknown line the user assigns is recognized on the next receipt of the chain."""
     manager = receipts_setup.runtime_data
     proposal = await _call(hass, "receipt_parse_text", text=REWE)
-    cola = next(i for i in proposal["items"] if i["name"] == "COCA COLA 1,0L")
+    cola = next(i for i in proposal["items"] if i["name"] == "FRITZ KOLA 1,0L")
     assert cola["status"] == "unknown"
     cola["key"] = "Cola"
     cola["amount"], cola["unit"] = 1000, "ml"
     await _call(hass, "receipt_save", receipt=proposal)
     assert manager.store_prices_user["rewe"]["cola"]["price"] == 1.49
     again = await _call(hass, "receipt_parse_text", text=REWE)
-    cola = next(i for i in again["items"] if i["name"] == "COCA COLA 1,0L")
+    cola = next(i for i in again["items"] if i["name"] == "FRITZ KOLA 1,0L")
     assert (cola["key"], cola["match"], cola["status"]) == ("cola", "alias", "mapped")
 
 

@@ -39,7 +39,7 @@ from .ingredients import (
     scale_ingredient,
     to_base,
 )
-from .pricing import item_cost
+from .pricing import item_cost, pack_text
 from .season import recipe_season
 
 if TYPE_CHECKING:
@@ -564,7 +564,13 @@ MAX_CHILDREN = 100
 DEFAULT_SUGGESTIONS = 5
 MAX_SUGGESTIONS = 20
 AI_CANDIDATES = 12  # recipes per course the AI may choose from
-AI_PER_COURSE = 4
+AI_PRODUCTS = 10  # products per course (snacks, drinks, extras) the AI may choose from
+AI_PER_COURSE = 4  # dishes per course the AI may put in (drinks and extras: AI_PER_LIST)
+AI_PER_LIST = 6
+AI_TIMEOUT = 180  # 1.5.1: the AI thinks about a whole menu (a local model is slow)
+AI_PAYLOAD_MAX = 16000
+MAX_QUANTITY = 10000.0
+PICKER_LIMIT = 30
 AUTO_EXTRA = "extra"
 AUTO_DRINK = "drink"
 _TIME_RE = re.compile(r"^\s*(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(?:uhr)?\s*$", re.IGNORECASE)
@@ -584,6 +590,7 @@ _ITEM_FIELDS = (
     "auto",
     "drink",
     "hint",
+    "reason",
 )
 
 
@@ -1084,8 +1091,10 @@ def normalize_item(
     if product is not None:
         item["product_id"] = product["id"]
     quantity = _float(raw.get("quantity"))
-    if recipe is None and quantity is not None:
-        item["quantity"] = round(quantity, 3)
+    if recipe is None and quantity is not None and quantity > 0:
+        if product is not None:
+            quantity = float(max(1, math.ceil(quantity - 1e-9)))  # whole packs
+        item["quantity"] = round(min(quantity, MAX_QUANTITY), 3)
         unit = normalize_unit(str(raw.get("unit") or "").strip())
         if product is None and unit:
             item["unit"] = unit[:12]
@@ -1102,6 +1111,8 @@ def normalize_item(
         item["ai"] = True
     if hint := _text(raw.get("hint"), REASON_MAX):
         item["hint"] = hint
+    if reason := _text(raw.get("reason"), REASON_MAX):
+        item["reason"] = reason  # 1.5.1: why the AI chose it (shown under the item)
     drink = raw.get("drink") or old.get("drink")
     if isinstance(drink, str) and drink in DRINKS:
         item["drink"] = drink
@@ -1198,7 +1209,8 @@ def update_occasion(
     manager: EssensplanerManager, occasion_id: str, data: dict[str, Any]
 ) -> dict[str, Any]:
     """Change an occasion: title, template, date, time ("" = all day), duration_h, guests,
-    children, notes, items (replaces all), add_items, remove_items (uids or titles).
+    children, notes, items (replaces all), add_items, remove_items (uids or titles),
+    update_items (1.5.1: amounts and products of single items, _change_item()).
     Quantities of automatic drinks and extras follow the number of guests."""
     occasion = require_occasion(manager, occasion_id)
     before = (occasion.get("guests"), occasion.get("children"), occasion.get("duration_h"))
@@ -1236,11 +1248,92 @@ def update_occasion(
         added = _items(manager, data["add_items"])
         occasion["items"] = (occasion.get("items") or []) + added
         del occasion["items"][MAX_ITEMS:]
+    if data.get("update_items"):
+        changes = data["update_items"]
+        for change in [changes] if isinstance(changes, dict) else list(changes):
+            _change_item(manager, occasion, change)
     after = (occasion.get("guests"), occasion.get("children"), occasion.get("duration_h"))
     if after != before:
         rescale_auto_items(manager, occasion)
     _touch(manager, occasion)
     return occasion
+
+
+def _pack_base(product: dict[str, Any]) -> tuple[float, str] | None:
+    from .products import product_pack  # imports the manager
+
+    pack = product_pack(product)
+    if not pack:
+        return None
+    amount, base = to_base(float(pack[0]), normalize_unit(pack[1]))
+    return (amount, base) if amount else None
+
+
+def packs_for(item: dict[str, Any], product: dict[str, Any]) -> int | None:
+    """Whole packs of a product for an item's amount ("Cola 5 l", 1,5 l bottles: 4)."""
+    if not item.get("quantity"):
+        return None
+    amount, base = to_base(float(item["quantity"]), normalize_unit(str(item.get("unit") or "")))
+    pack = _pack_base(product)
+    if not amount or pack is None or pack[1] != base:
+        return None
+    return max(1, math.ceil(amount / pack[0] - 1e-9))
+
+
+def _amount_of_packs(item: dict[str, Any], product: dict[str, Any]) -> tuple[float, str] | None:
+    """The amount of an item's packs in the product's unit (3 × 1,5 l: 4,5 l)."""
+    pack = _pack_base(product)
+    if pack is None:
+        return None
+    amount = pack[0] * max(1.0, float(item.get("quantity") or 1))
+    if pack[1] in ("ml", "g") and amount >= 1000:
+        return round(amount / 1000, 3), "l" if pack[1] == "ml" else "kg"
+    return round(amount, 3), pack[1]
+
+
+def _change_item(manager: EssensplanerManager, occasion: dict[str, Any], change: Any) -> None:
+    """One item changed in place (update_items, 1.5.1 – the amounts in the editor):
+    {uid, servings? (None = the occasion's), quantity?, unit?, product_id? (None/"" = no
+    product), title?, note?}. Linking a product turns the amount into its packs, unlinking
+    back into an amount; a changed amount no longer follows the guests. Errors
+    occasion_item_not_found, product_not_found, name_required."""
+    if not isinstance(change, dict):
+        return
+    uid = str(change.get("uid") or "")
+    items = occasion.setdefault("items", [])
+    index = next((n for n, i in enumerate(items) if i.get("uid") == uid), None)
+    if index is None:
+        raise _error("occasion_item_not_found", item=uid, occasion=occasion["title"])
+    old = items[index]
+    raw: dict[str, Any] = {k: v for k, v in old.items() if k in _ITEM_FIELDS}
+    for key in ("servings", "quantity", "unit", "title", "note"):
+        if key in change:
+            raw[key] = change[key]
+    if "product_id" in change:
+        from .products import _store_of, require_product  # imports the manager
+
+        wanted = change.get("product_id")
+        if wanted:
+            product = require_product(manager, str(wanted))
+            if product["id"] != old.get("product_id"):
+                raw["product_id"] = product["id"]
+                if "quantity" not in change:
+                    raw["quantity"] = packs_for(old, product) or 1
+                raw.pop("unit", None)
+                raw["auto"] = None  # packs do not follow the guests
+                if old.get("name") and "title" not in change:
+                    raw["title"] = old["name"]  # "Rotwein" (bought) for "Rotwein, leicht"
+        elif old.get("product_id"):
+            store = _store_of(manager)
+            product = store.get(old["product_id"]) if store is not None else None
+            raw.pop("product_id", None)
+            raw["auto"] = None
+            if "quantity" not in change:
+                amount = _amount_of_packs(old, product) if product else None
+                raw["quantity"], raw["unit"] = amount if amount else (None, "")
+    if "quantity" in change and change.get("quantity") in (None, ""):
+        raw.pop("quantity", None)
+    items[index] = normalize_item(manager, raw, existing=old)
 
 
 def save_occasion(manager: EssensplanerManager, data: dict[str, Any]) -> dict[str, Any]:
@@ -1617,12 +1710,19 @@ def apply_menu(
             need = 1 if course else max(0, int(counts.get(name, 1)) - len(present))
             chosen = suggestions[:need]
         for suggestion in chosen:
-            # the occasion's servings (a recipe summary carries the recipe's own)
+            if suggestion.get("recipe_id") and suggestion["recipe_id"] in {
+                i.get("recipe_id") for i in items
+            }:
+                continue  # 1.5.1: a pizza is not the main and a snack at once
+            # the occasion's servings (a recipe summary carries the recipe's own) – the
+            # AI's own amount stays (servings_ai)
             raw = {
                 k: v
                 for k, v in suggestion.items()
                 if k in _ITEM_FIELDS and k not in ("uid", "servings")
             }
+            if suggestion.get("ai") and suggestion.get("servings_ai"):
+                raw["servings"] = suggestion["servings_ai"]
             raw["course"] = suggestion.get("course") or name
             item = normalize_item(manager, raw)
             items.append(item)
@@ -1668,13 +1768,123 @@ def _free_cost(
         if amount:
             amounts[base] = amount
     category = guess_category(name)
+    estimate: float | None = None
     for entry in (best, regular):
         if entry is None:
             continue
         result = item_cost(amounts, key, entry, category, count_as_packs=True)
-        if result is not None:
+        if result is None:
+            continue
+        if entry.source != "default":
             return result[0]
-    return None
+        estimate = result[0] if estimate is None else estimate
+        break
+    # 1.5.1: without a real price the cheapest product of the user's chains (a drink or a
+    # snack without recipe: "Cola 5 l"), else the estimate of the default prices
+    found = item_products(manager, name, quantity, unit, day, limit=1, key=key)
+    if found and found[0]["cost"] is not None:
+        return float(found[0]["cost"])
+    return estimate
+
+
+def item_products(
+    manager: EssensplanerManager,
+    name: str,
+    quantity: float | None = None,
+    unit: str = "",
+    day: date | None = None,
+    query: str | None = None,
+    limit: int = PICKER_LIMIT,
+    key: str | None = None,
+    retailers: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Products of the user's chains for an occasion item (the picker "📦 Artikel" in the
+    editor, the AI's candidates and the price of a free item): those of the item's
+    ingredient (names_key_product) and, with a query, those whose brand / name /
+    description contain all its words; only products with a price on the day. Priced for
+    the item's amount in whole packs, cheapest first (an offer first at the same price).
+    [{id, title, name, brand, image, retailer, store, pack, pack_amount, pack_unit, price,
+    on_offer, cost, packs, unit_price, base_unit, valid_to}]."""
+    from .products import _fits_key, _per_unit, _store_of, product_entry, product_pack
+
+    store = _store_of(manager)
+    if store is None:
+        return []
+    day = day or manager.today()
+    chains = list(retailers if retailers is not None else manager.active_retailers())
+    if not chains:
+        return []
+    key = key if key is not None else ingredient_key(name or "")
+    amounts: dict[str, float] = {}
+    if quantity:
+        amount, base = to_base(float(quantity), normalize_unit(str(unit or "")))
+        if amount:
+            amounts[base] = amount
+    found: dict[str, dict[str, Any]] = {}
+    if key:
+        memo = store.memo(day)
+        for retailer in chains:
+            cached = memo.get(("key", key, retailer))
+            if cached is None:
+                cached = memo[("key", key, retailer)] = [
+                    p for p in store.by_key(key, [retailer]) if _fits_key(p, key)
+                ]
+            for product in cached:
+                found[product["id"]] = product
+    words = fold(query or "").split()
+    if words:
+        wanted = set(chains)
+        for pid, text in store.search_text().items():
+            if pid in found or not all(w in text for w in words):
+                continue
+            product = store.products.get(pid)
+            if product is not None and product["retailer"] in wanted:
+                found[pid] = product
+    category = guess_category(name) if name else None
+    rows: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    for product in found.values():
+        entry = product_entry(product, day)
+        if entry is None:
+            continue
+        own_key = key or ingredient_key(str(product.get("name") or ""))
+        cost = item_cost(amounts, own_key, entry, category or product.get("category"), True)
+        per = _per_unit(product, entry.price)
+        pack = product_pack(product)
+        row = {
+            "id": product["id"],
+            "title": product_title_of(product),
+            "name": product.get("name") or "",
+            "brand": product.get("brand") or "",
+            "image": product.get("image"),
+            "retailer": product["retailer"],
+            "store": entry.store,
+            "pack": pack_text(*pack) if pack else "",
+            "pack_amount": pack[0] if pack else None,
+            "pack_unit": pack[1] if pack else None,
+            "price": round(entry.price, 2),
+            "on_offer": entry.offer is not None,
+            "valid_to": (entry.offer or {}).get("valid_to"),
+            "cost": cost[0] if cost else None,
+            "packs": cost[1] if cost else None,
+            "unit_price": round(per[0], 6) if per else None,
+            "base_unit": per[1] if per else None,
+        }
+        rank = (
+            row["cost"] is None,
+            row["cost"] if row["cost"] is not None else row["price"],
+            not row["on_offer"],
+            per[0] if per else 9e9,
+            row["id"],
+        )
+        rows.append((rank, row))
+    rows.sort(key=lambda r: r[0])
+    return [row for _, row in rows[: max(1, int(limit))]]
+
+
+def product_title_of(product: dict[str, Any]) -> str:
+    from .products import product_title  # imports the manager
+
+    return product_title(product)
 
 
 def item_costs(
@@ -1964,45 +2174,293 @@ def occasion_meta() -> dict[str, Any]:
 
 AI_TASK_NAME = "Essensplaner Anlass-Menü"
 AI_INSTRUCTIONS = (
-    "Du planst das Essen für einen Anlass. Stelle ein stimmiges Menü zusammen: je Gang "
-    "aus 'gaenge' ein bis zwei Gerichte. Nimm bevorzugt Rezepte aus 'rezepte' (mit ihrer "
-    "id); fehlt etwas Passendes, schlage ein bekanntes Gericht mit deutschem Namen vor "
-    "(ohne id). Getränke mit Alkohol nur, wenn 'alkohol_erlaubt' true ist; immer auch "
-    "alkoholfreie. Vermeide Zutaten aus 'ausgeschlossen'. Antworte als JSON: "
-    '{"menu": [{"gang": "main", "rezept_id": "…", "titel": "…", "grund": "…"}]}'
+    "Du planst als erfahrene Gastgeberin das komplette Essen und Trinken für einen Anlass in "
+    "Deutschland. Denke gründlich und Schritt für Schritt nach, bevor du antwortest – gib "
+    "aber nur das JSON aus.\n"
+    "1. Lies 'anlass': Art, Datum, Jahreszeit, Uhrzeit, Dauer, Gäste, Kinder, ob Alkohol "
+    "erlaubt ist, und 'budget' (falls vorhanden).\n"
+    "2. Stelle für jeden Gang aus 'gaenge' so viele Gerichte zusammen, wie 'anzahl' sagt – "
+    "ein ausgewogenes, zueinander passendes Menü mit Abwechslung (nicht zweimal dasselbe "
+    "Hauptprodukt, etwas Leichtes zu Schwerem, etwas für Kinder, wenn Kinder kommen).\n"
+    "3. Nimm Gerichte bevorzugt aus 'rezepte' (mit 'rezept_id') und Snacks, Getränke und "
+    "Zubehör bevorzugt aus 'artikel' (mit 'artikel_id'): das sind die Rezepte des Nutzers "
+    "und die Artikel aus seinen Läden. Nutze Angebote ('angebot'), die Saison ('saison', "
+    "'zeiten') und achte auf die Kosten ('kosten_portion', 'preis').\n"
+    "4. Nur wenn nichts Passendes dabei ist: ein bekanntes Gericht oder Produkt mit "
+    "deutschem 'titel' (ohne id).\n"
+    "5. Getränke: immer mindestens zwei alkoholfreie, bei Kindern eines für Kinder; "
+    "Alkohol nur, wenn 'alkohol_erlaubt' true ist.\n"
+    "6. Realistische Mengen für Gäste, Kinder und Dauer (siehe 'richtwerte'): Gerichte als "
+    "'portionen' (bei mehreren Gerichten eines Gangs weniger je Gericht), Artikel als "
+    "'menge' in Packungen, Freitext als 'menge' mit 'einheit' (l, kg, g, Stück, Tüte, "
+    "Pck.).\n"
+    "7. Nichts aus 'schon_geplant' noch einmal, keine Zutaten aus 'ausgeschlossen', keine "
+    "Doppelungen.\n"
+    'Antworte nur mit JSON: {"items": [{"gang": "main", "rezept_id": "…", "portionen": 8, '
+    '"grund": "…"}, {"gang": "drink", "artikel_id": "…", "menge": 4, "grund": "…"}, '
+    '{"gang": "extra", "titel": "Grillanzünder", "menge": 1, "einheit": "Pck.", "grund": '
+    '"…"}], "notiz": "ein bis zwei Sätze zum Menü"}. \'gang\' ist eine id aus \'gaenge\', '
+    "'grund' höchstens 12 Wörter."
 )
+NOTES_MAX = 300
+# what the product candidates of a course are looked up by (besides the template's extras
+# and the drinks the rules suggest)
+SNACK_WORDS = ("Chips", "Salzstangen", "Erdnüsse", "Tortilla-Chips", "Popcorn", "Gummibärchen")
+DRINK_WORDS = ("Mineralwasser", "Apfelschorle", "Cola", "Limonade")
+_PRODUCT_COURSES = (COURSE_SNACK, COURSE_DRINK, COURSE_EXTRA)
+
+
+def _kind_label(recipe: dict[str, Any]) -> str:
+    from .kinds import KIND_LABELS, recipe_kind
+
+    return str(KIND_LABELS.get(recipe_kind(recipe), ""))
+
+
+def recipe_candidates(
+    manager: EssensplanerManager, occasion: dict[str, Any], courses: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    """The recipes the AI may choose from: per dish course the rules' best AI_CANDIDATES
+    (suggest_course()), for drinks the drink recipes (by the planning weights)."""
+    found: dict[str, list[dict[str, Any]]] = {}
+    for course in courses:
+        if course in DISH_COURSES:
+            found[course] = suggest_course(manager, occasion, course, AI_CANDIDATES)
+        elif course == COURSE_DRINK:
+            day = occasion_date(occasion)
+            servings = servings_of(occasion)
+            ctx = manager._suggest_context(day, servings=servings, budget=False, variety=False)
+            used = {i.get("recipe_id") for i in occasion.get("items") or []}
+            drinks = [
+                r
+                for r in manager.recipes.values()
+                if recipe_course(r) == COURSE_DRINK
+                and r["id"] not in used
+                and not manager.is_excluded(r)
+                and (alcohol_allowed(manager) or not _recipe_alcohol(r))
+            ]
+            drinks.sort(key=lambda r: (-manager._suggest_weight(r, ctx), fold(r["name"])))
+            found[course] = [
+                {
+                    **manager.recipe_summary(r),
+                    "recipe_id": r["id"],
+                    "title": r["name"],
+                    "course": COURSE_DRINK,
+                    "cost": manager.recipe_cost(r, servings, day)["total"],
+                    "alcohol": _recipe_alcohol(r),
+                }
+                for r in drinks[:AI_CANDIDATES]
+            ]
+    return found
+
+
+def _recipe_alcohol(recipe: dict[str, Any]) -> bool:
+    return is_alcoholic(str(recipe.get("name") or "")) or any(
+        is_alcoholic(str(i.get("name") or "")) for i in recipe.get("ingredients") or []
+    )
+
+
+def product_candidates(
+    manager: EssensplanerManager,
+    occasion: dict[str, Any],
+    courses: list[str],
+    drinks: list[dict[str, Any]] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """The products of the user's chains the AI may choose from (snacks, drinks, extras):
+    per word – the drinks the rules suggest, the template's extras, typical snacks – the
+    two cheapest priced products for the occasion's amount; at most AI_PRODUCTS per course,
+    offers first. Each with "for" (the word). Empty without a product database."""
+    from .products import _store_of  # imports the manager
+
+    if _store_of(manager) is None:
+        return {}
+    day = occasion_date(occasion)
+    allowed = alcohol_allowed(manager)
+    words: dict[str, list[tuple[str, float | None, str]]] = {c: [] for c in _PRODUCT_COURSES}
+    for drink in drinks or []:
+        if drink.get("alcohol") and not allowed:
+            continue
+        words[COURSE_DRINK].append(
+            (str(drink.get("name") or drink["title"]), drink.get("quantity"), "l")
+        )
+    if drinks is not None:
+        have = {fold(w) for w, _q, _u in words[COURSE_DRINK]}
+        words[COURSE_DRINK] += [(w, None, "") for w in DRINK_WORDS if fold(w) not in have]
+    for extra in template_extras(occasion):
+        course = extra.get("course") or COURSE_EXTRA
+        if course in words:
+            words[course].append((extra["title"], extra.get("quantity"), extra.get("unit") or ""))
+    template = template_info(occasion.get("template"))
+    if COURSE_SNACK in template["courses"] or COURSE_SNACK in courses:
+        have = {fold(w) for w, _q, _u in words[COURSE_SNACK]}
+        words[COURSE_SNACK] += [(w, None, "") for w in SNACK_WORDS if fold(w) not in have]
+    found: dict[str, list[dict[str, Any]]] = {}
+    seen: set[str] = set()
+    for course in _PRODUCT_COURSES:
+        if course not in courses:
+            continue
+        rows: list[dict[str, Any]] = []
+        for word, quantity, unit in words[course]:
+            for row in item_products(manager, word, quantity, unit, day, limit=2):
+                if row["id"] in seen:
+                    continue
+                if course == COURSE_DRINK and not allowed and is_alcoholic(row["title"]):
+                    continue
+                seen.add(row["id"])
+                rows.append({**row, "for": word, "course": course})
+        rows.sort(key=lambda r: (not r["on_offer"],))  # offers first, else per word
+        found[course] = rows[:AI_PRODUCTS]
+    return found
+
+
+def _amount_hint(item: dict[str, Any], servings: int) -> str:
+    if item.get("recipe_id"):
+        return f"{item.get('servings') or servings} Portionen"
+    return quantity_text(item)
 
 
 def ai_payload(
     manager: EssensplanerManager,
     occasion: dict[str, Any],
     candidates: dict[str, list[dict[str, Any]]],
+    products: dict[str, list[dict[str, Any]]] | None = None,
+    quantities: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """What the AI gets: the kind of occasion (not its title – it may name people), month,
-    guests, courses, candidate recipes (id, name, tags), what is planned already and the
-    excluded ingredients."""
+    """What the AI gets (1.5.1, richer): the kind of occasion (not its title – it may name
+    people; no notes, no places), date, season, time, duration, guests and children, the
+    alcohol option and the budget; per course the rules' candidate recipes (id, name, kind,
+    tags, season, cost per serving, offers, favourite) and the products of the user's
+    chains (id, name, brand, pack, price, chain, offer); what is planned already; the
+    excluded ingredients and rough amounts (drinks in litres)."""
+    from .season import WINDOW_MAP, season_info
+
     info = template_info(occasion.get("template"))
-    return {
-        "anlass": info["title"],
-        "monat": occasion_date(occasion).month,
+    day = occasion_date(occasion)
+    season = season_info(day)
+    servings = servings_of(occasion)
+    anlass: dict[str, Any] = {
+        "art": info["title"],
+        "datum": day.isoformat(),
+        "wochentag": WEEKDAY_NAMES[day.weekday()],
+        "monat": season["month_name"],
+        "jahreszeit": season["season"]["label"],
+        "uhrzeit": occasion.get("time") or "ganztägig",
+        "dauer_h": occasion.get("duration_h"),
         "gaeste": occasion.get("guests"),
-        "kinder": occasion.get("children"),
+        "kinder": occasion.get("children") or 0,
+        "personen": persons_of(occasion),
+        "portionen": servings,
         "alkohol_erlaubt": alcohol_allowed(manager),
-        "ausgeschlossen": manager.excluded,
-        "gaenge": [{"id": c, "name": COURSE_LABELS[c]} for c in candidates],
-        "rezepte": [
-            {
+    }
+    recipes: list[dict[str, Any]] = []
+    for course, found in candidates.items():
+        for s in found:
+            if not s.get("recipe_id"):
+                continue
+            recipe = manager.recipes.get(s["recipe_id"])
+            if recipe is None:
+                continue
+            row: dict[str, Any] = {
                 "id": s["recipe_id"],
                 "name": s["title"],
                 "gang": course,
-                "tags": s.get("tags", [])[:6],
+                "art": _kind_label(recipe),
+                "tags": [str(t) for t in s.get("tags") or recipe.get("tags") or []][:5],
             }
-            for course, found in candidates.items()
-            for s in found
-            if s.get("recipe_id")
+            cost = manager.recipe_cost(recipe, servings, day)
+            if cost.get("per_serving"):
+                row["kosten_portion"] = cost["per_serving"]
+            if cost["on_offer"]:
+                row["angebot"] = [o["ingredient"] for o in cost["on_offer"][:2]]
+            fits = recipe_season(manager, recipe, day)
+            if fits["items"] or fits["windows"]:
+                row["saison"] = [
+                    *fits["items"][:2],
+                    *(WINDOW_MAP[w].label for w in fits["windows"]),
+                ]
+            if recipe.get("favorite"):
+                row["favorit"] = True
+            if course == COURSE_DRINK:
+                row["alkohol"] = bool(s.get("alcohol"))
+            recipes.append(row)
+    articles = [
+        {
+            "id": p["id"],
+            "name": p["title"],
+            "marke": p.get("brand") or None,
+            "packung": p.get("pack") or None,
+            "preis": p.get("price"),
+            "laden": p.get("store"),
+            "gang": course,
+            "fuer": p.get("for"),
+            **({"angebot": True} if p.get("on_offer") else {}),
+        }
+        for course, found in (products or {}).items()
+        for p in found
+    ]
+    counts = info["courses"]
+    payload: dict[str, Any] = {
+        "anlass": anlass,
+        "saison": [p["label"] for p in season["produce"]][:12],
+        "zeiten": [w["label"] for w in season["windows"]],
+        "gaenge": [
+            {
+                "id": c,
+                "name": COURSE_LABELS[c],
+                "anzahl": counts.get(c, 1) if c in DISH_COURSES else None,
+            }
+            for c in candidates
         ],
-        "schon_geplant": [str(i.get("title")) for i in occasion.get("items") or []],
+        "rezepte": recipes,
+        "artikel": articles,
+        "schon_geplant": [
+            {
+                "gang": i.get("course"),
+                "titel": str(i.get("title")),
+                "menge": _amount_hint(i, servings) or None,
+            }
+            for i in occasion.get("items") or []
+        ],
+        "ausgeschlossen": manager.excluded,
+        "richtwerte": {
+            "getraenke_l": (quantities or {}).get("liters"),
+            "snacks_g_pro_person": 100 if COURSE_SNACK in candidates else None,
+            "hauptgang_g_fleisch_pro_person": 200,
+        },
     }
+    if manager.weekly_budget:
+        week = manager.week_overview(day)
+        payload["budget"] = {"woche": manager.weekly_budget, "rest": week.get("remaining")}
+    return payload
+
+
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def ai_quantity(
+    quantity: Any, unit: str, persons: int, packs: bool = False
+) -> tuple[float, str] | None:
+    """A sane amount from the AI: packs 1 … 3 per person, litres 0.5 … 3 per person, kg /
+    g up to 1 kg per person, pieces up to 5 per person; rounded like the template's extras.
+    None for no number."""
+    number = _float(quantity)
+    if number is None:
+        return None
+    people = max(1, int(persons))
+    if packs:
+        return float(int(_clamp(math.ceil(number - 1e-9), 1, max(3, 3 * people)))), ""
+    unit = normalize_unit(str(unit or "").strip())[:12]
+    if unit == "l":
+        value = _clamp(number, 0.5, 3.0 * people + 2)
+    elif unit == "ml":
+        value = _clamp(number, 250, 3000.0 * people + 2000)
+    elif unit == "kg":
+        value = _clamp(number, 0.5, 1.0 * people + 1)
+    elif unit == "g":
+        value = _clamp(number, 50, 1000.0 * people + 1000)
+    else:
+        value = _clamp(number, 1, max(5, 5 * people))
+    return _round_quantity(value, unit), unit
 
 
 def parse_ai_menu(
@@ -2010,17 +2468,48 @@ def parse_ai_menu(
     answer: Any,
     courses: list[str],
     occasion: dict[str, Any],
+    candidates: dict[str, list[dict[str, Any]]] | None = None,
+    products: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Checked AI menu: courses of the request only; a recipe id must exist (and not be
-    excluded), a name is matched to a recipe of that name, else it becomes a free item
-    (ai: true); drinks with alcohol only when allowed; at most AI_PER_COURSE per course."""
+    """Checked AI menu (1.5.1: strict): courses of the request only; a recipe id or a
+    product id must be one of the candidates (a recipe of another requested course moves
+    there), a name is matched to a candidate or a recipe of that name, else it becomes a
+    free item (ai: true); nothing twice and nothing the occasion has (same recipe, same
+    product or the same title – case and umlauts folded); drinks with alcohol only when
+    allowed; servings 1 … 3 × the occasion's, amounts clamped (ai_quantity()); at most
+    AI_PER_COURSE dishes per course (AI_PER_LIST drinks / extras)."""
     items: Any = answer
     if isinstance(answer, dict):
-        items = next((answer[k] for k in ("menu", "gerichte", "items") if k in answer), None)
+        items = next(
+            (answer[k] for k in ("items", "menu", "gerichte", "plan") if k in answer), None
+        )
     if not isinstance(items, list):
         return {}
+    candidates = candidates or {}
+    products = products or {}
     allowed = alcohol_allowed(manager)
-    used = {i.get("recipe_id") for i in occasion.get("items") or []}
+    persons = persons_of(occasion)
+    servings = servings_of(occasion)
+    recipe_course_of: dict[str, list[str]] = {}
+    for course, found in candidates.items():
+        for s in found:
+            if s.get("recipe_id"):
+                recipe_course_of.setdefault(s["recipe_id"], []).append(course)
+    product_rows: dict[str, dict[str, Any]] = {
+        p["id"]: {**p, "course": course} for course, found in products.items() for p in found
+    }
+    by_name = {
+        fold(s["title"]): rid
+        for course, found in candidates.items()
+        for s in found
+        if (rid := s.get("recipe_id"))
+    }
+    product_by_name = {fold(p["title"]): pid for pid, p in product_rows.items()}
+    existing = occasion.get("items") or []
+    used_recipes = {i.get("recipe_id") for i in existing if i.get("recipe_id")}
+    used_products = {i.get("product_id") for i in existing if i.get("product_id")}
+    used_titles = {fold(str(i.get(k) or "")) for i in existing for k in ("title", "name")}
+    used_titles.discard("")
     seen: set[str] = set()
     menu: dict[str, list[dict[str, Any]]] = {}
     for raw in items:
@@ -2029,27 +2518,84 @@ def parse_ai_menu(
         course = resolve_course(str(raw.get("gang") or raw.get("course") or ""))
         if course is None or course not in courses:
             continue
-        if len(menu.get(course, [])) >= AI_PER_COURSE:
-            continue
-        recipe = manager.recipes.get(str(raw.get("rezept_id") or raw.get("recipe_id") or ""))
-        title = _text(raw.get("titel") or raw.get("title"))
-        if recipe is None and title:
-            recipe = manager.get_recipe_by_name(title)
+        title = _text(raw.get("titel") or raw.get("title") or raw.get("name"))
         reason = _text(raw.get("grund") or raw.get("reason"), REASON_MAX)
+        rid = str(raw.get("rezept_id") or raw.get("recipe_id") or "")
+        pid = str(raw.get("artikel_id") or raw.get("product_id") or "")
+        if rid not in recipe_course_of:
+            rid = by_name.get(fold(title), "") if title and not pid else ""
+        if pid not in product_rows:
+            pid = product_by_name.get(fold(title), "") if title and not rid else ""
+        recipe = manager.recipes.get(rid) if rid else None
+        if recipe is None and not pid and title:
+            named = manager.get_recipe_by_name(title)
+            if named is not None and (course in recipe_courses(named) or course == COURSE_DRINK):
+                recipe = named
+        if recipe is not None and rid and course not in recipe_course_of.get(rid, [course]):
+            course = recipe_course_of[rid][0]  # a candidate of another course goes there
+        limit = AI_PER_LIST if course in (COURSE_DRINK, COURSE_EXTRA) else AI_PER_COURSE
+        if len(menu.get(course, [])) >= limit:
+            continue
+        why = [f"🤖 {reason}" if reason else "🤖 KI"]
         if recipe is not None:
-            if recipe["id"] in used or manager.is_excluded(recipe) or recipe["id"] in seen:
+            if (
+                recipe["id"] in used_recipes
+                or recipe["id"] in seen
+                or fold(recipe["name"]) in used_titles
+                or manager.is_excluded(recipe)
+            ):
+                continue
+            if course == COURSE_DRINK and not allowed and _recipe_alcohol(recipe):
                 continue
             seen.add(recipe["id"])
-            suggestion = {
+            suggestion: dict[str, Any] = {
                 **manager.recipe_summary(recipe),
                 "recipe_id": recipe["id"],
                 "title": recipe["name"],
                 "course": course,
-                "reasons": [f"🤖 {reason}" if reason else "🤖 KI"],
+                "reasons": why,
                 "ai": True,
             }
+            amount = _int(raw.get("portionen") or raw.get("servings"), 1, 3 * servings, 0)
+            if amount:
+                suggestion["servings_ai"] = amount
+            if reason:
+                suggestion["reason"] = reason
+            if course == COURSE_DRINK:
+                suggestion["alcohol"] = _recipe_alcohol(recipe)
+        elif pid:
+            row = product_rows[pid]
+            word = fold(str(row.get("for") or ""))
+            if (
+                pid in used_products
+                or pid in seen
+                or (word and (word in used_titles or word in seen))
+                or fold(row["title"]) in used_titles
+            ):
+                continue
+            alcohol = is_alcoholic(row["title"]) or is_alcoholic(str(row.get("for") or ""))
+            if course == COURSE_DRINK and alcohol and not allowed:
+                continue
+            seen.update({pid, word} - {""})
+            packs = ai_quantity(raw.get("menge") or raw.get("quantity"), "", persons, True)
+            suggestion = {
+                "recipe_id": None,
+                "product_id": pid,
+                "title": row["title"],
+                "course": course,
+                "quantity": packs[0] if packs else float(row.get("packs") or 1),
+                "reasons": why,
+                "ai": True,
+                "image": row.get("image"),
+                "store": row.get("store"),
+                "cost": row.get("cost") if not packs else round(row["price"] * packs[0], 2),
+            }
+            if reason:
+                suggestion["reason"] = reason
+            if course == COURSE_DRINK:
+                suggestion["alcohol"] = alcohol
         else:
-            if not title or fold(title) in seen:
+            if not title or fold(title) in seen or fold(title) in used_titles:
                 continue
             alcohol = is_alcoholic(title)
             if course == COURSE_DRINK and alcohol and not allowed:
@@ -2059,9 +2605,16 @@ def parse_ai_menu(
                 "recipe_id": None,
                 "title": title,
                 "course": course,
-                "reasons": [f"🤖 {reason}" if reason else "🤖 KI"],
+                "reasons": why,
                 "ai": True,
             }
+            if reason:
+                suggestion["reason"] = reason
+            if course in (COURSE_DRINK, COURSE_SNACK, COURSE_EXTRA):
+                unit = str(raw.get("einheit") or raw.get("unit") or "")
+                amount = ai_quantity(raw.get("menge") or raw.get("quantity"), unit, persons)
+                if amount is not None:
+                    suggestion["quantity"], suggestion["unit"] = amount
             if course == COURSE_DRINK:
                 suggestion["alcohol"] = alcohol
         menu.setdefault(course, []).append(suggestion)
@@ -2091,29 +2644,69 @@ async def async_ai_menu(
     occasion: dict[str, Any],
     courses: list[str] | None = None,
     rules: dict[str, list[dict[str, Any]]] | None = None,
-) -> dict[str, list[dict[str, Any]]]:
-    """The AI's menu for the occasion (feature "occasions"), checked and merged with the
-    rule suggestions (AI first). Raises the ai_* errors."""
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]], str]:
+    """The AI's menu for the occasion (feature "occasions"; 1.5.1: a whole plan with the
+    user's recipes and products, AI_TIMEOUT seconds), checked. Returns (the AI menu merged
+    with the rule suggestions – AI first –, the AI's own items, its note). Raises the ai_*
+    errors."""
     from .ai import async_ai_json  # imports the manager
 
-    wanted = courses or [*template_info(occasion.get("template"))["courses"], COURSE_DRINK]
+    wanted = courses or [
+        *template_info(occasion.get("template"))["courses"],
+        COURSE_DRINK,
+        COURSE_EXTRA,
+    ]
     rules = rules if rules is not None else suggest_menu(manager, occasion, wanted)
-    candidates = {
-        course: suggest_course(manager, occasion, course, AI_CANDIDATES)
-        for course in wanted
-        if course in DISH_COURSES
-    }
+    candidates = recipe_candidates(manager, occasion, wanted)
     for course in wanted:
         candidates.setdefault(course, [])
+    drinks = occasion_drinks(manager, occasion, count=8) if COURSE_DRINK in wanted else {}
+    products = product_candidates(manager, occasion, wanted, (drinks or {}).get("drinks"))
     answer = await async_ai_json(
         hass,
         manager,
         AI_FEATURE_OCCASIONS,
         AI_TASK_NAME,
         AI_INSTRUCTIONS,
-        ai_payload(manager, occasion, candidates),
+        ai_payload(manager, occasion, candidates, products, (drinks or {}).get("quantities")),
+        timeout=AI_TIMEOUT,
+        limit=AI_PAYLOAD_MAX,
     )
-    return merge_menus(parse_ai_menu(manager, answer, wanted, occasion), rules)
+    ai_menu = parse_ai_menu(manager, answer, wanted, occasion, candidates, products)
+    note = ""
+    if isinstance(answer, dict):
+        note = _text(answer.get("notiz") or answer.get("notes") or answer.get("note"), NOTES_MAX)
+    return merge_menus(ai_menu, rules), ai_menu, note
+
+
+def apply_ai_menu(
+    manager: EssensplanerManager,
+    occasion: dict[str, Any],
+    ai_menu: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Put all of the AI's (checked) items into the occasion, with their amounts and
+    reasons. Returns the added items (the caller saves)."""
+    items = occasion.setdefault("items", [])
+    added: list[dict[str, Any]] = []
+    for course, suggestions in ai_menu.items():
+        for suggestion in suggestions:
+            if suggestion.get("recipe_id") and suggestion["recipe_id"] in {
+                i.get("recipe_id") for i in items
+            }:
+                continue
+            raw = {
+                k: v
+                for k, v in suggestion.items()
+                if k in _ITEM_FIELDS and k not in ("uid", "servings")
+            }
+            if suggestion.get("servings_ai"):
+                raw["servings"] = suggestion["servings_ai"]
+            raw["course"] = course
+            item = normalize_item(manager, raw)
+            items.append(item)
+            added.append(item)
+    del items[MAX_ITEMS:]
+    return added
 
 
 # ----------------------------------------------------------------------
@@ -2150,16 +2743,28 @@ async def async_suggest_menu(
     courses = [course] if course else None
     menu = suggest_menu(manager, occasion, courses, count, exclude)
     ai_result: dict[str, Any] | None = None
+    ai_menu: dict[str, list[dict[str, Any]]] = {}
     if ai:
         try:
-            menu = await async_ai_menu(hass, manager, occasion, courses, menu)
+            menu, ai_menu, note = await async_ai_menu(hass, manager, occasion, courses, menu)
             ai_result = {"ok": True}
+            if note:
+                ai_result["notes"] = note
         except HomeAssistantError as err:
             ai_result = _ai_failure(err)
     applied: list[str] = []
     if apply:
         if course:
             added = apply_menu(manager, occasion, menu, course)
+        elif ai_menu:
+            # 1.5.1: the AI's whole plan (with its amounts), the rules for what it left out
+            added = apply_ai_menu(manager, occasion, ai_menu)
+            rest = {k: v for k, v in menu.items() if k not in ai_menu and k != COURSE_DRINK}
+            added += apply_menu(manager, occasion, rest)
+            if COURSE_DRINK not in ai_menu:
+                added += apply_menu(
+                    manager, occasion, suggest_menu(manager, occasion, [COURSE_DRINK])
+                )
         else:
             # dishes and extras first, then the drinks for them (the AI's when it answered)
             dishes = {k: v for k, v in menu.items() if k != COURSE_DRINK}

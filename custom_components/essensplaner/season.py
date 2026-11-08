@@ -779,13 +779,27 @@ def season_view(
 
 AI_TASK_NAME = "Essensplaner Saisonplan"
 AI_INSTRUCTIONS = (
-    "Du hilfst beim Planen der Mahlzeiten einer Woche in Deutschland. Ordne die Rezepte "
-    "aus 'candidates' danach, wie gut sie in die Tage aus 'days' passen: Saison "
-    "('in_season', 'times', das Feld 'season' der Rezepte), Angebote ('offers'), "
-    "Abwechslung (keine ähnlichen Gerichte hintereinander) und die Planungsart "
-    "('strategy'). Verwende nur ids aus 'candidates' und erfinde keine Rezepte. Antworte "
-    'als JSON: {"order": ["<id>", ...]} – das passendste Rezept zuerst, höchstens 40.'
+    "Du planst die Mahlzeiten einer Woche für einen Haushalt in Deutschland. Denke gründlich "
+    "und Schritt für Schritt nach, bevor du antwortest – gib aber nur das JSON aus.\n"
+    "1. Für jeden Tag aus 'days' und jede Mahlzeit aus 'meals' wählst du genau ein Rezept "
+    "aus 'candidates' – bevorzugt aus den 'candidates' des Tages (die Regeln halten sie an "
+    "dem Tag für am besten: Angebote, Budget, Abwechslung, Saison).\n"
+    "2. Achte auf Saison ('in_season', 'times', 'season' der Rezepte, 'out_of_season' "
+    "meiden), Angebote ('offers'), Kosten ('cost_per_serving', 'budget'), die Planungsart "
+    "('strategy'), Favoriten und auf Abwechslung: keine ähnlichen Gerichte (gleiche "
+    "Hauptzutat, gleiche Art) an aufeinanderfolgenden Tagen, kein Rezept zweimal.\n"
+    "3. Was schon geplant ist ('planned'), nicht noch einmal.\n"
+    "4. Verwende nur ids aus 'candidates' und erfinde keine Rezepte.\n"
+    'Antworte nur mit JSON: {"plan": [{"date": "JJJJ-MM-TT", "meal": "<id aus meals>", '
+    '"id": "<rezept-id>", "reason": "höchstens 10 Wörter"}], "order": ["<id>", …], '
+    '"notes": "ein Satz zur Woche"} – "order" sind die übrigen passenden Rezepte, das '
+    "passendste zuerst (höchstens 40)."
 )
+AI_DAY_CANDIDATES = 8  # per day the ids the rules rank best that day
+AI_TIMEOUT = 180  # 1.5.1: a whole week (a local model is slow)
+AI_PAYLOAD_MAX = 16000
+REASON_MAX = 140
+NOTES_MAX = 300
 
 
 def rank_candidates(
@@ -816,6 +830,27 @@ def rank_candidates(
     return [recipe for _, recipe in scored[: max(1, limit)]]
 
 
+def day_candidates(
+    manager: EssensplanerManager,
+    day: date,
+    meals: list[str],
+    candidates: list[dict[str, Any]],
+    strategy: str | None,
+    servings: int | None,
+    limit: int = AI_DAY_CANDIDATES,
+) -> list[str]:
+    """The ids of the candidates the rules rank best on one day (its own weights: budget,
+    offers valid that day, the neighbouring days, the season)."""
+    ctx = manager._suggest_context(day, strategy=strategy, servings=servings)
+    scored = [
+        (manager._suggest_weight(r, ctx), r)
+        for r in candidates
+        if any(manager._fits_meal(r, m) for m in meals)
+    ]
+    scored.sort(key=lambda s: (-s[0], fold(s[1]["name"])))
+    return [r["id"] for _, r in scored[: max(1, limit)]]
+
+
 def ai_payload(
     manager: EssensplanerManager,
     start: date,
@@ -825,13 +860,17 @@ def ai_payload(
     strategy: str | None,
     servings: int | None,
 ) -> dict[str, Any]:
-    """What the AI gets (privacy: recipe ids, names and tags, products in season, offers
-    of the recipes' ingredients, the month and the strategy – no notes)."""
+    """What the AI gets (privacy: recipe ids, names, kinds and tags, products in season,
+    offers of the recipes' ingredients, costs, the month, the budget and the strategy – no
+    notes). 1.5.1: per day the candidates the rules rank best that day, per candidate why
+    (favourite, rating, last cooked, meals it fits) and what is planned around."""
     from .const import MEAL_LABELS
+    from .kinds import KIND_LABELS, recipe_kind
     from .options_schema import CHOICE_LABELS_DE
 
     around = start + timedelta(days=max(1, days) // 2)
     info = season_info(around)
+    servings = servings or manager.default_servings
     days_view = []
     for offset in range(max(1, days)):
         day = start + timedelta(days=offset)
@@ -839,19 +878,25 @@ def ai_payload(
         entry: dict[str, Any] = {
             "date": day.isoformat(),
             "weekday": WEEKDAY_NAMES[day.weekday()],
-            "meals": [MEAL_LABELS.get(m, m) for m in meals],
+            "meals": list(meals),
+            "candidates": day_candidates(manager, day, meals, candidates, strategy, servings),
         }
         if times:
             entry["times"] = times
+        if day == manager.today():
+            entry["today"] = True
         days_view.append(entry)
     rows = []
+    today = manager.today()
     for recipe in candidates:
         cost = manager.recipe_cost(recipe, servings, around)
         season = recipe_season(manager, recipe, around)
         row: dict[str, Any] = {
             "id": recipe["id"],
             "name": recipe["name"],
+            "kind": str(KIND_LABELS.get(recipe_kind(recipe), "")),
             "tags": [str(t) for t in (recipe.get("tags") or [])][:6],
+            "meals": [m for m in meals if manager._fits_meal(recipe, m)],
         }
         if season["items"] or season["windows"]:
             row["season"] = [
@@ -864,17 +909,51 @@ def ai_payload(
             row["offers"] = [o["ingredient"] for o in cost["on_offer"][:3]]
         if cost.get("per_serving"):
             row["cost_per_serving"] = cost["per_serving"]
+        if recipe.get("total_time"):
+            row["minutes"] = recipe["total_time"]
+        if recipe.get("favorite"):
+            row["favorite"] = True
+        if recipe.get("rating"):
+            row["rating"] = recipe["rating"]
+        if (ago := _days_ago(today, recipe.get("last_cooked"))) is not None:
+            row["cooked_days_ago"] = ago
         rows.append(row)
+    planned = []
+    for offset in range(-3, max(1, days) + 3):
+        day = start + timedelta(days=offset)
+        for meal, entry in manager.plan.get(day.isoformat(), {}).items():
+            if entry.get("title"):
+                planned.append({"date": day.isoformat(), "meal": meal, "name": entry["title"]})
     resolved = strategy or manager.strategy
-    return {
+    payload: dict[str, Any] = {
         "month": info["month_name"],
         "season": info["season"]["label"],
         "in_season": [p["label"] for p in info["produce"]][:15],
         "times": [w["label"] for w in info["windows"]],
         "strategy": CHOICE_LABELS_DE["strategy"].get(resolved, resolved),
+        "servings": servings,
+        "meals": [{"id": m, "name": MEAL_LABELS.get(m, m)} for m in meals],
         "days": days_view,
+        "planned": planned[:30],
         "candidates": rows,
     }
+    if manager.weekly_budget:
+        week = manager.week_overview(around)
+        payload["budget"] = {
+            "week": manager.weekly_budget,
+            "left": week.get("remaining"),
+            "per_meal": round(manager.budget_target(around, len(meals)) or 0, 2) or None,
+        }
+    return payload
+
+
+def _days_ago(today: date, value: Any) -> int | None:
+    if not value:
+        return None
+    try:
+        return (today - date.fromisoformat(str(value)[:10])).days
+    except ValueError:
+        return None
 
 
 def parse_ai_order(answer: Any, candidates: list[dict[str, Any]]) -> list[str]:
@@ -904,7 +983,53 @@ def parse_ai_order(answer: Any, candidates: list[dict[str, Any]]) -> list[str]:
     return order
 
 
-async def async_ai_order(
+def parse_ai_plan(
+    manager: EssensplanerManager,
+    answer: Any,
+    candidates: list[dict[str, Any]],
+    start: date,
+    days: int,
+    meals: list[str],
+) -> dict[tuple[str, str], dict[str, str]]:
+    """The AI's picks per slot (1.5.1), checked: a day of the request, one of its meals
+    (id or name), a candidate (id or name) that fits the meal, each recipe once.
+    {(date, meal): {id, reason}}."""
+    from .const import MEAL_LABELS
+
+    rows = answer.get("plan") if isinstance(answer, dict) else None
+    if not isinstance(rows, list):
+        return {}
+    by_id = {r["id"]: r for r in candidates}
+    by_name = {fold(r["name"]): r for r in candidates}
+    meal_of = {fold(m): m for m in meals} | {fold(MEAL_LABELS.get(m, m)): m for m in meals}
+    first, last = start.isoformat(), (start + timedelta(days=max(1, days) - 1)).isoformat()
+    picks: dict[tuple[str, str], dict[str, str]] = {}
+    used: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        day = str(row.get("date") or "")[:10]
+        meal = meal_of.get(fold(str(row.get("meal") or "")))
+        if len(meals) == 1 and meal is None and not row.get("meal"):
+            meal = meals[0]
+        value = str(row.get("id") or row.get("recipe_id") or row.get("name") or "").strip()
+        recipe = by_id.get(value) or by_name.get(fold(value))
+        if (
+            not first <= day <= last
+            or meal is None
+            or recipe is None
+            or recipe["id"] in used
+            or (day, meal) in picks
+            or not manager._fits_meal(recipe, meal)
+        ):
+            continue
+        used.add(recipe["id"])
+        reason = " ".join(str(row.get("reason") or row.get("grund") or "").split())
+        picks[(day, meal)] = {"id": recipe["id"], "reason": reason[:REASON_MAX]}
+    return picks
+
+
+async def async_ai_plan(
     hass: HomeAssistant,
     manager: EssensplanerManager,
     start: date,
@@ -915,9 +1040,10 @@ async def async_ai_order(
     strategy: str | None = None,
     servings: int | None = None,
     exclude: set[str] | None = None,
-) -> list[str]:
-    """The candidate order of the AI (feature "season"), completed with the remaining
-    candidates in the rules' order. Raises the ai_* errors (ai_invalid without one known
+) -> tuple[list[str], dict[tuple[str, str], dict[str, str]], str]:
+    """The AI's plan (feature "season", AI_TIMEOUT seconds): (the candidate order –
+    completed with the remaining candidates in the rules' order –, its picks per slot
+    (parse_ai_plan()), its note). Raises the ai_* errors (ai_invalid without one known
     id)."""
     from .ai import _error, async_ai_json  # the AI module imports the manager
 
@@ -925,7 +1051,7 @@ async def async_ai_order(
         manager, start, days, meals, tag, max_time, strategy, servings, exclude
     )
     if not candidates:
-        return []
+        return [], {}, ""
     answer = await async_ai_json(
         hass,
         manager,
@@ -933,13 +1059,26 @@ async def async_ai_order(
         AI_TASK_NAME,
         AI_INSTRUCTIONS,
         ai_payload(manager, start, days, meals, candidates, strategy, servings),
+        timeout=AI_TIMEOUT,
+        limit=AI_PAYLOAD_MAX,
     )
+    picks = parse_ai_plan(manager, answer, candidates, start, days, meals)
     order = parse_ai_order(answer, candidates)
+    for pick in picks.values():
+        if pick["id"] not in order:
+            order.append(pick["id"])
     if not order:
         from .ai import ai_entity
 
         raise _error("ai_invalid", entity=ai_entity(manager, AI_FEATURE_SEASON) or "")
-    return [*order, *(r["id"] for r in candidates if r["id"] not in order)]
+    note = ""
+    if isinstance(answer, dict):
+        note = " ".join(str(answer.get("notes") or answer.get("notiz") or "").split())
+    return (
+        [*order, *(r["id"] for r in candidates if r["id"] not in order)],
+        picks,
+        note[:NOTES_MAX],
+    )
 
 
 async def async_auto_plan(
@@ -955,21 +1094,25 @@ async def async_auto_plan(
     strategy: str | None = None,
     ai: bool = False,
 ) -> dict[str, Any]:
-    """Fill the free slots (manager.auto_plan()); with ai the AI orders the rules' best
-    candidates first – a failing AI plans with the rules alone (ai {ok: false, code,
-    error}). {planned [plan entries + reasons], ai: None | {ok, code?, error?}}."""
+    """Fill the free slots (manager.auto_plan()); with ai the AI plans the days from the
+    rules' best candidates (its picks per slot, then its order) – a failing AI plans with
+    the rules alone (ai {ok: false, code, error}). {planned [plan entries + reasons and
+    cost], ai: None | {ok, code?, error?, notes?}}."""
     from homeassistant.exceptions import HomeAssistantError
 
     meals = meals or [manager.default_meal]
     order: list[str] | None = None
+    picks: dict[tuple[str, str], dict[str, str]] = {}
     ai_result: dict[str, Any] | None = None
     if ai:
         try:
             nearby = _nearby(manager, start, days, meals, overwrite)
-            order = await async_ai_order(
+            order, picks, note = await async_ai_plan(
                 hass, manager, start, days, meals, tag, max_time, strategy, servings, nearby
             )
             ai_result = {"ok": True}
+            if note:
+                ai_result["notes"] = note
         except HomeAssistantError as err:
             from .occasions import _ai_failure
 
@@ -984,19 +1127,39 @@ async def async_auto_plan(
         servings=servings,
         strategy=strategy,
         order=order,
+        picks={slot: pick["id"] for slot, pick in picks.items()} or None,
     )
     for entry in planned:
-        recipe = manager.recipes.get(entry.get("recipe_id") or "")
-        if recipe is not None:
-            day = date.fromisoformat(entry["date"])
-            entry["reasons"] = suggest_reasons(
-                manager,
-                recipe,
-                day,
-                servings or manager.default_servings,
-                season=season_weight(manager, strategy) > 0,
-            )
+        add_reasons(manager, entry, servings, strategy)
+        pick = picks.get((entry["date"], entry["meal"]))
+        if pick and pick["id"] == entry.get("recipe_id"):
+            entry["reasons"].insert(0, f"🤖 {pick['reason']}" if pick["reason"] else "🤖 KI")
     return {"planned": planned, "ai": ai_result}
+
+
+def add_reasons(
+    manager: EssensplanerManager,
+    entry: dict[str, Any],
+    servings: int | None = None,
+    strategy: str | None = None,
+) -> dict[str, Any]:
+    """Why a planned entry (favourite, season, offers) and its cost (1.5.1: the auto plan's
+    rows show it and the week's total)."""
+    day = date.fromisoformat(entry["date"])
+    recipe = manager.recipes.get(entry.get("recipe_id") or "")
+    entry["reasons"] = []
+    if recipe is not None:
+        entry["reasons"] = suggest_reasons(
+            manager,
+            recipe,
+            day,
+            servings or entry.get("servings") or manager.default_servings,
+            season=season_weight(manager, strategy) > 0,
+        )
+    stored = manager.plan.get(entry["date"], {}).get(entry["meal"])
+    cost = manager.entry_cost(day, entry["meal"], stored) if stored else None
+    entry["cost"] = cost["total"] if cost else None
+    return entry
 
 
 def _nearby(

@@ -1466,8 +1466,10 @@ def ws_occasion_save(
     """Create (no id) or change an occasion: occasion {id?, title?, template?, date?
     (ISO or words), time? ("" = all day), duration_h?, guests?, children?, notes?, items?
     (replaces all: [{uid?, course, recipe_id? | product_id? | title, servings?, quantity?,
-    unit?, alcohol?, note?}]), add_items?, remove_items? (uids), auto_fill? (new: dishes,
-    drinks and extras by the rules)}. Result {occasion (occasion_view)}. Errors
+    unit?, alcohol?, note?}]), add_items?, remove_items? (uids), update_items? (1.5.1, one
+    item changed in place: [{uid, servings? (None: the occasion's), quantity?, unit?,
+    product_id? (None: no product)}]), auto_fill? (new: dishes, drinks and extras by the
+    rules)}. Result {occasion (occasion_view)}. Errors
     occasion_not_found, name_required, invalid_template, invalid_date, invalid_time,
     invalid_course, recipe_not_found, product_not_found."""
     if (manager := _loaded_manager(hass, connection, msg)) is None:
@@ -1550,6 +1552,72 @@ async def ws_occasion_suggest(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): f"{DOMAIN}/occasion_products",
+        vol.Required("occasion_id"): str,
+        vol.Optional("uid"): vol.Any(None, str),
+        vol.Optional("name"): vol.Any(None, str),
+        vol.Optional("query"): vol.Any(None, str),
+        vol.Optional("limit", default=30): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+    }
+)
+@callback
+def ws_occasion_products(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ "📦 Artikel" of an occasion item (1.5.1): the products of the user's chains for
+    the item (uid: its name and amount; else name) or a query, priced for the amount in
+    whole packs, cheapest first. Result {name, quantity, unit, current (product id | None),
+    products: [occasions.item_products() rows]}. Errors occasion_not_found,
+    occasion_item_not_found."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .manager import _error
+    from .occasions import _item_name, item_products, occasion_date, require_occasion
+
+    try:
+        occasion = require_occasion(manager, msg["occasion_id"])
+        item: dict[str, Any] = {}
+        if msg.get("uid"):
+            item = next((i for i in occasion.get("items") or [] if i.get("uid") == msg["uid"]), {})
+            if not item:
+                raise _error("occasion_item_not_found", item=msg["uid"], occasion=occasion["title"])
+    except HomeAssistantError as err:
+        _occasion_error(connection, msg, err)
+        return
+    name = str(msg.get("name") or _item_name(item) or msg.get("query") or "")
+    quantity = item.get("quantity") if not item.get("product_id") else None
+    unit = str(item.get("unit") or "")
+    if item.get("product_id"):
+        from .occasions import _amount_of_packs
+        from .products import _store_of
+
+        store = _store_of(manager)
+        product = store.get(item["product_id"]) if store is not None else None
+        if product is not None and (amount := _amount_of_packs(item, product)):
+            quantity, unit = amount
+    products = item_products(
+        manager,
+        name,
+        quantity,
+        unit,
+        occasion_date(occasion),
+        query=msg.get("query"),
+        limit=msg["limit"],
+    )
+    connection.send_result(
+        msg["id"],
+        {
+            "name": name,
+            "quantity": quantity,
+            "unit": unit,
+            "current": item.get("product_id"),
+            "products": products,
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): f"{DOMAIN}/drinks_suggest",
         vol.Optional("recipe_ids"): vol.Any(None, [str]),
         vol.Optional("titles"): vol.Any(None, [str]),
@@ -1625,6 +1693,7 @@ async def ws_drinks_suggest(
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
     websocket_api.async_register_command(hass, ws_get_data)
+    websocket_api.async_register_command(hass, ws_occasion_products)
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_get_prices)
     websocket_api.async_register_command(hass, ws_store_prices)

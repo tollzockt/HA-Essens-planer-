@@ -286,6 +286,17 @@ auto_plan:
       selector:
         boolean:
 
+replan_meal:
+  fields:
+    date: *date
+    meal: *meal
+    strategy: *strategy
+    exclude:
+      example: "Lasagne, Linsensuppe"
+      selector:
+        text:
+    servings: *servings
+
 generate_shopping_list:
   fields:
     start_date: *start_date

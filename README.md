@@ -624,6 +624,7 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.plan_leftover` | Reste einer geplanten Mahlzeit für eine spätere Mahlzeit einplanen (am Kochtag wird für beide eingekauft) |
 | `essensplaner.move_meal` / `copy_plan` | Verschieben/Tauschen, Wochen kopieren |
 | `essensplaner.suggest_recipes` / `auto_plan` | Vorschläge (mit Gründen: ⭐, 🍂 Saison, 🏷️ Angebot) / automatisch planen (Planungsart auch `seasonal`; `ai: true` lässt die KI die besten Rezepte ordnen) |
+| `essensplaner.replan_meal` | Eine Mahlzeit neu vorschlagen (wie `auto_plan`, nie dasselbe Gericht; `exclude` für schon gezeigte) |
 | `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen (mit Läden und den Anlässen dieser Tage, oder nur für einen Anlass) / abrufen (optional nur ein Laden) |
 | `essensplaner.add_shopping_item` | Artikel mit Laden und Preis auf die Einkaufsliste setzen (auch ein Angebot aus „Alle Angebote meiner Läden“ per `offer_id` oder ein Produkt der Artikel-Datenbank per `product_id`) |
 | `essensplaner.set_shopping_store` / `assign_shopping_stores` | Laden für einen Artikel festlegen („immer hier“) / alle offenen Artikel neu zuordnen |

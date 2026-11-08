@@ -91,6 +91,9 @@
     "auto_plan": {
       "service": "mdi:auto-fix"
     },
+    "replan_meal": {
+      "service": "mdi:refresh"
+    },
     "generate_shopping_list": {
       "service": "mdi:cart-plus"
     },

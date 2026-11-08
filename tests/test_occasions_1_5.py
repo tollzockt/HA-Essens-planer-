@@ -514,6 +514,7 @@ async def test_ai_menu_checked(
         "title": "Rosmarinkartoffeln",
         "course": "side",
         "reasons": ["🤖 passt"],
+        "reason": "passt",
         "ai": True,
     }
     drinks = [s["title"] for s in menu["drink"]]

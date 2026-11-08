@@ -2880,7 +2880,8 @@ def store_offers_view(
     """
     catalog: OfferCatalog = manager.catalog
     today = manager.today()
-    day = today.isoformat()
+    # 1.5.1: "Aktuell" like the leaflets – on Sunday the offers from Monday are this week's
+    day = leaflet_week_day(today).isoformat()
     offers = catalog.current_offers(today)
     branch_map = _branch_map(manager, catalog, offers)
     # a store whose source has only leaflet images (NORMA) stays a leaflet tile when the

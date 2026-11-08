@@ -244,25 +244,25 @@ async def test_offer_card_merken_keeps_the_offer(
 async def test_price_list_new_article(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
 ) -> None:
-    """An article that is not in the list ("Kaffee") gets a row once a price is saved for it."""
+    """An article that is not in the list ("Kombucha") gets a row once a price is saved for it."""
     manager = setup_integration.runtime_data
     manager.save_branch({"store": "Aldi Süd", "postcode": "80331"})
     manager.save_branch({"store": "Lidl", "postcode": "80331"})
     client = await hass_ws_client(hass)
-    await client.send_json({"id": 1, "type": f"{DOMAIN}/store_prices", "query": "Kaffee"})
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/store_prices", "query": "Kombucha"})
     assert (await client.receive_json())["result"]["rows"] == []
 
-    # what the panel's "＋ „Kaffee“ als Artikel anlegen" dialog sends
+    # what the panel's "＋ „Kombucha“ als Artikel anlegen" dialog sends
     await hass.services.async_call(
         DOMAIN,
         "set_price",
-        {"ingredient": "Kaffee", "price": 4.99, "amount": 500, "unit": "g", "store": "lidl"},
+        {"ingredient": "Kombucha", "price": 4.99, "amount": 500, "unit": "g", "store": "lidl"},
         blocking=True,
         return_response=True,
     )
-    await client.send_json({"id": 2, "type": f"{DOMAIN}/store_prices", "query": "Kaffee"})
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/store_prices", "query": "Kombucha"})
     rows = (await client.receive_json())["result"]["rows"]
-    assert [(r["name"], r["stores"]["lidl"]["price"]) for r in rows] == [("Kaffee", 4.99)]
+    assert [(r["name"], r["stores"]["lidl"]["price"]) for r in rows] == [("Kombucha", 4.99)]
 
 
 async def test_store_preferences_overview(

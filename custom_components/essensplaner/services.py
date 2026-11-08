@@ -104,6 +104,7 @@ from .const import (
     SERVICE_REMOVE_BRANCH,
     SERVICE_REMOVE_MEAL,
     SERVICE_REMOVE_OFFER,
+    SERVICE_REPLAN_MEAL,
     SERVICE_SAVE_BRANCH,
     SERVICE_SAVE_OCCASION,
     SERVICE_SAVE_PRODUCT,
@@ -147,7 +148,7 @@ from .receipts import (
 )
 from .recipe_import import async_fetch_recipe
 from .rewe import async_find_rewe_markets, async_refresh_rewe_prices, rewe_enabled, rewe_market
-from .season import async_auto_plan, season_weight, suggest_reasons
+from .season import add_reasons, async_auto_plan, season_weight, suggest_reasons
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
@@ -438,6 +439,16 @@ GET_LEAFLETS_SCHEMA = vol.Schema(
     {
         vol.Optional("store"): cv.string,
         vol.Optional("when", default="all"): vol.In(["current", "upcoming", "all"]),
+    }
+)
+REPLAN_MEAL_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_DATE): cv.string,
+        vol.Optional(ATTR_MEAL): cv.string,
+        vol.Optional("strategy"): cv.string,
+        # recipes (names or ids) not to suggest, e.g. the ones shown before
+        vol.Optional("exclude"): vol.Any(cv.string, [cv.string]),
+        vol.Optional(ATTR_SERVINGS): _POSITIVE,
     }
 )
 SORT_WITH_AI_SCHEMA = vol.Schema(
@@ -917,6 +928,31 @@ def async_setup_services(hass: HomeAssistant) -> None:
             "planned": result["planned"],
             "week": manager.week_overview(start),
             "ai": result["ai"],
+        }
+
+    async def replan_meal(call: ServiceCall) -> ServiceResponse:
+        # 1.5.1: "🔄 Neu vorschlagen" for one day of the auto plan
+        manager = get_manager(hass)
+        day, hint = resolve_day(manager, call.data.get(ATTR_DATE))
+        meal = resolve_meal(manager, call.data.get(ATTR_MEAL), hint)
+        assert meal is not None
+        strategy = resolve_strategy(call.data.get("strategy"))
+        exclude: set[str] = set()
+        values = call.data.get("exclude") or []
+        for value in split_list(values) if isinstance(values, str) else values:
+            recipe = manager.recipes.get(value) or manager.find_recipe(value)
+            if recipe is not None:
+                exclude.add(recipe["id"])
+        result = manager.replan_meal(
+            day, meal, strategy=strategy, exclude=exclude, servings=call.data.get(ATTR_SERVINGS)
+        )
+        if result["entry"] is not None:
+            add_reasons(manager, result["entry"], strategy=strategy)
+        return {
+            "entry": result["entry"],
+            "previous": result["previous"],
+            "found": result["entry"] is not None,
+            "week": manager.week_overview(day),
         }
 
     async def shopping_list(call: ServiceCall) -> ServiceResponse:
@@ -1400,6 +1436,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_GET_PLAN, get_plan, GET_PLAN_SCHEMA),
         (SERVICE_SUGGEST, suggest, SUGGEST_SCHEMA),
         (SERVICE_AUTO_PLAN, auto_plan, AUTO_PLAN_SCHEMA),
+        (SERVICE_REPLAN_MEAL, replan_meal, REPLAN_MEAL_SCHEMA),
         (SERVICE_SHOPPING_LIST, shopping_list, SHOPPING_SCHEMA),
         (SERVICE_MARK_COOKED, mark_cooked, MARK_COOKED_SCHEMA),
         (SERVICE_MOVE_MEAL, move_meal, MOVE_MEAL_SCHEMA),

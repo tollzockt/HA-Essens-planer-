@@ -257,8 +257,8 @@ const DRINK_TAGS = new Set(["getraenk", "getraenke", "drink", "drinks", "cocktai
 const DRINK_EMOJI = { wine: "🍷", sparkling: "🥂", beer: "🍺", mixed: "🍹", soft: "🥤", juice: "🧃", hot: "☕", water: "💧" };
 // the fields of an occasion item a suggestion carries (occasions._ITEM_FIELDS without uid
 // and servings: the occasion's servings count)
-const OCC_ITEM_FIELDS = ["recipe_id", "product_id", "title", "name", "quantity", "unit", "alcohol", "note", "ai", "auto", "drink", "hint"];
-const AI_WAIT = "bis zu 2 Minuten";
+const OCC_ITEM_FIELDS = ["recipe_id", "product_id", "title", "name", "quantity", "unit", "alcohol", "note", "ai", "auto", "drink", "hint", "reason"];
+const AI_WAIT = "bis zu 3 Minuten"; // 1.5.1: menus and the auto plan wait up to 180 s
 // a recipe counts as "in season" (🍂 badge, filter) from this score of season.recipe_season
 const SEASON_BADGE = 0.25;
 const drinkEmoji = (d) => DRINK_EMOJI[d?.kind] || (d?.alcohol ? "🍷" : "🥤");
@@ -290,12 +290,17 @@ const entryTitle = (entry, iso) => {
 const euShort = (v) => (Number(v) >= 10 ? `${Math.round(Number(v))} €` : eur(v));
 const qtyText = (x) => (x?.quantity ? `${num(Math.round(Number(x.quantity) * 100) / 100)} ${x.unit || ""}`.trim() : "");
 const alcBadge = (alcohol, kids = false) => `<span class="alcb ${alcohol ? "" : "free"}">${alcohol ? "mit Alkohol" : kids ? "alkoholfrei · für Kinder" : "alkoholfrei"}</span>`;
-/** An occasion item from a suggestion of occasion_suggest (dishes, drinks, extras, AI). */
+/** An occasion item from a suggestion of occasion_suggest (dishes, drinks, extras, AI –
+ *  1.5.1: with the AI's servings). */
 const occItem = (s, course) => {
   const raw = { course: s.course || course };
   for (const k of OCC_ITEM_FIELDS) if (s[k] != null && s[k] !== "") raw[k] = s[k];
+  if (s.ai && s.servings_ai) raw.servings = s.servings_ai;
   return raw;
 };
+/** 1.5.1: the steps of the amount steppers (l and kg in halves, g in 50, ml in 250, else 1). */
+const amtStep = (unit) => (unit === "l" || unit === "kg" ? 0.5 : unit === "g" ? 50 : unit === "ml" ? 250 : 1);
+const OCC_UNITS = ["l", "ml", "kg", "g", "Stück", "Pck.", "Tüte", "Flasche", "Dose", "Kiste", "Glas", "Bund"];
 /** An occasion item from a drink of drinks_suggest (like occasions.drink_item). */
 const drinkItem = (d) => {
   const item = { course: "drink", title: d.title, alcohol: Boolean(d.alcohol) };
@@ -1132,6 +1137,26 @@ const STYLE = `
   .extras label > span:not(.meta) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .extras label .meta { white-space: nowrap; }
   .extras label.missing > span:not(.meta) { color: var(--ep-secondary-text); }
+  /* 1.5.1: amounts of the items (servings, packs, quantity + unit) and the AI's reasons */
+  .extras .exrow { border-top: 1px solid var(--ep-divider); display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; }
+  .extras .exrow:first-child { border-top: none; }
+  .extras .exrow label { border-top: none; flex: 1 1 180px; }
+  .extras .exrow .ocr2 { padding: 0 0 6px 30px; }
+  .extras label .why, .occhip .why { display: block; font-size: 11.5px; color: var(--ep-secondary-text); line-height: 1.3; overflow-wrap: anywhere; }
+  .occhip { flex-direction: column; align-items: stretch; border-radius: 14px; }
+  .occhip.sel { box-shadow: inset 0 0 0 2px var(--ep-primary); }
+  .occhip .ocr1 { display: flex; align-items: center; min-width: 0; }
+  .occhip .ocr1 .on { flex: 1; }
+  .occhip .ocr2 { display: flex; align-items: center; gap: 4px; padding: 0 6px 6px 8px; flex-wrap: wrap; }
+  .occhip > .why { padding: 0 10px 6px; }
+  .ocamt { display: inline-flex; align-items: center; gap: 3px; }
+  .ocamt .u { font-size: 12px; color: var(--ep-secondary-text); padding: 0 2px; }
+  .ocamt input { width: 62px; text-align: center; padding: 4px 2px; height: 32px; box-sizing: border-box; }
+  .ocamt select { height: 32px; padding: 2px 4px; width: auto; max-width: 84px; box-sizing: border-box; }
+  .occhip .ocamt .icon, .exrow .ocamt .icon, .occhip .prodbtn, .exrow .prodbtn { width: 32px; height: 32px; border: 1px solid var(--ep-divider); border-radius: 8px; background: var(--ep-card); font-size: 15px; }
+  .prodbtn.on { border-color: var(--ep-primary); }
+  .ocprod .suglist { max-height: 340px; overflow-y: auto; }
+  .ocprod .suglist > * { flex: none; }
   .ocmenu { border: 1px solid var(--ep-primary); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--ep-primary) 5%, var(--ep-card)); }
   .ocmenu h4 { margin: 0; }
   .ocmenu .mcs { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0 18px; }
@@ -1167,6 +1192,8 @@ const STYLE = `
   .prow .pd { flex: none; width: 84px; font-weight: 600; font-size: 13.5px; }
   .prow .pd .meta { font-weight: 400; }
   .prow .pi { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .prow .pa { flex: none; display: flex; gap: 4px; align-items: center; }
+  .prow.busy { opacity: 0.6; }
   label.switch.aiswitch { align-items: flex-start; padding: 8px 10px; border: 1px solid var(--ep-divider); border-radius: 10px; line-height: 1.4; }
   label.switch.aiswitch input { margin-top: 1px; flex: none; }
   /* season view */
@@ -1187,6 +1214,8 @@ const STYLE = `
   @media (pointer: coarse) {
     .dchips .chip, .chip.ocplus { min-height: 40px; }
     .occhip .icon, .dchip-x .icon { width: 40px; height: 40px; }
+    .occhip .ocamt .icon, .exrow .ocamt .icon, .occhip .prodbtn, .exrow .prodbtn { width: 40px; height: 40px; }
+    .ocamt input, .ocamt select { height: 40px; }
   }
   /* touch screens: every control at least 40 px high */
   @media (pointer: coarse) {
@@ -3109,7 +3138,9 @@ class EssensplanerPanel extends HTMLElement {
     return this._data.all_meals.map((m) => `<option value="${m.id}" ${m.id === selected ? "selected" : ""}>${esc(m.label)}</option>`).join("");
   }
 
-  _openPicker(date, meal, current, autoSuggest = false) {
+  /** Plan a slot. opts (1.5.1, from the auto plan's result): back() instead of closing,
+   *  saved(entry) after planning (the caller shows its dialog again). */
+  _openPicker(date, meal, current, autoSuggest = false, opts = {}) {
     const servings = current?.servings || this._data.default_servings;
     let selected = current?.recipe_id || null;
     let query = "";
@@ -3171,7 +3202,15 @@ class EssensplanerPanel extends HTMLElement {
         <label class="field">Portionen<input type="number" min="1" max="50" class="servings" value="${servings}"></label>
         <label class="field">Notiz<input class="note" value="${esc(current?.note || "")}" placeholder="optional"></label>
       </div>`;
-    const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">📅 Einplanen</button>`;
+    const footer = `${opts.back ? '<button class="btn" data-close>← Zurück</button>' : '<button class="btn" data-close>Abbrechen</button>'}<button class="btn primary save">📅 Einplanen</button>`;
+    const modalOpts = opts.back
+      ? {
+          guard: () => {
+            opts.back();
+            return false;
+          },
+        }
+      : {};
     this._showModal(current ? "Mahlzeit ändern" : "Mahlzeit planen", body, footer, (root) => {
       const q = root.querySelector(".q");
       const list = root.querySelector(".picklist.main");
@@ -3216,6 +3255,7 @@ class EssensplanerPanel extends HTMLElement {
         const [fromDate, fromMeal] = left.dataset.left.split("|");
         const res = await this._service("plan_leftover", { date, meal, from_date: fromDate, from_meal: fromMeal, servings: Number(root.querySelector(".servings").value) || undefined }, true);
         this._toast(`🍲 ${res?.entry?.title || "Reste"}: ${this._dateLabel(date)}, ${this._mealLabel(meal)}`);
+        if (opts.saved) return opts.saved(res?.entry);
         this._closeModal();
       });
       // 1.5: with the reasons ("⭐ Favorit · 🍂 Saison: Kürbis · 🏷️ Angebot: Hack")
@@ -3255,10 +3295,14 @@ class EssensplanerPanel extends HTMLElement {
         else if (extras.length) return this._toast("Bitte zuerst eine Mahlzeit wählen – Beilagen, Saucen und Getränke werden zu ihr dazugeplant.");
         else return this._toast("Bitte ein Rezept auswählen oder einen Text eingeben.");
         if (extras.length || current?.extras?.length) data.extras = extras.map((x) => (x.recipe_id ? { recipe_id: x.recipe_id } : { title: x.title }));
+        if (opts.saved) {
+          const res = await this._service("plan_meal", data, true);
+          return opts.saved(res?.entry);
+        }
         await this._service("plan_meal", data);
         this._closeModal();
       });
-    });
+    }, modalOpts);
   }
 
   _openEntry(date, meal) {
@@ -3820,30 +3864,100 @@ class EssensplanerPanel extends HTMLElement {
   _openAutoPlan(start, days) {
     const strategy = this._data.economy?.strategy || "balanced";
     const budget = this._data.economy?.budget;
-    // 1.5: "🤖 mit KI" – the AI orders the rules' best candidates (feature "season")
+    // 1.5: "🤖 mit KI" – the AI plans from the rules' best candidates (feature "season")
     const ai = this._aiOn("season");
-    const st = { busy: false };
+    // 1.5.1: the result stays open – each row "🔄 Neu vorschlagen" / "✏️ Ändern"
+    const st = { busy: false, res: null, usedAi: false, strategy, shown: {}, rowBusy: null };
+    const key = (p) => `${p.date}|${p.meal}`;
     const body = `
       <div class="hint">${esc(this._dateLabel(start))} + ${days - 1} Tage · nur freie Plätze werden gefüllt.${budget ? ` Wochenbudget: ${eur(budget)}.` : ""}</div>
       <div class="strategy">${Object.entries(STRATEGY_LABELS).map(([k, [label, desc]]) => `<label><input type="radio" name="strategy" value="${k}" ${k === strategy ? "checked" : ""}><span><b>${label}</b><br><span class="meta">${desc}</span></span></label>`).join("")}</div>
       <div><h4>Mahlzeiten</h4><div class="chips">${this._data.meals.map((m) => `<label class="chip"><input type="checkbox" class="pm" value="${m.id}" ${m.id === this._data.default_meal ? "checked" : ""}> ${esc(m.label)}</label>`).join("")}</div></div>
-      ${ai ? `<label class="switch aiswitch"><input type="checkbox" class="pai"><span>🤖 <b>mit KI</b> (${esc(this._aiName())}) – ordnet die besten Vorschläge der Regeln nach Saison, Angeboten und Abwechslung. Dauert ${AI_WAIT}.${this._aiOffline("season") ? `<br><span class="meta">⚠️ ${esc(this._aiName())} ist gerade nicht erreichbar – dann wird nach Regeln geplant.</span>` : ""}</span></label>` : ""}
+      ${ai ? `<label class="switch aiswitch"><input type="checkbox" class="pai"><span>🤖 <b>mit KI</b> (${esc(this._aiName())}) – plant die Tage aus den besten Vorschlägen der Regeln nach Saison, Angeboten, Kosten und Abwechslung. Dauert ${AI_WAIT}.${this._aiOffline("season") ? `<br><span class="meta">⚠️ ${esc(this._aiName())} ist gerade nicht erreichbar – dann wird nach Regeln geplant.</span>` : ""}</span></label>` : ""}
       <div class="ferr" hidden></div>`;
     const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary go">✨ Planen</button>`;
-    const result = (res, usedAi) => {
+    const rowHtml = (p) => {
+      const k = key(p);
+      const busy = st.rowBusy === k;
+      const why = (p.reasons || []).length ? p.reasons.join(" · ") : p.manual ? "✏️ selbst gewählt" : "";
+      return `<div class="prow ${busy ? "busy" : ""}" data-k="${esc(k)}"><span class="pd">${esc(shortDate(p.date))}<br><span class="meta">${esc(this._mealLabel(p.meal))}</span></span><span class="pi"><b>${esc(p.title)}</b>${p.cost != null ? ` <span class="meta">≈ ${eur(p.cost)}</span>` : ""}${why ? `<div class="why">${esc(why)}</div>` : ""}</span><span class="pa"><button class="btn small" data-replan="${esc(k)}" ${st.rowBusy ? "disabled" : ""} title="Neu vorschlagen – ein anderes passendes Rezept" aria-label="${esc(p.title)}: neu vorschlagen">${busy ? '<span class="spin">⏳</span>' : "🔄"}<span class="wide-only"> Neu vorschlagen</span></button><button class="btn small" data-change="${esc(k)}" ${st.rowBusy ? "disabled" : ""} title="Selbst aussuchen" aria-label="${esc(p.title)}: ändern">✏️<span class="wide-only"> Ändern</span></button></span></div>`;
+    };
+    const result = () => {
+      const res = st.res;
       const planned = res?.planned || [];
       const total = res?.week?.total;
-      const rows = planned
-        .map((p) => `<div class="prow"><span class="pd">${esc(shortDate(p.date))}<br><span class="meta">${esc(this._mealLabel(p.meal))}</span></span><span class="pi"><b>${esc(p.title)}</b>${(p.reasons || []).length ? `<div class="why">${esc(p.reasons.join(" · "))}</div>` : ""}</span></div>`)
-        .join("");
-      const aiNote = usedAi && res?.ai
+      const aiNote = st.usedAi && res?.ai
         ? res.ai.ok
-          ? `<div class="notice">🤖 ${esc(this._aiName())} hat die Reihenfolge der Vorschläge bestimmt – geprüft gegen deine Rezepte.</div>`
+          ? `<div class="notice">🤖 ${esc(this._aiName())} hat die Woche aus deinen Rezepten geplant – geprüft gegen Mahlzeiten, Abwechslung und Ausschlüsse.${res.ai.notes ? `<br><span class="meta">„${esc(res.ai.notes)}“</span>` : ""}</div>`
           : `<div class="notice warn">🤖 ${esc(res.ai.error || "Die KI hat nicht geantwortet.")} Es wurde nach Regeln geplant.</div>`
         : "";
-      return `<div class="costbox"><span class="big">✨ ${planned.length} ${planned.length === 1 ? "Mahlzeit" : "Mahlzeiten"} eingeplant</span>${total ? `<span class="meta">Woche ≈ ${eur(total)}</span>` : ""}</div>
+      return `<div class="costbox"><span class="big">✨ ${planned.length} ${planned.length === 1 ? "Mahlzeit" : "Mahlzeiten"} eingeplant</span>${total != null ? `<span class="meta weektotal">Woche ≈ ${eur(total)}</span>` : ""}</div>
         ${aiNote}
-        ${rows ? `<div class="plist">${rows}</div>` : '<div class="hint">Keine freien Plätze oder passenden Rezepte.</div>'}`;
+        ${planned.length ? `<div class="plist">${planned.map(rowHtml).join("")}</div><div class="hint">🔄 schlägt für den Tag ein anderes Rezept vor (Saison, Angebote, Budget, Abwechslung), ✏️ zum Selbst-Aussuchen.</div>` : '<div class="hint">Keine freien Plätze oder passenden Rezepte.</div>'}`;
+    };
+    const find = (k) => (st.res?.planned || []).findIndex((p) => key(p) === k);
+    const showResult = () => {
+      this._showModal("Woche automatisch planen", result(), `<button class="btn primary" data-close>✓ Fertig</button>`, (root) => mountResult(root), {
+        sticky: () => Boolean(st.rowBusy),
+      });
+    };
+    const rerender = (root) => {
+      if (this._modal?.root !== root) return;
+      root.querySelector(".mbody").innerHTML = result();
+    };
+    const replan = async (root, k) => {
+      const n = find(k);
+      if (n < 0 || st.rowBusy) return;
+      const p = st.res.planned[n];
+      const shown = (st.shown[k] = st.shown[k] || new Set());
+      if (p.recipe_id) shown.add(p.recipe_id);
+      st.rowBusy = k;
+      rerender(root);
+      try {
+        const res = await this._service("replan_meal", { date: p.date, meal: p.meal, strategy: st.strategy, exclude: [...shown] }, true);
+        if (res?.found && res.entry) {
+          st.res.planned[n] = res.entry;
+          if (res.entry.recipe_id) shown.add(res.entry.recipe_id);
+          if (res.week) st.res.week = res.week;
+        } else this._toast("Kein anderes passendes Rezept gefunden – ✏️ zum Selbst-Aussuchen.");
+      } catch (e) {
+        /* toast shown by _service */
+      } finally {
+        st.rowBusy = null;
+        rerender(root);
+      }
+    };
+    const change = (k) => {
+      const n = find(k);
+      if (n < 0) return;
+      const p = st.res.planned[n];
+      const current = (this._data.plan[p.date] || {})[p.meal] || p;
+      this._openPicker(p.date, p.meal, current, false, {
+        back: () => showResult(),
+        saved: async (entry) => {
+          if (entry) st.res.planned[n] = { ...entry, reasons: [], manual: true, cost: null };
+          // the week's total and the new dish's cost (the plan's costs of that week)
+          try {
+            const day = fromIso(p.date);
+            const monday = toIso(addDays(day, -weekdayIndex(day)));
+            const costs = await this._service("get_costs", { start_date: monday, days: 7 }, true);
+            if (costs?.total != null && st.res.week) st.res.week = { ...st.res.week, total: costs.total };
+            const meal = (costs?.days || []).find((d) => d.date === p.date)?.meals?.find((m) => m.meal === p.meal);
+            if (meal && st.res.planned[n]) st.res.planned[n].cost = meal.cost;
+          } catch (e) {
+            /* the total stays */
+          }
+          showResult();
+        },
+      });
+    };
+    const mountResult = (root) => {
+      root.querySelector(".mbody").addEventListener("click", (ev) => {
+        const re = ev.target.closest("[data-replan]");
+        if (re) return replan(root, re.dataset.replan);
+        const ch = ev.target.closest("[data-change]");
+        if (ch && !st.rowBusy) change(ch.dataset.change);
+      });
     };
     this._showModal("Woche automatisch planen", body, footer, (root) => {
       const go = root.querySelector(".go");
@@ -3874,11 +3988,13 @@ class EssensplanerPanel extends HTMLElement {
           this._toast(n ? `✨ ${n} Mahlzeiten eingeplant` : "Keine freien Plätze oder passenden Rezepte");
           return;
         }
-        root.querySelector(".mbody").innerHTML = result(res, withAi);
+        Object.assign(st, { res, usedAi: withAi, strategy: chosen || strategy });
+        root.querySelector(".mbody").innerHTML = result();
         root.querySelector(".mfoot").innerHTML = `<button class="btn primary" data-close>✓ Fertig</button>`;
+        mountResult(root);
       });
     }, {
-      sticky: () => Boolean(st.busy),
+      sticky: () => Boolean(st.busy || st.rowBusy),
       guard: () => st.busy !== "ai" || confirm(`${this._aiName()} plant noch. Trotzdem schließen? (Die Planung läuft weiter.)`),
     });
   }
@@ -4923,7 +5039,9 @@ class EssensplanerPanel extends HTMLElement {
     // leaflet-only stores (NORMA, EDEKA without market): page images + manual entry, for the
     // chosen time ("Aktuell" = the leaflet of this week)
     const when = so.when;
-    const fits = (lf) => when === "all" || (when === "current") === !(lf.valid_from && lf.valid_from > today);
+    // 1.5.1: like the leaflets tab – on Sunday the leaflets from Monday are this week's
+    const week = weekdayIndex(fromIso(today)) === 6 ? toIso(addDays(fromIso(today), 1)) : today;
+    const fits = (lf) => when === "all" || (when === "current") === !(lf.valid_from && lf.valid_from > week);
     const leafletStores = shown.filter((st) => st.leaflet_only && (st.leaflets || []).some(fits));
     const tiles = leafletStores.flatMap((st) => st.leaflets.filter(fits).map((lf, i) => this._leafletHtml(st, lf, today, i === 0))).join("");
     const onlyLeaflets = leafletStores.length && leafletStores.length === shown.length;
@@ -6222,7 +6340,13 @@ class EssensplanerPanel extends HTMLElement {
         if (box) box.innerHTML = this._occAddResultsHtml(st);
       });
       root.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter" || !ev.target.classList.contains("oaddq")) return;
+        if (ev.key !== "Enter") return;
+        if (ev.target.classList.contains("oprodq")) {
+          ev.preventDefault();
+          this._occAction(st, "prod-search", ev.target).catch(() => {});
+          return;
+        }
+        if (!ev.target.classList.contains("oaddq")) return;
         ev.preventDefault();
         this._occAction(st, "add-text", ev.target).catch(() => {});
       });
@@ -6285,24 +6409,81 @@ class EssensplanerPanel extends HTMLElement {
     const head = `<h4>${esc(info.emoji || this._courseInfo(course).emoji)} ${esc(info.label || this._courseInfo(course).label)}${items.length && info.cost != null ? `<span class="meta">≈ ${eur(info.cost)}</span>` : ""}</h4>`;
     const adding = st.add?.course === course;
     const addBtn = adding ? this._occAddHtml(st) : `<div><button class="btn small" data-oc="add" data-course="${course}">${esc(COURSE_ADD[course])}</button></div>`;
-    if (course === "extra") return `<section class="ocsec" data-course="extra">${head}${this._occExtrasHtml(st, items)}${addBtn}</section>`;
-    const chips = items.map((i) => this._occChipHtml(i)).join("");
-    return `<section class="ocsec ${adding ? "wide" : ""}" data-course="${course}">${head}
+    if (course === "extra") {
+      const prod = st.prod && items.some((i) => i.uid === st.prod.uid) ? this._occProdHtml(st) : "";
+      return `<section class="ocsec ${prod ? "wide" : ""}" data-course="extra">${head}${this._occExtrasHtml(st, items)}${prod}${addBtn}</section>`;
+    }
+    const chips = items.map((i) => this._occChipHtml(st, i)).join("");
+    const prod = st.prod && items.some((i) => i.uid === st.prod.uid) ? this._occProdHtml(st) : "";
+    return `<section class="ocsec ${adding || prod ? "wide" : ""}" data-course="${course}">${head}
         ${chips ? `<div class="ocitems">${chips}</div>` : `<div class="hint">${course === "drink" ? "Noch keine Getränke." : "Noch nichts geplant."}</div>`}
+        ${prod}
         ${this._occMissingHtml(st, course)}
         ${addBtn}
       </section>`;
   }
 
-  _occChipHtml(i) {
+  _occChipHtml(st, i) {
     const recipe = i.recipe_id ? this._recipe(i.recipe_id) : null;
     const icon = i.course === "drink" ? drinkEmoji(i) : recipe ? dishEmoji(recipe.name) : i.product ? "📦" : "📝";
     const thumb = i.image && safeUrl(i.image) ? `<span class="othumb" ${bg(i.image)}></span>` : `<span class="othumb" aria-hidden="true">${icon}</span>`;
-    const sub = [i.quantity_text, i.cost != null ? `≈ ${eur(i.cost)}` : ""].filter(Boolean).join(" · ");
+    const product = i.product ? [i.product.title, i.product.retailer ? this._retailerName(i.product.retailer) : ""].filter(Boolean).join(" · ") : "";
+    const sub = [product, i.cost != null ? `≈ ${eur(i.cost)}` : ""].filter(Boolean).join(" · ");
     const title = [i.hint, i.note, i.ai ? "🤖 von der KI vorgeschlagen" : "", i.missing ? "nicht mehr vorhanden" : ""].filter(Boolean).join(" · ");
     const inner = `${thumb}<span>${esc(i.title)}${i.ai ? " 🤖" : ""}</span>${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${i.course === "drink" ? alcBadge(i.alcohol) : ""}`;
     const main = recipe ? `<button class="on" data-oc="recipe" data-id="${esc(recipe.id)}" title="${esc(title || "Rezept öffnen")}">${inner}</button>` : `<span class="on" title="${esc(title)}">${inner}</span>`;
-    return `<span class="occhip ${i.ai ? "ai" : ""} ${i.missing ? "missing" : ""}">${main}<button class="icon" data-oc="remove" data-uid="${esc(i.uid)}" aria-label="${esc(i.title)} entfernen" title="Entfernen">✕</button></span>`;
+    const why = i.reason ? `<span class="why">🤖 ${esc(i.reason)}</span>` : "";
+    return `<span class="occhip ${i.ai ? "ai" : ""} ${i.missing ? "missing" : ""} ${st.prod?.uid === i.uid ? "sel" : ""}"><span class="ocr1">${main}<button class="icon" data-oc="remove" data-uid="${esc(i.uid)}" aria-label="${esc(i.title)} entfernen" title="Entfernen">✕</button></span><span class="ocr2">${this._occAmtHtml(st, i)}</span>${why}</span>`;
+  }
+
+  /** 1.5.1: the amount of an item – servings of a dish, packs of a product, quantity and
+   *  unit of anything else (− / ＋ or typed; saved after a short pause); 📦 links a
+   *  product of the user's stores. */
+  _occAmtHtml(st, i) {
+    if (i.missing) return "";
+    const uid = esc(i.uid);
+    const d = st.amt?.[i.uid] || {};
+    const btn = (delta, label, off) => `<button class="icon" data-oc="amt" data-uid="${uid}" data-delta="${delta}" aria-label="${esc(i.title)}: ${label}" ${off ? "disabled" : ""}>${delta < 0 ? "−" : "＋"}</button>`;
+    if (i.recipe_id) {
+      const v = Number(d.servings ?? i.servings ?? st.view.servings ?? 1);
+      return `<span class="ocamt" role="group" aria-label="Portionen">${btn(-1, "weniger Portionen", v <= 1)}<input type="number" inputmode="numeric" min="1" max="500" step="1" class="oamt" data-uid="${uid}" data-ofocus="amt-${uid}" value="${v}" aria-label="${esc(i.title)}: Portionen"><span class="u">Port.</span>${btn(1, "mehr Portionen", v >= 500)}</span>`;
+    }
+    const linked = Boolean(i.product_id);
+    const unit = linked ? "Pck." : d.unit ?? i.unit ?? "";
+    const q = d.quantity ?? i.quantity;
+    const value = q != null && q !== "" ? Number(q) : "";
+    const step = amtStep(unit);
+    const units = [...new Set([...(unit ? [unit] : []), ...OCC_UNITS])];
+    const unitHtml = linked
+      ? `<span class="u">Pck.</span>`
+      : `<select class="ounit" data-uid="${uid}" data-ofocus="unit-${uid}" aria-label="${esc(i.title)}: Einheit">${unit ? "" : '<option value="" selected>–</option>'}${units.map((u) => `<option ${u === unit ? "selected" : ""}>${esc(u)}</option>`).join("")}</select>`;
+    const prod = `<button class="icon prodbtn ${linked ? "on" : ""}" data-oc="prod" data-uid="${uid}" title="${linked ? "Anderen Artikel wählen" : "Artikel aus deinen Läden wählen"}" aria-label="${esc(i.title)}: Artikel wählen">📦</button>`;
+    return `<span class="ocamt" role="group" aria-label="Menge">${btn(-1, "weniger", value === "" || value <= step)}<input type="number" inputmode="decimal" min="0" step="${step}" class="oamt" data-uid="${uid}" data-ofocus="amt-${uid}" value="${value === "" ? "" : Math.round(value * 1000) / 1000}" placeholder="Menge" aria-label="${esc(i.title)}: Menge">${unitHtml}${btn(1, "mehr", false)}</span>${prod}`;
+  }
+
+  /** "📦 Artikel" of an item: the products of the user's stores for its amount. */
+  _occProdHtml(st) {
+    const p = st.prod;
+    const item = (st.view.items || []).find((x) => x.uid === p.uid);
+    if (!item) return "";
+    let list;
+    if (p.loading) list = '<div class="hint">⏳ Suche Artikel …</div>';
+    else if (p.error) list = `<div class="notice err">${esc(p.error)}</div>`;
+    else {
+      const rows = (p.res?.products || [])
+        .map((a) => {
+          const cur = a.id === item.product_id;
+          const sub = [a.store, a.pack, a.on_offer ? `🏷️ Angebot${a.valid_to ? ` bis ${shortDate(a.valid_to)}` : ""}` : ""].filter(Boolean).join(" · ");
+          const cost = a.cost != null ? `<b>≈ ${eur(a.cost)}</b>${a.packs > 1 ? `<span class="meta">${a.packs} × ${eur(a.price)}</span>` : ""}` : `<b>${eur(a.price)}</b><span class="meta">je Packung</span>`;
+          return `<button class="sg ${cur ? "sel" : ""}" data-oc="prod-pick" data-pid="${esc(a.id)}"><span class="sthumb">${this._img(a.image, CATEGORY_ICONS[a.category] || "📦")}</span><span class="sgt"><b>${a.brand ? `${esc(a.brand)} ` : ""}${esc(a.name || a.title)}</b>${cur ? ' <span class="bdg">aktuell</span>' : ""}<div class="why">${esc(sub)}</div></span><span class="pp">${cost}</span></button>`;
+        })
+        .join("");
+      list = rows ? `<div class="suglist">${rows}</div>` : `<div class="hint">Keine Artikel aus deinen Läden gefunden${p.query ? ` für „${esc(p.query)}“` : ""} – such nach einem anderen Namen. Artikel kommen aus Angeboten, Onlinepreisen und Kassenzetteln.</div>`;
+    }
+    const amount = p.res?.quantity ? ` (${esc(qtyText(p.res))})` : "";
+    return `<div class="ocadd ocprod"><div class="hint">📦 Artikel für „${esc(p.res?.name || item.title)}“${amount} – aus deinen Läden, günstigste zuerst:</div>${list}
+        <div class="addq"><input type="search" class="oprodq" data-ofocus="prodq" placeholder="Anderen Artikel suchen …" value="${esc(p.query || "")}" enterkeyhint="search" aria-label="Artikel suchen"><button class="btn small" data-oc="prod-search" title="Suchen">🔎</button>${item.product_id ? '<button class="btn small" data-oc="prod-none" title="Wieder ohne festen Artikel">Ohne Artikel</button>' : ""}<button class="btn small ghost" data-oc="prod-close">Fertig</button></div>
+      </div>`;
   }
 
   /** The template's extras that belong to a dish course and are missing ("＋ Popcorn"). */
@@ -6318,7 +6499,7 @@ class EssensplanerPanel extends HTMLElement {
     const all = st.extras?.items || [];
     const missing = all.filter((e) => (e.course || "extra") === "extra");
     const rows = [
-      ...items.map((i) => `<label><input type="checkbox" checked data-oc="extra-off" data-uid="${esc(i.uid)}"><span>${esc(i.title)}</span><span class="meta">${esc([i.quantity_text, i.cost != null ? `≈ ${eur(i.cost)}` : ""].filter(Boolean).join(" · "))}</span></label>`),
+      ...items.map((i) => `<div class="exrow"><label><input type="checkbox" checked data-oc="extra-off" data-uid="${esc(i.uid)}"><span>${esc(i.title)}${i.product ? ` <span class="meta">📦 ${esc(i.product.title)}</span>` : ""}${i.reason ? `<span class="why">🤖 ${esc(i.reason)}</span>` : ""}</span><span class="meta">${i.cost != null ? `≈ ${eur(i.cost)}` : ""}</span></label><span class="ocr2">${this._occAmtHtml(st, i)}</span></div>`),
       ...missing.map((e) => `<label class="missing"><input type="checkbox" data-oc="extra-on" data-n="${all.indexOf(e)}"><span>${esc(e.title)}</span><span class="meta">${esc(qtyText(e))}</span></label>`),
     ];
     if (rows.length) return `<div class="extras">${rows.join("")}</div>`;
@@ -6400,7 +6581,11 @@ class EssensplanerPanel extends HTMLElement {
     if (!m) return "";
     const head = m.source === "ai" ? `🤖 Menü-Vorschlag von ${esc(this._aiName())}` : "💡 Menü-Vorschlag nach Regeln";
     const busy = m.aiBusy ? `<div class="notice"><span class="spin">⏳</span> ${esc(this._aiName())} stellt das Menü zusammen (${AI_WAIT}) – bis dahin die Vorschläge nach Regeln.</div>` : "";
-    const note = m.aiError ? `<div class="notice warn">🤖 ${esc(m.aiError)} Hier die Vorschläge nach Regeln.</div>` : "";
+    const note = m.aiError
+      ? `<div class="notice warn">🤖 ${esc(m.aiError)} Hier die Vorschläge nach Regeln.</div>`
+      : m.source === "ai"
+        ? `<div class="notice">🤖 ${esc(this._aiName())} hat aus deinen Rezepten und den Artikeln deiner Läden ein komplettes Menü mit Mengen geplant – geprüft gegen Gäste, Alkohol und was schon dabei ist.${m.notes ? `<br><span class="meta">„${esc(m.notes)}“</span>` : ""}</div>`
+        : "";
     if (m.loading && !m.suggestions) return `<div class="ocmenu"><h4>${head}</h4>${busy}<div class="hint">⏳ Stelle zusammen …</div></div>`;
     if (m.error) return `<div class="ocmenu"><h4>${head}</h4><div class="notice err">${esc(m.error)}</div><div class="ocmore"><button class="btn small ghost" data-oc="menu-close">Schließen</button></div></div>`;
     const sugg = this._occFreshMenu(st, m.suggestions);
@@ -6408,10 +6593,11 @@ class EssensplanerPanel extends HTMLElement {
       .map((c) => {
         const info = this._courseInfo(c);
         const rows = sugg[c]
-          .slice(0, c === "drink" ? 5 : c === "extra" ? 8 : 3)
+          .slice(0, m.source === "ai" ? Math.max(c === "drink" ? 5 : c === "extra" ? 8 : 3, sugg[c].filter((s) => s.ai).length) : c === "drink" ? 5 : c === "extra" ? 8 : 3)
           .map((s, n) => {
             const why = (s.reasons || []).join(" · ") || s.reason || s.hint || "";
-            const right = s.cost != null ? `≈ ${eur(s.cost)}` : qtyText(s);
+            const amount = s.servings_ai ? `${s.servings_ai} Port.` : s.product_id && s.quantity ? `${num(s.quantity)} Pck.` : qtyText(s);
+            const right = [s.ai ? amount : "", s.cost != null ? `≈ ${eur(s.cost)}` : s.ai ? "" : qtyText(s)].filter(Boolean).join(" · ");
             return `<div class="ocrow"><span class="oi"><b>${esc(s.title)}</b>${s.ai ? " 🤖" : ""}${c === "drink" ? ` ${alcBadge(s.alcohol, s.kids)}` : ""}${why ? `<div class="why">${esc(why)}</div>` : ""}</span>${right ? `<span class="meta">${esc(right)}</span>` : ""}<button class="btn small" data-oc="menu-add" data-course="${c}" data-n="${n}" aria-label="${esc(s.title)} hinzufügen">＋</button></div>`;
           })
           .join("");
@@ -6420,7 +6606,7 @@ class EssensplanerPanel extends HTMLElement {
       .join("");
     const picks = this._occMenuPicks(st, sugg).length;
     return `<div class="ocmenu" aria-live="polite"><h4>${head}</h4>${busy}${note}${groups ? `<div class="mcs">${groups}</div>` : '<div class="hint">Keine weiteren Vorschläge – es ist schon alles dabei.</div>'}
-        <div class="ocmore">${picks || st.applying ? `<button class="btn small primary" data-oc="menu-apply" ${st.applying ? "disabled" : ""} title="Je Gang so viele wie die Vorlage vorsieht, Getränke (wenn noch keine da sind) und fehlendes Zubehör">${st.applying ? "⏳ Übernehme …" : `✓ Fehlendes übernehmen (${picks})`}</button>` : groups ? '<span class="hint">Es fehlt nichts – einzelne Vorschläge kommen mit ＋ dazu.</span>' : ""}<button class="btn small ghost" data-oc="menu-close">Schließen</button></div>
+        <div class="ocmore">${picks || st.applying ? `<button class="btn small primary" data-oc="menu-apply" ${st.applying ? "disabled" : ""} title="Je Gang so viele wie die Vorlage vorsieht, Getränke (wenn noch keine da sind) und fehlendes Zubehör">${st.applying ? "⏳ Übernehme …" : `${m.source === "ai" ? "✓ Menü übernehmen" : "✓ Fehlendes übernehmen"} (${picks})`}</button>` : groups ? '<span class="hint">Es fehlt nichts – einzelne Vorschläge kommen mit ＋ dazu.</span>' : ""}<button class="btn small ghost" data-oc="menu-close">Schließen</button></div>
       </div>`;
   }
 
@@ -6443,6 +6629,12 @@ class EssensplanerPanel extends HTMLElement {
     for (const c of OCC_COURSES) {
       const list = sugg[c] || [];
       if (!list.length) continue;
+      // 1.5.1: the AI's whole plan (with its amounts); the rules where it left a course out
+      const fromAi = st.menu?.source === "ai" ? list.filter((s) => s.ai) : [];
+      if (fromAi.length) {
+        picks.push(...fromAi.map((s) => occItem(s, c)));
+        continue;
+      }
       const present = items.filter((i) => i.course === c).length;
       if (c === "drink") {
         if (!present) picks.push(...list.slice(0, 5).map((s) => occItem(s, c)));
@@ -6466,6 +6658,8 @@ class EssensplanerPanel extends HTMLElement {
       if (t.value && t.value !== o.time) this._occSave(st, { time: t.value });
     } else if (t.classList.contains("oallday")) this._occSave(st, { time: t.checked ? "" : this._occTemplate(o.template)?.time || "19:00" });
     else if (t.classList.contains("oguests") || t.classList.contains("ochildren")) this._occStep(st, t.classList.contains("oguests") ? "guests" : "children", 0, Number(t.value));
+    else if (t.classList.contains("oamt")) this._occAmt(st, t.dataset.uid, 0, t.value === "" ? 0 : Number(String(t.value).replace(",", ".")));
+    else if (t.classList.contains("ounit")) this._occAmt(st, t.dataset.uid, 0, null, t.value);
     else if (t.classList.contains("onotes")) {
       if (t.value !== (o.notes || "")) this._occSave(st, { notes: t.value });
     }
@@ -6544,7 +6738,7 @@ class EssensplanerPanel extends HTMLElement {
     if (!key) return;
     const el = body.querySelector(`[data-ofocus="${key}"]`);
     if (!el) return;
-    if (["title", "notes", "addq"].includes(key) && typed.value != null) el.value = typed.value;
+    if (["title", "notes", "addq", "prodq"].includes(key) && typed.value != null) el.value = typed.value;
     el.focus({ preventScroll: true });
     try {
       if (typed.caret != null && el.setSelectionRange) el.setSelectionRange(typed.caret, typed.caret);
@@ -6661,6 +6855,42 @@ class EssensplanerPanel extends HTMLElement {
         st.menuSeq = (st.menuSeq || 0) + 1;
         this._occRender(st);
         break;
+      case "amt":
+        this._occAmt(st, d.uid, Number(d.delta));
+        break;
+      case "prod":
+        if (st.prod?.uid === d.uid) {
+          st.prod = null;
+          this._occRender(st);
+          break;
+        }
+        st.prod = { uid: d.uid, query: "", loading: true, res: null, error: null };
+        this._occRender(st);
+        this._occLoadProducts(st);
+        break;
+      case "prod-search": {
+        if (!st.prod) break;
+        const input = st.root.querySelector(".oprodq");
+        st.prod.query = String(input?.value || "").trim();
+        st.prod.loading = true;
+        this._occRender(st);
+        this._occLoadProducts(st);
+        break;
+      }
+      case "prod-pick":
+      case "prod-none": {
+        const uid = st.prod?.uid;
+        if (!uid) break;
+        st.prod = null;
+        const saved = await this._occSave(st, { update_items: [{ uid, product_id: action === "prod-pick" ? d.pid : null }] });
+        const item = saved?.items?.find((x) => x.uid === uid);
+        if (saved && action === "prod-pick" && item) this._toast(`📦 ${item.title}: ${item.product?.title || "Artikel"}${item.quantity_text ? ` · ${item.quantity_text}` : ""}${item.cost != null ? ` ≈ ${eur(item.cost)}` : ""}`);
+        break;
+      }
+      case "prod-close":
+        st.prod = null;
+        this._occRender(st);
+        break;
       case "shop":
         await this._occShopping(st, el);
         break;
@@ -6681,6 +6911,66 @@ class EssensplanerPanel extends HTMLElement {
       default:
         break;
     }
+  }
+
+  /** − / ＋ or a typed amount (value; 0 = no quantity) or a unit of an item: shown at
+   *  once, saved after a short pause (typed: at once) – the answer brings the new costs. */
+  _occAmt(st, uid, delta, value = null, unit = null) {
+    const i = (st.view.items || []).find((x) => x.uid === uid);
+    if (!i) return;
+    st.amt = st.amt || {};
+    st.amtTimers = st.amtTimers || {};
+    const d = (st.amt[uid] = st.amt[uid] || {});
+    const typed = value != null && Number.isFinite(value);
+    if (i.recipe_id) {
+      const cur = Number(d.servings ?? i.servings ?? st.view.servings ?? 1);
+      d.servings = Math.max(1, Math.min(500, typed ? Math.round(value) || 1 : cur + delta));
+    } else {
+      if (unit != null) d.unit = unit;
+      const u = i.product_id ? "Pck." : d.unit ?? i.unit ?? "";
+      const step = amtStep(u);
+      const cur = Number(d.quantity ?? i.quantity ?? 0) || 0;
+      let next = typed ? value : unit != null ? cur || step : Math.round((cur + delta * step) / step) * step;
+      if (i.product_id) next = Math.max(1, Math.round(next));
+      next = Math.max(0, Math.min(10000, Math.round(next * 1000) / 1000));
+      d.quantity = next || null;
+    }
+    const input = st.root?.querySelector(`.oamt[data-uid="${CSS.escape(uid)}"]`);
+    const shown = i.recipe_id ? d.servings : d.quantity ?? "";
+    if (input && String(input.value) !== String(shown)) input.value = String(shown);
+    clearTimeout(st.amtTimers[uid]);
+    st.amtTimers[uid] = setTimeout(() => {
+      const draft = st.amt?.[uid];
+      if (!draft) return;
+      const change = { uid };
+      if (i.recipe_id) change.servings = draft.servings;
+      else {
+        change.quantity = draft.quantity ?? null;
+        if (draft.unit != null) change.unit = draft.unit;
+      }
+      this._occSave(st, { update_items: [change] }).then(() => {
+        if (st.amt?.[uid] === draft) delete st.amt[uid];
+      });
+    }, typed || unit != null ? 0 : 500);
+  }
+
+  /** The products of the user's stores for the item of "📦" (or what is searched). */
+  async _occLoadProducts(st) {
+    const p = st.prod;
+    if (!p) return;
+    const my = (st.prodSeq = (st.prodSeq || 0) + 1);
+    const msg = { type: `${DOMAIN}/occasion_products`, occasion_id: st.id, uid: p.uid, limit: 30 };
+    if (p.query) msg.query = p.query;
+    try {
+      const res = await this._hass.callWS(msg);
+      if (this._occ !== st || st.prodSeq !== my || st.prod !== p) return;
+      Object.assign(p, { res, loading: false, error: null });
+    } catch (err) {
+      if (this._occ !== st || st.prodSeq !== my || st.prod !== p) return;
+      Object.assign(p, { loading: false, error: errText(err) });
+    }
+    this._occRender(st);
+    st.root?.querySelector(".ocprod")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
   async _occLoadCourse(st, course) {
@@ -6762,6 +7052,7 @@ class EssensplanerPanel extends HTMLElement {
       if (res.ai?.ok) {
         st.menu.suggestions = res.suggestions || {};
         st.menu.source = "ai";
+        st.menu.notes = res.ai.notes || "";
       } else {
         st.menu.aiError = res.ai?.error || "Die KI hat nicht geantwortet.";
         st.menu.suggestions = st.menu.suggestions || res.suggestions || {};

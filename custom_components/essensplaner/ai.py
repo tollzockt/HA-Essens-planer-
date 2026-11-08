@@ -482,11 +482,13 @@ async def async_ai_json(
     instructions: str,
     payload: Any,
     timeout: float = AI_TIMEOUT,
+    limit: int = PAYLOAD_MAX,
 ) -> Any:
     """Ask the AI entity of a feature and return its JSON answer (dict or list).
 
     instructions: the German task (what to return); payload: the data (see the privacy
-    rules in the module docstring), sent as compact JSON of at most PAYLOAD_MAX characters.
+    rules in the module docstring), sent as compact JSON of at most limit characters
+    (default PAYLOAD_MAX; 1.5.1: the menus of occasions and the auto plan send more).
     Errors (ServiceValidationError with a German message): ai_feature_off, ai_not_configured,
     ai_unavailable, ai_busy, ai_failed (error answer, exception, timeout), ai_invalid (no
     JSON). The caller validates the answer against its own data."""
@@ -497,7 +499,7 @@ async def async_ai_json(
     entity = ai_entity(manager, feature)
     if entity is None:
         raise _error("ai_not_configured")
-    prompt = build_prompt(instructions, payload_json(payload))
+    prompt = build_prompt(instructions, payload_json(payload, limit))
     key = hashlib.sha1(
         "\x1f".join((feature, entity, task_name, prompt)).encode("utf-8"), usedforsecurity=False
     ).hexdigest()

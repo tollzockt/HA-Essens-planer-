@@ -1856,12 +1856,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         servings: int | None = None,
         strategy: str | None = None,
         order: list[str] | None = None,
+        picks: dict[tuple[str, str], str] | None = None,
     ) -> list[dict[str, Any]]:
         """Fill empty slots of the plan with suggestions (budget, offers, variety and season
-        aware). order (1.5, the AI's order of the rules' best candidates, see
-        season.async_auto_plan()): each slot gets the first recipe of the order that fits
-        the meal and is not planned yet – one of another kind than the day before when
-        there is one –, else a suggestion."""
+        aware). picks (1.5.1, the AI's plan, see season.async_auto_plan()): {(date, meal):
+        recipe id} – used when the recipe fits the meal and is not planned yet. order (1.5,
+        the AI's order of the rules' best candidates): each slot gets the first recipe of
+        the order that fits the meal and is not planned yet – one of another kind than the
+        day before when there is one –, else a suggestion."""
         meals = meals or [self.default_meal]
         planned: list[dict[str, Any]] = []
         used: set[str] = set()
@@ -1893,7 +1895,17 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                     "target_cost": target,
                     "servings": servings or self.default_servings,
                 }
-                suggestion = self._ordered_pick(order, day, meal, used | nearby) if order else []
+                suggestion = []
+                picked = self.recipes.get((picks or {}).get((day.isoformat(), meal)) or "")
+                if (
+                    picked is not None
+                    and picked["id"] not in used | nearby
+                    and self._fits_meal(picked, meal)
+                    and not self.is_excluded(picked)
+                ):
+                    suggestion = [picked]
+                if not suggestion and order:
+                    suggestion = self._ordered_pick(order, day, meal, used | nearby)
                 if not suggestion:
                     suggestion = self.suggest(1, exclude=used | nearby, **options)
                 if not suggestion and nearby:
@@ -1915,6 +1927,65 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if planned:
             self._changed("plan")
         return planned
+
+    def replan_meal(
+        self,
+        day: date,
+        meal: str,
+        strategy: str | None = None,
+        exclude: set[str] | None = None,
+        servings: int | None = None,
+        rng: random.Random | None = None,
+    ) -> dict[str, Any]:
+        """A new suggestion for one slot (1.5.1, "🔄 Neu vorschlagen" after the auto plan):
+        by the same weights as the auto plan (strategy, season, offers, the budget left
+        without the replaced dish, variety), never the dish planned there, the excluded
+        ones or – while there are others – a dish planned within six days. Keeps the
+        servings of the slot. {entry (plan entry view) | None (no other recipe fits: the
+        slot is kept), previous {recipe_id, title} | None}."""
+        if meal not in ALL_MEALS:
+            raise _error("invalid_meal", meal=meal)
+        iso = day.isoformat()
+        current = self.plan.get(iso, {}).get(meal)
+        skip = set(exclude or ())
+        if current and current.get("recipe_id"):
+            skip.add(current["recipe_id"])
+        nearby: set[str] = set()
+        for offset in range(-6, 7):
+            for other, entry in self.plan.get(
+                (day + timedelta(days=offset)).isoformat(), {}
+            ).items():
+                if (offset or other != meal) and entry.get("recipe_id"):
+                    nearby.add(entry["recipe_id"])
+        servings = servings or (current or {}).get("servings") or self.default_servings
+        # the budget target and the variety without the dish that is replaced
+        held = self.plan.get(iso, {}).pop(meal, None)
+        try:
+            planned = max(1, len(self.plan.get(iso, {})) + 1)
+            target = self.budget_target(day, planned) if self.weekly_budget else None
+            options = {
+                "meal": meal,
+                "around": day,
+                "strategy": strategy,
+                "target_cost": target,
+                "servings": servings,
+                "rng": rng,
+            }
+            found = self.suggest(1, exclude=skip | nearby, **options)
+            if not found:
+                found = self.suggest(1, exclude=skip, **options)  # few recipes
+        finally:
+            if held is not None:
+                self.plan.setdefault(iso, {})[meal] = held
+        previous = (
+            {"recipe_id": current.get("recipe_id"), "title": current.get("title")}
+            if current
+            else None
+        )
+        if not found:
+            return {"entry": None, "previous": previous}
+        entry = self.plan_meal(day, meal, recipe=found[0], servings=servings, as_extra=False)
+        return {"entry": entry, "previous": previous}
 
     def _ordered_pick(
         self, order: list[str], day: date, meal: str, taken: set[str]

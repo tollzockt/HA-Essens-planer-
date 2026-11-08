@@ -635,7 +635,10 @@
    "Ei",
    "Eigelb",
    "Eiklar",
-   "Eiweiß"
+   "Eiweiß",
+   "Eier zum Färben",
+   "Ostereier",
+   "Bunte Eier"
   ]
  },
  {
@@ -2904,7 +2907,12 @@
    "Zitronenlimonade",
    "Orangenlimonade",
    "Ingwerlimonade",
-   "Fassbrause"
+   "Fassbrause",
+   "Fanta",
+   "Sprite",
+   "Orangenlimo",
+   "Zitronenlimo",
+   "Brause"
   ]
  },
  {
@@ -2926,6 +2934,41 @@
   "aliases": [
    "Pfirsich-Eistee",
    "Zitronen-Eistee"
+  ]
+ },
+ {
+  "name": "Cola",
+  "amount": 1500,
+  "unit": "ml",
+  "price": 0.99,
+  "aliases": [
+   "Cola Zero",
+   "Cola light",
+   "Cola-Mix",
+   "Colamix",
+   "Spezi",
+   "Mezzo Mix"
+  ]
+ },
+ {
+  "name": "Bowle",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 2.99,
+  "aliases": [
+   "Erdbeerbowle",
+   "Fertigbowle",
+   "Pfirsichbowle"
+  ]
+ },
+ {
+  "name": "Alkoholfreie Bowle",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 2.49,
+  "aliases": [
+   "Kinderbowle",
+   "Bowle alkoholfrei"
   ]
  },
  {

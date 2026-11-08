@@ -792,6 +792,32 @@
         }
       }
     },
+    "replan_meal": {
+      "name": "Suggest a meal again",
+      "description": "Replaces the meal of a day with a new suggestion (like the auto plan: strategy, season, offers, budget, variety) – never the same dish and, while there are others, none of the week.",
+      "fields": {
+        "date": {
+          "name": "Date",
+          "description": "e.g. \"heute\", \"morgen\", \"Freitag\" or YYYY-MM-DD."
+        },
+        "meal": {
+          "name": "Meal",
+          "description": "Breakfast, lunch, snack or dinner (default: the default meal)."
+        },
+        "strategy": {
+          "name": "Strategy",
+          "description": "balanced, cheap (budget), offers (use current offers), variety or seasonal (what is in season)."
+        },
+        "exclude": {
+          "name": "Do not suggest",
+          "description": "Recipes (names or ids) not to suggest, e.g. the ones shown before."
+        },
+        "servings": {
+          "name": "Servings",
+          "description": "Number of servings (default: those of the meal)."
+        }
+      }
+    },
     "generate_shopping_list": {
       "name": "Generate shopping list",
       "description": "Creates the shopping list from the planned recipes. With a main store the items are assigned to your stores (main store + exceptions); the response then contains the stores with subtotals.",

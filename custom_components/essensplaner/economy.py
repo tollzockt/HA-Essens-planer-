@@ -890,7 +890,11 @@ class EconomyMixin:
         store: a chain ("Lidl"), an own branch label ("Lidl Arbeit") or "Hauptladen" (offers
         of that branch); without a matching branch a part of the store name (1.2).
         """
+        from .catalog import leaflet_week_day
+
         today = self.today()
+        # 1.5.1: like the leaflets – on Sunday the offers from Monday are this week's
+        week = leaflet_week_day(today).isoformat()
         active = self.active_retailers()
         in_store = self._offer_store_filter(store) if store else None
         result = []
@@ -901,7 +905,7 @@ class EconomyMixin:
             end = (offer.get("valid_to") or "9999-12-31")[:10]
             if end < today.isoformat():
                 continue
-            is_current = not start or start <= today.isoformat()
+            is_current = not start or start <= week
             if when == "current" and not is_current:
                 continue
             if when == "upcoming" and is_current:

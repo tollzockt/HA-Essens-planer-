@@ -792,6 +792,32 @@
         }
       }
     },
+    "replan_meal": {
+      "name": "Mahlzeit neu vorschlagen",
+      "description": "Ersetzt die Mahlzeit eines Tages durch einen neuen Vorschlag (wie beim automatischen Planen: Strategie, Saison, Angebote, Budget, Abwechslung) – nie dasselbe Gericht und, solange es andere gibt, keins der Woche.",
+      "fields": {
+        "date": {
+          "name": "Datum",
+          "description": "z. B. „heute“, „morgen“, „Freitag“ oder JJJJ-MM-TT."
+        },
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Frühstück, Mittagessen, Snack oder Abendessen (Standard: Standard-Mahlzeit)."
+        },
+        "strategy": {
+          "name": "Strategie",
+          "description": "ausgewogen, günstig (Budget), Angebote nutzen, Abwechslung oder saisonal (was gerade Saison hat)."
+        },
+        "exclude": {
+          "name": "Nicht vorschlagen",
+          "description": "Rezepte (Namen oder IDs), die nicht vorgeschlagen werden sollen, z. B. die schon gezeigten."
+        },
+        "servings": {
+          "name": "Portionen",
+          "description": "Anzahl der Portionen (Standard: die der Mahlzeit)."
+        }
+      }
+    },
     "generate_shopping_list": {
       "name": "Einkaufsliste erstellen",
       "description": "Erstellt die Einkaufsliste aus den geplanten Rezepten. Mit Hauptladen werden die Artikel deinen Läden zugeordnet (Hauptladen + Ausnahmen); die Antwort enthält dann die Läden mit Zwischensumme.",
