@@ -30,8 +30,9 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
 ### Drogerien als Läden
 - **Rossmann, dm, Müller und Budni** gibt es als Ketten: in der Filialsuche (OpenStreetMap,
   Drogerien sind dort `shop=chemist`), beim Speichern von Hand, in den Einstellungen, per Sprache
-  („Was kaufe ich bei Rossmann?“) und bei Angeboten. Ein „Müller“-Leuchtengeschäft oder
-  -Optiker wird nicht als Drogerie erkannt.
+  („Was kaufe ich bei Rossmann?“, „Was kaufe ich in der Drogerie?“, „Was hat Rossmann im
+  Angebot?“) und bei Angeboten. Ein „Müller“-Leuchtengeschäft oder -Optiker wird nicht als
+  Drogerie erkannt.
 - Neue Abteilungen **„Drogerie & Körperpflege“** und **„Haushalt & Reinigung“** mit gut 30
   Richtwerten (Zahnpasta, Duschgel, Waschmittel in Waschladungen, Toilettenpapier in Rollen …).
   „Crème fraîche“ bleibt ein Milchprodukt.
@@ -39,21 +40,29 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   ein echtes Angebot. Eine Drogerie wird nie automatisch Hauptladen, Drogerie-Angebote
   („Babyöl“) zählen nie für Lebensmittel.
 - Eine Drogerie, die in 1.3 als andere Kette gespeichert wurde (z. B. „ROSSMANN
-  Drogeriemarkt“ als Marktkauf), wird beim Update auf die richtige Kette umgestellt.
+  Drogeriemarkt“ als Marktkauf), wird beim Update auf die richtige Kette umgestellt; die
+  Prospektpreise, die 1.3 dafür von Marktkauf gelernt hatte, werden verworfen (keine
+  „Marktkauf“-Spalte in der Preisliste). Offene Artikel aus 1.3 wie „Toilettenpapier“ oder
+  „Zahnpasta“ bekommen ihre neue Abteilung (und kommen in die Drogerie), Rezeptzeilen wie
+  „1 Rolle Blätterteig“ die neue Einheit Rolle.
 
 ### Preise und Angebote direkt von den Ketten
-- **ALDI-SÜD-Onlinepreise** (experimentell, Option „ALDI-SÜD-Onlinepreise“, standardmäßig aus):
-  einmal pro Woche Normalpreise von der ALDI-SÜD-Website für deine ALDI-SÜD-Filiale (die
-  nächste ALDI-Filiale wird über die Lage deiner Filiale bzw. Zuhause bestimmt; „Filiale
-  suchen“ / `find_aldi_stores`). Reduzierte Artikel: der Streichpreis wird als Normalpreis
+- **ALDI-SÜD-Onlinepreise** (experimentell, Einstellung „ALDI-SÜD-Preise“ unter ⚙️ →
+  Angebote & Preisquellen, standardmäßig aus): einmal pro Woche Normalpreise von der
+  ALDI-SÜD-Website für deine ALDI-SÜD-Filiale (die nächste ALDI-Filiale wird über die Lage
+  deiner Filiale – auf ca. 100 m gerundet – bzw. von Zuhause – auf ca. 1 km gerundet –
+  bestimmt; „🔗 ALDI-Filiale verknüpfen“ / `find_aldi_stores`). Reduzierte Artikel: der Streichpreis wird als Normalpreis
   gelernt, der reduzierte Preis ist bis Samstag ein Angebot. Auch „Artikel hinzufügen“ sucht
   bei ALDI SÜD live. Die ALDI-SÜD-Wochenangebote („Wochenangebote“) sind abrufbar und kommen in
   die Angebotsübersicht.
-- **EDEKA-Angebote deines Markts** (Option „EDEKA-Angebote deines Markts“, standardmäßig aus):
-  täglich die Prospekt-Angebote deines EDEKA-Markts von edeka.de – mit Packung, Grundpreis,
-  Gültigkeit, PAYBACK-/App-Hinweis und Pfand als Hinweis. Passende Angebote zählen für
-  Planung, Budget und Einkaufsliste dieser Filiale. Markt verknüpfen: „Markt suchen“ /
-  `find_edeka_markets`, dann `save_branch` mit `edeka_market_id`.
+- **EDEKA-Angebote deines Markts** (Einstellung „EDEKA-Angebote“ unter ⚙️ → Angebote &
+  Preisquellen, standardmäßig aus): täglich die Prospekt-Angebote deines EDEKA-Markts von
+  edeka.de – mit Packung, Grundpreis, Gültigkeit, PAYBACK-/App-Hinweis und Pfand als Hinweis.
+  Passende Angebote zählen für Planung, Budget und Einkaufsliste dieser Filiale. Markt
+  verknüpfen: „🔎 EDEKA-Markt suchen“ / `find_edeka_markets`, dann `save_branch` mit
+  `edeka_market_id` – die Angebote werden etwa eine Minute danach geladen.
+- Die Angebotsbilder lädt dein Browser von `offer-images.api.edeka` (EDEKA) bzw.
+  `dm.emea.cms.aldi.cx` (ALDI SÜD), wie bisher die marktguru-Bilder von `cdn.marktguru.de`.
 - `refresh_prices` kennt die Quellen `aldi` und `edeka`; neue Aktionen `find_aldi_stores` und
   `find_edeka_markets`. Beide Ketten pausieren 7 Tage, wenn sie automatische Abfragen ablehnen;
   es wird nichts umgangen.
@@ -68,10 +77,18 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   oder EDEKA), bekommen die Prospektseiten als Bilder mit Link zum Prospekt.
 - **Viel weniger Abfragen bei marktguru:** statt einer Suche je Zutat (bis zu ~90 am Tag) wird
   je Kette und Postleitzahl der ganze Prospekt geladen – für sechs Läden etwa 10–15 Anfragen,
-  alle 3 Tage und zum neuen Prospekt (Samstag/Sonntag bzw. Montag). Der Abgleich mit Rezepten,
+  alle 3 Tage und zum neuen Prospekt (Samstag, Sonntag und Montag je einmal – REWE und Netto
+  veröffentlichen die neue Woche erst am Sonntag). Ein fehlgeschlagener Abruf wird beim
+  nächsten Tagesabruf wiederholt, nicht im Minutentakt. Der Abgleich mit Rezepten,
   Merkliste, Einkaufsliste und Preisliste passiert lokal. „Angebote aktualisieren“ fragt
   höchstens einmal pro Stunde (außer deine Läden haben sich geändert). Lehnt marktguru ab,
-  wird 7 Tage pausiert.
+  wird 7 Tage pausiert – auch die Live-Suche und „Artikel hinzufügen“. Schaltest du marktguru
+  aus, verschwinden seine Angebote sofort.
+- Angebote werden nach dem Produkt selbst zugeordnet, nicht nach Sorte oder Füllung:
+  „Skyr Drink Erdbeere“ ist kein Erdbeer-Angebot, ALDIs „Apfelmus 360 g, Apfel“ kein Apfel,
+  „Granatapfel“ kein Apfel, „Geschirrreiniger“ kein WC-Reiniger; gelernte Normalpreise
+  stammen nur von Angeboten des Produkts selbst. Lebensmittel bei Drogerien (Kaffee, Riegel,
+  Haferdrink) erscheinen unter „Lebensmittel“.
 - **Normalpreise aus dem ganzen Prospekt:** Streichpreise, Lidls „Normalpreis: 1.35“ und die
   Streichpreise von ALDI SÜD werden für alle Artikel der Preisliste gelernt (mit
   Plausibilitätsprüfung), nicht nur für gesuchte Zutaten.
@@ -102,18 +119,24 @@ Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplan
   Fotos und PDFs optional eine **KI-Aufgabe** (AI Task) – neue Option „KI-Aufgabe für
   Kassenzettel-Fotos“, standardmäßig keine. Der KI wird nur das Bild geschickt.
 - Laden und Filiale kommen aus dem Kopf des Kassenzettels (Kette, Postleitzahl, Straße),
-  Abkürzungen wie „H-MILCH 1,5%“, „HACKFL.GEM.“ oder „BIO EIER 10ER“ werden den Artikeln
-  zugeordnet, die Packung aus der Zeile oder dem Ladenpreis. Unbekanntes ordnest du zu oder
-  ignorierst es; die Zuordnung wird für die nächsten Kassenzettel gemerkt.
+  Abkürzungen wie „H-MILCH 1,5%“, „HACKFL.GEM.“, „BIO EIER 10ER“, „EIER BOD.10ER M“ oder
+  „PASS.TOMATEN“ werden den Artikeln zugeordnet, die Packung aus der Zeile oder dem
+  Ladenpreis. Unbekanntes ordnest du zu oder ignorierst es; die Zuordnung wird für die
+  nächsten Kassenzettel gemerkt. Auch Text aus der Text-Erkennung am Handy, die Name und Preis
+  trennt (abwechselnd oder als zwei Spalten), wird gelesen.
 - Nach dem Prüfen werden die Preise **eigene Preise des Ladens** (Quelle „Kassenzettel“
   mit Datum und Verlauf, in der Preisliste „🧾 Kassenzettel 07.11.“). Ein neuerer
-  Kassenzettel ersetzt einen älteren Preis, ein später eingetippter Preis bleibt.
+  Kassenzettel ersetzt einen älteren Preis, ein später eingetippter Preis bleibt. Ein
+  Angebotspreis des Ladens an diesem Tag wird nicht zum Normalpreis (nur Verlauf). „Mit
+  Preisen löschen“ stellt den Preis davor wieder her (eingetippt oder älterer Kassenzettel).
 - Neue Aktionen `receipt_parse_text`, `receipt_scan`, `receipt_save`, `get_receipts` und
   `delete_receipt`; für das Panel die Websockets `essensplaner/receipts`, `receipt_parse`,
   `receipt_save`, `receipt_delete` und der Foto-Upload `/api/essensplaner/receipt_upload`
-  (nur Administratoren, höchstens 10 MB, JPG/PNG/WebP/PDF). Bis zu 200 Kassenzettel in
-  `.storage/essensplaner.receipts.<id>`, Fotos in `/media/essensplaner/receipts/`; beides
-  wird mit der Integration gelöscht (andere Dateien im Medienordner nicht).
+  (alles nur für Administratoren, höchstens 10 MB, JPG/PNG/WebP/PDF). Bis zu 200
+  Kassenzettel in `.storage/essensplaner.receipts.<id>`, Fotos in
+  `.storage/essensplaner_receipts/` – nicht im Medienordner, den jeder Benutzer durchsuchen
+  kann; die KI-Aufgabe bekommt sie über eine eigene Medienquelle, die nichts auflistet.
+  Beides wird mit der Integration gelöscht (andere Dateien nicht).
 
 ### Panel
 - **Angebote:** Umschalter „🍽️ Für meine Rezepte“ (wie bisher) und „🏪 Alle Angebote meiner

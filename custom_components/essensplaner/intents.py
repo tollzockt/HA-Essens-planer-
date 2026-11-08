@@ -8,6 +8,7 @@ valid tool name (lower case snake case).
 
 from __future__ import annotations
 
+import contextlib
 from datetime import date, timedelta
 import logging
 import re
@@ -99,7 +100,10 @@ class _SpokenError(HomeAssistantError):
 def _split_off_reason(manager: EssensplanerManager) -> str:
     """Why the shopping list is not split by store right now."""
     if manager.split_mode == SPLIT_OFF:
-        return "Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet."
+        return (
+            "Die Aufteilung nach Läden ist ausgeschaltet (im Essensplaner-Panel unter "
+            "Einstellungen, Läden und Einkauf)."
+        )
     return (
         "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich einen "
         "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“)."
@@ -824,9 +828,11 @@ class GetOffersIntent(_EssensplanerIntent):
 
     intent_type = INTENT_GET_OFFERS
     description = (
-        "Essensplaner: nennt aktuelle oder kommende Supermarkt-Angebote (Aldi, Lidl, Rewe …), "
-        "passend zu den eigenen Rezepten ('Welche Angebote gibt es diese Woche?', 'Wo ist "
-        "Butter im Angebot?'). Returns supermarket offers."
+        "Essensplaner: nennt aktuelle oder kommende Angebote der eigenen Läden – Supermärkte "
+        "und Drogerien (Aldi, Lidl, Rewe, Rossmann, dm …): ohne Laden und Produkt die zu den "
+        "eigenen Rezepten passenden, mit Laden oder Produkt alle Angebote des Prospekts "
+        "('Welche Angebote gibt es diese Woche?', 'Was hat Rossmann im Angebot?', 'Wo ist "
+        "Butter im Angebot?', 'Was gibt es in der Drogerie im Angebot?'). Returns offers."
     )
     slot_schema = {
         vol.Optional("query", description="Produkt/Zutat, z. B. 'Hähnchen'"): cv.string,
@@ -854,21 +860,44 @@ class GetOffersIntent(_EssensplanerIntent):
         ):
             query, store = match[1].strip(), match[2].strip()
         offers = manager.offers_view(when, query, store, 50)
+        if store or query or not offers:
+            # 1.4: every offer of the saved stores' leaflets (also drugstores and products
+            # not planned), after the offers matching the recipes
+            offers = _merge_offers(offers, _catalog_offers(manager, when, query, store))
+        prefix = ""
+        if not offers and when == "current":
+            # nothing yet, the new week starts soon ("Was hat Rossmann im Angebot?" on Sunday)
+            offers = _merge_offers(
+                manager.offers_view("upcoming", query, store, 50),
+                _catalog_offers(manager, "upcoming", query, store),
+            )
+            if offers:
+                start = min(str(o.get("valid_from") or "")[:10] for o in offers)
+                with contextlib.suppress(ValueError):
+                    prefix = (
+                        "Gerade nicht, aber "
+                        f"{describe_date(date.fromisoformat(start), manager.today())} "
+                    )
         if not offers:
-            hint = ""
-            if manager.offers_source == "off" and not manager.offers:
-                hint = " Online-Angebote sind in den Einstellungen noch nicht aktiviert."
-            return f"Ich habe keine passenden Angebote gefunden.{hint}", {"offers": []}
+            return (
+                f"Ich habe keine passenden Angebote gefunden.{_offers_hint(manager)}",
+                {"offers": []},
+            )
         top = offers[:5]
         parts = []
         for offer in top:
             until = ""
             if offer.get("valid_to"):
                 until = f" bis {describe_date(date.fromisoformat(offer['valid_to'][:10]), manager.today()).removeprefix('am ')}"
+            title = offer.get("title") or offer.get("product") or ""
             parts.append(
-                f"{offer['title']} bei {offer['store']} für {format_eur(offer['price'])}{until}"
+                f"{title} bei {offer.get('store') or ''} für {format_eur(offer['price'])}{until}"
             )
-        speech = f"Ich habe {len(offers)} Angebote gefunden, zum Beispiel {_join(parts)}."
+        count = "ein Angebot" if len(offers) == 1 else f"{len(offers)} Angebote"
+        head = f"{prefix}gibt es {count}" if prefix else f"Ich habe {count} gefunden"
+        listed = _join(parts)
+        end = "" if listed.endswith(".") else "."  # "bis Freitag, 13.11."
+        speech = f"{head}{':' if len(offers) == 1 else ', zum Beispiel'} {listed}{end}"
         compact = [
             {
                 k: o.get(k)
@@ -885,6 +914,69 @@ class GetOffersIntent(_EssensplanerIntent):
             for o in offers[:20]
         ]
         return speech, {"offers": compact}
+
+
+def _catalog_offers(
+    manager: EssensplanerManager, when: str, query: str | None, store: str | None
+) -> list[dict[str, Any]]:
+    """Offers of the offer catalog (all offers of the saved stores) for a store and / or
+    product question; a store that names no saved branch: its chain's offers."""
+    from .catalog import store_offers_view  # the catalog imports the manager
+
+    branch_ids: list[str] | None = None
+    retailer: str | None = None
+    if store and not manager.is_generic_store(store):
+        branches = manager._match_branches(store)
+        branch_ids = [b["id"] for b in branches if b.get("id")]
+        if not branch_ids:
+            retailer = manager.resolve_store(store)
+            if retailer is None:
+                return []
+            branch_ids = None
+    view = store_offers_view(
+        manager, branch_ids=branch_ids, when=when, query=query, limit=200, sort="saving"
+    )
+    return [
+        o
+        for o in view["offers"]
+        if not o.get("online_only") and (retailer is None or o.get("retailer") == retailer)
+    ]
+
+
+def _merge_offers(
+    first: list[dict[str, Any]], second: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """first, then the offers of second that are not in it (same id)."""
+    ids = {o.get("id") for o in first if o.get("id")}
+    return [*first, *(o for o in second if not o.get("id") or o["id"] not in ids)]
+
+
+def _offers_hint(manager: EssensplanerManager) -> str:
+    """Why no offer may be known: no source on, the EDEKA market not linked, nothing
+    fetched yet."""
+    from .catalog import catalog_enabled, catalog_status  # the catalog imports the manager
+    from .edeka import edeka_enabled, edeka_markets
+
+    if not catalog_enabled(manager):
+        if manager.offers:
+            return ""
+        return (
+            " Online-Angebote sind nicht eingeschaltet (im Essensplaner-Panel unter "
+            "Einstellungen, Angebote und Preisquellen)."
+        )
+    hints = []
+    if (
+        edeka_enabled(manager)
+        and any(b.get("retailer") == "edeka" for b in manager.selected_branches())
+        and not edeka_markets(manager)
+    ):
+        hints.append(
+            "Für EDEKA-Angebote fehlt noch die Markt-ID (im Essensplaner-Panel unter Läden "
+            "und Preise, EDEKA-Markt suchen)."
+        )
+    if catalog_status(manager) == "pending":
+        hints.append("Die Angebote wurden noch nicht abgerufen.")
+    return "".join(f" {h}" for h in hints)
 
 
 class AddOfferIntent(_EssensplanerIntent):

@@ -250,7 +250,7 @@
       "message": "ALDI SÜD online prices are not enabled (experimental, Essensplaner panel → settings → offers & price sources)."
     },
     "aldi_no_store": {
-      "message": "No ALDI SÜD branch – add an ALDI SÜD branch in the panel (best from the map search) or choose it with 'Find ALDI SÜD stores'."
+      "message": "No ALDI SÜD branch – add an ALDI SÜD branch in the panel (best from the map search) or link it with '🔗 Link ALDI store' (action 'Find ALDI SÜD stores')."
     },
     "aldi_blocked": {
       "message": "The ALDI SÜD web site does not allow automated requests right now ({error})."
@@ -983,7 +983,7 @@
         },
         "aldi_service_point": {
           "name": "ALDI SÜD store number",
-          "description": "ALDI SÜD only: store for the ALDI SÜD online prices (e.g. B402, find it with 'Find ALDI SÜD stores'; empty = the nearest one automatically)."
+          "description": "ALDI SÜD only: store for the ALDI SÜD online prices (e.g. B402, find it with '🔗 Link ALDI store' or the action 'Find ALDI SÜD stores'; empty = the nearest one automatically)."
         }
       }
     },
@@ -1167,7 +1167,7 @@
         },
         "media_content_id": {
           "name": "Media ID",
-          "description": "Alternatively: an image in the media folder, e.g. media-source://media_source/local/essensplaner/receipts/bon.jpg."
+          "description": "Alternatively: an image in the media folder, e.g. media-source://media_source/local/kassenzettel/bon.jpg (uploaded receipts: their upload_id)."
         },
         "entity_id": {
           "name": "AI task",

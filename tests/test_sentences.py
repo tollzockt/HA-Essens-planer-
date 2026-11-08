@@ -108,6 +108,20 @@ def test_all_intents_exist(intents: Intents) -> None:
         ("was kaufe ich bei rossmann", "essensplaner_get_shopping_list", {"store": "rossmann"}),
         ("was muss ich beim dm kaufen", "essensplaner_get_shopping_list", {"store": "dm"}),
         ("was hat müller im angebot", "essensplaner_get_offers", {"store": "müller"}),
+        # the drugstore (voice-docs-r1-2)
+        ("was kaufe ich in der drogerie", "essensplaner_get_shopping_list", {"store": "drogerie"}),
+        (
+            "was muss ich in der drogerie kaufen",
+            "essensplaner_get_shopping_list",
+            {"store": "drogerie"},
+        ),
+        ("was holen wir im drogeriemarkt", "essensplaner_get_shopping_list", {"store": "drogerie"}),
+        (
+            "was gibt es in der drogerie gerade im angebot",
+            "essensplaner_get_offers",
+            {"store": "drogerie"},
+        ),
+        ("welche angebote hat die drogerie", "essensplaner_get_offers", {"store": "drogerie"}),
         (
             "kauf zahnpasta immer bei budni",
             "essensplaner_set_shopping_store",

@@ -833,7 +833,8 @@ async def test_refresh_schedule(
 
 
 def test_catalog_stale(hass: HomeAssistant, berlin) -> None:
-    """3 days, a new leaflet week (Saturday / Monday) or other stores."""
+    """3 days, a new leaflet week (Saturday, Sunday, Monday: REWE and Netto publish the new
+    week only on Sunday) or other stores."""
     store = OfferCatalog(hass, "x")
     plan = {"signature": "a"}
 
@@ -845,8 +846,11 @@ def test_catalog_stale(hass: HomeAssistant, berlin) -> None:
     assert stale("2026-11-02T07:00:00+01:00", "2026-11-05T06:30:00+01:00")  # Mon -> Thu
     assert not stale("2026-11-02T07:00:00+01:00", "2026-11-04T06:30:00+01:00")  # Wed
     assert stale("2026-11-06T07:00:00+01:00", "2026-11-07T06:30:00+01:00")  # Fri -> Sat
-    assert not stale("2026-11-07T07:00:00+01:00", "2026-11-08T06:30:00+01:00")  # Sat -> Sun
-    assert stale("2026-11-07T07:00:00+01:00", "2026-11-09T06:30:00+01:00")  # -> Monday
+    assert stale("2026-11-07T07:00:00+01:00", "2026-11-08T06:30:00+01:00")  # Sat -> Sun
+    assert not stale("2026-11-08T06:30:00+01:00", "2026-11-08T21:00:00+01:00")  # Sun again
+    assert stale("2026-11-08T06:30:00+01:00", "2026-11-09T06:30:00+01:00")  # -> Monday
+    assert stale("2026-11-07T07:00:00+01:00", "2026-11-09T06:30:00+01:00")  # Sat -> Monday
+    assert not stale("2026-11-07T07:00:00+01:00", "2026-11-07T21:00:00+01:00")  # Sat again
     assert not stale("2026-11-09T06:30:00+01:00", "2026-11-09T18:00:00+01:00")
     assert stale("2026-11-09T06:30:00+01:00", "2026-11-09T18:00:00+01:00", signature="b")
     store.data["last_success"] = None

@@ -18,11 +18,12 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.service import async_register_admin_service
 import voluptuous as vol
 
 from .aldi import SOURCE_ALDI, async_find_aldi_stores, async_refresh_aldi_prices
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE, async_find_branches
-from .catalog import catalog_plan
+from .catalog import catalog_plan, marktguru_paused, pause_marktguru, paused_message
 from .const import (
     ATTR_COOK_TIME,
     ATTR_COUNT,
@@ -109,7 +110,7 @@ from .const import (
 from .dates import DateParseError, parse_date, parse_meal, week_start
 from .edeka import SOURCE_EDEKA, async_find_edeka_markets, async_refresh_edeka_offers
 from .ingredients import fold
-from .offers import async_refresh_offers, async_search_target_offers
+from .offers import OfferBlocked, async_refresh_offers, async_search_target_offers
 from .receipts import (
     async_delete_receipt,
     async_parse_receipt_text,
@@ -827,10 +828,17 @@ def async_setup_services(hass: HomeAssistant) -> None:
         live: list[dict[str, Any]] = []
         error = None
         targets = manager.offer_targets() if manager.offers_source == OFFERS_MARKTGURU else []
-        if targets:
+        if targets and (until := marktguru_paused(manager)):
+            error = paused_message(until)  # it refused: nothing is asked meanwhile
+        elif targets:
             # only the user's chains (numeric ids from the catalog's discovery)
             ids = {z: manager.catalog.publisher_ids(z, r) for z, r in targets}
-            live, errors = await async_search_target_offers(hass, query, targets, retailer_ids=ids)
+            try:
+                live, errors = await async_search_target_offers(
+                    hass, query, targets, retailer_ids=ids
+                )
+            except OfferBlocked:
+                live, errors = [], [paused_message(pause_marktguru(manager))]
             error = "; ".join(errors) if errors else None
         live.sort(key=lambda o: (o.get("unit_price") or 9e9, o["price"]))
         return {
@@ -1056,13 +1064,20 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_FIND_REWE_MARKETS, find_rewe_markets, FIND_REWE_MARKETS_SCHEMA),
         (SERVICE_FIND_EDEKA_MARKETS, find_edeka_markets, FIND_EDEKA_MARKETS_SCHEMA),
         (SERVICE_FIND_ALDI_STORES, find_aldi_stores, FIND_ALDI_STORES_SCHEMA),
+    ]
+    for name, handler, schema in services:
+        hass.services.async_register(
+            DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.OPTIONAL
+        )
+    # receipts are for admins (like their websockets, the upload and the image view);
+    # calls without a user (automations, scripts) are allowed
+    for name, handler, schema in (
         (SERVICE_RECEIPT_PARSE_TEXT, receipt_parse_text, RECEIPT_PARSE_TEXT_SCHEMA),
         (SERVICE_RECEIPT_SCAN, receipt_scan, RECEIPT_SCAN_SCHEMA),
         (SERVICE_RECEIPT_SAVE, receipt_save, RECEIPT_SAVE_SCHEMA),
         (SERVICE_GET_RECEIPTS, get_receipts, GET_RECEIPTS_SCHEMA),
         (SERVICE_DELETE_RECEIPT, delete_receipt, DELETE_RECEIPT_SCHEMA),
-    ]
-    for name, handler, schema in services:
-        hass.services.async_register(
-            DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.OPTIONAL
+    ):
+        async_register_admin_service(
+            hass, DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.OPTIONAL
         )

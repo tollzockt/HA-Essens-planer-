@@ -121,6 +121,15 @@ intents:
           - "was (kaufe|hole) ich (bei|beim|im) {store_name:store}"
           - "was (kaufen|holen) wir (bei|beim|im) {store_name:store}"
           - "was steht (für|bei) {store_name:store} auf der einkaufsliste"
+      # "die Drogerie": the saved drugstore(s) (Rossmann, dm, Müller, Budni)
+      - sentences:
+          - "was (muss|soll) ich (in der|im) (drogerie|drogeriemarkt) (einkaufen|kaufen|besorgen|holen)"
+          - "was (müssen|sollen) wir (in der|im) (drogerie|drogeriemarkt) (einkaufen|kaufen|besorgen|holen)"
+          - "was (kaufe|hole) ich (in der|im) (drogerie|drogeriemarkt)"
+          - "was (kaufen|holen) wir (in der|im) (drogerie|drogeriemarkt)"
+          - "was steht für die drogerie auf der einkaufsliste"
+        slots:
+          store: "drogerie"
   essensplaner_compare_prices:
     data:
       - sentences:
@@ -198,6 +207,13 @@ intents:
           - "welche angebote gibt es nächste woche"
         slots:
           when: "nächste woche"
+      - sentences:
+          - "was (ist|gibt es) (in der|im) (drogerie|drogeriemarkt) [gerade|diese woche|aktuell] im angebot"
+          - "welche angebote (gibt es|hat) (die drogerie|der drogeriemarkt) [diese woche|gerade|aktuell]"
+          - "welche angebote gibt es (in der|im) (drogerie|drogeriemarkt) [diese woche|gerade|aktuell]"
+          - "welche drogerie angebote gibt es [diese woche|gerade|aktuell]"
+        slots:
+          store: "drogerie"
   essensplaner_get_costs:
     data:
       - sentences:

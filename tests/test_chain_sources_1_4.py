@@ -319,10 +319,8 @@ async def test_aldi_refresh_learns_prices_and_offers(
     # one service point request at the branch (rounded), then one search per term
     points = _calls(aioclient_mock, SERVICE_POINTS_URL)
     assert len(points) == 1
-    assert (points[0][1].query["latitude"], points[0][1].query["longitude"]) == (
-        "50.6201",
-        "7.4312",
-    )
+    # a store's own location is sent rounded to about 100 m
+    assert (points[0][1].query["latitude"], points[0][1].query["longitude"]) == ("50.62", "7.431")
     searches = _calls(aioclient_mock, ALDI_SEARCH_URL)
     assert [c[1].query["q"] for c in searches] == ["Butter", "Milch", "Eier"]
     query = searches[0][1].query
@@ -387,7 +385,8 @@ async def test_aldi_service_point_from_home_zone(
     status = await async_refresh_aldi_prices(hass, manager)
     assert (status["status"], status["service_point"]) == ("ok", ALDI_STORE)
     point = _calls(aioclient_mock, SERVICE_POINTS_URL)[0][1].query
-    assert (point["latitude"], point["longitude"]) == ("50.6302", "7.4441")
+    # the home location is sent rounded to about 1 km (security-privacy-r1-6)
+    assert (point["latitude"], point["longitude"]) == ("50.63", "7.44")
 
 
 @pytest.mark.parametrize(

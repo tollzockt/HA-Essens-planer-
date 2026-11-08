@@ -23,7 +23,7 @@ from .aldi import (
     async_refresh_aldi_prices,
 )
 from .articles import register_live_provider
-from .catalog import OfferCatalog, async_refresh_catalog, marktguru_enabled
+from .catalog import OfferCatalog, async_refresh_catalog, catalog_enabled, marktguru_enabled
 from .const import (
     CONF_IMPORT_STARTER,
     CONF_REGISTER_INTENTS,
@@ -123,7 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EssensplanerConfigEntry)
 
     entry.async_on_unload(async_track_time_change(hass, _new_day, hour=0, minute=1, second=0))
 
-    if marktguru_enabled(manager) or aldi_enabled(manager):
+    if catalog_enabled(manager):
         # the offer catalog of the saved stores (marktguru, ALDI SÜD weekly offers; EDEKA
         # stores its own refresh there); postcodes come from the options or the branches
         _setup_offer_refresh(hass, entry, manager)
@@ -175,9 +175,11 @@ def _setup_offer_refresh(
 ) -> None:
     """Check the offer catalog shortly after start and daily at 06:xx (it only fetches when
     stale: 3 days, a new leaflet week, other stores) and a minute after a branch change
-    that needs a postcode or chain not fetched yet."""
+    that needs a postcode or chain not fetched yet (marktguru) or stores the direct
+    sources did not try yet (an EDEKA market linked, an ALDI SÜD branch added – its prices
+    are checked then too)."""
 
-    async def _async_refresh() -> None:
+    async def _async_refresh(branch_change: bool = False) -> None:
         if marktguru_enabled(manager) and not manager.offer_targets() and not aldi_enabled(manager):
             return  # no zip code and no branch with a postcode yet
         before = manager.catalog.data.get("last_run")
@@ -189,8 +191,15 @@ def _setup_offer_refresh(
         ran = manager.catalog.data.get("last_run") != before
         if ran and meta.get("status") in ("error", "blocked"):
             _LOGGER.warning("Essensplaner offers: %s", "; ".join(meta.get("errors") or []))
+        if branch_change and aldi_enabled(manager):
+            # a new ALDI SÜD branch: its prices do not wait for the weekly check (sends
+            # nothing while they are fresh or paused)
+            try:
+                await async_refresh_aldi_prices(hass, manager)
+            except Exception:
+                _LOGGER.exception("Refreshing ALDI SÜD prices failed")
         # a branch saved while this (or the joined) refresh ran: its postcode was not
-        # searched yet (the run's targets are in offers_meta, so this ends)
+        # searched yet (the run stores what it tried, so this ends)
         manager.schedule_offer_refresh()
 
     @callback
@@ -198,10 +207,14 @@ def _setup_offer_refresh(
         # tied to the entry: cancelled on unload / reload, does not delay a restart
         entry.async_create_background_task(hass, _async_refresh(), "essensplaner_offers")
 
+    @callback
+    def _branch_refresh(_now: datetime | None = None) -> None:
+        entry.async_create_background_task(hass, _async_refresh(True), "essensplaner_offers")
+
     # shortly after start (sends nothing while the catalog is fresh)
     entry.async_on_unload(async_call_later(hass, OFFERS_START_DELAY, _refresh))
     # a new branch at a postcode (or of a chain) not searched yet: search shortly after
-    entry.async_on_unload(manager.enable_offer_refresh(_refresh))
+    entry.async_on_unload(manager.enable_offer_refresh(_branch_refresh))
     # spread the daily request over the morning (stable per installation)
     entry.async_on_unload(
         async_track_time_change(hass, _refresh, hour=6, minute=_daily_minute(entry), second=0)

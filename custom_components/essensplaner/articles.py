@@ -29,6 +29,7 @@ from .economy import _offer_short
 from .ingredients import fold, ingredient_key, parse_ingredient
 from .offers import (
     MarktguruClient,
+    OfferBlocked,
     OfferError,
     normalize_marktguru,
     offer_matches,
@@ -578,10 +579,15 @@ async def _marktguru_live(
     branch: dict[str, Any] | None,
     retailer: str | None,
 ) -> list[dict[str, Any]]:
-    """marktguru offers for the query near the branch (cached 1 h, throttled)."""
+    """marktguru offers for the query near the branch (cached 1 h, throttled; nothing is
+    asked while marktguru is paused after it refused, and a refusal starts the pause)."""
+    from .catalog import marktguru_paused, pause_marktguru, paused_message
+
     postcode = manager._live_postcode(branch)
     if postcode is None:
         return []
+    if until := marktguru_paused(manager):
+        raise OfferError(paused_message(until))
 
     # only the user's chains when the offer catalog knows their marktguru ids there
     catalog = getattr(manager, "catalog", None)
@@ -594,9 +600,12 @@ async def _marktguru_live(
     async def fetch() -> list[dict[str, Any]]:
         if manager._live_client is None:
             manager._live_client = MarktguruClient(manager.hass)
-        raw = await manager._live_client.async_search(
-            query, postcode, LIVE_RESULTS, retailers=ids or None
-        )
+        try:
+            raw = await manager._live_client.async_search(
+                query, postcode, LIVE_RESULTS, retailers=ids or None
+            )
+        except OfferBlocked as err:
+            raise OfferError(paused_message(pause_marktguru(manager))) from err
         offers = [o for o in (normalize_marktguru(r, query) for r in raw) if o]
         for offer in offers:
             offer["zip_codes"] = [postcode]

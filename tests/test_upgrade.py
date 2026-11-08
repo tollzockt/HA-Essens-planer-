@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.essensplaner.const import CONF_ZIP, DOMAIN, STORAGE_KEY
+from custom_components.essensplaner.const import CONF_OFFERS_SOURCE, CONF_ZIP, DOMAIN, STORAGE_KEY
 
 PACK = json.loads(
     (
@@ -131,7 +131,10 @@ async def test_upgrade_1_2_to_1_3(
     assert await async_setup_component(hass, "homeassistant", {})
     config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
-        config_entry, options={**config_entry.options, CONF_ZIP: "80331"}
+        config_entry,
+        # the marktguru offer stays only while marktguru is on (1.4: offers of a source
+        # switched off are dropped)
+        options={**config_entry.options, CONF_ZIP: "80331", CONF_OFFERS_SOURCE: "marktguru"},
     )
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()

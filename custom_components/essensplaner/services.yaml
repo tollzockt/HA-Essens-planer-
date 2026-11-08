@@ -773,7 +773,7 @@ receipt_scan:
       selector:
         text:
     media_content_id:
-      example: "media-source://media_source/local/essensplaner/receipts/bon.jpg"
+      example: "media-source://media_source/local/kassenzettel/bon.jpg"
       selector:
         text:
     entity_id:

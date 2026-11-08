@@ -67,9 +67,12 @@ from .offers import (
     MARKTGURU_API,
     MARKTGURU_HOME,
     _date,
+    flavour_only,
     key_only_as_modifier,
     normalize_marktguru_short,
     offer_matches,
+    other_compound,
+    product_head,
     short_key,
 )
 from .online_prices import (
@@ -406,6 +409,39 @@ _DRUGSTORE_HEADS = (
 )
 # more drugstore words, only at a drugstore chain ("Creme" at REWE may be a dessert)
 _DRUGSTORE_CHAIN_HEADS = ("creme", "maske", "duft", "geschenkset", "gel", "pad", "tab")
+# food a drugstore sells that guess_category() does not know ("Krüger Cappuccino",
+# "Proteinriegel", "Bio Dinkel Eierwaffeln", "Milka Choco Mini Stars"): without these the
+# drugstore chain would make it a drugstore product (hidden from "Lebensmittel")
+_DRUGSTORE_FOOD_HEADS = (
+    "cappuccino",
+    "espresso",
+    "kaffee",
+    "kakao",
+    "riegel",
+    "waffel",
+    "waffeln",
+    "keks",
+    "kekse",
+    "cookie",
+    "cookies",
+    "schokolade",
+    "praline",
+    "pralinen",
+    "chips",
+    "gummies",
+    "fruchtgummi",
+    "kaugummi",
+    "bonbon",
+    "bonbons",
+    "pastille",
+    "pastillen",
+    "muesli",
+    "flohsamen",
+    "cracker",
+    "zwieback",
+)
+_DRUGSTORE_FOOD_TOKENS = {"choco", "schoko", "snack", "snacks", "mints"}
+_DRUGSTORE_DRINK_HEADS = ("drink",)  # "Haferdrink Natur"
 # drinks guess_category() does not know
 _DRINK_TOKENS = {
     "rum",
@@ -547,7 +583,9 @@ def classify_offer(
     if _has_head(words, _NONFOOD_HEADS) or any(w.startswith(_NONFOOD_PREFIXES) for w in words):
         return KIND_NONFOOD
     if _has_head(words, _DRUGSTORE_HEADS) or (
-        drugstore_chain and _has_head(words, _DRUGSTORE_CHAIN_HEADS)
+        drugstore_chain
+        # "Proteinriegel" ends with "gel" but is no gel
+        and _has_head([w for w in words if not w.endswith("riegel")], _DRUGSTORE_CHAIN_HEADS)
     ):
         return KIND_DRUG
     if category_kind == KIND_NONFOOD:
@@ -566,6 +604,16 @@ def classify_offer(
         if aisle != "Sonstiges":
             return KIND_FOOD
     if drugstore_chain:
+        # food and drinks of a drugstore: the name, else the other products of the offer
+        # ("Favourites" + "oder Ritter Sport Schokowürfel")
+        for text in (product, description):
+            found = _words(text)
+            if _has_head(found, _DRUGSTORE_DRINK_HEADS):
+                return KIND_DRINKS
+            if _has_head(found, _DRUGSTORE_FOOD_HEADS) or any(
+                w in _DRUGSTORE_FOOD_TOKENS or w.startswith(("schoko", "choco")) for w in found
+            ):
+                return KIND_FOOD
         return KIND_DRUG
     return KIND_UNKNOWN
 
@@ -632,19 +680,25 @@ class KeyMatcher:
         return list(found)
 
     def match(self, text: str, product: str) -> list[str]:
-        """Keys a text fits ("Butter-Spekulatius" is no butter)."""
+        """Keys a text fits ("Butter-Spekulatius" is no butter, "Granatapfel" no Apfel,
+        "Skyr Drink Erdbeere" or "Limonaden" of the kind "Zitrone" no Erdbeere / Zitrone)."""
         if not text.strip():
             return []
+        context = text if text == product else f"{product} {text}"
         return [
             key
             for key in self.candidates(text)
-            if offer_matches(text, key) and not key_only_as_modifier(product, key)
+            if offer_matches(text, key)
+            and not key_only_as_modifier(product, key)
+            and not other_compound(text, key)
+            and not flavour_only(context, key)
         ]
 
     def offer_keys(self, offer: dict[str, Any]) -> list[str]:
-        """Keys of an offer: the product name decides; the description only names the kind
-        of product ("Classic" + "frz. Schnittkäse"), not what is in it ("mit Gurken")."""
-        product = str(offer.get("product") or offer.get("title") or "")
+        """Keys of an offer: the product itself decides (the name up to a comma or "in" /
+        "mit": ALDI's "Apfelmus 360 g, Apfel" is no Apfel); the description only names the
+        kind of product ("Classic" + "frz. Schnittkäse"), not what is in it ("mit Gurken")."""
+        product = product_head(str(offer.get("product") or offer.get("title") or ""))
         found = self.match(product, product)
         if not found:
             kind = kind_text(offer.get("description"))
@@ -1292,21 +1346,72 @@ def catalog_plan(manager: EssensplanerManager) -> dict[str, Any]:
         from .edeka import edeka_markets
 
         markets = sorted(m for _, m in edeka_markets(manager))
+    point: str | None = None
+    if aldi:
+        from .aldi import aldi_branch
+
+        point = aldi_branch(manager)[1]  # the linked service point, if any
     payload = {
         "mg": [[z, sorted(r)] for z, r in targets],
         "edeka": markets,
-        "aldi": aldi,
+        "aldi": point or aldi,
     }
     signature = hashlib.sha1(
         json.dumps(payload, sort_keys=True).encode(), usedforsecurity=False
     ).hexdigest()[:16]
-    return {"marktguru": targets, "edeka": edeka, "aldi": aldi, "signature": signature}
+    direct = hashlib.sha1(
+        json.dumps([markets, point or aldi]).encode(), usedforsecurity=False
+    ).hexdigest()[:16]
+    return {
+        "marktguru": targets,
+        "edeka": edeka,
+        "aldi": aldi,
+        "signature": signature,
+        "direct": direct,
+    }
+
+
+def catalog_untried(manager: EssensplanerManager) -> bool:
+    """True if the stores of the direct sources changed since the last refresh looked at
+    them (an EDEKA market linked, an ALDI SÜD branch added or linked): a branch change then
+    refreshes soon. Every refresh stores what it looked at, also a failed one (the daily
+    check retries it), so this never repeats a refresh by itself."""
+    from .aldi import aldi_enabled
+    from .edeka import edeka_enabled
+
+    if not (aldi_enabled(manager) or edeka_enabled(manager)):
+        return False
+    return catalog_plan(manager)["direct"] != manager.catalog.data.get("tried_direct")
+
+
+def drop_disabled_sources(manager: EssensplanerManager) -> bool:
+    """Forget the offers of sources switched off (catalog buckets and planning offers): an
+    offer of marktguru must not stay listed after the user switched it off. Returns True
+    if something was removed."""
+    from .aldi import SOURCE as ALDI_ONLINE, aldi_enabled
+    from .edeka import edeka_enabled
+
+    off: set[str] = set()
+    if not marktguru_enabled(manager):
+        off.add(SOURCE_MARKTGURU)
+    if not aldi_enabled(manager):
+        off |= {SOURCE_ALDI, ALDI_ONLINE}
+    if not edeka_enabled(manager):
+        off.add(SOURCE_EDEKA)
+    catalog = manager.catalog
+    count = len(catalog.buckets)
+    catalog.drop_buckets({k for k in catalog.buckets if k.split("|", 1)[0] not in off})
+    offers = [o for o in manager.offers if o.get("source") not in off]
+    removed = len(offers) != len(manager.offers) or len(catalog.buckets) != count
+    manager.offers = offers
+    return removed
 
 
 def catalog_stale(catalog: OfferCatalog, plan: dict[str, Any], now: datetime) -> bool:
     """True if a scheduled refresh should fetch: REFRESH_DAYS after the last success, a new
-    leaflet week (Sat/Sun after a success before Saturday, Monday after one before Monday)
-    or other stores."""
+    leaflet week (Saturday, Sunday and Monday after a success before that day: REWE and
+    Netto publish the new week only on Sunday, ALDI and Rossmann already on Saturday) or
+    other stores."""
     data = catalog.data
     last = parse_time(data.get("last_success"))
     if last is None or data.get("signature") != plan["signature"]:
@@ -1315,12 +1420,34 @@ def catalog_stale(catalog: OfferCatalog, plan: dict[str, Any], now: datetime) ->
     seen = dt_util.as_local(last).date()
     if (today - seen).days >= REFRESH_DAYS:
         return True
-    weekday = today.weekday()
-    if weekday == 0:
+    if today.weekday() in (0, 5, 6):
         return seen < today
-    if weekday in (5, 6):
-        return seen < today - timedelta(days=weekday - 5)
     return False
+
+
+def marktguru_paused(manager: EssensplanerManager) -> datetime | None:
+    """End of the pause of marktguru requests (after it refused), None without one. Every
+    marktguru request checks it: the catalog, the article search and search_offers."""
+    until = parse_time(manager.catalog.data.get("blocked_until"))
+    return until if until is not None and until > dt_util.utcnow() else None
+
+
+def paused_message(until: datetime) -> str:
+    """The German note of a marktguru pause."""
+    return (
+        "marktguru hat automatische Abfragen abgelehnt – pausiert bis "
+        f"{dt_util.as_local(until).strftime('%d.%m. %H:%M')}."
+    )
+
+
+def pause_marktguru(manager: EssensplanerManager) -> datetime:
+    """marktguru refused a request: no more requests for BLOCK_DAYS. Returns the end."""
+    until = dt_util.utcnow() + timedelta(days=BLOCK_DAYS)
+    catalog = manager.catalog
+    catalog.data["blocked_until"] = until.isoformat()
+    catalog._touch()
+    catalog.save_later()
+    return until
 
 
 def catalog_status(manager: EssensplanerManager) -> str:
@@ -1381,6 +1508,9 @@ async def _async_refresh(
     plan = catalog_plan(manager)
     if not catalog_enabled(manager):
         return _result(manager, status=STATUS_OFF, message=MSG_OFF)
+    # the direct sources' stores this refresh looked at (fetched, failed or fresh): a
+    # branch change only starts a refresh for others (catalog_untried())
+    catalog.data["tried_direct"] = plan["direct"]
     if not plan["marktguru"] and not plan["edeka"] and not plan["aldi"]:
         if not marktguru_enabled(manager):
             return _result(manager, status=STATUS_OFF, message=MSG_NO_BRANCH)

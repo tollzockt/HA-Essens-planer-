@@ -77,6 +77,11 @@ class OfferError(Exception):
     """Raised when offers could not be fetched."""
 
 
+class OfferBlocked(OfferError):
+    """marktguru refused the request (HTTP 401/403 again after new keys, 429, a web page
+    instead of data): no more requests for a while (catalog.pause_marktguru())."""
+
+
 def parse_pack(text: str | None) -> tuple[float, str] | None:
     """Package size from texts like 'je 500-g-Packung', '2 x 125 g', '1,5-l-Flasche'.
 
@@ -198,15 +203,37 @@ def _short_key_matches(offer_text: str, key: str) -> bool:
     return not (pack and pack[1] in ("g", "ml") and not _COUNT_RE.search(offer_text))
 
 
+# written-out forms of the short words of keys ("Tiefkühl-Erbsen" for "TK-Erbsen",
+# "haltbare Milch" for "H-Milch")
+_SHORT_WORD_FORMS = {
+    "tk": ("tiefkuehl", "tiefgekuehlt", "tiefgefroren"),
+    "h": ("haltbar",),
+}
+
+
+def _short_word_found(tokens: list[str], word: str) -> bool:
+    """A short word of a longer key ("wc" of "WC-Reiniger", "tk" of "TK-Erbsen") is a word
+    of its own in the text (fold() splits "WC-Ente" into "wc ente"), or written out."""
+    forms = _SHORT_WORD_FORMS.get(word, ())
+    return any(t == word or (forms and t.startswith(forms)) for t in tokens)
+
+
 def offer_matches(offer_text: str, key: str) -> bool:
-    """True if an offer title fits an ingredient key ('haehnchenbrust' ~ 'Hähnchenbrustfilet')."""
+    """True if an offer title fits an ingredient key ('haehnchenbrust' ~ 'Hähnchenbrustfilet').
+
+    Every word of the key counts: a short one ("wc" of "wc reiniger") as a word of its
+    own, so 'Geschirrreiniger' is no WC-Reiniger and 'Barbarie-Ente' no WC-Ente.
+    """
     if not key:
         return False
     if short_key(key):
         return _short_key_matches(offer_text, key)
     tokens = [_singular(w) for w in fold(offer_text).split()]
-    words = [w for w in key.split() if len(w) >= 3]
-    return all(any(_token_match(t, w) for t in tokens) for w in words)
+    words = key.split()
+    return all(
+        _short_word_found(tokens, w) if len(w) < 3 else any(_token_match(t, w) for t in tokens)
+        for w in words
+    )
 
 
 def key_only_as_modifier(text: str, key: str) -> bool:
@@ -301,6 +328,8 @@ def _key_product_verdict(text: str, key: str) -> bool | None:
     words = key.split()
     if all(w in tokens for w in words):
         return True
+    if not all(_short_word_found(tokens, w) for w in words if len(w) < 3):
+        return None  # "Geschirrreiniger" does not name "wc reiniger"
     mentioned = 0
     for word in [w for w in words if len(w) >= 3]:
         found = word in tokens
@@ -351,6 +380,163 @@ def names_key_product(product: str, key: str, description: str = "") -> bool:
         verdict = _key_product_verdict(text, key)
         if verdict is not None:
             return verdict
+    return False
+
+
+# the product name ends at a comma or a preposition: ALDI's "Apfelmus 360 g, Apfel" or
+# "Bio-Gourmet Kapern 180 g, Olivenöl" (the variant follows the comma), "Wildlachsfilet in
+# Blätterteig", "Thunfisch in Sonnenblumenöl", "Eier aus Freilandhaltung"
+_HEAD_CUT_RE = re.compile(r",\s+|\s+(?:in|mit|aus|auf)\s+", re.IGNORECASE)
+
+
+# a ready meal: "Wildlachsfilet in Blätterteig", "Lachs in Senf-Dill-Sauce", "Schnitzel
+# mit Panade" is no Lachsfilet / Blätterteig / Schnitzel
+_READY_MEAL_RE = re.compile(
+    r"\s(?:in|im|mit)\s+(?:[\w-]+\s+)?[\w-]*(?:teig|sauce|soße|sosse|panade|kruste|mantel)\b",
+    re.IGNORECASE,
+)
+
+
+# a group of products before the comma: ALDI's "Backzutaten, Backpulver 160 g"
+_GROUP_HEADS = ("backzutaten", "zutaten", "sortiment", "spezialitaeten", "vorrat")
+
+
+def product_head(product: str) -> str:
+    """The product itself of an offer name, without its variant or what it comes in
+    ('' for a ready meal)."""
+    text = str(product or "")
+    if _READY_MEAL_RE.search(text):
+        return ""
+    parts = _HEAD_CUT_RE.split(text, maxsplit=1)
+    head = parts[0].strip()
+    if len(parts) > 1 and fold(head) in _GROUP_HEADS:
+        head = product_head(parts[1])  # "Backzutaten, Backpulver 160 g": Backpulver
+    return head or text
+
+
+# first parts of compounds that make the head another product: "Granatapfel" is no Apfel,
+# "Kondensmilch" no Milch, "Erdnussbutter" no Butter, "Auftausalz" no Salz
+_OTHER_COMPOUND_PARTS = frozenset(
+    {
+        "granat",
+        "kondens",
+        "auftau",
+        "streu",
+        "regenerier",
+        "spuelmaschine",
+        "erdnuss",
+        "kakao",
+        "shea",
+        "kokos",
+        "kokosnuss",
+        "mandel",
+        "hafer",
+        "soja",
+        "schoko",
+        "schokolade",
+        "bade",
+        "dusch",
+        "koerper",
+        "sonnen",
+        "reinigung",
+        "gesicht",
+    }
+)
+
+
+def other_compound(text: str, key: str) -> bool:
+    """True if a key word is only named as the head of a compound of another product
+    ('Granatäpfel' / 'Granatapfel' for "apfel", 'Kondensmilch' for "milch")."""
+    tokens = [_singular(t) for t in fold(text).split()]
+    for word in (w for w in key.split() if len(w) >= 3):
+        if word in tokens:
+            continue
+        heads = [t for t in tokens if t.endswith(word) and t != word]
+        if not heads and word.startswith("a"):
+            # "Granatäpfel": the umlaut plural of "apfel"
+            umlaut = f"ae{word[1:]}"
+            heads = [t for t in tokens if t.endswith(umlaut) and t != umlaut]
+            word = umlaut
+        if heads and all(_compound_part(t[: -len(word)]) in _OTHER_COMPOUND_PARTS for t in heads):
+            return True
+    return False
+
+
+def _compound_part(modifier: str) -> str:
+    """The first part of a compound without its linking letters ('schokoladen' ->
+    'schokolade', 'reinigungs' -> 'reinigung')."""
+    if modifier in _OTHER_COMPOUND_PARTS:
+        return modifier
+    for link in ("s", "n", "es", "en"):
+        if modifier.endswith(link) and modifier[: -len(link)] in _OTHER_COMPOUND_PARTS:
+            return modifier[: -len(link)]
+    return modifier
+
+
+# kinds of products that a food word only flavours or fills: "Skyr Drink Erdbeere
+# Himbeere", "Almighurt Erdbeere", "Ingwer Shots", "Alioli Knoblauch Dip", "Mikado Milch
+# Schokolade", "Limonaden" + "Zitrone", "Petz Gefüllte Paprika" (a ready meal)
+_CARRIER_HEADS = (
+    "drink",
+    "shot",
+    "dip",
+    "schokolade",
+    "riegel",
+    "limonade",
+    "ghurt",
+    "jogurt",
+    "yogurt",
+    "skyr",
+    "quark",
+    "pudding",
+    "saft",
+    "schorle",
+    "nektar",
+    "sirup",
+    "smoothie",
+    "shake",
+    "likoer",
+    "bonbon",
+    "chip",
+    "keks",
+    "kuchen",
+    "torte",
+    "aufstrich",
+    "creme",
+    "sauce",
+    "sosse",
+    "dressing",
+    "tee",
+)
+_CARRIER_PREFIXES = ("gefuellt",)
+
+
+def _word_forms(token: str) -> set[str]:
+    forms = {token, _singular(token)}
+    for ending in ("s", "e", "n", "en"):
+        if token.endswith(ending) and len(token) > len(ending) + 2:
+            forms.add(token[: -len(ending)])
+    return forms
+
+
+def flavour_only(text: str, key: str) -> bool:
+    """True if a text names a product of another kind that the key's food only flavours
+    or fills ('Skyr Drink Erdbeere' for "erdbeere", 'Ingwer Shots' for "ingwer"); False
+    when the key is that kind itself ('Naturjoghurt' for "joghurt")."""
+    words = [w for w in key.split() if len(w) >= 3]
+    if not words:
+        return False
+    for token in fold(text).split():
+        forms = _word_forms(token)
+        carrier = (
+            token == "eis"
+            or token.startswith(_CARRIER_PREFIXES)
+            or any(f.endswith(_CARRIER_HEADS) for f in forms)
+        )
+        if carrier and not any(
+            f == w or f.endswith(w) or w.endswith(f) for w in words for f in forms
+        ):
+            return True
     return False
 
 
@@ -650,6 +836,8 @@ class MarktguruClient:
                 headers={"User-Agent": _USER_AGENT, "Accept-Language": "de-DE,de;q=0.9"},
                 timeout=aiohttp.ClientTimeout(total=20),
             ) as resp:
+                if resp.status in (401, 403, 429):
+                    raise OfferBlocked(f"marktguru.de lehnt ab (HTTP {resp.status})")
                 if resp.status >= 400:
                     raise OfferError(f"marktguru.de antwortet mit HTTP {resp.status}")
                 page = await resp.text()
@@ -695,15 +883,21 @@ class MarktguruClient:
                     timeout=aiohttp.ClientTimeout(total=20),
                 ) as resp:
                     if resp.status in (401, 403) and attempt == 0:
-                        continue
+                        continue  # the keys changed: read them again once
+                    if resp.status in (401, 403, 429):
+                        raise OfferBlocked(
+                            f"Angebotssuche: marktguru lehnt ab (HTTP {resp.status})"
+                        )
                     if resp.status >= 400:
                         raise OfferError(f"Angebotssuche: HTTP {resp.status}")
+                    if "html" in str(resp.headers.get("Content-Type") or "").lower():
+                        raise OfferBlocked("Angebotssuche: marktguru antwortet mit einer Webseite")
                     data = await resp.json(content_type=None)
             except (aiohttp.ClientError, TimeoutError, ValueError) as err:
                 raise OfferError(f"Angebotssuche fehlgeschlagen: {err}") from err
             results = data.get("results") if isinstance(data, dict) else None
             return results if isinstance(results, list) else []
-        raise OfferError("Angebotssuche: Zugriff verweigert")
+        raise OfferBlocked("Angebotssuche: Zugriff verweigert")
 
 
 async def async_fetch_offers(
@@ -792,6 +986,7 @@ async def async_search_target_offers(
 
     retailer_ids: {zip code: numeric marktguru ids of the chain variants there} (only these
     chains are searched; a postcode without ids searches all and filters afterwards).
+    Raises OfferBlocked when marktguru refuses (nothing more is asked).
     """
     client = MarktguruClient(hass)
     offers: dict[str, dict[str, Any]] = {}
@@ -804,6 +999,8 @@ async def async_search_target_offers(
             raw_offers = await client.async_search(
                 query, zip_code, retailers=(retailer_ids or {}).get(zip_code) or None
             )
+        except OfferBlocked:
+            raise
         except OfferError as err:
             errors.append(str(err))
             if not offers:

@@ -427,6 +427,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._load_store_data(data)
         await self.catalog.async_load()
         self.catalog.prune(self.today())
+        # offers of sources switched off (e.g. marktguru after reading its terms) go
+        from .catalog import drop_disabled_sources  # the catalog imports the mixins
+
+        dropped = drop_disabled_sources(self)
         await self.receipts.async_load()
         self.default_prices = await self.hass.async_add_executor_job(load_default_prices)
         migrated = self._migrate_v2()
@@ -438,8 +442,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         self._reassign_open_items()
         if migrated:
             await self.async_save_now()
-        elif expired or self.shopping != before:
+        elif expired or dropped or self.shopping != before:
             self._save_later()
+        if dropped:
+            self.catalog.save_later()
 
     async def async_save_now(self) -> None:
         """Write data to disk immediately."""

@@ -250,7 +250,7 @@
       "message": "ALDI-SÜD-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner-Panel → Einstellungen → Angebote & Preisquellen)."
     },
     "aldi_no_store": {
-      "message": "Keine ALDI-SÜD-Filiale – füge im Panel eine ALDI-SÜD-Filiale hinzu (am besten aus der Kartensuche) oder wähle sie mit „ALDI-SÜD-Filiale suchen“."
+      "message": "Keine ALDI-SÜD-Filiale – füge im Panel eine ALDI-SÜD-Filiale hinzu (am besten aus der Kartensuche) oder verknüpfe sie mit „🔗 ALDI-Filiale verknüpfen“ (Aktion „ALDI-SÜD-Filialen suchen“)."
     },
     "aldi_blocked": {
       "message": "Die ALDI-SÜD-Website lässt gerade keine automatischen Abfragen zu ({error})."
@@ -983,7 +983,7 @@
         },
         "aldi_service_point": {
           "name": "ALDI-SÜD-Filialnummer",
-          "description": "Nur für ALDI SÜD: Filiale für die ALDI-SÜD-Onlinepreise (z. B. B402, zu finden mit „ALDI-SÜD-Filialen suchen“; leer = automatisch die nächste)."
+          "description": "Nur für ALDI SÜD: Filiale für die ALDI-SÜD-Onlinepreise (z. B. B402, zu finden mit „🔗 ALDI-Filiale verknüpfen“ bzw. der Aktion „ALDI-SÜD-Filialen suchen“; leer = automatisch die nächste)."
         }
       }
     },
@@ -1167,7 +1167,7 @@
         },
         "media_content_id": {
           "name": "Medien-ID",
-          "description": "Alternativ: ein Bild im Medienordner, z. B. media-source://media_source/local/essensplaner/receipts/bon.jpg."
+          "description": "Alternativ: ein Bild im Medienordner, z. B. media-source://media_source/local/kassenzettel/bon.jpg (hochgeladene Kassenzettel: ihre upload_id)."
         },
         "entity_id": {
           "name": "KI-Aufgabe",

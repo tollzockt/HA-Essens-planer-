@@ -337,7 +337,7 @@ async def test_marktguru_unavailable(
 async def test_offers_disabled(hass: HomeAssistant, setup_integration) -> None:
     """Refreshing without enabled source gives a clear message."""
     response = await intent.async_handle(hass, "test", "essensplaner_get_offers", {}, language="de")
-    assert "noch nicht aktiviert" in response.speech["plain"]["speech"]
+    assert "nicht eingeschaltet (im Essensplaner-Panel" in response.speech["plain"]["speech"]
     try:
         await _call(hass, "refresh_offers")
     except Exception as err:

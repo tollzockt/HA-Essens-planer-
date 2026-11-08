@@ -92,6 +92,10 @@ MAX_FAILURES = 3
 MAX_BYTES = 4 * 1024 * 1024
 # service point search: radius (km) and number of stores
 STORE_RADIUS_KM = 25
+# decimals of the coordinates sent for the store lookup: about 1 km for the home location
+# (a "nearest store" query needs no more), about 100 m for a store's own location
+HOME_PRECISION = 2
+STORE_PRECISION = 3
 MAX_STORES = 10
 
 MSG_NO_STORE = (
@@ -386,14 +390,17 @@ class AldiClient:
             raise _failed(f"Fehler {detail}", unexpected=True)
         return data
 
-    async def async_service_points(self, lat: float, lon: float) -> list[dict[str, Any]]:
-        """ALDI SÜD stores near a location, nearest first."""
+    async def async_service_points(
+        self, lat: float, lon: float, precision: int = STORE_PRECISION
+    ) -> list[dict[str, Any]]:
+        """ALDI SÜD stores near a location, nearest first (the location is sent rounded to
+        `precision` decimals; the distances are computed here with the exact one)."""
         stores = parse_service_points(
             await self.async_get_json(
                 SERVICE_POINTS_URL,
                 {
-                    "latitude": round(lat, 4),
-                    "longitude": round(lon, 4),
+                    "latitude": round(lat, precision),
+                    "longitude": round(lon, precision),
                     "radius": STORE_RADIUS_KM,
                     "limit": MAX_STORES,
                     "offset": 0,
@@ -475,11 +482,14 @@ def aldi_branch(
     return (found[0] if found else None), None
 
 
-def _location(hass: HomeAssistant, branch: dict[str, Any]) -> tuple[float, float] | None:
+def _location(hass: HomeAssistant, branch: dict[str, Any]) -> tuple[float, float, int] | None:
+    """(lat, lon, decimals to send) of a branch: its own location, else the home's (sent
+    rounded to about 1 km)."""
     lat, lon = number(branch.get("lat")), number(branch.get("lon"))
     if lat is not None and lon is not None:
-        return lat, lon
-    return home_location(hass)
+        return lat, lon, STORE_PRECISION
+    home = home_location(hass)
+    return (*home, HOME_PRECISION) if home is not None else None
 
 
 class AldiSource(OnlinePriceSource):
@@ -520,7 +530,9 @@ class AldiSource(OnlinePriceSource):
         location = _location(hass, found)
         if location is None:
             return found, None
-        stores = await AldiClient(hass).async_service_points(*location)
+        stores = await AldiClient(hass).async_service_points(
+            location[0], location[1], precision=location[2]
+        )
         if not stores:
             raise _failed("keine ALDI-SÜD-Filiale in der Nähe")
         nearest = stores[0]
@@ -743,7 +755,9 @@ async def async_find_aldi_stores(
             location, source = home_location(hass), "home"
         if location is None:
             raise _error("aldi_location_required")
-    stores = await AldiClient(hass).async_service_points(*location)
+    stores = await AldiClient(hass).async_service_points(
+        *location, precision=HOME_PRECISION if source == "home" else STORE_PRECISION
+    )
     linked = {
         str(b.get("aldi_service_point") or ""): b.get("id")
         for b in manager.branches

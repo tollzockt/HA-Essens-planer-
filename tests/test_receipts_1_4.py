@@ -506,7 +506,9 @@ def test_parse_ai_receipt() -> None:
 async def receipts_setup(
     hass: HomeAssistant, config_entry: MockConfigEntry, freezer, tmp_path: Path
 ) -> MockConfigEntry:
-    """The integration with a media folder of its own (tmp) and the test user's stores."""
+    """The integration with config and media folders of its own (tmp) and the test user's
+    stores."""
+    hass.config.config_dir = str(tmp_path / "config")
     hass.config.media_dirs = {"local": str(tmp_path / "media")}
     await hass.config.async_set_time_zone("Europe/Berlin")
     freezer.move_to(datetime.fromisoformat("2026-11-04T10:00:00+01:00"))
@@ -635,6 +637,9 @@ async def test_save_sets_own_prices_and_matrix_source(
         "price": 0.99,
         "source": "receipt",
         "receipt": receipt["id"],
+        "amount": 1000.0,
+        "unit": "ml",
+        "name": "Milch",
     }
     # the discount is no regular price: Coca-Cola is unknown, the yoghurt per piece
     assert manager.store_prices_user["lidl"]["joghurt"]["price"] == 0.49
@@ -754,7 +759,7 @@ async def test_storage_limit_drops_oldest_receipts(
     monkeypatch.setattr(receipts_module, "MAX_RECEIPTS", 2)
     manager = receipts_setup.runtime_data
     upload = await manager.receipts.async_add_upload(JPEG, "image/jpeg", "bon.jpg")
-    image = tmp_path / "media" / "essensplaner" / "receipts" / upload["file"]
+    image = tmp_path / "config" / ".storage" / "essensplaner_receipts" / upload["file"]
     assert image.is_file()
     base = {"store": "Lidl", "items": [{"name": "Butter", "price": 1.69}]}
     oldest = await _call(
@@ -810,8 +815,7 @@ async def test_scan_sends_only_the_receipt(hass: HomeAssistant, receipts_setup) 
             "instructions": AI_INSTRUCTIONS,
             "attachments": [
                 {
-                    "media_content_id": "media-source://media_source/local/essensplaner/receipts/"
-                    f"{upload['file']}",
+                    "media_content_id": f"media-source://essensplaner/receipt/{upload['file']}",
                     "media_content_type": "image/jpeg",
                 }
             ],
@@ -963,12 +967,10 @@ async def test_upload_and_image_views(
     assert resp.status == 200, await resp.text()
     body = await resp.json()
     upload_id = body["upload_id"]
-    assert body["media_content_id"] == (
-        f"media-source://media_source/local/essensplaner/receipts/{upload_id}.jpg"
-    )
+    assert body["media_content_id"] == f"media-source://essensplaner/receipt/{upload_id}.jpg"
     assert (body["content_type"], body["size"]) == ("image/jpeg", len(JPEG))
     assert (
-        tmp_path / "media" / "essensplaner" / "receipts" / f"{upload_id}.jpg"
+        tmp_path / "config" / ".storage" / "essensplaner_receipts" / f"{upload_id}.jpg"
     ).read_bytes() == JPEG
     # the image: with the token, with the signed link, not without
     resp = await client.get(f"/api/essensplaner/receipt_image/{upload_id}")
@@ -1021,7 +1023,7 @@ async def test_old_uploads_are_removed_on_load(
     """Uploads that never became a receipt are deleted after a day (file and entry)."""
     manager = receipts_setup.runtime_data
     upload = await manager.receipts.async_add_upload(JPEG, "image/jpeg")
-    path = tmp_path / "media" / "essensplaner" / "receipts" / upload["file"]
+    path = tmp_path / "config" / ".storage" / "essensplaner_receipts" / upload["file"]
     await manager.receipts.async_save()
     freezer.tick(timedelta(hours=25))
     await hass.config_entries.async_reload(receipts_setup.entry_id)
@@ -1034,7 +1036,7 @@ async def test_remove_entry_deletes_only_receipt_files(
     hass: HomeAssistant, receipts_setup, hass_storage, tmp_path: Path
 ) -> None:
     """Removing the integration deletes the receipts file and the receipt images – other
-    files in the media folder stay."""
+    files stay."""
     manager = receipts_setup.runtime_data
     upload = await manager.receipts.async_add_upload(JPEG, "image/jpeg")
     await _call(
@@ -1047,8 +1049,9 @@ async def test_remove_entry_deletes_only_receipt_files(
         },
     )
     pending = await manager.receipts.async_add_upload(PNG, "image/png")
-    folder = tmp_path / "media" / "essensplaner" / "receipts"
+    folder = tmp_path / "config" / ".storage" / "essensplaner_receipts"
     other = tmp_path / "media" / "urlaub.jpg"
+    other.parent.mkdir(parents=True, exist_ok=True)
     other.write_bytes(JPEG)
     stranger = folder / "eigene-notiz.txt"
     stranger.write_text("bleibt")

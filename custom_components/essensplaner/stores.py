@@ -61,10 +61,12 @@ from .ingredients import (
     to_base,
 )
 from .offers import (
+    flavour_only,
     leaflet_week_end,
     names_key_product,
     names_other_compound,
     offer_matches,
+    product_head,
     short_key,
 )
 from .pricing import (
@@ -165,6 +167,9 @@ _GENERIC_STORE_WORDS = {
     "lebensmittelladen",
     "lebensmittelgeschaeft",
 }
+# "die Drogerie": the selected drugstore branches (Rossmann, dm, Müller, Budni), the
+# drugstore "Hauptladen" first ("Was kaufe ich in der Drogerie?")
+_DRUGSTORE_WORDS = {"drogerie", "drogerien", "drogeriemarkt", "drogeriemaerkte"}
 _FILLER_WORDS = {
     "bei",
     "beim",
@@ -492,7 +497,10 @@ class StoresMixin:
           ("Gehackte Tomaten" under "tomate") get that product's key.
         - v4 (1.4): a branch saved with a grocery chain whose own name or label names a
           drugstore chain ("ROSSMANN Drogeriemarkt" saved as Marktkauf, because 1.3 had no
-          drugstores) becomes that drugstore (see _migrate_drugstore_branches()).
+          drugstores) becomes that drugstore (see _migrate_drugstore_branches()); shopping
+          items of the new drugstore / household aisles get them ("Toilettenpapier" was
+          "Sonstiges", "Zahnpasta" even pasta); recipe lines of the new units Rolle / WL
+          are parsed again ("1 Rolle Blätterteig" was the product "Rolle Blätterteig").
         - every load: offers of a known retailer get a "retailer"; offer keys that name
           another product are corrected (canned tomato offers never price fresh ones);
           offers entered without an end (1.2 / 1.3.0) end with the current leaflet week.
@@ -527,6 +535,8 @@ class StoresMixin:
             self._rekey_variants()
         if self.data_version < 4:
             self._migrate_drugstore_branches()
+            self._migrate_nonfood_items()
+            self._migrate_new_units()
         if self.data_version < DATA_VERSION:
             self.data_version = DATA_VERSION
             changed = True
@@ -606,6 +616,18 @@ class StoresMixin:
                     offer["store"] = retailer_name(drugstore)
             if any(b.get("retailer") == old for b in self.branches):
                 continue  # a real branch of the old chain: its prices stay
+            # leaflet prices of the old chain were only learned because of the wrong chain
+            # (1.3 searched marktguru for "Marktkauf" at the Rossmann's postcode)
+            learned = self.store_prices_learned.get(old)
+            if isinstance(learned, dict):
+                for key in [
+                    k
+                    for k, e in learned.items()
+                    if isinstance(e, dict) and e.get("source") == SOURCE_LEAFLET
+                ]:
+                    del learned[key]
+                if not learned:
+                    del self.store_prices_learned[old]
             moved = self.store_prices_user.pop(old, None) or {}
             bucket = self.store_prices_user.setdefault(drugstore, {})
             for key, entry in moved.items():
@@ -619,6 +641,52 @@ class StoresMixin:
             self._selected_memo = None
             _LOGGER.info("Branches switched to their drugstore chain: %s", ", ".join(switched))
         return switched
+
+    def _migrate_nonfood_items(self: EssensplanerManager) -> int:
+        """v4: shopping items whose name is in a new drugstore / household aisle get it (the
+        aisle decides the drugstore routing and the grouping). Returns the count."""
+        count = 0
+        for item in self.shopping:
+            aisle = guess_category(self._item_name(item))
+            if is_nonfood_category(aisle) and item.get("category") != aisle:
+                item["category"] = aisle
+                count += 1
+        return count
+
+    def _migrate_new_units(self: EssensplanerManager) -> int:
+        """v4: recipe lines stored before the units Rolle and WL existed ("1 Rolle
+        Blätterteig" as the product "Rolle Blätterteig" without a unit) are parsed again,
+        like a line added now. Returns the count of changed recipes."""
+        count = 0
+        now = dt_util.utcnow().isoformat()
+        for recipe in self.recipes.values():
+            changed = False
+            for index, line in enumerate(recipe.get("ingredients") or []):
+                if not isinstance(line, dict) or line.get("unit") or line.get("amount") is None:
+                    continue
+                name = str(line.get("name") or "").strip()
+                if fold(name).split()[:1] not in (
+                    ["rolle"],
+                    ["rollen"],
+                    ["wl"],
+                    ["waschladung"],
+                    ["waschladungen"],
+                ):
+                    continue
+                parsed = parse_ingredient(f"1 {name}")
+                if not parsed.get("unit") or not parsed.get("name"):
+                    continue
+                recipe["ingredients"][index] = {
+                    **line,
+                    "name": parsed["name"],
+                    "unit": parsed["unit"],
+                    "category": guess_category(parsed["name"]),
+                }
+                changed = True
+            if changed:
+                recipe["updated"] = now
+                count += 1
+        return count
 
     def _rekey_variants(self: EssensplanerManager) -> None:
         """Move prices / plan items stored under the key of another product (1.2 keys)."""
@@ -1115,7 +1183,17 @@ class StoresMixin:
         return _stop
 
     def _new_offer_targets(self: EssensplanerManager) -> bool:
-        """True if offer_targets() has a (postcode, retailer) the last refresh did not search."""
+        """True if marktguru is on and offer_targets() has a (postcode, retailer) the last
+        refresh did not search, or the direct sources have stores not tried yet (an EDEKA
+        market linked, an ALDI SÜD branch added; see catalog.catalog_untried())."""
+        from .catalog import catalog_untried, marktguru_enabled  # avoid an import cycle
+
+        if catalog_untried(self):
+            return True
+        if not marktguru_enabled(self):
+            # the targets are marktguru's (only its refresh stores them): without it they
+            # never match, and every refresh would schedule the next one
+            return False
         searched = {
             (str(target.get("zip_code")), str(retailer))
             for target in _list(self.offers_meta.get("targets"))
@@ -1216,6 +1294,8 @@ class StoresMixin:
             main = self.get_main_branch()
             return [main] if main else []
         selected = self.selected_branches()
+        if folded in _DRUGSTORE_WORDS:
+            return [b for b in selected if is_drugstore(b.get("retailer"))]
         ordered = selected + [b for b in self.branches if b not in selected]
         exact = [
             b for b in ordered if folded in (fold(self.branch_label(b)), fold(b.get("name") or ""))
@@ -1598,10 +1678,46 @@ class StoresMixin:
             # a typed price after receipt prices: their history stays
             entry["history"] = [
                 *history,
-                {"date": self.today().isoformat(), "price": value, "source": SOURCE_USER},
+                {
+                    "date": self.today().isoformat(),
+                    "price": value,
+                    "source": SOURCE_USER,
+                    "amount": entry["amount"],
+                    "unit": entry["unit"],
+                    "name": entry["name"],
+                },
             ][-HISTORY_MAX:]
         bucket[key] = entry
         return entry
+
+    def _own_mark(self: EssensplanerManager, item: dict[str, Any]) -> dict[str, Any] | None:
+        """The history entry of an own store price (to restore it later), None if its
+        history already holds it (a receipt's price, a typed price after receipts)."""
+        if not isinstance(item.get("price"), (int, float)):
+            return None
+        day = self.own_price_day(item)
+        history = [h for h in _list(item.get("history")) if isinstance(h, dict)]
+        if item.get("source") == SOURCE_RECEIPT:
+            if any(h.get("receipt") == item.get("receipt_id") for h in history):
+                return None
+        elif any(
+            h.get("source") == SOURCE_USER
+            and h.get("price") == item["price"]
+            and h.get("date") == (day.isoformat() if day else None)
+            for h in history
+        ):
+            return None
+        mark = {
+            "date": day.isoformat() if day else "",
+            "price": item["price"],
+            "source": item.get("source") or SOURCE_USER,
+            "amount": item.get("amount"),
+            "unit": item.get("unit"),
+            "name": item.get("name"),
+        }
+        if item.get("source") == SOURCE_RECEIPT and item.get("receipt_id"):
+            mark["receipt"] = item["receipt_id"]
+        return mark
 
     @staticmethod
     def own_price_day(item: dict[str, Any]) -> date | None:
@@ -1625,23 +1741,43 @@ class StoresMixin:
         *,
         receipt_id: str,
         day: date,
+        offer: bool = False,
     ) -> str:
         """Set the own price of a retailer from a receipt line. Returns "saved", or "kept"
         when the current own price (typed or from a receipt) is from a later day than the
-        receipt; the receipt's price then only goes into the price history. The caller
-        invalidates the prices and saves."""
+        receipt, or "offer" for the price of a leaflet offer of the store on the receipt's
+        day (no regular price); the receipt's price then only goes into the price history.
+        The price it replaces stays in the history (remove_receipt_prices() restores it).
+        The caller invalidates the prices and saves."""
         bucket = self.store_prices_user.setdefault(retailer, {})
         current = bucket.get(key) or {}
         value = round(float(price), 2)
-        mark = {"date": day.isoformat(), "price": value, "source": SOURCE_RECEIPT}
+        size = float(amount) if amount and amount > 0 else 1.0
+        mark = {
+            "date": day.isoformat(),
+            "price": value,
+            "source": SOURCE_RECEIPT,
+            "amount": size,
+            "unit": unit or "Stück",
+            "name": str(name or key).strip(),
+            "receipt": receipt_id,
+        }
+        if offer:
+            mark["offer"] = True
         history = [
             h
             for h in _list(current.get("history"))
             if isinstance(h, dict) and h.get("receipt") != receipt_id  # saved again: replaced
         ]
-        history = sorted(
-            [*history, {**mark, "receipt": receipt_id}], key=lambda h: str(h.get("date") or "")
-        )
+        if current.get("receipt_id") != receipt_id and (own := self._own_mark(current)):
+            history.append(own)  # a typed price replaced by the receipt can come back
+        history = sorted([*history, mark], key=lambda h: str(h.get("date") or ""))
+        if offer:
+            if current:
+                current["history"] = history[-HISTORY_MAX:]
+            elif not bucket:
+                del self.store_prices_user[retailer]
+            return "offer"
         current_day = self.own_price_day(current) if current else None
         if current and current_day is not None and current_day > day:
             current["history"] = history[-HISTORY_MAX:]
@@ -1649,7 +1785,7 @@ class StoresMixin:
         bucket[key] = {
             "name": str(name or key).strip(),
             "price": value,
-            "amount": float(amount) if amount and amount > 0 else 1.0,
+            "amount": size,
             "unit": unit or "Stück",
             "source": SOURCE_RECEIPT,
             "receipt_id": receipt_id,
@@ -1665,23 +1801,63 @@ class StoresMixin:
         keep: set[tuple[str, str]] | None = None,
     ) -> int:
         """Remove the own store prices a receipt set (except the (retailer, key) pairs in
-        keep). Returns the count; the caller invalidates the prices and saves."""
+        keep): the price before it (typed or of an older receipt, from the history) comes
+        back; without one the price goes. The receipt also leaves the price histories.
+        Returns the count of prices removed; the caller invalidates the prices and saves."""
         removed = 0
         for retailer in list(self.store_prices_user):
             bucket = self.store_prices_user[retailer]
-            for key in [
-                k
-                for k, item in bucket.items()
-                if isinstance(item, dict)
-                and item.get("source") == SOURCE_RECEIPT
-                and item.get("receipt_id") == receipt_id
-                and (retailer, k) not in (keep or set())
-            ]:
-                del bucket[key]
+            for key, item in list(bucket.items()):
+                if not isinstance(item, dict) or (retailer, key) in (keep or set()):
+                    continue
+                history = [h for h in _list(item.get("history")) if isinstance(h, dict)]
+                rest = [h for h in history if h.get("receipt") != receipt_id]
+                if not (
+                    item.get("source") == SOURCE_RECEIPT and item.get("receipt_id") == receipt_id
+                ):
+                    if len(rest) != len(history):
+                        item["history"] = rest
+                    continue
                 removed += 1
+                earlier = [h for h in rest if not h.get("offer") and h.get("price") is not None]
+                if not earlier:
+                    del bucket[key]
+                    continue
+                bucket[key] = self._restored_price(item, earlier[-1], rest)
             if not bucket:
                 del self.store_prices_user[retailer]
         return removed
+
+    def _restored_price(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        mark: dict[str, Any],
+        history: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """The own price of a history entry (a receipt's price of a deleted receipt is
+        replaced by the one before it)."""
+        try:
+            day = date.fromisoformat(str(mark.get("date") or "")[:10])
+        except ValueError:
+            day = None
+        entry: dict[str, Any] = {
+            "name": str(mark.get("name") or item.get("name") or ""),
+            "price": mark["price"],
+            "amount": mark.get("amount") or item.get("amount") or 1.0,
+            "unit": mark.get("unit") or item.get("unit") or "Stück",
+            "source": SOURCE_USER,
+            "updated": (dt_util.start_of_local_day(day) if day else dt_util.utcnow()).isoformat(),
+            "history": history[-HISTORY_MAX:],
+        }
+        if mark.get("source") == SOURCE_RECEIPT and mark.get("receipt"):
+            entry.update(
+                {
+                    "source": SOURCE_RECEIPT,
+                    "receipt_id": mark["receipt"],
+                    "receipt_date": day.isoformat() if day else None,
+                }
+            )
+        return entry
 
     def remove_store_price(self: EssensplanerManager, retailer: str, name: str) -> bool:
         """Remove an own store price (and the general own price labelled with that store)."""
@@ -1882,11 +2058,16 @@ class StoresMixin:
                 SOURCE_LEAFLET,
             )
             per = unit_price(entry) if entry else None
+            head = product_head(str(offer.get("product") or ""))
             for key in keys:
-                if not self.has_estimate(key) and not names_key_product(
-                    str(offer.get("product") or ""), key, str(offer.get("description") or "")
+                if flavour_only(head, key) or (
+                    self.variant_key(head) != key
+                    and not names_key_product(head, key, str(offer.get("description") or ""))
                 ):
-                    continue  # nothing to check the price with: "Eiskaffee" is no Kaffee
+                    # the offer is of the key's product itself: "Eiskaffee" is no Kaffee,
+                    # ALDI's "Filoncino 400 g, Walnuss-Honig" no Honig (the price range
+                    # check of an estimate lets such prices through)
+                    continue
                 current = best.get((retailer, key))
                 if current is None or (
                     per is not None

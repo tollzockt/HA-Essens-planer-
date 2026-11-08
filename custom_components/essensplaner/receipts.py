@@ -1,7 +1,7 @@
 """Receipts (Kassenzettel): keep them and take the store's current prices from them (1.4).
 
 A receipt comes in as pasted text (parsed locally, always available) or as a photo / PDF
-(uploaded to the HA media folder and read by the user's AI Task entity, optional). Both
+(uploaded to a private folder and read by the user's AI Task entity, optional). Both
 give a proposal: store, branch (header postcode), date, total and the articles mapped to
 ingredient keys. The user reviews it; receipt_save stores the receipt and sets the mapped
 articles as the store's OWN prices (store_prices_user[retailer][key], source "receipt").
@@ -9,8 +9,10 @@ No price of another chain is ever estimated from a receipt.
 
 Storage: its own file essensplaner.receipts.<entry_id> {version, receipts: [...],
 uploads: {upload_id: ...}, aliases: {...}} (≤ MAX_RECEIPTS receipts, the oldest go) and
-the images under <media>/essensplaner/receipts/<id>.<ext>. Only the receipt files listed
-there are ever deleted.
+the images in <config>/.storage/essensplaner_receipts/<id>.<ext> – not in a media folder,
+which every Home Assistant user may browse: only admins see them (image view, panel); the
+AI Task gets them through the integration's own media source (media_source.py), which
+lists nothing. Only receipt files (<hex id>.<ext>) are ever deleted.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ import logging
 from pathlib import Path
 import re
 import secrets
+import shutil
+import time
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
@@ -67,7 +71,14 @@ MAX_ALIASES = 1000
 MAX_PRICE = 10000.0
 MAX_QUANTITY = 1000.0
 # folder below the media directory (media-source://media_source/<dir>/essensplaner/receipts)
+# the stored image path of a receipt ("essensplaner/receipts/<file>"; 1.4 development
+# versions kept the files in that media folder, they are moved on load)
 MEDIA_SUBDIR = "essensplaner/receipts"
+RECEIPTS_DIR = "essensplaner_receipts"  # in <config>/.storage
+MEDIA_SOURCE_RECEIPT = "receipt"  # media-source://essensplaner/receipt/<file>
+_FILE_RE = re.compile(r"[a-f0-9]{8,32}\.(?:jpg|png|webp|pdf)")
+_LEFTOVER_RE = re.compile(r"\.?[a-f0-9]{8,32}\.(?:jpg|png|webp|pdf)(?:\.part)?")
+ORPHAN_MINUTES = 60  # an unknown file this old is left over (an upload is written at once)
 CONTENT_TYPES = {
     "image/jpeg": "jpg",
     "image/png": "png",
@@ -272,6 +283,14 @@ ABBREVIATIONS: dict[str, str] = {
     "waschm": "waschmittel",
     "zahnp": "zahnpasta",
     "eier10": "eier",
+    # egg farming and canned tomatoes ("EIER BOD.10ER M", "JA! PASS.TOMATEN")
+    "bod": "bodenhaltung",
+    "bodenh": "bodenhaltung",
+    "freil": "freiland",
+    "freilandh": "freiland",
+    "pass": "passierte",
+    "passiert": "passierte",
+    "geh": "gehackte",
 }
 # words of a receipt line that name no product (quality, packing, brand-like markers)
 STOP_WORDS = {
@@ -316,6 +335,9 @@ STOP_WORDS = {
     "x",
     "a",
     "b",
+    "bodenhaltung",
+    "freiland",
+    "ja",  # REWE's brand "ja!"
 }
 _PACK_TOKEN_RE = re.compile(
     r"\b\d+\s*[x×]\s*\d+(?:[.,]\d+)?\s*(?:kg|g|gr|ml|l|ltr|cl)\b"
@@ -522,6 +544,80 @@ def _attach_weight(
     return fits
 
 
+_COLUMN_HEAD_RE = re.compile(r"^(?:eur|€|euro|preis|betrag)$", re.IGNORECASE)
+# a phone's text recognition of a receipt photo splits wide rows: the names of the
+# articles first, then their prices (confidence of such pairs)
+COLUMN_CONFIDENCE = 0.6
+SPLIT_CONFIDENCE = 0.8
+
+
+def _total_label(line: str) -> bool:
+    """A total line without its amount ("SUMME EUR")."""
+    return (
+        bool(_TOTAL_RE.match(line.lower()))
+        and not _TAXED_RE.search(line)
+        and not re.search(_PRICE, line)
+    )
+
+
+def _column_name(line: str) -> bool:
+    """A line that may be an article name of a split row (no price, no quantity line)."""
+    return (
+        _name_like(line)
+        and not _price_in(line)
+        and not _total_label(line)
+        and not _INFO_RE.search(line)
+        and not _QTY_RE.match(line)
+        and not _WEIGHT_RE.match(line)
+        and not _starts_with_word(fold(line), _PAYMENT_WORDS)
+    )
+
+
+def _join_columns(lines: list[str]) -> tuple[list[str], dict[int, tuple[str, float]]]:
+    """Pair the names and prices of rows a text recognition split into two blocks
+    ("H-MILCH" "BUTTER" … then "1,09 B" "2,39 B" …): n name lines (a column head "EUR"
+    between them is skipped; a total label "SUMME EUR" may close the names) followed by
+    as many amount lines. Returns the lines with each pair as one row and {row index:
+    (the two original lines, confidence)}."""
+    out: list[str] = []
+    joined: dict[int, tuple[str, float]] = {}
+    index = 0
+    while index < len(lines):
+        if not _AMOUNT_ONLY_RE.match(lines[index]):
+            out.append(lines[index])
+            index += 1
+            continue
+        end = index
+        while end < len(lines) and _AMOUNT_ONLY_RE.match(lines[end]):
+            end += 1
+        amounts = lines[index:end]
+        # the lines before the amounts (already copied to out): column heads, a total
+        # label, then the names
+        back = len(out)
+        while back and _COLUMN_HEAD_RE.match(out[back - 1]):
+            back -= 1
+        total_label = None
+        if back and _total_label(out[back - 1]):
+            total_label = back - 1
+            back -= 1
+        count = len(amounts) - (1 if total_label is not None else 0)
+        names = out[back - count : back] if count >= 2 and back >= count else []
+        if len(names) != count or not all(_column_name(n) for n in names):
+            out.extend(amounts)
+            index = end
+            continue
+        start = back - count
+        rest = out[back:]  # column heads and the total label
+        del out[start:]
+        for name, amount in zip(names, amounts, strict=False):
+            joined[len(out)] = (f"{name}\n{amount}", COLUMN_CONFIDENCE)
+            out.append(f"{name} {amount}")
+        for line in rest:
+            out.append(f"{line} {amounts[-1]}" if _total_label(line) else line)
+        index = end
+    return out, joined
+
+
 def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
     """Parse the text of a German receipt (REWE, EDEKA, Lidl, ALDI, Netto, Norma, Penny,
     Kaufland, Rossmann, dm …) without any AI.
@@ -529,7 +625,10 @@ def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
     Article lines end in a price and an optional tax class ("BUTTER MILSANI 250G 1,15 A");
     a quantity line ("2 x 0,99", "2 Stk x 0,99") or weight line ("0,512 kg x 7,99 EUR/kg")
     belongs to the article before it (or to the next one when only that fits the
-    arithmetic; with a name-only line before it, it carries the total); deposit / empties
+    arithmetic; with a name-only line before it, it carries the total); a name-only line
+    followed by an amount line ("H-MILCH 1,5%" / "1,09 B") is one article, also a block of
+    names followed by a block of as many amounts (rows a phone's text recognition split
+    into two columns; lower confidence); deposit / empties
     lines (Pfand, Leergut) are kept as ignored lines; discounts ("Rabatt -0,30",
     "Preisvorteil") reduce the article before them; "SUMME" / "zu zahlen" is the total,
     payment lines and everything after the total are no articles. The header (lines before
@@ -540,7 +639,7 @@ def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
     (article|deposit|discount), confidence}], unparsed: [line], source: "text"}.
     """
     raw_lines = str(text or "")[:MAX_TEXT_CHARS].splitlines()
-    lines = [_clean_line(line) for line in raw_lines]
+    lines, joined = _join_columns([c for c in (_clean_line(line) for line in raw_lines) if c])
     header: list[str] = []
     footer: list[str] = []
     items: list[dict[str, Any]] = []
@@ -591,10 +690,11 @@ def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
             attach(orphan[0], previous, orphan[1], orphan[2], orphan[3])
         orphan = (kind, value, unit, line)
 
-    for line in lines:
+    for index, line in enumerate(lines):
         if not line:
             continue
         low = line.lower()
+        split = joined.get(index)  # (original lines, confidence) of a split row
         was_header, header_last = header_last, False
         if after_total:
             footer.append(line)
@@ -643,6 +743,14 @@ def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
         header_last = False
         if _INFO_RE.search(line):
             continue
+        if _AMOUNT_ONLY_RE.match(line):
+            if pending is None and was_header and header and _name_like(header[-1]):
+                pending = header.pop()  # the first article: a name line + this line
+            if pending is not None:
+                # the price of the name line before ("H-MILCH 1,5%" / "1,09 B")
+                split = (f"{pending}\n{line}", SPLIT_CONFIDENCE)
+                line = f"{pending} {line}"
+                pending = None
         match = _ARTICLE_RE.match(line)
         if match is None:
             if items or pending is not None or orphan is not None:
@@ -663,6 +771,8 @@ def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
             unparsed.append(pending)
             pending = None
         confidence = 0.95 if match.group("tax").strip(" *") else 0.85
+        if split is not None:
+            line, confidence = split[0], min(confidence, split[1])
         if _DEPOSIT_RE.search(name):
             item = _new_item(line, name, price, confidence)
             item.update({"ignored": True, "kind": "deposit"})
@@ -894,24 +1004,41 @@ def line_pack(name: str) -> tuple[float, str] | None:
     return None
 
 
-def name_tokens(name: str, vocabulary: dict[str, str] | None = None) -> list[str]:
-    """Folded product words of a receipt name: pack sizes, numbers and stop words removed,
-    abbreviations expanded ("HACKFL.GEM." -> hackfleisch gemischt, "SCHEIB" -> scheiben),
-    a truncated word ("SPEISEQ.") completed when exactly one known word starts with it."""
+# marks of name tokens: completed from a known word, truncated and not understood
+_COMPLETED = "completed"
+_TRUNCATED = "truncated"
+
+
+def _marked_tokens(
+    name: str, vocabulary: dict[str, str] | None = None, complete: bool = True
+) -> list[tuple[str, str]]:
+    """name_tokens() with a mark per token: "" (as printed, a known word or an
+    abbreviation), "completed" (a truncated word completed from the vocabulary) or
+    "truncated" (a truncated word that was not understood or not completed)."""
     text = _PACK_TOKEN_RE.sub(" ", str(name or ""))
-    tokens: list[str] = []
+    tokens: list[tuple[str, str]] = []
     for raw in re.split(r"\s+", text.replace(".", ". ")):
         truncated = raw.endswith(".")
         for word in fold(raw).split():
             if word.isdigit() or len(word) == 0:
                 continue
-            word = ABBREVIATIONS.get(word, word)
-            if vocabulary and truncated and len(word) >= 3 and word not in vocabulary:
-                word = vocabulary.get(f"{word}*", word)
+            mark = ""
+            if word in ABBREVIATIONS:
+                word = ABBREVIATIONS[word]
+            elif truncated and len(word) >= 3 and not (vocabulary and word in vocabulary):
+                completion = vocabulary.get(f"{word}*") if vocabulary and complete else None
+                word, mark = (completion, _COMPLETED) if completion else (word, _TRUNCATED)
             for part in word.split():
                 if part not in STOP_WORDS:
-                    tokens.append(part)
+                    tokens.append((part, mark))
     return tokens
+
+
+def name_tokens(name: str, vocabulary: dict[str, str] | None = None) -> list[str]:
+    """Folded product words of a receipt name: pack sizes, numbers and stop words removed,
+    abbreviations expanded ("HACKFL.GEM." -> hackfleisch gemischt, "SCHEIB" -> scheiben),
+    a truncated word ("SPEISEQ.") completed when exactly one known word starts with it."""
+    return [token for token, _ in _marked_tokens(name, vocabulary)]
 
 
 def _vocabulary(names: list[str]) -> dict[str, str]:
@@ -1015,9 +1142,26 @@ class ReceiptMapper:
                 "match": "alias",
                 "confidence": 0.98,
             }
-        tokens = name_tokens(name, self.vocabulary)
-        if not tokens:
+        # the words as printed first; a truncated word completed from the known words
+        # ("BOD." -> "Bodylotion") only when they name nothing: a guessed word must not
+        # outvote a recognised one ("EIER BOD.10ER M")
+        plain = _marked_tokens(name, self.vocabulary, complete=False)
+        if not plain:
             return none
+        found = self._map_tokens(plain)
+        marked = plain
+        if found is None:
+            completed = _marked_tokens(name, self.vocabulary)
+            if completed != plain:
+                marked = completed
+                found = self._map_tokens(completed)
+        if found is None:
+            found = self._fuzzy(" ".join(token for token, _ in marked))
+        return found or none
+
+    def _map_tokens(self, marked: list[tuple[str, str]]) -> dict[str, Any] | None:
+        """The exact match of the longest word group (see map())."""
+        tokens = [token for token, _ in marked]
         cleaned = " ".join(tokens)
         count = len(tokens)
         for size in range(min(count, 4), 0, -1):
@@ -1039,8 +1183,13 @@ class ReceiptMapper:
             confidence = 0.95 if size == count else 0.8 if start == 0 else 0.65
             if len({h[1][0] for h in hits}) > 1:
                 confidence -= 0.1
+            marks = [mark for _, mark in marked[start : start + size]]
+            if _COMPLETED in marks or (start and marked[start - 1][1] == _TRUNCATED):
+                # a guessed word, or an abbreviation not understood right before the hit
+                # ("GESCH.TOMATEN" may be no fresh tomatoes): only a suggestion
+                confidence = min(confidence, MIN_CONFIDENCE - 0.05)
             return {"key": key, "product": product, "match": source, "confidence": confidence}
-        return self._fuzzy(cleaned) or none
+        return None
 
     def _part_counts(self, cleaned: str, part: str, found: tuple[str, str, str]) -> bool:
         """True if a word group of a longer name may stand for the whole name."""
@@ -1184,6 +1333,53 @@ def own_price(item: dict[str, Any]) -> tuple[float, float, str] | None:
     )
 
 
+OFFER_TOLERANCE = 0.05
+
+
+def receipt_offer(
+    manager: EssensplanerManager,
+    retailer: str | None,
+    key: str | None,
+    day: date,
+    item: dict[str, Any],
+) -> dict[str, Any] | None:
+    """The leaflet offer of the receipt's chain for this article that was valid on the
+    receipt's day at the line's price (an offer price is no regular price), else None.
+    Weighed articles are not checked."""
+    if not (retailer and key) or item.get("weight"):
+        return None
+    try:
+        price = (float(item.get("price") or 0) + float(item.get("discount") or 0)) / float(
+            item.get("quantity") or 1
+        )
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    if price <= 0:
+        return None
+    text = day.isoformat()
+    candidates = [*manager.offers, *manager.catalog.current_offers(day)]
+    for offer in candidates:
+        if not isinstance(offer, dict) or offer.get("online_only"):
+            continue
+        try:
+            offer_price = float(offer.get("price"))
+        except (TypeError, ValueError):
+            continue
+        old = offer.get("old_price") or offer.get("regular_price")
+        if (
+            abs(offer_price - price) > OFFER_TOLERANCE
+            or (old and float(old) <= offer_price)  # no price cut
+            or str(offer.get("valid_from") or "")[:10] > text
+            or str(offer.get("valid_to") or "9999")[:10] < text
+            or not retailer_matches(manager.offer_retailer(offer), retailer)
+        ):
+            continue
+        keys = offer.get("keys") or [ingredient_key(str(offer.get("product") or ""))]
+        if key in keys:
+            return offer
+    return None
+
+
 def _plausibility(manager: EssensplanerManager, key: str, price: tuple[float, float, str]) -> bool:
     """False if the price per base unit is far off the estimate (pack size wrong?)."""
     default = manager.defaults_index().get(key)
@@ -1248,6 +1444,10 @@ def build_proposal(
         )
     mapper = ReceiptMapper(manager, retailer)
     book = manager.store_book(retailer) if retailer else None
+    try:
+        receipt_day = _receipt_day(manager, parsed.get("date"))
+    except HomeAssistantError:
+        receipt_day = manager.today()  # a date the review asks for anyway
     items = []
     for raw in parsed.get("items") or []:
         item = {k: raw.get(k) for k in ("line", "name", "quantity", "weight", "unit_price")}
@@ -1260,7 +1460,7 @@ def build_proposal(
                 "confidence": raw.get("confidence"),
             }
         )
-        items.append(_proposal_item(manager, mapper, book, retailer, item))
+        items.append(_proposal_item(manager, mapper, book, retailer, item, receipt_day))
     day = parsed.get("date")
     return {
         "source": parsed.get("source") or SOURCE_TEXT,
@@ -1316,11 +1516,12 @@ def _proposal_item(
     book: Any,
     retailer: str | None,
     item: dict[str, Any],
+    day: date,
 ) -> dict[str, Any]:
     name = str(item.get("name") or "")
     result = {**item, "key": None, "product": None, "match": None, "status": "ignored"}
     result.update({"amount": None, "unit": None, "pack": None, "pack_source": None})
-    result.update({"own_price": None, "current": None, "warning": None})
+    result.update({"own_price": None, "current": None, "warning": None, "offer": None})
     if item["ignored"]:
         return result
     mapping = mapper.map(name)
@@ -1348,6 +1549,16 @@ def _proposal_item(
         result["own_price"] = {"price": price[0], "amount": price[1], "unit": price[2]}
         if key and not _plausibility(manager, key, price):
             result["warning"] = "Preis weicht stark vom Richtwert ab – Packungsgröße prüfen."
+        if offer := receipt_offer(manager, retailer, key, day, result):
+            result["offer"] = {
+                "product": offer.get("product") or offer.get("title"),
+                "price": offer.get("price"),
+                "old_price": offer.get("old_price") or offer.get("regular_price"),
+                "valid_to": offer.get("valid_to"),
+            }
+            result["warning"] = (
+                "Angebotspreis – bleibt nur im Preisverlauf, der Normalpreis wird nicht geändert."
+            )
     if key and book is not None and (entry := book.lookup(result["product"] or key)):
         result["current"] = {
             "price": round(entry.price, 2),
@@ -1438,9 +1649,12 @@ async def async_scan_receipt(
 
 
 def media_type(media_content_id: str | None) -> str | None:
-    """Content type of a local media file the AI may read as a receipt (None otherwise)."""
+    """Content type of a local media file (or an uploaded receipt) the AI may read as a
+    receipt (None otherwise)."""
     text = str(media_content_id or "")
-    if not text.startswith("media-source://media_source/") or ".." in text:
+    if ".." in text or not text.startswith(
+        ("media-source://media_source/", f"media-source://{DOMAIN}/{MEDIA_SOURCE_RECEIPT}/")
+    ):
         return None
     extension = text.rsplit(".", 1)[-1].lower() if "." in text else ""
     return EXTENSION_TYPES.get(extension)
@@ -1549,8 +1763,9 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
     existing receipt is updated)}. A price of a newer receipt replaces an older own price;
     an own price typed (or a receipt) after the receipt's date is kept. Names the user
     assigned to another key are remembered for the next receipt of the chain.
-    Result {receipt, prices: [{key, name, price, amount, unit, status saved|kept}], saved,
-    kept, unknown}.
+    Result {receipt, prices: [{key, name, price, amount, unit, status saved|kept|offer}],
+    saved, kept, offer, unknown}. A line at the price of a leaflet offer of the store on
+    the receipt's day (status "offer") only goes into the price history.
     """
     from .manager import _error
 
@@ -1596,8 +1811,10 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
         if price is None:
             item["status"] = "skipped"
             continue
+        # an offer price of the store on that day is no regular price (history only)
+        offer = receipt_offer(manager, retailer, key, day, item) is not None
         status = manager.put_receipt_price(
-            retailer, key, item["product"], *price, receipt_id=receipt_id, day=day
+            retailer, key, item["product"], *price, receipt_id=receipt_id, day=day, offer=offer
         )
         item["status"] = status
         saved_keys.add((retailer, key))
@@ -1660,6 +1877,9 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
     elif previous is not None and previous.get("content_type"):
         receipt["content_type"] = previous["content_type"]
     dropped = store.put(receipt)
+    replaced = (previous or {}).get("image")
+    if upload is not None and replaced and replaced != receipt["image"]:
+        dropped.append({"image": replaced})  # a new photo of a saved receipt
     await store.async_delete_files([r.get("image") for r in dropped])
     if prices or previous is not None:
         manager._invalidate_prices()
@@ -1670,6 +1890,7 @@ async def async_save_receipt(manager: EssensplanerManager, data: dict[str, Any])
         "prices": prices,
         "saved": sum(1 for p in prices if p["status"] == "saved"),
         "kept": sum(1 for p in prices if p["status"] == "kept"),
+        "offer": sum(1 for p in prices if p["status"] == "offer"),
         "unknown": sum(1 for i in items if i["status"] == "unknown"),
     }
 
@@ -1761,6 +1982,11 @@ def media_root(hass: HomeAssistant) -> tuple[str, Path]:
     return "local", Path(hass.config.path("media"))
 
 
+def receipts_folder(hass: HomeAssistant) -> Path:
+    """The private folder of the receipt files (not browsable as media)."""
+    return Path(hass.config.path(".storage", RECEIPTS_DIR))
+
+
 def _empty() -> dict[str, Any]:
     return {"version": STORE_VERSION, "receipts": [], "uploads": {}, "aliases": {}}
 
@@ -1785,7 +2011,7 @@ def _safe_name(name: str | None) -> str:
 
 
 class ReceiptStore:
-    """The receipts of one config entry (own Store file, images in the media folder)."""
+    """The receipts of one config entry (own Store file, images in a private folder)."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
         """Initialize (empty until async_load)."""
@@ -1819,6 +2045,46 @@ class ReceiptStore:
         if stale := self._stale_uploads():
             await self.async_delete_files([f"{MEDIA_SUBDIR}/{u['file']}" for u in stale])
             self.save_later()
+        await self.hass.async_add_executor_job(self._tidy_files, self._file_names())
+
+    def _file_names(self) -> set[str]:
+        """The files the receipts and pending uploads refer to."""
+        names = {str(r["image"]).rsplit("/", 1)[-1] for r in self.receipts if r.get("image")}
+        names |= {
+            str(u["file"])
+            for u in self.data["uploads"].values()
+            if isinstance(u, dict) and u.get("file")
+        }
+        return {n for n in names if _FILE_RE.fullmatch(n)}
+
+    def _tidy_files(self, names: set[str]) -> None:
+        """Move files of 1.4 development versions out of the media folder; delete receipt
+        files nothing refers to any more (an interrupted upload, a replaced image)."""
+        folder = self.folder
+        old = media_root(self.hass)[1] / MEDIA_SUBDIR
+        try:
+            if old.is_dir():
+                for name in names:
+                    if (old / name).is_file() and not (folder / name).exists():
+                        folder.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(old / name), str(folder / name))
+                for directory in (old, old.parent):
+                    directory.rmdir()  # only when empty
+        except OSError:
+            pass
+        if not folder.is_dir():
+            return
+        cutoff = time.time() - ORPHAN_MINUTES * 60
+        for path in folder.iterdir():
+            try:
+                if (
+                    _LEFTOVER_RE.fullmatch(path.name)
+                    and path.name not in names
+                    and path.stat().st_mtime < cutoff
+                ):
+                    path.unlink()
+            except OSError as err:
+                _LOGGER.debug("Could not tidy receipt file %s: %s", path.name, err)
 
     async def async_save(self) -> None:
         """Write the file now."""
@@ -1836,6 +2102,7 @@ class ReceiptStore:
             data = await self._store.async_load()
         except (OSError, ValueError):  # pragma: no cover - defensive
             data = None
+        files: list[Any] = []
         if isinstance(data, dict):
             files = [r.get("image") for r in data.get("receipts") or [] if isinstance(r, dict)]
             files += [
@@ -1843,8 +2110,28 @@ class ReceiptStore:
                 for u in (data.get("uploads") or {}).values()
                 if isinstance(u, dict) and u.get("file")
             ]
-            await self.async_delete_files(files, prune_dirs=True)
+        await self.hass.async_add_executor_job(self._remove_all_files, files)
         await self._store.async_remove()
+
+    def _remove_all_files(self, files: list[Any]) -> None:
+        """Every receipt file of the private folder (also ones nothing refers to) and the
+        listed ones still in the media folder of a 1.4 development version."""
+        names = {str(f).rsplit("/", 1)[-1] for f in files if f}
+        old = media_root(self.hass)[1] / MEDIA_SUBDIR
+        for folder, wanted in ((self.folder, None), (old, names)):
+            if not folder.is_dir():
+                continue
+            for path in folder.iterdir():
+                if _LEFTOVER_RE.fullmatch(path.name) and (wanted is None or path.name in wanted):
+                    try:
+                        path.unlink()
+                    except OSError as err:
+                        _LOGGER.warning("Could not delete receipt file %s: %s", path.name, err)
+            for directory in (folder, folder.parent) if wanted else (folder,):
+                try:
+                    directory.rmdir()  # only when empty
+                except OSError:
+                    break
 
     # -- receipts -----------------------------------------------------------------
 
@@ -1913,13 +2200,28 @@ class ReceiptStore:
 
     @property
     def folder(self) -> Path:
-        """The receipts folder in the media directory."""
-        return media_root(self.hass)[1] / MEDIA_SUBDIR
+        """The private receipts folder."""
+        return receipts_folder(self.hass)
 
     def media_content_id(self, upload: dict[str, Any]) -> str:
-        """media-source id of an uploaded file."""
-        source = media_root(self.hass)[0]
-        return f"media-source://media_source/{source}/{MEDIA_SUBDIR}/{upload['file']}"
+        """media-source id of an uploaded file (the integration's own media source)."""
+        return f"media-source://{DOMAIN}/{MEDIA_SOURCE_RECEIPT}/{upload['file']}"
+
+    def file_info(self, name: str) -> tuple[Path, str, str] | None:
+        """(path, content type, upload or receipt id) of a receipt file a pending upload
+        or a receipt refers to."""
+        if not _FILE_RE.fullmatch(str(name)):
+            return None
+        for upload in self.data["uploads"].values():
+            if isinstance(upload, dict) and upload.get("file") == name and upload.get("id"):
+                ctype = str(upload.get("content_type") or "image/jpeg")
+                return self.folder / name, ctype, str(upload["id"])
+        for receipt in self.receipts:
+            if str(receipt.get("image") or "").rsplit("/", 1)[-1] == name:
+                found = self.receipt_upload(receipt["id"])
+                ctype = found["content_type"] if found else "image/jpeg"
+                return self.folder / name, ctype, str(receipt["id"])
+        return None
 
     def upload(self, upload_id: str) -> dict[str, Any] | None:
         """A pending upload (not saved as a receipt yet)."""
@@ -1947,7 +2249,7 @@ class ReceiptStore:
         if upload is None:
             return None
         name = upload["file"]
-        if not re.fullmatch(r"[a-f0-9]{8,32}\.(?:jpg|png|webp|pdf)", name):
+        if not _FILE_RE.fullmatch(name):
             return None
         return self.folder / name, upload["content_type"]
 
@@ -1978,10 +2280,18 @@ class ReceiptStore:
         def write() -> None:
             folder.mkdir(parents=True, exist_ok=True)
             temp = folder / f".{name}.part"
-            temp.write_bytes(content)
-            temp.replace(folder / name)
+            try:
+                temp.write_bytes(content)
+                temp.replace(folder / name)
+            except OSError:
+                temp.unlink(missing_ok=True)  # e.g. the disk is full
+                raise
 
         await self.hass.async_add_executor_job(write)
+        if self.unloaded:
+            # the entry was reloaded meanwhile: the new store does not know this file
+            await self.async_delete_files([f"{MEDIA_SUBDIR}/{name}"])
+            raise HomeAssistantError("reloaded")
         upload = {
             "id": upload_id,
             "file": name,
@@ -2005,7 +2315,7 @@ class ReceiptStore:
             for p in paths
             if p
             and str(p).startswith(f"{MEDIA_SUBDIR}/")
-            and re.fullmatch(r"[a-f0-9]{8,32}\.(?:jpg|png|webp|pdf)", str(p).rsplit("/", 1)[-1])
+            and _FILE_RE.fullmatch(str(p).rsplit("/", 1)[-1])
         ]
 
         def delete() -> int:
@@ -2076,11 +2386,11 @@ class ReceiptUploadView(HomeAssistantView):
     async def post(self, request: web.Request) -> web.Response:
         """Store an uploaded receipt."""
         hass: HomeAssistant = request.app[KEY_HASS]
-        manager = _loaded_manager(hass)
-        if manager is None:
-            return self.json_message(
-                "Der Essensplaner ist nicht eingerichtet.", HTTPStatus.NOT_FOUND, "not_loaded"
-            )
+        not_loaded = self.json_message(
+            "Der Essensplaner ist nicht eingerichtet.", HTTPStatus.NOT_FOUND, "not_loaded"
+        )
+        if _loaded_manager(hass) is None:
+            return not_loaded
         too_large = self.json_message(
             "Die Datei ist zu groß (höchstens 10 MB).",
             HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
@@ -2133,7 +2443,26 @@ class ReceiptUploadView(HomeAssistantView):
                 HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
                 "receipt_file_type",
             )
-        upload = await manager.receipts.async_add_upload(content, part_type, filename)
+        # the manager after reading the (slow, phone) body: saving the settings meanwhile
+        # reloads the entry
+        manager = _loaded_manager(hass)
+        if manager is None:
+            return not_loaded
+        try:
+            upload = await manager.receipts.async_add_upload(content, part_type, filename)
+        except HomeAssistantError:
+            return self.json_message(
+                "Der Essensplaner wurde gerade neu geladen – bitte noch einmal hochladen.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "not_loaded",
+            )
+        except OSError as err:
+            _LOGGER.warning("Could not store a receipt upload: %s", err)
+            return self.json_message(
+                "Die Datei konnte nicht gespeichert werden.",
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                "receipt_file_write",
+            )
         return self.json(
             {
                 "upload_id": upload["id"],
