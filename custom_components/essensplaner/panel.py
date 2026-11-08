@@ -996,7 +996,9 @@ def settings_view(hass: HomeAssistant, entry: Any) -> dict[str, Any]:
         default_values,
         describe_fields,
         store_choices,
+        time_choices,
     )
+    from .profile import ALLERGENS, CUISINES, DEVICES, DIETS, FLAVORS, WEEKDAYS
 
     manager = getattr(entry, "runtime_data", None)
     if not hasattr(manager, "branch_postcodes"):
@@ -1022,13 +1024,34 @@ def settings_view(hass: HomeAssistant, entry: Any) -> dict[str, Any]:
             "ai_task_entities": _entity_choices(hass, "ai_task", values[CONF_RECEIPT_AI]),
             "ai_entities": entity_choices(hass, values[CONF_AI_ENTITY]),
             "ai_features": choice_list("ai_feature", AI_FEATURES),
+            # 1.5.1: the profile
+            "diets": choice_list("diet", DIETS),
+            "allergens": choice_list("allergen", ALLERGENS),
+            "cuisines": choice_list("cuisine", CUISINES),
+            "flavors": choice_list("flavor", FLAVORS),
+            "devices": choice_list("device", DEVICES),
+            "weekdays": choice_list("weekday", WEEKDAYS),
+            "times": time_choices(),
         },
         "warnings": _settings_warnings(hass, manager, values),
         "branch_postcodes": manager.branch_postcodes() if manager is not None else [],
         "branches": len(manager.branches) if manager is not None else 0,
         "main_branch": manager.branch_label(main) if main else None,
+        "main_branch_id": main.get("id") if main else None,
         "loaded": manager is not None,
+        "version": _integration_version(hass),
     }
+
+
+def _integration_version(hass: HomeAssistant) -> str | None:
+    """The version of the integration (manifest.json; ℹ️ in the settings, 1.5.1)."""
+    from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integration
+
+    try:
+        version = async_get_loaded_integration(hass, DOMAIN).version
+    except IntegrationNotLoaded:
+        return None
+    return str(version) if version else None
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/get_settings"})
@@ -1040,8 +1063,9 @@ def ws_get_settings(
     """The settings of the panel's ⚙️ view (admins): {values, defaults, fields, sections,
     choices: {meals, strategies, split_modes, offers_sources, stores, zones, todo_entities,
     ai_task_entities, ai_entities: [{value, label, available, kind (ai_task |
-    conversation), missing?}], ai_features: [{value, label}]}, warnings: [{key, message}],
-    branch_postcodes, branches, main_branch, loaded}."""
+    conversation), missing?}], ai_features: [{value, label}], 1.5.1: diets, allergens,
+    cuisines, flavors, devices, weekdays, times: [{value, label}]}, warnings: [{key,
+    message}], branch_postcodes, branches, main_branch, main_branch_id, loaded, version}."""
     entry = _settings_entry(hass)
     if entry is None:
         connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")

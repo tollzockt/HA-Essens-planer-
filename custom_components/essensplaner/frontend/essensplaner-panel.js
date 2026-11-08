@@ -319,27 +319,71 @@ const drinkItem = (d) => {
   return item;
 };
 
-/* settings view (1.4): sections and a short German help per field; ranges, defaults and
- * the validation come from the backend (options_schema.py). Home Assistant's own options
+/* settings view (1.4; 1.5.1: a grouped list like a profile page – every row opens a page
+ * with only its settings). A short German help per field; ranges, defaults and the
+ * validation come from the backend (options_schema.py). Home Assistant's own options
  * dialog (Geräte & Dienste → Konfigurieren) only toggles the sidebar panel since 1.4. */
-const SETTINGS_SECTIONS = [
-  ["general", "🏠 Allgemein"],
-  ["planning", "💶 Budget & Planung"],
-  ["offers", "🏷️ Angebote & Preisquellen"],
-  ["stores", "🏪 Läden & Einkauf"],
-  ["receipts", "🧾 Kassenzettel"],
-  ["ai", "🤖 KI"],
+const SETTINGS_GROUPS = [
+  ["Dein Geschmack", ["flavors", "cuisines", "dislikes"]],
+  ["Essen", ["diet", "allergies", "kitchen", "pantry"]],
+  ["Dein Plan", ["household", "meals", "days", "time", "budget", "strategy", "season", "drinks", "cooked"]],
+  ["Einkauf", ["mainstore", "split", "branches", "todo"]],
+  ["Angebote & Preise", ["sources", "zip", "chains", "watch"]],
+  ["KI", ["ai", "receipts"]],
+  ["System & Hilfe", ["voice", "sidebar", "about"]],
 ];
+const SETTINGS_PAGES = {
+  flavors: { emoji: "😋", title: "Aromen, die du liebst", fields: ["liked_flavors"] },
+  cuisines: { emoji: "🍽️", title: "Was du gern isst", fields: ["liked_cuisines"] },
+  dislikes: { emoji: "🙅", title: "Lebensmittel, die du nicht magst", fields: ["excluded"] },
+  diet: { emoji: "🥗", title: "Deine Ernährung", fields: ["diet"] },
+  allergies: { emoji: "⚠️", title: "Allergien & Unverträglichkeiten", fields: ["allergies"] },
+  kitchen: { emoji: "🍞", title: "Deine Küche", fields: ["kitchen"] },
+  pantry: { emoji: "🧂", title: "Vorrat", fields: ["pantry_staples"] },
+  household: { emoji: "👨‍👩‍👧", title: "Haushalt", fields: ["default_servings"] },
+  meals: { emoji: "🍳", title: "Mahlzeiten", fields: ["enabled_meals", "default_meal", "time_fruehstueck", "time_mittagessen", "time_snack", "time_abendessen"] },
+  days: { emoji: "📅", title: "Tage, an denen du kochst", fields: ["cook_days"] },
+  time: { emoji: "⏰", title: "Zeit unter der Woche", fields: ["weekday_time", "weekend_time"] },
+  budget: { emoji: "💰", title: "Wochenbudget", fields: ["weekly_budget", "occasions_in_budget"] },
+  strategy: { emoji: "⚖️", title: "Planungsart", fields: ["plan_strategy"] },
+  season: { emoji: "🍂", title: "Saison", fields: ["season_aware"] },
+  drinks: { emoji: "🍷", title: "Getränke", fields: ["drinks_alcohol"] },
+  cooked: { emoji: "✅", title: "Automatisch als gekocht", fields: ["auto_mark_cooked"] },
+  mainstore: { emoji: "🛒", title: "Einkauf bei", fields: [] },
+  split: { emoji: "🏪", title: "Aufteilung auf Läden", fields: ["store_split_mode", "store_split_min_saving", "store_split_min_percent", "store_split_offer_min", "store_split_trip_min"] },
+  branches: { emoji: "📍", title: "Filialen finden", fields: ["branch_zones", "branch_radius_km", "branch_route", "branch_route_radius_m"] },
+  todo: { emoji: "📋", title: "Einkaufsliste kopieren nach", fields: ["shopping_sync_entity"] },
+  sources: { emoji: "🏷️", title: "Angebotsquellen", fields: ["offers_source", "all_leaflets", "edeka_offers", "aldi_online_prices", "rewe_online_prices"] },
+  zip: { emoji: "📮", title: "Postleitzahl", fields: ["zip_code"] },
+  chains: { emoji: "🏬", title: "Ketten", fields: ["offer_stores"] },
+  watch: { emoji: "👀", title: "Merkliste", fields: ["offers_watchlist"] },
+  ai: { emoji: "🤖", title: "KI über Home Assistant", fields: ["ai_entity", "ai_features"] },
+  receipts: { emoji: "🧾", title: "Kassenzettel-KI", fields: ["receipt_ai_task_entity"] },
+  voice: { emoji: "🎙️", title: "Sprachbefehle", fields: ["register_intents"] },
+  sidebar: { emoji: "📌", title: "In der Seitenleiste", fields: ["show_panel"] },
+  about: { emoji: "ℹ️", title: "Version & Anleitung", fields: [] },
+};
+/* the sections of the deep links of 1.4 (⚙️ buttons all over the panel) -> their page */
+const SETTINGS_LINKS = { general: null, planning: "budget", offers: "sources", stores: "split", receipts: "receipts", ai: "ai", profile: null };
+const SETTINGS_README = "https://github.com/tollzockt/HA-Essens-planer-#readme";
 const SETTING_INFO = {
-  default_servings: ["Portionen", "Wird beim Planen von Mahlzeiten verwendet."],
+  diet: ["Ernährung", "Rezepte, die nicht dazu passen, plant der Auto-Plan nie und schlägt sie nicht vor – auch nicht bei Anlässen. Im Tab „Rezepte“ bleiben sie sichtbar, mit Hinweis."],
+  allergies: ["Allergien & Unverträglichkeiten", "Rezepte mit diesen Zutaten werden nie automatisch geplant oder vorgeschlagen (auch nicht bei Anlässen). Erkannt wird über die Zutatenliste – bei Fertigprodukten bitte selbst auf die Packung schauen."],
+  liked_cuisines: ["Lieblingsküchen", "Gerichte dieser Küchen kommen bei Vorschlägen und im Auto-Plan öfter dran – die anderen bleiben dabei. Nichts gewählt = alles gleich gern."],
+  liked_flavors: ["Lieblingsaromen", "Gerichte mit diesen Aromen kommen etwas öfter dran – ein Wunsch, kein Filter."],
+  kitchen: ["Geräte in deiner Küche", "Braucht ein Rezept ein Gerät, das fehlt (z. B. Grill, Waffeleisen, Heißluftfritteuse), plant der Auto-Plan es nicht ein. Steht „im Ofen oder in der Mikrowelle“ im Rezept, reicht eins davon. Bei Anlässen kommen solche Rezepte nur seltener."],
+  cook_days: ["Kochtage", "An den anderen Tagen plant der Auto-Plan kein Mittag- und Abendessen – höchstens die Reste vom Kochtag davor (doppelt kochen). Frühstück und Snacks plant er immer."],
+  weekday_time: ["Montag bis Freitag", "So lange darf ein Mittag- oder Abendessen höchstens dauern. Gibt es zu wenige passende Rezepte, kommen längere dazu – mit dem Hinweis „⏱️ länger als …“."],
+  weekend_time: ["Samstag und Sonntag", ""],
+  default_servings: ["Personen", "So viele Portionen plant der Essensplaner für jede Mahlzeit ein (im Plan je Mahlzeit änderbar)."],
   default_meal: ["Standard-Mahlzeit", "Wird genommen, wenn keine Mahlzeit genannt wird (z. B. „Plane Lasagne für Freitag“)."],
   enabled_meals: ["Aktive Mahlzeiten", "Welche Mahlzeiten du planst (mindestens eine)."],
   time_fruehstueck: ["Frühstück", "Uhrzeit für den Kalender und „Nächste Mahlzeit“."],
   time_mittagessen: ["Mittagessen", ""],
   time_snack: ["Snack", ""],
   time_abendessen: ["Abendessen", ""],
-  pantry_staples: ["Vorratszutaten", "Kommagetrennt – diese Zutaten landen nie auf der Einkaufsliste, z. B. „Salz, Pfeffer, Öl“."],
-  excluded: ["Ausgeschlossene Zutaten", "Kommagetrennt – Vorschläge und automatische Planung meiden sie, z. B. „Fisch, Pilze“."],
+  pantry_staples: ["Vorratszutaten", "Diese Zutaten hast du immer da – sie landen nie auf der Einkaufsliste, z. B. „Salz“, „Pfeffer“, „Öl“."],
+  excluded: ["Das magst du nicht", "Vorschläge und automatische Planung meiden Rezepte mit diesen Zutaten oder Tags, z. B. „Pilze“, „Kokos“, „Fisch“."],
   auto_mark_cooked: ["Automatisch als gekocht markieren", "Nach Ablauf des Tages zählen geplante Rezepte als gekocht (bessere Vorschläge)."],
   shopping_sync_entity: ["Einkaufsliste kopieren nach", "Optional: eine weitere To-do-Liste (z. B. Bring!), die die Einträge ebenfalls bekommt."],
   register_intents: ["Sprachbefehle registrieren", "Damit Assist, Jarvis und andere Sprachassistenten den Planer nutzen können."],
@@ -351,8 +395,8 @@ const SETTING_INFO = {
   drinks_alcohol: ["Getränkevorschläge mit Alkohol", "Auch Wein, Bier, Sekt & Co. vorschlagen. Alkoholfreie Getränke sind immer dabei."],
   offers_source: ["marktguru-Angebote (inoffiziell)", "Nur eine Ergänzung zu den direkten Quellen der Ketten (EDEKA-Angebote, ALDI SÜD, REWE-Onlinepreise) – für Läden ohne eigene Angebotsquelle (Lidl, REWE, Netto, Penny, Kaufland, NORMA, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden, außerdem Live-Suche in „Artikel hinzufügen“. Standardmäßig aus."],
   zip_code: ["Postleitzahl", "Für die Angebote in deiner Nähe. Kann leer bleiben, wenn deine Läden eine Postleitzahl haben."],
-  offer_stores: ["Läden (ohne gespeicherte Filialen)", "Nur Angebote dieser Ketten. Hast du Filialen gespeichert, zählen deren Ketten."],
-  offers_watchlist: ["Merkliste", "Zusätzliche Produkte, deren Angebote du sehen willst, kommagetrennt (z. B. „Kaffee, Butter“)."],
+  offer_stores: ["Ketten (ohne gespeicherte Filialen)", "Nur Angebote dieser Ketten. Hast du Filialen gespeichert, zählen deren Ketten."],
+  offers_watchlist: ["Merkliste", "Zusätzliche Produkte, deren Angebote du sehen willst, z. B. „Kaffee“, „Butter“."],
   rewe_online_prices: ["REWE-Onlinepreise", "⚠️ Experimentell: Markt-ID und Suchbegriffe gehen höchstens einmal pro Woche an www.rewe.de. Lehnt REWE ab, wird 7 Tage pausiert. Braucht eine REWE-Filiale mit Markt-ID."],
   aldi_online_prices: ["ALDI-SÜD-Preise", "⚠️ Experimentell: die Lage deiner ALDI-SÜD-Filiale und Suchbegriffe gehen höchstens einmal pro Woche an ALDI SÜD; reduzierte Artikel und Wochenangebote werden Angebote. Braucht eine ALDI-SÜD-Filiale."],
   all_leaflets: ["Prospekte aller Filialen", "Mit marktguru: die Prospekte (als Bilder) aller gespeicherten Filialen im Tab „Angebote“ – je Postleitzahl und Branche eine Anfrage, etwa zweimal pro Woche (höchstens 12 je Abruf). Ohne marktguru gibt es je Kette einen Link zu ihrer Prospektseite."],
@@ -377,9 +421,32 @@ const ENTITY_CHOICES = {
   receipt_ai_task_entity: { list: "ai_task_entities", none: "– keine (nur Text einfügen) –", empty: "Keine KI-Aufgabe gefunden – richte z. B. Anthropic (Claude), OpenAI, Google Gemini oder Ollama in Home Assistant ein." },
   ai_entity: { list: "ai_entities", none: "– keine KI –", empty: "Keine KI gefunden – richte z. B. Anthropic (Claude), OpenAI, Google Gemini oder Ollama in Home Assistant ein (Einstellungen → Geräte & Dienste).", groups: { ai_task: "🧠 KI-Aufgaben", conversation: "💬 Gesprächsagenten" } },
 };
-const SELECT_CHOICES = { default_meal: "meals", plan_strategy: "strategies", store_split_mode: "split_modes", offers_source: "offers_sources" };
-const MULTI_CHOICES = { enabled_meals: "meals", offer_stores: "stores", ai_features: "ai_features" };
+const SELECT_CHOICES = { default_meal: "meals", plan_strategy: "strategies", store_split_mode: "split_modes", offers_source: "offers_sources", diet: "diets" };
+const MULTI_CHOICES = { enabled_meals: "meals", offer_stores: "stores", ai_features: "ai_features", allergies: "allergens", liked_cuisines: "cuisines", liked_flavors: "flavors", kitchen: "devices", cook_days: "weekdays" };
 const AI_KIND_LABELS = { ai_task: "KI-Aufgabe", conversation: "Gesprächsagent" };
+/* 1.5.1: the profile – emojis of the choices, the diets explained, list fields as chips */
+const PROFILE_EMOJI = {
+  diet: { alles: "🍽️", flexitarisch: "🥗", pescetarisch: "🐟", vegetarisch: "🥕", vegan: "🌱" },
+  allergies: { gluten: "🌾", laktose: "🥛", ei: "🥚", nuesse: "🌰", erdnuesse: "🥜", fisch: "🐟", krebstiere: "🦐", soja: "🫘", sellerie: "🥬", senf: "🫙", sesam: "🌱" },
+  liked_cuisines: { deutsch: "🥨", italienisch: "🍝", asiatisch: "🥢", mexikanisch: "🌮", griechisch: "🫒", indisch: "🍛", orientalisch: "🧆", franzoesisch: "🥐", amerikanisch: "🍔", spanisch: "🥘" },
+  liked_flavors: { herzhaft: "🥓", wuerzig: "🧄", scharf: "🌶️", mild: "😌", suess: "🍯", frisch: "🍋", deftig: "🍖", cremig: "🥣" },
+  kitchen: { backofen: "🔥", herd: "🍳", mikrowelle: "📡", heissluftfritteuse: "🍟", grill: "🍖", kuechenmaschine: "🥣", schnellkochtopf: "♨️", slowcooker: "🍲", raclette: "🧀", fondue: "🫕", waffeleisen: "🧇" },
+};
+const DIET_INFO = {
+  alles: "Alles darf auf den Tisch.",
+  flexitarisch: "Wenig Fleisch: höchstens zwei Fleischgerichte pro Woche im Auto-Plan, Vorschläge eher ohne.",
+  pescetarisch: "Kein Fleisch – Fisch und Meeresfrüchte ja.",
+  vegetarisch: "Kein Fleisch und kein Fisch.",
+  vegan: "Keine tierischen Produkte – auch keine Milch, Eier oder Honig.",
+};
+const TAG_FIELDS = {
+  excluded: { empty: "Noch nichts eingetragen.", placeholder: "z. B. Pilze, Kokos" },
+  pantry_staples: { empty: "Noch keine Vorratszutaten.", placeholder: "z. B. Öl, Zucker" },
+  offers_watchlist: { empty: "Die Merkliste ist leer.", placeholder: "z. B. Kaffee, Butter" },
+};
+const SETTINGS_REQUIRED = { enabled_meals: "Bitte mindestens eine Mahlzeit auswählen.", cook_days: "Bitte mindestens einen Tag auswählen, an dem du kochst." };
+/** "a, b; c" -> ["a", "b", "c"] (the comma lists of the settings). */
+const splitList = (text) => String(text || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
 
 const safeUrl = (url) => {
   const u = String(url || "").trim();
@@ -793,24 +860,47 @@ const STYLE = `
   .toolbar .gear { width: 44px; height: 44px; font-size: 21px; color: inherit; flex: none; }
   .toolbar .gear:hover { background: rgba(255,255,255,.16); }
   .toolbar .gear.off { opacity: .45; cursor: not-allowed; }
+  .pfbadges { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; min-width: 0; }
+  .bdg.pf { background: color-mix(in srgb, #ef6c00 14%, transparent); font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .pfnote { margin: 2px 0; }
+  .chip.fitchip:not(.active) { box-shadow: inset 0 0 0 1px color-mix(in srgb, #43a047 55%, transparent); }
   .sview { position: fixed; inset: 0; z-index: 12; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade .12s ease-out; }
-  .spage { background: var(--primary-background-color, #fafafa); color: var(--primary-text-color); width: min(1040px, 100%); height: min(900px, calc(100vh - 32px)); border-radius: var(--ep-radius); box-shadow: 0 14px 48px rgba(0,0,0,.35); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; animation: pop .16s ease-out; }
-  .shead { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 18px; background: var(--ep-card); border-bottom: 1px solid var(--ep-divider); }
-  .shead h2 { margin: 0; font-size: 20px; font-weight: 500; flex: 1; min-width: 0; }
-  .smain { display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
-  .snav { display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; border-right: 1px solid var(--ep-divider); background: var(--ep-card); overflow-y: auto; }
-  .snav button { text-align: left; border: none; background: none; color: inherit; font: inherit; font-size: 14.5px; padding: 10px 12px; min-height: 42px; border-radius: 10px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
-  .snav button:hover { background: var(--ep-accent-bg); }
-  .snav button.on { background: var(--ep-accent-bg); box-shadow: inset 3px 0 0 var(--ep-primary); font-weight: 600; }
-  .snav .nerr { margin-left: auto; background: var(--error-color, #db4437); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 7px; }
-  .sbody { overflow-y: auto; padding: 16px 20px 28px; scroll-behavior: smooth; min-width: 0; }
-  .ssec { margin-bottom: 18px; padding: 14px 16px; scroll-margin-top: 8px; }
-  .ssec > h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
-  .ssec > .hint { margin: 0 0 8px; }
-  .sfield { display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-top: 1px solid var(--ep-divider); min-width: 0; }
-  .ssec > h3 + .sfield, .ssec > .hint + .sfield { border-top: none; }
+  .spage { position: relative; background: var(--primary-background-color, #fafafa); color: var(--primary-text-color); width: min(680px, 100%); height: min(900px, calc(100vh - 32px)); border-radius: var(--ep-radius); box-shadow: 0 14px 48px rgba(0,0,0,.35); display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; animation: pop .16s ease-out; }
+  .shead { display: flex; align-items: center; gap: 4px; min-height: 56px; padding: 6px 8px 6px 16px; background: var(--ep-card); border-bottom: 1px solid var(--ep-divider); }
+  .shead.sub { padding-left: 4px; }
+  .shead h2 { margin: 0; font-size: 18px; font-weight: 600; flex: 1; min-width: 0; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+  .shead .icon { width: 44px; height: 44px; flex: none; }
+  .shead .sback { font-size: 30px; line-height: 1; padding-bottom: 3px; }
+  .sbody { overflow-y: auto; overflow-x: hidden; padding: 6px 16px 28px; min-width: 0; overscroll-behavior: contain; }
+  .sgroup { margin-top: 18px; }
+  .sgroup > h3 { margin: 0 4px 8px; font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+  .slist { background: var(--ep-card); border-radius: var(--ep-radius); box-shadow: var(--ep-shadow); overflow: hidden; }
+  .srow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 10px 8px 14px; background: none; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; }
+  .srow + .srow::before { content: ""; position: absolute; top: 0; left: 54px; right: 0; border-top: 1px solid var(--ep-divider); }
+  .srow:hover { background: var(--ep-accent-bg); }
+  .srow:focus-visible { outline: 2px solid var(--ep-primary); outline-offset: -2px; }
+  .srow:disabled { opacity: .55; cursor: default; }
+  .srow .sico { flex: none; width: 28px; text-align: center; font-size: 21px; line-height: 1; }
+  .srow .sico .rdot { margin: 0 auto; }
+  .srow .stitle { flex: 0 1 auto; min-width: 0; max-width: 60%; font-size: 15px; line-height: 1.3; }
+  .srow .sval { flex: 1 1 0; min-width: 0; text-align: right; font-size: 14px; color: var(--ep-secondary-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow .sval.warn { color: var(--ep-orange); }
+  .srow .schev { flex: none; width: 16px; text-align: center; font-size: 22px; line-height: 1; color: var(--ep-secondary-text); }
+  .srow .schev.on { color: var(--ep-primary); font-size: 18px; font-weight: 700; }
+  .sintro { margin: 14px 4px 0; line-height: 1.45; }
+  .scard { margin-top: 12px; padding: 4px 16px; }
+  .scard > .sfield:first-child { border-top: none; }
+  .scard.slist { padding: 0; }
+  /* a page with one field: its heading is the page title (the label stays for screen readers) */
+  .scard.single > .sfield > div.flabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .sfix { border: 1px solid var(--error-color, #db4437); }
+  .sfix > .notice { margin: 10px 0 2px; }
+  .sabout { margin-top: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .sabout .sver { font-size: 17px; font-weight: 600; }
+  .sabout a.btn { align-self: flex-start; text-decoration: none; }
+  .sfield { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--ep-divider); min-width: 0; }
   .sfield > .flabel { font-weight: 500; font-size: 14.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .sfield .fhelp { font-size: 12.5px; color: var(--ep-secondary-text); line-height: 1.4; }
+  .sfield .fhelp { font-size: 12.5px; color: var(--ep-secondary-text); line-height: 1.45; }
   .aitestrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .aitestrow .aitest { flex: 1 1 220px; min-width: 0; }
   .aitestrow .aitest:empty { display: none; }
@@ -822,33 +912,48 @@ const STYLE = `
   .sfield .fin .unit { color: var(--ep-secondary-text); font-size: 14px; }
   .sfield input.wide, .sfield textarea, .sfield select.wide { width: 100%; max-width: 560px; }
   .sfield textarea { min-height: 64px; }
-  .sfield .switch { font-size: 14.5px; font-weight: 500; }
+  .sfield .switch { font-size: 14.5px; font-weight: 500; min-height: 44px; }
   .sfield .switch input { width: 20px; height: 20px; }
   .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 14px; }
   .sgrid .sfield { border-top: none; }
   .choice { display: flex; flex-direction: column; gap: 6px; max-width: 620px; }
-  .choice label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; border: 1px solid var(--ep-divider); border-radius: 10px; cursor: pointer; min-height: 42px; font-size: 14px; }
+  .choice label { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--ep-divider); border-radius: 12px; cursor: pointer; min-height: 46px; font-size: 14px; }
   .choice label:has(input:checked) { border-color: var(--ep-primary); background: var(--ep-accent-bg); }
   .choice input { margin-top: 2px; accent-color: var(--ep-primary); }
-  label.chip.pick2 { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; padding: 7px 12px; min-height: 38px; cursor: pointer; }
+  .choice .cemo { font-size: 20px; line-height: 1.1; flex: none; }
+  label.chip.pick2 { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; padding: 8px 13px; min-height: 40px; cursor: pointer; }
   label.chip.pick2 input { width: 16px; height: 16px; accent-color: var(--ep-primary); margin: 0; }
   label.chip.pick2:has(input:checked) { background: var(--ep-primary); color: var(--ep-on-primary); }
-  .sfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; background: var(--ep-card); border-top: 1px solid var(--ep-divider); }
+  label.chip.pick2.emo input, label.chip.pick2.day input, label.chip.pick2.tm input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  label.chip.pick2.emo, label.chip.pick2.day, label.chip.pick2.tm { position: relative; border: 1px solid transparent; }
+  label.chip.pick2:has(input:focus-visible) { outline: 2px solid var(--ep-primary); outline-offset: 2px; }
+  label.chip.pick2 .cemo { font-size: 17px; line-height: 1; }
+  .chips.pchips { gap: 8px; }
+  .chips.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; max-width: 460px; }
+  label.chip.pick2.day { justify-content: center; padding: 8px 0; font-weight: 600; }
+  .chips.stags { gap: 6px; }
+  .chip.stag { display: inline-flex; align-items: center; gap: 0; font-size: 13.5px; padding: 0 0 0 13px; min-height: 40px; cursor: default; }
+  .chip.stag .stagx { border: none; background: none; color: inherit; font: inherit; font-size: 18px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; line-height: 1; }
+  .chip.stag .stagx:hover { background: color-mix(in srgb, var(--primary-text-color) 12%, transparent); }
+  .staginput { display: flex; gap: 8px; align-items: center; max-width: 560px; }
+  .staginput input { flex: 1; min-width: 0; }
+  .staginput .btn { flex: none; }
+  .sfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--ep-card); border-top: 1px solid var(--ep-divider); }
   .sfoot .sstate { flex: 1; min-width: 160px; font-size: 13px; color: var(--ep-secondary-text); }
   .sfoot .sstate.err { color: var(--ep-red); font-weight: 500; }
-  .sbanner { padding: 14px 16px; margin-bottom: 14px; display: flex; gap: 10px; align-items: center; }
+  .sbanner { padding: 14px 16px; margin-top: 12px; display: flex; gap: 10px; align-items: center; }
+  .sconfirm { position: absolute; inset: 0; z-index: 2; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade .1s ease-out; }
+  .sconfirm .sbox { width: min(380px, 100%); padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 14px; }
+  .sconfirm .sbox p { margin: 0; font-size: 15px; line-height: 1.45; }
+  .sconfirm .row { justify-content: flex-end; margin: 0; flex-wrap: wrap; }
   @media (max-width: 700px) {
     .sview { padding: 0; }
     .spage { width: 100%; height: 100%; border-radius: 0; }
-    .smain { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .snav { flex-direction: row; overflow-x: auto; padding: 8px; border-right: none; border-bottom: 1px solid var(--ep-divider); scrollbar-width: none; }
-    .snav button { flex: none; white-space: nowrap; padding: 8px 12px; }
-    .snav button.on { box-shadow: inset 0 -3px 0 var(--ep-primary); }
-    .sbody { padding: 10px 10px 24px; }
-    .ssec { padding: 12px; }
+    .sbody { padding: 4px 12px 24px; }
+    .scard { padding: 2px 14px; }
     .sfield .fin input:not([type=checkbox]):not([type=radio]) { width: 120px; }
     .sfoot .sstate { min-width: 100%; order: -1; }
-    .sfoot .btn { flex: 1; justify-content: center; }
+    .sfoot .btn { flex: 1; justify-content: center; min-height: 44px; }
   }
 
   /* 1.4: Angebote tab – all offers of the saved stores */
@@ -1384,6 +1489,7 @@ class EssensplanerPanel extends HTMLElement {
     this._tag = "";
     this._kind = this._pref("kind", "");
     this._favOnly = false;
+    this._fitsOnly = false; // 1.5.1: only recipes that fit the profile
     this._modal = null;
     this._cook = null;
     this._unsub = null;
@@ -2139,6 +2245,7 @@ class EssensplanerPanel extends HTMLElement {
     const list = this._data.recipes.filter((r) => {
       if (this._favOnly && !r.favorite) return false;
       if (this._seasonOnly && !this._seasonOf(r.id)) return false;
+      if (this._fitsOnly && this._data.recipe_profile?.[r.id]) return false;
       if (this._kind) {
         const filter = KIND_FILTERS.find((f) => f[0] === this._kind);
         if (filter && !filter[2].includes(recipeKind(r))) return false;
@@ -2181,6 +2288,7 @@ class EssensplanerPanel extends HTMLElement {
               <div class="name">${esc(r.name)}</div>
               ${r.rating ? `<div class="stars">${stars(r.rating)}</div>` : ""}
               ${meta ? `<div class="meta">${meta}</div>` : ""}
+              ${this._profileBadges(r.id)}
               <div class="chips"><span class="chip kind k-${recipeKind(r)}" title="Art${r.kind_source === "user" ? " (selbst gewählt)" : r.kind_source === "ai" ? " (von der KI geprüft)" : ""}">${KIND_LABELS[recipeKind(r)] || ""}${r.kind_source === "ai" ? " 🤖" : ""}</span>${(r.tags || []).slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
             </div>
           </div>`;
@@ -2203,6 +2311,7 @@ class EssensplanerPanel extends HTMLElement {
       </div>
       ${this._aiOn("recipes") ? `<div class="praisort">${this._aiSortLine("recipes")}</div>` : ""}
       <div class="row chips tagrow kindrow" role="group" aria-label="Art">
+        ${Object.keys(this._data.recipe_profile || {}).length ? `<button class="chip fitchip ${this._fitsOnly ? "active" : ""}" data-action="fits-only" aria-pressed="${Boolean(this._fitsOnly)}" title="Nur Rezepte, die zu Ernährung, Allergien und Küche aus den Einstellungen passen">💚 Passt zu mir (${this._data.recipes.filter((r) => !this._data.recipe_profile[r.id]).length})</button>` : ""}
         <button class="chip ${this._kind ? "" : "active"}" data-action="kind" data-kind="" aria-pressed="${!this._kind}">Alle Arten</button>
         ${KIND_FILTERS.map(([id, label, kinds]) => {
           const n = this._data.recipes.filter((r) => kinds.includes(recipeKind(r))).length;
@@ -2368,7 +2477,7 @@ class EssensplanerPanel extends HTMLElement {
     if (!split && !branches.length && this._pref("storehint", "on") !== "off") {
       hint = `<div class="notice hintcard"><span>🏪 <b>Tipp:</b> Wähle im Tab <button class="btn small" data-action="go-tab" data-tab="stores" data-sec="mine">🏪 Läden & Preise</button> deinen Hauptladen, dann wird die Liste nach Läden sortiert.</span><button class="icon" data-action="hide-storehint" title="Tipp ausblenden" aria-label="Tipp ausblenden">✕</button></div>`;
     } else if (!split && mode === "off") {
-      hint = `<div class="hint" style="margin-bottom:10px">ℹ️ Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Läden & Einkauf")}</div>`;
+      hint = `<div class="hint" style="margin-bottom:10px">ℹ️ Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Aufteilung auf Läden")}</div>`;
     }
     return `<div class="shopping">
       ${total ? `<div class="card shopstat"><span class="num">${open.length}</span><span class="meta sdone">offen<br>${done.length} erledigt</span><div class="progress"><div style="width:${pct}%"></div></div><span class="meta spct">${pct}%</span>${priced.length ? `<span class="meta" style="text-align:right"><b style="font-size:16px;color:var(--primary-text-color)">≈ ${eur(sum)}</b><br>${offersUsed ? `🏷️ ${offersUsed} im Angebot · ` : ""}ganze Packungen</span>` : ""}</div>` : ""}
@@ -2674,7 +2783,7 @@ class EssensplanerPanel extends HTMLElement {
     if (this._settings && !this._modal) {
       if (ev.key === "Escape") {
         ev.preventDefault();
-        this._closeSettings();
+        this._settingsEscape();
       }
       return;
     }
@@ -2881,6 +2990,10 @@ class EssensplanerPanel extends HTMLElement {
         break;
       case "fav-only":
         this._favOnly = !this._favOnly;
+        this._renderContent();
+        break;
+      case "fits-only":
+        this._fitsOnly = !this._fitsOnly;
         this._renderContent();
         break;
       case "toggle-fav": {
@@ -3619,6 +3732,7 @@ class EssensplanerPanel extends HTMLElement {
         <div class="meta">${[r.prep_time ? `Vorbereitung ${r.prep_time} min` : "", r.cook_time ? `Kochen ${r.cook_time} min` : "", r.total_time ? `Gesamt ${r.total_time} min` : "", current.cooked_count ? `🍳 ${current.cooked_count}× gekocht${current.last_cooked ? `, zuletzt ${this._dateLabel(current.last_cooked)}` : ""}` : ""].filter(Boolean).join(" · ")}</div>
         <div class="chips">${(r.tags || []).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
         ${season?.hints?.length ? `<div class="meta">${esc(season.hints.join(" · "))}</div>` : ""}${season?.out?.length ? `<div class="meta">⏳ Gerade nicht in Saison: ${esc(season.out.join(", "))}</div>` : ""}
+        ${this._profileBadges(id, true)}
         ${r.cost ? `<div class="section"><div class="costbox"><span class="big">≈ ${eur(r.cost.total)}</span><span class="meta">${eur(r.cost.per_serving)} pro Portion${r.cost.savings ? ` · 🏷️ ${eur(r.cost.savings)} gespart` : ""} · Schätzung</span></div>${r.cost.on_offer?.length ? `<div class="meta">🏷️ Im Angebot: ${r.cost.on_offer.map((o) => `${esc(o.ingredient)} (${esc(o.store)} ${eur(o.price)}${o.valid_to ? ` bis ${shortDate(o.valid_to)}` : ""})`).join(", ")}</div>` : ""}${r.cost.unknown?.length ? `<div class="hint">Ohne Preis: ${esc(r.cost.unknown.join(", "))}</div>` : ""}</div>` : ""}
         ${isDrinkRecipe(r) ? "" : `<div class="section drinkbox"><h4>🍷 Passt dazu</h4><div class="dchips"><span class="hint">⏳ Suche passende Getränke …</span></div><div class="dinfo" hidden></div></div>`}
         <div><h4>Zutaten</h4>${(r.ingredient_lines || []).length ? `<ul>${r.ingredient_lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : '<div class="hint">Keine Zutaten hinterlegt.</div>'}</div>
@@ -3919,7 +4033,7 @@ class EssensplanerPanel extends HTMLElement {
         <div><div class="meta">Diese Woche (geschätzt)</div><div class="big">${eur(week.total || 0)}</div></div>
         <div>
           ${budget ? `<div class="meta">Budget ${eur(budget)} · ${week.remaining >= 0 ? `noch <b>${eur(week.remaining)}</b> frei` : `<b style="color:var(--ep-red)">${eur(-week.remaining)} drüber</b>`}</div>
-          <div class="progress" style="height:10px;max-width:none;margin-top:6px"><div style="width:${Math.min(100, Math.round(ratio * 100))}%;background:${ratio > 1 ? "#c62828" : ratio > 0.85 ? "#ef6c00" : "#2e7d32"}"></div></div>` : `<div class="hint">Kein Wochenbudget festgelegt – einstellen unter ${this._settingsLink("planning", "⚙️ Budget & Planung")}.</div>`}
+          <div class="progress" style="height:10px;max-width:none;margin-top:6px"><div style="width:${Math.min(100, Math.round(ratio * 100))}%;background:${ratio > 1 ? "#c62828" : ratio > 0.85 ? "#ef6c00" : "#2e7d32"}"></div></div>` : `<div class="hint">Kein Wochenbudget festgelegt – einstellen unter ${this._settingsLink("planning", "⚙️ Wochenbudget")}.</div>`}
         </div>
         <div class="meta bsave">${week.savings ? `🏷️ ${eur(week.savings)} durch Angebote gespart · ` : ""}Nächste Woche bisher ≈ ${eur(next.total || 0)}</div>
         ${anyDay ? `<div class="bars">${bars}</div>` : ""}
@@ -3946,7 +4060,7 @@ class EssensplanerPanel extends HTMLElement {
       (rewe?.enabled
         ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
         : "");
-    const sourceText = `${sourceLines}${online && !marktguru ? `<div class="meta">Für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Rossmann …) gibt es optional marktguru (inoffiziell, eigenes Risiko): ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}</div>` : ""}`;
+    const sourceText = `${sourceLines}${online && !marktguru ? `<div class="meta">Für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Rossmann …) gibt es optional marktguru (inoffiziell, eigenes Risiko): ${this._settingsLink("offers", "⚙️ Angebotsquellen")}</div>` : ""}`;
     // 1.5.1: phones fold the sources (several lines would push the offers down)
     const sourceBox = !sourceText
       ? ""
@@ -3955,7 +4069,7 @@ class EssensplanerPanel extends HTMLElement {
         : `<div class="srclines">${sourceText}</div>`;
     const info = online
       ? sourceBox
-      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${sourceBox}`;
+      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebotsquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${sourceBox}`;
     const branchLabels = Object.fromEntries((this._data.branches || []).map((b) => [b.id, b]));
     const cards = offers
       .map((o) => {
@@ -4047,6 +4161,7 @@ class EssensplanerPanel extends HTMLElement {
     const key = (p) => `${p.date}|${p.meal}`;
     const body = `
       <div class="hint">${esc(this._dateLabel(start))} + ${days - 1} Tage · nur freie Plätze werden gefüllt.${budget ? ` Wochenbudget: ${eur(budget)}.` : ""}</div>
+      ${this._profileHint()}
       <div class="strategy">${Object.entries(STRATEGY_LABELS).map(([k, [label, desc]]) => `<label><input type="radio" name="strategy" value="${k}" ${k === strategy ? "checked" : ""}><span><b>${label}</b><br><span class="meta">${desc}</span></span></label>`).join("")}</div>
       <div><h4>Mahlzeiten</h4><div class="chips">${this._data.meals.map((m) => `<label class="chip"><input type="checkbox" class="pm" value="${m.id}" ${m.id === this._data.default_meal ? "checked" : ""}> ${esc(m.label)}</label>`).join("")}</div></div>
       ${ai ? `<label class="switch aiswitch"><input type="checkbox" class="pai"><span>🤖 <b>mit KI</b> (${esc(this._aiName())}) – plant die Tage aus den besten Vorschlägen der Regeln nach Saison, Angeboten, Kosten und Abwechslung. Dauert ${AI_WAIT}.${this._aiOffline("season") ? `<br><span class="meta">⚠️ ${esc(this._aiName())} ist gerade nicht erreichbar – dann wird nach Regeln geplant.</span>` : ""}</span></label>` : ""}
@@ -4411,7 +4526,7 @@ class EssensplanerPanel extends HTMLElement {
     let intro = main
       ? `<div class="hint">⭐ <b>Hauptladen ${esc(main.label)}:</b> ${esc(explain)} Ein anderer Laden lohnt sich ab ${eur(split.min_saving ?? 1)} oder ${esc(split.min_percent ?? 20)} % Ersparnis, Angebote ab ${eur(split.offer_min ?? 0.3)}.</div>`
       : `<div class="notice warn">Noch kein Hauptladen – tippe bei einem Laden auf „⭐ Als Hauptladen“.</div>`;
-    if (split.mode === "off") intro += `<div class="notice">ℹ️ Die Aufteilung der Einkaufsliste nach Läden ist ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Läden & Einkauf")}</div>`;
+    if (split.mode === "off") intro += `<div class="notice">ℹ️ Die Aufteilung der Einkaufsliste nach Läden ist ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Aufteilung auf Läden")}</div>`;
     else if (split.mode === "main_only") intro += `<div class="notice">ℹ️ Modus „nur Hauptladen“: alles kommt in den Hauptladen, die anderen Läden dienen zum Preisvergleich.</div>`;
     const others = branches.filter((b) => !b.main);
     const cards = branches.map((b) => this._branchCard(b, others)).join("");
@@ -4509,7 +4624,7 @@ class EssensplanerPanel extends HTMLElement {
           <button class="btn small primary" data-action="rewe-save" data-id="${esc(b.id)}" title="${esc(label)} speichern" ${value.trim() !== stored ? "" : "hidden"}>💾 Speichern</button>
           <button class="btn small" data-action="rewe-search" data-id="${esc(b.id)}" ${markets?.loading ? "disabled" : ""}>${markets?.loading ? "⏳ Suche …" : link.search}</button>
         </div>
-        ${off ? `<div class="hint">Wird genutzt, sobald du ${b.retailer === "edeka" ? "„EDEKA-Angebote“" : "„ALDI-SÜD-Preise“"} einschaltest: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}</div>` : ""}
+        ${off ? `<div class="hint">Wird genutzt, sobald du ${b.retailer === "edeka" ? "„EDEKA-Angebote“" : "„ALDI-SÜD-Preise“"} einschaltest: ${this._settingsLink("offers", "⚙️ Angebotsquellen")}</div>` : ""}
         ${markets?.error ? `<div class="notice err">${esc(markets.error)}</div>` : ""}
         ${markets?.markets && !markets.markets.length ? `<div class="hint">${esc(link.none)}${link.list === "markets" ? ` ${esc(markets.zip || "")}` : ""}.</div>` : ""}
         ${list}`;
@@ -4987,7 +5102,7 @@ class EssensplanerPanel extends HTMLElement {
     const online = eco.offers_source === "marktguru";
     const catalog = eco.catalog || {};
     const rewe = eco.price_sources?.rewe || {};
-    const enable = (label) => `<div class="hint">Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}${label ? ` ${esc(label)}` : ""}</div>`;
+    const enable = (label) => `<div class="hint">Einschalten: ${this._settingsLink("offers", "⚙️ Angebotsquellen")}${label ? ` ${esc(label)}` : ""}</div>`;
     const targets = (this._data.offer_targets || []).map((t) => `<span class="bdg">PLZ ${esc(t.zip_code)} · ${esc((t.stores || []).join(", "))}</span>`).join("");
     const chips = {
       ok: '<span class="bdg ok">✅ ok</span>',
@@ -6111,9 +6226,9 @@ class EssensplanerPanel extends HTMLElement {
       notes.push(`<div class="notice">🏪 Speichere zuerst deine Läden im Tab <button class="btn small" data-action="go-tab" data-tab="stores" data-sec="mine">🏪 Läden & Preise</button> – dann siehst du hier die Prospekte dieser Läden.</div>`);
     }
     if (!meta.marktguru) {
-      notes.push(`<div class="notice">📰 Prospekte zum Blättern kommen über marktguru (inoffiziell – ${esc(MG_WARNING)}) ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}<br>Ohne marktguru: die Prospektseiten deiner Ketten – sie öffnen im Browser, der Essensplaner fragt dafür nichts ab.</div>`);
+      notes.push(`<div class="notice">📰 Prospekte zum Blättern kommen über marktguru (inoffiziell – ${esc(MG_WARNING)}) ${this._settingsLink("offers", "⚙️ Angebotsquellen")}<br>Ohne marktguru: die Prospektseiten deiner Ketten – sie öffnen im Browser, der Essensplaner fragt dafür nichts ab.</div>`);
     } else if (meta.all_leaflets === false) {
-      notes.push(`<div class="hint" style="margin-bottom:10px">ℹ️ Nur Prospekte der Läden ohne Einzelangebote. Alle Filialen: „Prospekte aller Filialen“ einschalten – ${this._settingsLink("offers", "⚙️ Angebote")}</div>`);
+      notes.push(`<div class="hint" style="margin-bottom:10px">ℹ️ Nur Prospekte der Läden ohne Einzelangebote. Alle Filialen: „Prospekte aller Filialen“ einschalten – ${this._settingsLink("offers", "⚙️ Angebotsquellen")}</div>`);
     }
     if ((meta.errors || []).length) notes.push(`<div class="notice warn">⚠️ ${esc(meta.errors[0])}</div>`);
     // in the order of the saved branches; chains of leaflets without a branch last
@@ -6337,6 +6452,33 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   /** A recipe's season (🍂 badge) – or null. */
+  /** 1.5.1: the profile in one line for the auto plan (diet, allergies, cooking days, time). */
+  _profileHint() {
+    const p = this._data?.profile;
+    if (!p) return "";
+    const diets = { flexitarisch: "Flexitarisch", pescetarisch: "Pescetarisch", vegetarisch: "Vegetarisch", vegan: "Vegan" };
+    const allergens = { gluten: "Gluten", laktose: "Laktose", ei: "Ei", nuesse: "Nüsse", erdnuesse: "Erdnüsse", fisch: "Fisch", krebstiere: "Krebstiere", soja: "Soja", sellerie: "Sellerie", senf: "Senf", sesam: "Sesam" };
+    const days = p.cook_days || [];
+    const parts = [];
+    if (diets[p.diet]) parts.push(diets[p.diet]);
+    if ((p.allergies || []).length) parts.push(`ohne ${p.allergies.map((a) => allergens[a] || a).join(", ")}`);
+    if (days.length && days.length < 7) parts.push(`Kochtage ${this._settingsDaysText(days)}`);
+    if (p.weekday_time) parts.push(`werktags bis ${p.weekday_time} min`);
+    if (p.weekend_time) parts.push(`am Wochenende bis ${p.weekend_time} min`);
+    if (!parts.length) return "";
+    return `<div class="hint">👤 Dein Profil: ${esc(parts.join(" · "))}${days.length && days.length < 7 ? " – an den anderen Tagen höchstens Reste vom Kochtag davor" : ""}.</div>`;
+  }
+
+  /** 1.5.1: why a recipe does not fit the profile (diet, allergies, excluded, devices) –
+   *  small badges on the card, a line in the recipe. */
+  _profileBadges(id, detail = false) {
+    const list = this._data?.recipe_profile?.[id] || [];
+    if (!list.length) return "";
+    if (detail) return `<div class="notice warn pfnote">Passt nicht zu deinem Profil: ${esc(list.join(" · "))} – wird nicht automatisch geplant.</div>`;
+    const shown = list.slice(0, 2).map((t) => `<span class="bdg pf">${esc(t)}</span>`).join("");
+    return `<div class="pfbadges" title="${esc(list.join(" · "))}">${shown}${list.length > 2 ? `<span class="bdg pf">+${list.length - 2}</span>` : ""}</div>`;
+  }
+
   _seasonOf(id) {
     const s = this._data?.recipe_season?.[id];
     return s && s.score >= SEASON_BADGE && (s.items?.length || s.hints?.length) ? s : null;
@@ -6389,7 +6531,7 @@ class EssensplanerPanel extends HTMLElement {
       const out = (v.out_of_season || []).map((r) => `${esc(r.name)} <span class="meta">(${esc((r.items || []).join(", "))})</span>`).join(" · ");
       return `
         <div class="seasonhead"><button class="icon" data-smonth="-1" aria-label="Vorheriger Monat" title="Vorheriger Monat">‹</button><b>${esc(v.season?.emoji || "")} ${esc(v.season?.label || "")} · ${esc(v.month_name || "")} ${esc(String(v.date || "").slice(0, 4))}</b><button class="icon" data-smonth="1" aria-label="Nächster Monat" title="Nächster Monat">›</button></div>
-        ${v.season_aware === false ? `<div class="notice warn">„Saison berücksichtigen“ ist aus: Vorschläge achten nur mit der Planungsart „🍂 Saisonal“ auf die Saison. <button class="btn small" data-season-settings>⚙️ Budget & Planung</button></div>` : ""}
+        ${v.season_aware === false ? `<div class="notice warn">„Saison berücksichtigen“ ist aus: Vorschläge achten nur mit der Planungsart „🍂 Saisonal“ auf die Saison. <button class="btn small" data-season-settings>⚙️ Saison</button></div>` : ""}
         ${windows || upcoming ? `<div><h4>Zeit des Jahres</h4><div class="prodchips">${windows}${upcoming}</div></div>` : ""}
         <div><h4>Obst, Gemüse & Co. der Saison</h4>${produce.length ? `<div class="prodchips">${produce.map(chip).join("")}</div><div class="hint" style="margin-top:6px">✨ neu in der Saison · ⏳ bald vorbei · grün: typisch für diese Zeit</div>` : '<div class="hint">Nichts Besonderes.</div>'}</div>
         <div><h4>Passt aus deinen Rezepten</h4>${recipes ? `<div class="srecipes">${recipes}</div>` : '<div class="hint">Keine deiner Rezepte passt besonders – frag Jarvis „Was hat gerade Saison?“ oder importiere ein Saisonrezept.</div>'}</div>
@@ -6422,7 +6564,7 @@ class EssensplanerPanel extends HTMLElement {
         if (r) return this._openRecipe(r.dataset.seasonRecipe);
         if (ev.target.closest("[data-season-settings]")) {
           this._closeModal();
-          this._openSettings("planning");
+          this._openSettings("season");
         }
       });
       load();
@@ -7421,23 +7563,40 @@ class EssensplanerPanel extends HTMLElement {
     render();
   }
 
-  /* ------------------------------------------------------------ settings view (⚙️, 1.4) */
-  async _openSettings(section = null) {
+  /* ------------------------------------------------------------ settings view (⚙️, 1.4; 1.5.1 list + pages) */
+  /** Opens the settings: the overview list, or a page (a page id of SETTINGS_PAGES or a
+   *  section of the 1.4 deep links, see SETTINGS_LINKS). */
+  async _openSettings(target = null) {
     if (!this._isAdmin()) return this._toast("⚙️ Die Einstellungen können nur Administratoren ändern.");
-    if (this._settings) return this._settingsGo(section);
-    this._settings = { loading: true, data: null, values: null, original: null, errors: {}, saving: false, phase: "edit", message: null, section: section || "general", jump: section };
+    const page = this._settingsTarget(target);
+    if (this._settings) return this._settingsGoPage(page);
+    this._settings = { loading: true, data: null, values: null, original: null, errors: {}, saving: false, phase: "edit", message: null, page, confirm: null };
     this._renderSettings();
+    await this._settingsLoad();
+    if (!this._settings) return;
+    this._renderSettings();
+    this._settingsRoot.querySelector(this._settings.page ? "[data-sback]" : "[data-sclose]")?.focus();
+  }
+
+  _settingsTarget(target) {
+    if (!target) return null;
+    if (SETTINGS_PAGES[target]) return target;
+    return SETTINGS_LINKS[target] ?? null;
+  }
+
+  /** get_settings into the open settings (values and their stored copy). */
+  async _settingsLoad() {
+    const st = this._settings;
     try {
       const data = await this._hass.callWS({ type: `${DOMAIN}/get_settings` });
-      if (!this._settings) return;
-      Object.assign(this._settings, { loading: false, data, values: JSON.parse(JSON.stringify(data.values)), original: JSON.parse(JSON.stringify(data.values)) });
+      if (this._settings !== st) return false;
+      Object.assign(st, { loading: false, data, values: JSON.parse(JSON.stringify(data.values)), original: JSON.parse(JSON.stringify(data.values)), message: null });
+      return true;
     } catch (err) {
-      if (!this._settings) return;
-      Object.assign(this._settings, { loading: false, message: errText(err) });
+      if (this._settings !== st) return false;
+      Object.assign(st, { loading: false, message: errText(err) });
+      return false;
     }
-    this._renderSettings();
-    if (this._settings?.jump) this._settingsGo(this._settings.jump, false);
-    this._settingsRoot.querySelector("[data-sclose]")?.focus();
   }
 
   _settingsField(key) {
@@ -7465,150 +7624,442 @@ class EssensplanerPanel extends HTMLElement {
       root.innerHTML = "";
       return;
     }
-    const scroll = root.querySelector(".sbody")?.scrollTop;
-    const errCount = Object.keys(st.errors).length;
-    const changes = Object.keys(this._settingsChanges()).length;
-    const bySection = {};
-    for (const key of Object.keys(st.errors)) {
-      const sec = this._settingsField(key).section;
-      bySection[sec] = (bySection[sec] || 0) + 1;
-    }
-    const nav = SETTINGS_SECTIONS.map(([id, label]) => `<button class="${st.section === id ? "on" : ""}" data-snav="${id}">${label}${bySection[id] ? `<span class="nerr">${bySection[id]}</span>` : ""}</button>`).join("");
+    const pageId = st.page && SETTINGS_PAGES[st.page] ? st.page : null;
+    const page = pageId ? SETTINGS_PAGES[pageId] : null;
+    // the scroll position stays while the same page is drawn again (errors, saving)
+    const before = root.querySelector(".sview");
+    const scroll = before && before.dataset.page === (pageId || "") ? root.querySelector(".sbody")?.scrollTop : null;
     let body;
     if (st.loading) body = `<div class="loading">Lade Einstellungen …</div>`;
-    else if (!st.data) body = `<div class="notice err">${esc(st.message || "Die Einstellungen konnten nicht geladen werden.")}</div>`;
-    else body = SETTINGS_SECTIONS.map(([id, label]) => this._settingsSectionHtml(id, label)).join("");
+    else if (!st.data) body = `<div class="notice err" style="margin-top:14px">${esc(st.message || "Die Einstellungen konnten nicht geladen werden.")}</div>`;
+    else body = page ? this._settingsPageHtml(pageId) : this._settingsOverviewHtml();
     let banner = "";
     if (st.phase === "reloading") banner = `<div class="card sbanner notice">⏳ <span><b>Gespeichert – Essensplaner lädt neu …</b><br><span class="hint">Die Einstellungen werden übernommen; das dauert ein paar Sekunden.</span></span></div>`;
     else if (st.phase === "failed") banner = `<div class="card sbanner notice err">⚠️ <span><b>Gespeichert, aber der Essensplaner antwortet noch nicht.</b><br>${esc(st.message || "")} <button class="btn small" data-sreload>Seite neu laden</button></span></div>`;
-    const state = st.saving
-      ? "⏳ Speichere …"
-      : st.phase === "reloading"
-        ? "Gespeichert – Essensplaner lädt neu …"
-        : errCount
-          ? `${errCount} ${errCount === 1 ? "Feld" : "Felder"} bitte prüfen`
-          : changes
-            ? `${changes} ungespeicherte Änderung${changes === 1 ? "" : "en"}`
-            : "Keine Änderungen";
+    const title = page ? `${page.emoji} ${page.title}` : "⚙️ Einstellungen";
     const busy = st.saving || st.phase === "reloading";
+    const foot = page && st.data ? `<div class="sfoot" ${this._settingsFootShown() ? "" : "hidden"}>
+            <span class="sstate" aria-live="polite"></span>
+            <button class="btn" data-sdiscard ${busy ? "disabled" : ""}>Verwerfen</button>
+            <button class="btn primary" data-ssave ${busy ? "disabled" : ""}>💾 Speichern</button>
+          </div>` : "";
+    const confirmBox = st.confirm ? `<div class="sconfirm" role="alertdialog" aria-modal="true" aria-labelledby="s-ctext"><div class="card sbox"><p id="s-ctext">${esc(st.confirm.text)}</p><div class="row"><button class="btn" data-sconfno>Weiter bearbeiten</button><button class="btn primary" data-sconfyes>${esc(st.confirm.ok || "Verwerfen")}</button></div></div></div>` : "";
     root.innerHTML = `
-      <div class="sview" role="dialog" aria-modal="true" aria-label="Einstellungen">
+      <div class="sview" role="dialog" aria-modal="true" aria-labelledby="s-title" data-page="${esc(pageId || "")}">
         <div class="spage">
-          <div class="shead"><h2>⚙️ Einstellungen</h2><button class="icon" data-sclose title="Schließen" aria-label="Schließen">✕</button></div>
-          <div class="smain">
-            <nav class="snav" aria-label="Bereiche">${nav}</nav>
-            <div class="sbody">${banner}${body}</div>
-          </div>
-          <div class="sfoot">
-            <span class="sstate ${errCount ? "err" : ""}" aria-live="polite">${esc(state)}</span>
-            <button class="btn" data-sclose ${busy ? "disabled" : ""}>${changes ? "Abbrechen" : "Schließen"}</button>
-            <button class="btn primary" data-ssave ${busy || !st.data || !changes ? "disabled" : ""}>💾 Speichern</button>
-          </div>
+          <div class="shead ${page ? "sub" : ""}">${page ? `<button class="icon sback" data-sback title="Zurück" aria-label="Zurück zu den Einstellungen">‹</button>` : ""}<h2 id="s-title">${esc(title)}</h2><button class="icon" data-sclose title="Schließen" aria-label="Schließen">✕</button></div>
+          <div class="sbody">${banner}${body}</div>
+          ${foot}
+          ${confirmBox}
         </div>
       </div>`;
     const sbody = root.querySelector(".sbody");
     if (scroll != null) sbody.scrollTop = scroll;
+    this._settingsFooter();
     const view = root.querySelector(".sview");
-    view.addEventListener("click", (ev) => {
-      if (ev.target === view || ev.target.closest("[data-sclose]")) return this._closeSettings();
-      if (ev.target.closest("[data-ssave]")) return this._saveSettings();
-      if (ev.target.closest("[data-sreload]")) return location.reload();
-      if (ev.target.closest("[data-saitest]")) return this._settingsAiTest();
-      const jump = ev.target.closest("[data-sjump]");
-      if (jump) return this._settingsGo(jump.dataset.sjump);
-      const navBtn = ev.target.closest("[data-snav]");
-      if (navBtn) return this._settingsGo(navBtn.dataset.snav);
-      const go = ev.target.closest("[data-sgo]");
-      if (go) {
-        this._closeSettings(true);
-        this._goTab(go.dataset.sgo, go.dataset.sec);
-      }
-    });
+    view.addEventListener("click", (ev) => this._onSettingsClick(ev, view));
     view.addEventListener("input", (ev) => this._onSettingsInput(ev));
     view.addEventListener("change", (ev) => this._onSettingsInput(ev));
-    sbody.addEventListener("scroll", () => this._settingsSpy(), { passive: true });
+    view.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && ev.target.dataset?.stagin) {
+        ev.preventDefault();
+        this._settingsTagAdd(ev.target.dataset.stagin);
+      }
+    });
+    if (st.confirm) root.querySelector("[data-sconfno]")?.focus();
   }
 
-  /** Highlight the section shown at the top of the scroll area. */
-  _settingsSpy() {
+  _onSettingsClick(ev, view) {
     const st = this._settings;
-    const body = this._settingsRoot.querySelector(".sbody");
-    if (!st || !body) return;
-    if (this._settingsJumping) {
-      // a jump from the navigation is still scrolling (long jumps take longer than the
-      // first timer): the clicked section stays chosen until the scrolling stops
-      clearTimeout(this._settingsJumpTimer);
-      this._settingsJumpTimer = setTimeout(() => (this._settingsJumping = false), 150);
+    if (!st) return;
+    const t = ev.target;
+    if (st.confirm) {
+      if (t.closest("[data-sconfyes]")) {
+        const then = st.confirm.then;
+        st.confirm = null;
+        return then();
+      }
+      if (t.closest("[data-sconfno]") || t.classList.contains("sconfirm")) {
+        st.confirm = null;
+        return this._renderSettings();
+      }
       return;
     }
-    let current = SETTINGS_SECTIONS[0][0];
-    for (const [id] of SETTINGS_SECTIONS) {
-      const sec = body.querySelector(`[data-ssec="${id}"]`);
-      if (sec && sec.offsetTop - body.offsetTop <= body.scrollTop + 40) current = id;
-    }
-    if (body.scrollTop + body.clientHeight >= body.scrollHeight - 4) {
-      // scrolled to the end: the last sections never reach the top – a section picked in
-      // the navigation stays chosen while it is in view, else the last one is
-      const order = SETTINGS_SECTIONS.map(([id]) => id);
-      const picked = this._settingsPicked;
-      const sec = picked && body.querySelector(`[data-ssec="${picked}"]`);
-      const inView = sec && sec.offsetTop - body.offsetTop < body.scrollTop + body.clientHeight;
-      current = inView && order.indexOf(picked) >= order.indexOf(current) ? picked : order[order.length - 1];
-    } else this._settingsPicked = null;
-    if (current !== st.section) {
-      st.section = current;
-      this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === current));
+    if (t === view || t.closest("[data-sclose]")) return this._closeSettings();
+    if (t.closest("[data-sback]")) return this._settingsBack();
+    if (t.closest("[data-sdiscard]")) return this._settingsDiscard();
+    if (t.closest("[data-ssave]")) return this._saveSettings();
+    if (t.closest("[data-sreload]")) return location.reload();
+    if (t.closest("[data-saitest]")) return this._settingsAiTest();
+    const del = t.closest("[data-stagdel]");
+    if (del) return this._settingsTagRemove(del.dataset.stagdel, Number(del.dataset.i));
+    const add = t.closest("[data-stagadd]");
+    if (add) return this._settingsTagAdd(add.dataset.stagadd);
+    const main = t.closest("[data-smain]");
+    if (main) return this._settingsSetMain(main.dataset.smain);
+    const row = t.closest("[data-spage]");
+    if (row) return this._settingsGoPage(row.dataset.spage);
+    const go = t.closest("[data-sgo]");
+    if (go) {
+      this._settingsLeave(() => {
+        this._closeSettings(true);
+        this._goTab(go.dataset.sgo, go.dataset.sec);
+      });
     }
   }
 
-  _settingsGo(section, smooth = true) {
+  /** Runs then() – after asking (inside the settings) when there are unsaved changes,
+   *  which are dropped then. */
+  _settingsLeave(then) {
     const st = this._settings;
-    if (!st || !section) return;
-    st.section = section;
-    this._settingsPicked = section;
-    this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === section));
-    const body = this._settingsRoot.querySelector(".sbody");
-    const sec = body?.querySelector(`[data-ssec="${section}"]`);
-    if (!sec) return;
-    this._settingsJumping = true;
-    body.scrollTo({ top: sec.offsetTop - body.offsetTop - 4, behavior: smooth ? "smooth" : "auto" });
-    clearTimeout(this._settingsJumpTimer);
-    this._settingsJumpTimer = setTimeout(() => (this._settingsJumping = false), smooth ? 600 : 50);
+    if (!st) return;
+    if (st.saving || st.phase === "reloading") return;
+    if (!Object.keys(this._settingsChanges()).length) return then();
+    st.confirm = {
+      text: "Ungespeicherte Änderungen verwerfen?",
+      ok: "Verwerfen",
+      then: () => {
+        if (st.original) st.values = JSON.parse(JSON.stringify(st.original));
+        st.errors = {};
+        then();
+      },
+    };
+    this._renderSettings();
   }
 
-  _settingsSectionHtml(id, label) {
+  /** Another page (null: the overview). */
+  _settingsGoPage(page) {
+    const st = this._settings;
+    if (!st) return;
+    if ((st.page || null) === (page || null)) return;
+    this._settingsLeave(() => {
+      const from = st.page;
+      st.page = page || null;
+      st.errors = {};
+      if (page !== "ai" && !st.aiTest?.running) st.aiTest = null;
+      this._renderSettings();
+      const body = this._settingsRoot.querySelector(".sbody");
+      if (body) body.scrollTop = 0;
+      if (page) this._settingsRoot.querySelector("[data-sback]")?.focus();
+      else this._settingsRoot.querySelector(`[data-spage="${CSS.escape(from || "")}"]`)?.focus();
+    });
+  }
+
+  _settingsBack() {
+    this._settingsGoPage(null);
+  }
+
+  _settingsDiscard() {
+    const st = this._settings;
+    if (!st?.original || st.saving || st.phase === "reloading") return;
+    st.values = JSON.parse(JSON.stringify(st.original));
+    st.errors = {};
+    this._renderSettings();
+  }
+
+  /* ---------- the overview */
+  _settingsOverviewHtml() {
+    return SETTINGS_GROUPS.map(([title, ids]) => `<section class="sgroup" aria-label="${esc(title)}"><h3>${esc(title)}</h3><div class="slist">${ids.map((id) => this._settingsRowHtml(id)).join("")}</div></section>`).join("");
+  }
+
+  _settingsRowHtml(id) {
+    const p = SETTINGS_PAGES[id];
+    const { text, warn } = this._settingsSummary(id);
+    return `<button class="srow" data-spage="${esc(id)}" aria-label="${esc(`${p.title}: ${text}`)}"><span class="sico" aria-hidden="true">${p.emoji}</span><span class="stitle">${esc(p.title)}</span><span class="sval ${warn ? "warn" : ""}">${warn ? "⚠️ " : ""}${esc(text)}</span><span class="schev" aria-hidden="true">›</span></button>`;
+  }
+
+  /** The value of a row in short ("2 Personen", "Gluten, Laktose", "Mo–Fr"). */
+  _settingsSummary(id) {
     const st = this._settings;
     const d = st.data;
-    const f = (key, extra) => this._settingsFieldHtml(key, extra);
-    let inner = "";
-    if (id === "general") {
-      const times = ["fruehstueck", "mittagessen", "snack", "abendessen"].map((m) => f(`time_${m}`)).join("");
-      inner = `${f("default_servings")}${f("default_meal")}${f("enabled_meals")}
-        <div class="sfield"><div class="flabel">Uhrzeiten</div><div class="fhelp">Für den Kalender und „Nächste Mahlzeit“.</div><div class="sgrid">${times}</div></div>
-        ${f("pantry_staples")}${f("excluded")}${f("auto_mark_cooked")}${f("shopping_sync_entity")}${f("register_intents")}${f("show_panel")}`;
-    } else if (id === "planning") {
-      inner = `${f("weekly_budget")}${f("plan_strategy")}${f("season_aware")}${f("occasions_in_budget")}${f("drinks_alcohol")}`;
-    } else if (id === "offers") {
-      inner = `<div class="hint">Angebote und Preise kommen direkt von den Ketten, wo es eine öffentliche Quelle gibt (EDEKA, ALDI SÜD, REWE-Preise). marktguru ist eine optionale Ergänzung auf eigenes Risiko. Alle Quellen sind aus, bis du sie einschaltest.</div>
-        ${f("offers_source")}${f("all_leaflets")}${f("zip_code")}${f("offer_stores")}${f("offers_watchlist")}${f("edeka_offers")}${f("aldi_online_prices")}${f("rewe_online_prices")}
-        <div class="hint">Filialen verknüpfen (EDEKA-Markt, ALDI-SÜD-Filiale, REWE-Markt-ID): <button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button></div>`;
-    } else if (id === "stores") {
-      inner = `${f("store_split_mode")}
-        <div class="sfield"><div class="flabel">Schwellen</div><div class="fhelp">Wann ein Artikel in einen anderen Laden als den Hauptladen kommt (nur echte Ladenpreise, keine Richtwerte; unter 0,20 € Ersparnis wird nie verschoben).</div><div class="sgrid">${f("store_split_min_saving")}${f("store_split_min_percent")}${f("store_split_offer_min")}${f("store_split_trip_min")}</div></div>
-        ${f("branch_zones")}${f("branch_radius_km")}${f("branch_route")}${f("branch_route_radius_m")}
-        <div class="hint">${d.branches ? `${d.branches} Läden gespeichert${d.main_branch ? ` · Hauptladen: ${esc(d.main_branch)}` : ""}` : "Noch keine Läden gespeichert"} – <button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button></div>`;
-    } else if (id === "receipts") {
-      inner = `${f("receipt_ai_task_entity")}<div class="hint">Kassenzettel erfasst du im Tab „🏪 Läden & Preise“ oder über „🧾 Kassenzettel“ in der Einkaufsliste.</div>`;
-    } else if (id === "ai") {
-      inner = `<div class="hint">Optional – der Essensplaner funktioniert komplett ohne KI. Die KI läuft über Home Assistant, hier werden keine Schlüssel gespeichert: richte dort z. B. <b>Anthropic</b> (Claude), <b>OpenAI</b>, <b>Google Gemini</b> oder <b>Ollama</b> (lokal oder mit Cloud-Modellen) ein – sie bringen eine KI-Aufgabe und/oder einen Gesprächsagenten mit.</div>
-        ${f("ai_entity")}
-        <div class="sfield"><div class="aitestrow"><button class="btn" data-saitest ${st.aiTest?.running ? "disabled" : ""}>🔌 Verbindung testen</button><div class="aitest" data-aitest aria-live="polite">${this._aiTestHtml()}</div></div></div>
-        ${f("ai_features")}
-        ${this._data?.ai?.sort ? `<div class="hint">🗂️ <b>Sortieren:</b> ${this._aiSortLine("products", true)}<br>${this._aiSortLine("recipes", true)}</div>` : ""}
-        <div class="hint">📷 Kassenzettel-Fotos brauchen eine <b>KI-Aufgabe</b>, die Bilder lesen kann – ein Gesprächsagent bekommt keine Bilder. Eine eigene KI-Aufgabe dafür wählst du unter <button class="btn small" data-sjump="receipts">🧾 Kassenzettel</button></div>
-        <div class="hint">🔒 Die KI bekommt nur Rezeptnamen, Tags und Zutaten, Kettennamen, Angebotspreise, Monat und Gästezahl – keine Adressen, Postleitzahlen, Notizen oder Kassenzettel-Texte. Antworten werden gegen deine Rezepte geprüft und nie ungefragt übernommen; während einer Anfrage sind die Essensplaner-Sprachbefehle für die KI gesperrt (keine Schleifen).</div>`;
+    const v = st.values;
+    const label = (list, value) => (d.choices?.[list] || []).find((c) => c.value === value)?.label || value;
+    const few = (items, empty) => (items.length ? items.slice(0, 2).join(", ") + (items.length > 2 ? ` +${items.length - 2}` : "") : empty);
+    const labels = (key) => (v[key] || []).map((x) => label(MULTI_CHOICES[key], x));
+    const onOff = (key) => (v[key] ? "An" : "Aus");
+    const minutes = (m) => (Number(m) > 0 ? `${num(m)} min` : "egal");
+    const entity = (key) => {
+      const spec = ENTITY_CHOICES[key];
+      const c = (d.choices?.[spec.list] || []).find((x) => x.value === v[key]);
+      return v[key] ? c?.label || v[key] : null;
+    };
+    const fields = SETTINGS_PAGES[id].fields;
+    const warn = (d.warnings || []).some((w) => fields.includes(w.key) && w.key !== "offers_source");
+    let text = "";
+    switch (id) {
+      case "flavors":
+        text = few(labels("liked_flavors"), "Aromen hinzufügen");
+        break;
+      case "cuisines":
+        text = few(labels("liked_cuisines").map((l) => l.split(" /")[0]), "Alles");
+        break;
+      case "dislikes":
+        text = few(splitList(v.excluded), "Nichts");
+        break;
+      case "diet":
+        text = String(label("diets", v.diet) || "").replace(/ \(.*\)$/, "");
+        break;
+      case "allergies":
+        text = few(labels("allergies"), "Keine");
+        break;
+      case "kitchen": {
+        const n = (v.kitchen || []).length;
+        text = n ? `${n} ${n === 1 ? "Gerät" : "Geräte"}` : "Keine Geräte";
+        break;
+      }
+      case "pantry":
+        text = few(splitList(v.pantry_staples), "Nichts");
+        break;
+      case "household": {
+        const n = parseNum(v.default_servings) || 0;
+        text = `${num(n)} ${n === 1 ? "Person" : "Personen"}`;
+        break;
+      }
+      case "meals":
+        text = (d.choices?.meals || []).filter((c) => (v.enabled_meals || []).includes(c.value)).map((c) => String(c.label).replace(/essen$/, "")).join(", ") || "Keine";
+        break;
+      case "days":
+        text = this._settingsDaysText(v.cook_days || []);
+        break;
+      case "time":
+        text = minutes(v.weekday_time) + (parseNum(v.weekend_time) !== parseNum(v.weekday_time) ? ` · WE ${minutes(v.weekend_time)}` : "");
+        break;
+      case "budget":
+        text = parseNum(v.weekly_budget) > 0 ? eur(parseNum(v.weekly_budget)).replace(",00", "") : "kein Budget";
+        break;
+      case "strategy":
+        text = label("strategies", v.plan_strategy);
+        break;
+      case "season":
+      case "cooked":
+      case "voice":
+      case "sidebar":
+        text = onOff({ season: "season_aware", cooked: "auto_mark_cooked", voice: "register_intents", sidebar: "show_panel" }[id]);
+        break;
+      case "drinks":
+        text = v.drinks_alcohol ? "Mit Alkohol" : "Nur alkoholfrei";
+        break;
+      case "mainstore":
+        text = d.main_branch || (d.branches ? "Kein Hauptladen" : "Noch keine Läden");
+        break;
+      case "split":
+        text = { off: "Aus", main_only: "Nur Hauptladen", main_exceptions: "Mit Ausnahmen" }[v.store_split_mode] || label("split_modes", v.store_split_mode);
+        break;
+      case "branches": {
+        const zones = (v.branch_zones || []).length;
+        text = `${zones ? `${zones} ${zones === 1 ? "Zone" : "Zonen"}` : "Automatisch"} · ${num(v.branch_radius_km)} km`;
+        break;
+      }
+      case "todo":
+        text = entity("shopping_sync_entity") || "Keine";
+        break;
+      case "sources": {
+        const on = [v.offers_source === "marktguru" ? "marktguru" : "", v.edeka_offers ? "EDEKA" : "", v.aldi_online_prices ? "ALDI SÜD" : "", v.rewe_online_prices ? "REWE" : ""].filter(Boolean);
+        text = few(on, "Aus");
+        break;
+      }
+      case "zip":
+        text = v.zip_code || ((d.branch_postcodes || []).length ? "aus deinen Läden" : "–");
+        break;
+      case "chains": {
+        const n = (v.offer_stores || []).length;
+        text = `${n} ${n === 1 ? "Kette" : "Ketten"}`;
+        break;
+      }
+      case "watch":
+        text = few(splitList(v.offers_watchlist), "Leer");
+        break;
+      case "ai":
+        text = entity("ai_entity") || "Keine KI";
+        break;
+      case "receipts": {
+        const own = entity("receipt_ai_task_entity");
+        text = own || (String(v.ai_entity || "").startsWith("ai_task.") ? "wie 🤖 KI" : "Nur Text einfügen");
+        break;
+      }
+      case "about":
+        text = d.version ? `Version ${d.version}` : "Anleitung";
+        break;
+      default:
+        text = "";
     }
-    return `<section class="card ssec" data-ssec="${id}" aria-label="${esc(label)}"><h3>${label}</h3>${inner}</section>`;
+    return { text: String(text ?? ""), warn };
+  }
+
+  /** "7 Tage", "Mo–Fr", "Sa–So", "3 Tage". */
+  _settingsDaysText(days) {
+    const order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    const short = { mon: "Mo", tue: "Di", wed: "Mi", thu: "Do", fri: "Fr", sat: "Sa", sun: "So" };
+    const idx = order.filter((x) => days.includes(x)).map((x) => order.indexOf(x));
+    if (idx.length === 7) return "7 Tage";
+    if (!idx.length) return "Keine";
+    if (idx.length >= 2 && idx[idx.length - 1] - idx[0] === idx.length - 1) return `${short[order[idx[0]]]}–${short[order[idx[idx.length - 1]]]}`;
+    if (idx.length <= 3) return idx.map((i) => short[order[i]]).join(", ");
+    return `${idx.length} Tage`;
+  }
+
+  /* ---------- a page */
+  _settingsPageFields(id) {
+    return SETTINGS_PAGES[id]?.fields || [];
+  }
+
+  _settingsPageHtml(id) {
+    const st = this._settings;
+    const d = st.data;
+    const f = (key) => this._settingsFieldHtml(key);
+    const own = this._settingsPageFields(id);
+    // an error of a field of another page (marktguru on, the postcode missing): fixed here
+    const foreign = Object.keys(st.errors).filter((k) => !own.includes(k) && d.fields?.[k]);
+    const fix = foreign.length ? `<div class="card scard sfix"><div class="notice err">Bitte auch das hier prüfen:</div>${foreign.map(f).join("")}</div>` : "";
+    let intro = "";
+    let inner = "";
+    let after = "";
+    const storesBtn = `<button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button>`;
+    switch (id) {
+      case "meals": {
+        const times = ["fruehstueck", "mittagessen", "snack", "abendessen"].map((m) => f(`time_${m}`)).join("");
+        inner = `${f("enabled_meals")}${f("default_meal")}
+          <div class="sfield"><div class="flabel">Uhrzeiten</div><div class="fhelp">Für den Kalender und „Nächste Mahlzeit“.</div><div class="sgrid">${times}</div></div>`;
+        break;
+      }
+      case "split":
+        inner = `${f("store_split_mode")}
+          <div class="sfield"><div class="flabel">Schwellen</div><div class="fhelp">Wann ein Artikel in einen anderen Laden als den Hauptladen kommt (nur echte Ladenpreise, keine Richtwerte; unter 0,20 € Ersparnis wird nie verschoben).</div><div class="sgrid">${f("store_split_min_saving")}${f("store_split_min_percent")}${f("store_split_offer_min")}${f("store_split_trip_min")}</div></div>`;
+        after = `<div class="hint sintro">${d.branches ? `${d.branches} Läden gespeichert${d.main_branch ? ` · Hauptladen: ${esc(d.main_branch)}` : ""}` : "Noch keine Läden gespeichert"} – <button class="btn small" data-spage="mainstore">🛒 Hauptladen wählen</button> ${storesBtn}</div>`;
+        break;
+      case "branches":
+        inner = own.map(f).join("");
+        after = `<div class="hint sintro">Gesucht wird im Tab „🏪 Läden & Preise“ mit „In der Nähe suchen“. ${storesBtn}</div>`;
+        break;
+      case "sources":
+        intro = "Angebote und Preise kommen direkt von den Ketten, wo es eine öffentliche Quelle gibt (EDEKA, ALDI SÜD, REWE-Preise). marktguru ist eine optionale Ergänzung auf eigenes Risiko. Alle Quellen sind aus, bis du sie einschaltest.";
+        inner = own.map(f).join("");
+        after = `<div class="hint sintro">Filialen verknüpfen (EDEKA-Markt, ALDI-SÜD-Filiale, REWE-Markt-ID): ${storesBtn}</div>`;
+        break;
+      case "zip":
+        inner = f("zip_code");
+        if (st.values.offers_source !== "marktguru") after = `<div class="hint sintro">Gebraucht wird die Postleitzahl nur für marktguru: <button class="btn small" data-spage="sources">🏷️ Angebotsquellen</button></div>`;
+        break;
+      case "ai":
+        intro = `Optional – der Essensplaner funktioniert komplett ohne KI. Die KI läuft über Home Assistant, hier werden keine Schlüssel gespeichert: richte dort z. B. <b>Anthropic</b> (Claude), <b>OpenAI</b>, <b>Google Gemini</b> oder <b>Ollama</b> (lokal oder mit Cloud-Modellen) ein – sie bringen eine KI-Aufgabe und/oder einen Gesprächsagenten mit.`;
+        inner = `${f("ai_entity")}
+          <div class="sfield"><div class="aitestrow"><button class="btn" data-saitest ${st.aiTest?.running ? "disabled" : ""}>🔌 Verbindung testen</button><div class="aitest" data-aitest aria-live="polite">${this._aiTestHtml()}</div></div></div>
+          ${f("ai_features")}
+          ${this._data?.ai?.sort ? `<div class="sfield"><div class="fhelp">🗂️ <b>Sortieren:</b> ${this._aiSortLine("products", true)}<br>${this._aiSortLine("recipes", true)}</div></div>` : ""}`;
+        after = `<div class="hint sintro">📷 Kassenzettel-Fotos brauchen eine <b>KI-Aufgabe</b>, die Bilder lesen kann – ein Gesprächsagent bekommt keine Bilder. Eine eigene KI-Aufgabe dafür: <button class="btn small" data-spage="receipts">🧾 Kassenzettel-KI</button></div>
+          <div class="hint sintro">🔒 Die KI bekommt nur Rezeptnamen, Tags und Zutaten, Kettennamen, Angebotspreise, Monat, Gästezahl und dein Profil (Ernährung, Allergien, Geräte, Zeiten) – keine Adressen, Postleitzahlen, Notizen oder Kassenzettel-Texte. Antworten werden gegen deine Rezepte geprüft und nie ungefragt übernommen; während einer Anfrage sind die Essensplaner-Sprachbefehle für die KI gesperrt (keine Schleifen).</div>`;
+        break;
+      case "receipts":
+        inner = f("receipt_ai_task_entity");
+        after = `<div class="hint sintro">Kassenzettel erfasst du im Tab „🏪 Läden & Preise“ oder über „🧾 Kassenzettel“ in der Einkaufsliste.</div>`;
+        break;
+      case "mainstore":
+        intro = "Dein Hauptladen bekommt die Einkaufsliste; Angebote und deutlich günstigere Artikel können in andere Läden wandern (siehe „Aufteilung auf Läden“). Die Wahl gilt sofort.";
+        return `${intro ? `<div class="hint sintro">${intro}</div>` : ""}${this._settingsMainHtml()}<div class="hint sintro">Läden hinzufügen, sortieren oder pausieren: ${storesBtn}</div>`;
+      case "about":
+        return `<div class="card sabout"><div class="sver">🍽️ Essensplaner${d.version ? ` ${esc(d.version)}` : ""}</div><div class="hint">Rezepte, Wochenplan, Einkaufsliste, Angebote und Preise für Home Assistant – alle Daten bleiben bei dir.</div><a class="btn" href="${SETTINGS_README}" target="_blank" rel="noopener noreferrer">📖 Anleitung auf GitHub</a><div class="hint">Fragen, Ideen oder Fehler? Auf GitHub unter „Issues“.</div></div>`;
+      default:
+        inner = own.map(f).join("");
+    }
+    return `${fix}${intro ? `<div class="hint sintro">${intro}</div>` : ""}<div class="card scard ${own.length === 1 ? "single" : ""}">${inner}</div>${after}`;
+  }
+
+  /** "Einkauf bei": the saved branches – one tap makes it the main store (save_branch). */
+  _settingsMainHtml() {
+    const st = this._settings;
+    const branches = (this._data?.branches || []).filter((b) => b.selected !== false);
+    if (!branches.length) return `<div class="card scard"><div class="sfield"><div class="hint">Noch keine Läden gespeichert – füge sie im Tab „🏪 Läden & Preise“ hinzu (In der Nähe suchen oder selbst eintragen).</div></div></div>`;
+    const mainId = st.data.main_branch_id || branches.find((b) => b.main)?.id || null;
+    const rows = branches
+      .map((b) => {
+        const on = b.id === mainId;
+        return `<button class="srow" role="radio" aria-checked="${on}" data-smain="${esc(b.id)}" ${st.mainBusy ? "disabled" : ""}><span class="sico" aria-hidden="true">${retailerDot(b.retailer, b.label)}</span><span class="stitle">${esc(b.label)}</span><span class="sval">${st.mainBusy === b.id ? "⏳" : on ? "⭐ Hauptladen" : ""}</span><span class="schev ${on ? "on" : ""}" aria-hidden="true">${on ? "✓" : ""}</span></button>`;
+      })
+      .join("");
+    return `<div class="card scard slist" role="radiogroup" aria-label="Hauptladen">${rows}</div>`;
+  }
+
+  async _settingsSetMain(id) {
+    const st = this._settings;
+    if (!st?.data || st.mainBusy || id === st.data.main_branch_id) return;
+    st.mainBusy = id;
+    this._renderSettings();
+    try {
+      const res = await this._service("save_branch", { id, main: true }, true);
+      if (this._settings !== st) return;
+      const b = (this._data?.branches || []).find((x) => x.id === id);
+      for (const x of this._data?.branches || []) x.main = x.id === id;
+      st.data.main_branch_id = id;
+      st.data.main_branch = res?.branch?.label || b?.label || st.data.main_branch;
+      st.data.warnings = (st.data.warnings || []).filter((w) => w.key !== "store_split_mode");
+      this._toast(`⭐ ${st.data.main_branch} ist jetzt dein Hauptladen`);
+    } catch (e) {
+      /* toast shown by _service */
+    } finally {
+      if (this._settings === st) {
+        st.mainBusy = null;
+        this._renderSettings();
+      }
+    }
+  }
+
+  /* ---------- the comma lists as chips ("Lebensmittel, die du nicht magst", Vorrat, Merkliste) */
+  _settingsTagHtml(key) {
+    const st = this._settings;
+    const spec = TAG_FIELDS[key];
+    const [label, help] = SETTING_INFO[key] || [key, ""];
+    const items = splitList(st.values[key]);
+    const error = st.errors[key];
+    const id = `s-${key}`;
+    const chips = items.map((t, i) => `<span class="chip stag">${esc(t)}<button class="stagx" data-stagdel="${esc(key)}" data-i="${i}" title="„${esc(t)}“ entfernen" aria-label="„${esc(t)}“ entfernen">×</button></span>`).join("");
+    return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}">
+        <label class="flabel" for="${id}">${esc(label)}</label>
+        ${items.length ? `<div class="chips stags" role="list">${chips}</div>` : `<div class="hint">${esc(spec.empty)}</div>`}
+        <div class="staginput"><input id="${id}" data-stagin="${esc(key)}" autocomplete="off" enterkeyhint="done" placeholder="${esc(spec.placeholder)}" ${error ? `aria-invalid="true" aria-describedby="${id}-err"` : ""}><button class="btn" data-stagadd="${esc(key)}">＋ Hinzufügen</button></div>
+        ${help ? `<div class="fhelp">${esc(help)}</div>` : ""}
+        ${error ? `<div class="ferr" id="${id}-err">⚠️ ${esc(error)}</div>` : ""}
+      </div>`;
+  }
+
+  _settingsReplaceField(key) {
+    const el = this._settingsRoot.querySelector(`.sfield[data-field="${CSS.escape(key)}"]`);
+    if (el) el.outerHTML = this._settingsFieldHtml(key);
+  }
+
+  _settingsTagWrite(key, items) {
+    const st = this._settings;
+    st.values[key] = items.join(", ");
+    delete st.errors[key];
+    this._settingsReplaceField(key);
+    this._settingsFooter();
+  }
+
+  /** Adds what was typed (several at once with commas); returns true if something was added. */
+  _settingsTagAdd(key, focus = true) {
+    const st = this._settings;
+    const input = this._settingsRoot.querySelector(`[data-stagin="${CSS.escape(key)}"]`);
+    if (!st?.values || !input) return false;
+    const typed = splitList(input.value);
+    const items = splitList(st.values[key]);
+    const known = new Set(items.map((x) => fold(x)));
+    for (const word of typed) {
+      if (!known.has(fold(word))) {
+        items.push(word);
+        known.add(fold(word));
+      }
+    }
+    if (typed.length) this._settingsTagWrite(key, items);
+    if (focus) this._settingsRoot.querySelector(`[data-stagin="${CSS.escape(key)}"]`)?.focus();
+    return typed.length > 0;
+  }
+
+  _settingsTagRemove(key, index) {
+    const st = this._settings;
+    if (!st?.values) return;
+    const items = splitList(st.values[key]);
+    items.splice(index, 1);
+    this._settingsTagWrite(key, items);
+    this._settingsRoot.querySelector(`[data-stagin="${CSS.escape(key)}"]`)?.focus();
   }
 
   _settingsFieldHtml(key) {
@@ -7616,6 +8067,7 @@ class EssensplanerPanel extends HTMLElement {
     const d = st.data;
     const field = d.fields?.[key];
     if (!field) return "";
+    if (TAG_FIELDS[key]) return this._settingsTagHtml(key);
     const [label, help, unit] = SETTING_INFO[key] || [key, ""];
     const value = st.values[key];
     const error = st.errors[key];
@@ -7624,11 +8076,20 @@ class EssensplanerPanel extends HTMLElement {
     const errHtml = error ? `<div class="ferr" id="${id}-err">⚠️ ${esc(error)}</div>` : "";
     const aria = `data-skey="${esc(key)}" id="${id}" ${error ? `aria-invalid="true" aria-describedby="${id}-err"` : ""}`;
     const range = field.min != null && field.max != null ? `${num(field.min)}–${num(field.max)}${unit ? ` ${unit}` : ""}` : "";
-    const wrap = (control, opts = {}) => `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}">${opts.noLabel ? "" : `<label class="flabel" for="${id}">${esc(label)}${opts.badge || ""}</label>`}${control}${help && !opts.noHelp ? `<div class="fhelp">${esc(help)}${range && opts.range !== false ? ` (${esc(range)})` : ""}</div>` : range ? `<div class="fhelp">${esc(range)}</div>` : ""}${opts.after || ""}${warnings}${errHtml}</div>`;
+    const wrap = (control, opts = {}) => `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}">${opts.noLabel ? "" : opts.group ? `<div class="flabel" id="${id}-l">${esc(label)}${opts.badge || ""}</div>` : `<label class="flabel" for="${id}">${esc(label)}${opts.badge || ""}</label>`}${control}${help && !opts.noHelp ? `<div class="fhelp">${esc(help)}${range && opts.range !== false ? ` (${esc(range)})` : ""}</div>` : range && opts.range !== false ? `<div class="fhelp">${esc(range)}</div>` : ""}${opts.after || ""}${warnings}${errHtml}</div>`;
     const choice = (list) => list || [];
     switch (field.type) {
       case "int":
       case "float":
+        if (key === "weekday_time" || key === "weekend_time") {
+          // 1.5.1: the time limits as choices (another stored value is offered too)
+          const times = [...choice(d.choices?.times)];
+          const current = parseNum(value);
+          if (Number.isFinite(current) && !times.some((c) => c.value === current)) times.push({ value: current, label: `${num(current)} min` });
+          times.sort((a, b) => a.value - b.value);
+          const chips = times.map((c) => `<label class="chip pick2 tm"><input type="radio" name="${id}" data-skey="${esc(key)}" value="${c.value}" ${c.value === current ? "checked" : ""}>${esc(c.label)}</label>`).join("");
+          return wrap(`<div class="chips pchips" role="radiogroup" aria-labelledby="${id}-l">${chips}</div>`, { group: true, range: false });
+        }
         return wrap(`<div class="fin"><input ${aria} inputmode="decimal" autocomplete="off" value="${esc(num(value))}">${unit ? `<span class="unit">${esc(unit)}</span>` : ""}</div>`);
       case "bool":
         return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}"><label class="switch"><input type="checkbox" ${aria} ${value ? "checked" : ""}> ${esc(label)}${["rewe_online_prices", "aldi_online_prices"].includes(key) ? ' <span class="bdg warn">experimentell</span>' : ""}</label>${help ? `<div class="fhelp">${esc(help)}</div>` : ""}${warnings}${errHtml}</div>`;
@@ -7649,6 +8110,12 @@ class EssensplanerPanel extends HTMLElement {
           const on = value === "marktguru";
           return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}"><label class="switch"><input type="checkbox" ${aria} ${on ? "checked" : ""}> ${esc(label)}</label><div class="notice warn">⚠️ ${esc(MG_WARNING)}</div><div class="fhelp">${esc(help)}</div>${errHtml}</div>`;
         }
+        if (key === "diet") {
+          const opts = choice(d.choices?.[SELECT_CHOICES[key]])
+            .map((c) => `<label><input type="radio" name="s-diet" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span class="cemo" aria-hidden="true">${PROFILE_EMOJI.diet[c.value] || ""}</span><span><b>${esc(c.label)}</b>${DIET_INFO[c.value] ? `<br><span class="meta">${esc(DIET_INFO[c.value])}</span>` : ""}</span></label>`)
+            .join("");
+          return wrap(`<div class="choice" role="radiogroup" aria-labelledby="${id}-l">${opts}</div>`, { group: true });
+        }
         if (key === "plan_strategy") {
           const opts = choice(d.choices?.[SELECT_CHOICES[key]])
             .map((c) => {
@@ -7656,28 +8123,36 @@ class EssensplanerPanel extends HTMLElement {
               return `<label><input type="radio" name="s-strategy" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span><b>${esc(title)}</b>${desc ? `<br><span class="meta">${esc(desc)}</span>` : ""}</span></label>`;
             })
             .join("");
-          return wrap(`<div class="choice" role="radiogroup" aria-label="${esc(label)}">${opts}</div>`, { noLabel: false });
+          return wrap(`<div class="choice" role="radiogroup" aria-labelledby="${id}-l">${opts}</div>`, { group: true });
         }
         if (key === "store_split_mode") {
           const desc = { off: "Eine Liste wie bisher, ohne Läden.", main_only: "Alles kommt in den Hauptladen; die anderen Läden dienen zum Preisvergleich.", main_exceptions: "Alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden; Drogerieartikel in deine Drogerie." };
           const opts = choice(d.choices?.[SELECT_CHOICES[key]])
             .map((c) => `<label><input type="radio" name="s-split" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span><b>${esc(c.label)}</b><br><span class="meta">${esc(desc[c.value] || "")}</span></span></label>`)
             .join("");
-          return wrap(`<div class="choice" role="radiogroup" aria-label="${esc(label)}">${opts}</div>`);
+          return wrap(`<div class="choice" role="radiogroup" aria-labelledby="${id}-l">${opts}</div>`, { group: true });
         }
         const list = d.choices?.[SELECT_CHOICES[key]];
         return wrap(`<select ${aria}>${choice(list).map((c) => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select>`);
       }
       case "multi": {
         const selected = new Set(value || []);
-        const chip = (c) => `<label class="chip pick2"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}>${c.kind ? retailerDot(c.value, c.label).replace('class="rdot"', 'class="rdot xs"') : ""}${esc(c.label)}</label>`;
         const all = choice(d.choices?.[MULTI_CHOICES[key]]);
+        if (key === "cook_days") {
+          const chips = all.map((c) => `<label class="chip pick2 day" title="${esc(c.label)}"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" aria-label="${esc(c.label)}" ${selected.has(c.value) ? "checked" : ""}>${esc(String(c.label).slice(0, 2))}</label>`).join("");
+          return wrap(`<div class="chips days" role="group" aria-labelledby="${id}-l">${chips}</div>`, { group: true });
+        }
+        if (PROFILE_EMOJI[key]) {
+          const chips = all.map((c) => `<label class="chip pick2 emo"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}><span class="cemo" aria-hidden="true">${PROFILE_EMOJI[key][c.value] || ""}</span>${esc(c.label)}</label>`).join("");
+          return wrap(`<div class="chips pchips" role="group" aria-labelledby="${id}-l">${chips}</div>`, { group: true });
+        }
+        const chip = (c) => `<label class="chip pick2"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}>${c.kind ? retailerDot(c.value, c.label).replace('class="rdot"', 'class="rdot xs"') : ""}${esc(c.label)}</label>`;
         if (key === "offer_stores") {
           const food = all.filter((c) => c.kind !== "drugstore");
           const drug = all.filter((c) => c.kind === "drugstore");
-          return wrap(`<div class="meta">Supermärkte</div><div class="chips">${food.map(chip).join("")}</div><div class="meta">Drogerien</div><div class="chips">${drug.map(chip).join("")}</div>`);
+          return wrap(`<div class="meta">Supermärkte</div><div class="chips">${food.map(chip).join("")}</div><div class="meta">Drogerien</div><div class="chips">${drug.map(chip).join("")}</div>`, { group: true });
         }
-        return wrap(`<div class="chips" role="group" aria-label="${esc(label)}">${all.map(chip).join("")}</div>`);
+        return wrap(`<div class="chips" role="group" aria-labelledby="${id}-l">${all.map(chip).join("")}</div>`, { group: true });
       }
       case "entity": {
         const spec = ENTITY_CHOICES[key] || { list: "", none: "– keine –", empty: "" };
@@ -7696,7 +8171,7 @@ class EssensplanerPanel extends HTMLElement {
         const selected = new Set(value || []);
         const zones = choice(d.choices?.zones);
         const chips = zones.map((c) => `<label class="chip pick2"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}>${c.value === "zone.home" ? "🏠" : /arbeit|work/i.test(c.value + c.label) ? "💼" : "📍"} ${esc(c.label)}${c.missing ? " (nicht gefunden)" : ""}</label>`).join("");
-        return wrap(zones.length ? `<div class="chips" role="group" aria-label="${esc(label)}">${chips}</div>` : `<div class="hint">Keine Zonen gefunden – lege in Home Assistant Zonen an (Einstellungen → Bereiche &amp; Zonen).</div>`);
+        return wrap(zones.length ? `<div class="chips" role="group" aria-labelledby="${id}-l">${chips}</div>` : `<div class="hint">Keine Zonen gefunden – lege in Home Assistant Zonen an (Einstellungen → Bereiche &amp; Zonen).</div>`, { group: true });
       }
       default:
         return "";
@@ -7783,8 +8258,8 @@ class EssensplanerPanel extends HTMLElement {
     const hadError = key in st.errors || (key === "offers_source" && "zip_code" in st.errors);
     delete st.errors[key];
     if (key === "offers_source") delete st.errors.zip_code;
-    if (key === "enabled_meals" && !value.length) st.errors[key] = "Bitte mindestens eine Mahlzeit auswählen.";
-    if (hadError || key === "enabled_meals") {
+    if (SETTINGS_REQUIRED[key] && !value.length) st.errors[key] = SETTINGS_REQUIRED[key];
+    if (hadError || SETTINGS_REQUIRED[key]) {
       const sec = this._settingsRoot.querySelector(`.sfield[data-field="${CSS.escape(key)}"]`);
       sec?.classList.toggle("invalid", key in st.errors);
       sec?.querySelector(".ferr")?.remove();
@@ -7798,38 +8273,73 @@ class EssensplanerPanel extends HTMLElement {
     this._settingsFooter();
   }
 
+  /** The save bar of a page: shown with changes, while saving and after a failed reload. */
+  _settingsFootShown() {
+    const st = this._settings;
+    return Boolean(st && (Object.keys(this._settingsChanges()).length || st.saving || st.phase !== "edit"));
+  }
+
   /** Footer text and the save button without re-rendering the fields (focus, caret). */
   _settingsFooter() {
     const st = this._settings;
     const root = this._settingsRoot;
+    const foot = root.querySelector(".sfoot");
+    if (!st || !foot) return;
     const changes = Object.keys(this._settingsChanges()).length;
     const errCount = Object.keys(st.errors).length;
-    const state = root.querySelector(".sstate");
+    foot.hidden = !this._settingsFootShown();
+    const state = foot.querySelector(".sstate");
     if (state) {
-      state.textContent = errCount ? `${errCount} ${errCount === 1 ? "Feld" : "Felder"} bitte prüfen` : changes ? `${changes} ungespeicherte Änderung${changes === 1 ? "" : "en"}` : "Keine Änderungen";
+      state.textContent = st.saving
+        ? "⏳ Speichere …"
+        : st.phase === "reloading"
+          ? "Gespeichert – Essensplaner lädt neu …"
+          : errCount
+            ? `${errCount} ${errCount === 1 ? "Feld" : "Felder"} bitte prüfen`
+            : changes
+              ? `${changes} ungespeicherte Änderung${changes === 1 ? "" : "en"}`
+              : "Keine Änderungen";
       state.classList.toggle("err", Boolean(errCount));
     }
-    const save = root.querySelector("[data-ssave]");
-    if (save) save.disabled = !changes || st.saving || st.phase === "reloading";
-    const close = root.querySelector(".sfoot [data-sclose]");
-    if (close) close.textContent = changes ? "Abbrechen" : "Schließen";
+    const busy = st.saving || st.phase === "reloading";
+    const save = foot.querySelector("[data-ssave]");
+    if (save) save.disabled = !changes || busy;
+    const discard = foot.querySelector("[data-sdiscard]");
+    if (discard) discard.disabled = !changes || busy;
   }
 
   _closeSettings(force = false) {
     const st = this._settings;
     if (!st) return;
     if (st.saving || st.phase === "reloading") return;
-    if (!force && Object.keys(this._settingsChanges()).length && !confirm("Ungespeicherte Änderungen verwerfen?")) return;
-    this._settings = null;
-    this._renderSettings();
+    const close = () => {
+      this._settings = null;
+      this._renderSettings();
+    };
+    if (force) return close();
+    this._settingsLeave(close);
+  }
+
+  /** Escape in the settings: the question, then the page, then the settings close. */
+  _settingsEscape() {
+    const st = this._settings;
+    if (!st) return;
+    if (st.confirm) {
+      st.confirm = null;
+      return this._renderSettings();
+    }
+    if (st.page) return this._settingsBack();
+    this._closeSettings();
   }
 
   async _saveSettings() {
     const st = this._settings;
     if (!st?.data || st.saving) return;
+    // what was typed into a chip field but not added yet counts too
+    for (const input of this._settingsRoot.querySelectorAll("[data-stagin]")) if (input.value.trim()) this._settingsTagAdd(input.dataset.stagin, false);
     const changes = this._settingsChanges();
-    if (!Object.keys(changes).length) return this._closeSettings(true);
-    if (st.errors.enabled_meals) return this._settingsFocusError();
+    if (!Object.keys(changes).length) return this._settingsBack();
+    for (const key of Object.keys(SETTINGS_REQUIRED)) if (st.errors[key]) return this._settingsFocusError();
     st.saving = true;
     this._renderSettings();
     let res;
@@ -7847,33 +8357,24 @@ class EssensplanerPanel extends HTMLElement {
       return this._settingsFocusError();
     }
     st.errors = {};
+    st.original = JSON.parse(JSON.stringify(st.values));
     if (!res.reload) {
-      this._settings = null;
+      st.page = null;
       this._renderSettings();
       return this._toast("⚙️ Einstellungen gespeichert");
     }
     st.phase = "reloading";
-    st.original = JSON.parse(JSON.stringify(st.values));
     this._renderSettings();
-    this._settingsRoot.querySelector(".sbody").scrollTop = 0;
     await this._reloadAfterSettings();
   }
 
   _settingsFocusError() {
     const st = this._settings;
-    const first = Object.keys(st?.data?.fields || {}).find((k) => k in st.errors) || Object.keys(st.errors)[0];
+    const root = this._settingsRoot;
+    const first = [...root.querySelectorAll(".sfield[data-field]")].find((el) => el.dataset.field in st.errors);
     if (!first) return;
-    const sec = this._settingsField(first).section;
-    if (sec) {
-      st.section = sec;
-      this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === sec));
-    }
-    const field = this._settingsRoot.querySelector(`.sfield[data-field="${CSS.escape(first)}"]`);
-    this._settingsJumping = true;
-    field?.scrollIntoView({ block: "center", behavior: "auto" });
-    clearTimeout(this._settingsJumpTimer);
-    this._settingsJumpTimer = setTimeout(() => (this._settingsJumping = false), 50);
-    const input = field?.querySelector("input, select, textarea");
+    first.scrollIntoView({ block: "center", behavior: "auto" });
+    const input = first.querySelector("input:not([type=hidden]), select, textarea");
     if (input) {
       input.focus({ preventScroll: true });
       if (input.select && input.type !== "checkbox" && input.type !== "radio") input.select();
@@ -7934,8 +8435,13 @@ class EssensplanerPanel extends HTMLElement {
     this._forgetLoaded();
     await this._load();
     if (this._settings === st) {
-      this._settings = null;
-      this._renderSettings();
+      // 1.5.1: back to the overview with the settings as they are now
+      const loaded = await this._settingsLoad();
+      if (this._settings === st) {
+        if (loaded) Object.assign(st, { phase: "edit", page: null, errors: {}, confirm: null });
+        else this._settings = null;
+        this._renderSettings();
+      }
     }
     this._toast("⚙️ Einstellungen gespeichert – der Essensplaner wurde neu geladen");
   }

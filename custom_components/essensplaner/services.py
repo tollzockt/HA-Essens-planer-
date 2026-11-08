@@ -902,7 +902,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 {
                     **manager.recipe_summary(r),
                     "cost": manager.recipe_cost(r, None, around)["total"],
-                    "reasons": suggest_reasons(manager, r, around, season=season),
+                    "reasons": suggest_reasons(manager, r, around, season=season, meal=meal),
                 }
                 for r in recipes
             ]

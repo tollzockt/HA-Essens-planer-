@@ -255,7 +255,15 @@ async def test_get_settings(
     assert res["fields"]["receipt_ai_task_entity"]["optional"] is True
     assert res["fields"]["ai_entity"]["domains"] == ["ai_task", "conversation"]
     assert res["fields"]["ai_features"] == {"section": "ai", "type": "multi"}
-    assert res["sections"] == ["general", "planning", "offers", "stores", "receipts", "ai"]
+    assert res["sections"] == [
+        "general",
+        "planning",
+        "offers",
+        "stores",
+        "receipts",
+        "ai",
+        "profile",
+    ]
     assert values["ai_entity"] is None
     assert values["ai_features"] == ALL_AI
     assert values["season_aware"] is True and values["all_leaflets"] is True
@@ -461,18 +469,34 @@ PANEL_JS = Path(__file__).parent.parent / "custom_components" / DOMAIN / "fronte
 async def test_panel_knows_every_setting(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
 ) -> None:
-    """1.5: every setting has a label and help in the panel and is shown in its section; the
-    panel's ENTITY_CHOICES / SELECT_CHOICES / MULTI_CHOICES maps name a choice list of
-    get_settings for every entity, select and multi field (no hard-coded key checks)."""
+    """1.5: every setting has a label and help in the panel and is shown on a page of the
+    settings (1.5.1: SETTINGS_PAGES, each page in a group of SETTINGS_GROUPS; the 1.4
+    deep link sections lead to a page); the panel's ENTITY_CHOICES / SELECT_CHOICES /
+    MULTI_CHOICES maps name a choice list of get_settings for every entity, select and
+    multi field (no hard-coded key checks)."""
     panel = (PANEL_JS / "essensplaner-panel.js").read_text(encoding="utf-8")
     info = re.search(r"^const SETTING_INFO = \{\n(.*?)^\};", panel, re.M | re.S)
     assert info
     labelled = set(re.findall(r"^  (\w+): \[", info.group(1), re.M))
-    shown = set(re.findall(r'f\("(\w+)"\)', panel))
-    shown |= {f"time_{meal}" for meal in const.ALL_MEALS}  # f(`time_${m}`)
-    block = re.search(r"^const SETTINGS_SECTIONS = \[\n(.*?)^\];", panel, re.M | re.S)
-    assert block
-    assert re.findall(r'^  \["(\w+)", "', block.group(1), re.M) == schema.SECTIONS
+    pages = re.search(r"^const SETTINGS_PAGES = \{\n(.*?)^\};", panel, re.M | re.S)
+    assert pages
+    page_ids = re.findall(r"^  (\w+): \{ emoji:", pages.group(1), re.M)
+    shown = {
+        key
+        for fields in re.findall(r"fields: \[(.*?)\]", pages.group(1))
+        for key in re.findall(r'"(\w+)"', fields)
+    }
+    groups = re.search(r"^const SETTINGS_GROUPS = \[\n(.*?)^\];", panel, re.M | re.S)
+    assert groups
+    rows = re.findall(r'^  \["[^"]+", \[(.*?)\]\],$', groups.group(1), re.M)
+    grouped = [i for row in rows for i in re.findall(r'"(\w+)"', row)]
+    assert sorted(grouped) == sorted(page_ids)  # every page has a row, once
+    links = re.search(r"^const SETTINGS_LINKS = \{(.*?)\};$", panel, re.M | re.S)
+    assert links
+    linked = dict(re.findall(r"(\w+): (null|\"\w+\")", links.group(1)))
+    for section in schema.SECTIONS:
+        assert section in linked, section
+        assert linked[section] == "null" or linked[section].strip('"') in page_ids
 
     def choice_map(name: str) -> dict[str, str]:
         found = re.search(rf"^const {name} = \{{(.*?)\}};$", panel, re.M | re.S)

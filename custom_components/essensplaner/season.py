@@ -701,17 +701,28 @@ def suggest_reasons(
     day: date,
     servings: int | None = None,
     season: bool = True,
+    meal: str | None = None,
 ) -> list[str]:
-    """Why a recipe is suggested: ["⭐ Favorit", "🍂 Saison: Kürbis", "🏷️ Angebot: Hack"]."""
+    """Why a recipe is suggested: ["⭐ Favorit", "🍂 Saison: Kürbis", "🏷️ Angebot: Hack"];
+    1.5.1: a liked cuisine ("😋 Italienisch") and a recipe over the day's time limit ("⏱️
+    45 min – länger als deine 30 min")."""
+    from .profile import CUISINE_NAMES, CUISINES, recipe_cuisines
+
     reasons: list[str] = []
     if recipe.get("favorite"):
         reasons.append("⭐ Favorit")
+    liked = recipe_cuisines(recipe) & manager.profile.cuisines
+    if liked:
+        first = next(c for c in CUISINES if c in liked)
+        reasons.append(f"😋 {CUISINE_NAMES[first].split(' /')[0]}")
     if season:
         reasons.extend(recipe_season(manager, recipe, day)["hints"])
     cost = manager.recipe_cost(recipe, servings, day)
     if cost["on_offer"]:
         offers = ", ".join(o["ingredient"] for o in cost["on_offer"][:2])
         reasons.append(f"🏷️ Angebot: {offers}")
+    if slow := manager.time_reason(recipe, day, meal):
+        reasons.append(slow)
     return reasons
 
 
@@ -790,6 +801,9 @@ AI_INSTRUCTIONS = (
     "Hauptzutat, gleiche Art) an aufeinanderfolgenden Tagen, kein Rezept zweimal.\n"
     "3. Was schon geplant ist ('planned'), nicht noch einmal.\n"
     "4. Verwende nur ids aus 'candidates' und erfinde keine Rezepte.\n"
+    "5. Beachte 'profile' (Ernährung, Allergien, Geräte, Lieblingsküchen und -aromen) und "
+    "je Tag 'max_minutes' (höchstens so lange Zubereitungszeit 'minutes'); an Tagen mit "
+    "'no_cooking' nur Frühstück und Snacks planen.\n"
     'Antworte nur mit JSON: {"plan": [{"date": "JJJJ-MM-TT", "meal": "<id aus meals>", '
     '"id": "<rezept-id>", "reason": "höchstens 10 Wörter"}], "order": ["<id>", …], '
     '"notes": "ein Satz zur Woche"} – "order" sind die übrigen passenden Rezepte, das '
@@ -867,6 +881,7 @@ def ai_payload(
     from .const import MEAL_LABELS
     from .kinds import KIND_LABELS, recipe_kind
     from .options_schema import CHOICE_LABELS_DE
+    from .profile import summary_texts
 
     around = start + timedelta(days=max(1, days) // 2)
     info = season_info(around)
@@ -885,6 +900,11 @@ def ai_payload(
             entry["times"] = times
         if day == manager.today():
             entry["today"] = True
+        # 1.5.1: the profile's time limit and cooking days
+        if limit := manager.time_limit(day):
+            entry["max_minutes"] = limit
+        if not manager.profile.cooks_on(day):
+            entry["no_cooking"] = True
         days_view.append(entry)
     rows = []
     today = manager.today()
@@ -936,6 +956,8 @@ def ai_payload(
         "days": days_view,
         "planned": planned[:30],
         "candidates": rows,
+        # 1.5.1: preferences only (no personal data)
+        "profile": summary_texts(manager.profile),
     }
     if manager.weekly_budget:
         week = manager.week_overview(around)
@@ -1148,13 +1170,17 @@ def add_reasons(
     day = date.fromisoformat(entry["date"])
     recipe = manager.recipes.get(entry.get("recipe_id") or "")
     entry["reasons"] = []
-    if recipe is not None:
+    if isinstance(entry.get("leftover_of"), dict):
+        # 1.5.1: a day without cooking gets the leftovers of the cooking day before
+        entry["reasons"] = ["🍲 Kein Kochtag – Reste mitkochen"]
+    elif recipe is not None:
         entry["reasons"] = suggest_reasons(
             manager,
             recipe,
             day,
             servings or entry.get("servings") or manager.default_servings,
             season=season_weight(manager, strategy) > 0,
+            meal=entry.get("meal"),
         )
     stored = manager.plan.get(entry["date"], {}).get(entry["meal"])
     cost = manager.entry_cost(day, entry["meal"], stored) if stored else None

@@ -40,8 +40,11 @@ from .const import (
     DOMAIN,
     EVENT_UPDATED,
     MEAL_BREAKFAST,
+    MEAL_DINNER,
     MEAL_LABELS,
+    MEAL_LUNCH,
     MEAL_SNACK,
+    PROFILE_KEYS,
     STORAGE_KEY,
     STORAGE_VERSION,
     STRATEGY_CHEAP,
@@ -91,6 +94,17 @@ from .pricing import (
     unit_price,
 )
 from .products import product_counts
+from .profile import (
+    DIET_FLEXI,
+    FLEXI_MEAT_PER_WEEK,
+    Profile,
+    is_meat,
+    is_ready_meal,
+    profile_conflicts,
+    profile_from_options,
+    profile_score,
+    recipe_minutes,
+)
 from .stores import REMATCH_CHANGES, StoresMixin
 
 _LOGGER = logging.getLogger(__name__)
@@ -491,6 +505,51 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         """Tags or ingredients that should never be suggested."""
         text = self.options.get(CONF_EXCLUDED) or ""
         return [p.strip() for p in str(text).replace(";", ",").split(",") if p.strip()]
+
+    @property
+    def profile(self) -> Profile:
+        """The profile options (1.5.1, profile.py): diet, allergies, cuisines, flavours,
+        kitchen, cooking days, time limits and the excluded ingredients."""
+        options = self.options
+        key = tuple(
+            tuple(v) if isinstance(v, list) else v
+            for v in (options.get(k) for k in (*PROFILE_KEYS, CONF_EXCLUDED))
+        )
+        cached = getattr(self, "_profile_cache", None)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        profile = profile_from_options(options, self.excluded)
+        self._profile_cache = (key, profile)
+        return profile
+
+    def time_limit(self, day: date, meal: str | None = None) -> int:
+        """The time limit of a main meal (lunch, dinner or any) on a day in minutes (1.5.1,
+        "Zeit unter der Woche" / "am Wochenende"; 0 = none). Breakfast and snacks: 0."""
+        if meal not in (None, MEAL_LUNCH, MEAL_DINNER):
+            return 0
+        return self.profile.time_limit(day)
+
+    def fits_time(self, recipe: dict[str, Any], day: date, meal: str | None = None) -> bool:
+        """True if the recipe is ready within the day's time limit (no limit or an unknown
+        time: True)."""
+        limit = self.time_limit(day, meal)
+        minutes = recipe_minutes(recipe) if limit else None
+        return not limit or minutes is None or minutes <= limit
+
+    def time_reason(self, recipe: dict[str, Any], day: date, meal: str | None = None) -> str | None:
+        """ "⏱️ 45 min – länger als deine 30 min" for a recipe over the day's time limit."""
+        if self.fits_time(recipe, day, meal):
+            return None
+        return f"⏱️ {recipe_minutes(recipe)} min – länger als deine {self.time_limit(day, meal)} min"
+
+    def cooks_on(self, day: date, meal: str) -> bool:
+        """False for a main meal on a day the household does not cook (1.5.1, "Tage, an
+        denen du kochst"); breakfast and snacks: always True."""
+        return meal not in (MEAL_LUNCH, MEAL_DINNER) or self.profile.cooks_on(day)
+
+    def profile_conflicts(self, recipe: dict[str, Any], devices: bool = True) -> list[str]:
+        """Why a recipe does not fit the profile (German badges, empty when it fits)."""
+        return profile_conflicts(recipe, self.profile, devices=devices)
 
     @property
     def auto_mark_cooked(self) -> bool:
@@ -1665,20 +1724,11 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             return kind == KIND_SNACK or bool(tags & SNACK_TAGS)
         return kind == KIND_MEAL
 
-    def is_excluded(self, recipe: dict[str, Any]) -> bool:
-        """True if the recipe has an excluded tag or ingredient."""
-        excluded = self.excluded
-        if not excluded:
-            return False
-        tags = self.recipe_tags_folded(recipe)
-        names = [i.get("name", "") for i in recipe.get("ingredients", [])]
-        for item in excluded:
-            key = fold(item)
-            if key in tags:
-                return True
-            if any(is_pantry_item(name, [item]) or key in fold(name) for name in names):
-                return True
-        return False
+    def is_excluded(self, recipe: dict[str, Any], devices: bool = True) -> bool:
+        """True if the recipe is never suggested or auto planned: an excluded tag or
+        ingredient, and (1.5.1, profile.profile_filter()) not the diet, an allergen or
+        (devices True – occasions: False) a kitchen device that is missing."""
+        return bool(profile_conflicts(recipe, self.profile, devices=devices))
 
     def find_by_ingredients(
         self, available: list[str], count: int = 5, meal: str | None = None
@@ -1692,6 +1742,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         for recipe in self.recipes.values():
             if meal and not self._fits_meal(recipe, meal):
                 continue
+            if self.is_excluded(recipe):
+                continue  # 1.5.1: diet, allergies, excluded, kitchen (also for Jarvis)
             relevant = [
                 i
                 for i in recipe.get("ingredients", [])
@@ -1797,6 +1849,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         )
         if ctx.get("season"):
             weight *= season_factor(self, recipe, around, ctx["season"])
+        # 1.5.1: liked cuisines and flavours, flexitarian (profile.profile_score())
+        weight *= profile_score(recipe, self.profile)
         return weight
 
     def suggest(
@@ -1826,10 +1880,22 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             for r in self.search_recipes(tag=tag, max_time=max_time)
             if r["id"] not in exclude and self._fits_meal(r, meal) and not self.is_excluded(r)
         ]
+        # 1.5.1: the time limit of the day – only recipes within it while there are enough,
+        # else the longer ones count less (their reasons say "⏱️ … länger als …")
+        slow: set[str] = set()
+        if max_time is None and self.time_limit(around, meal):
+            fitting = [r for r in candidates if self.fits_time(r, around, meal)]
+            if len(fitting) >= max(1, count):
+                candidates = fitting
+            else:
+                slow = {r["id"] for r in candidates} - {r["id"] for r in fitting}
         ctx = self._suggest_context(
             around, strategy=strategy, target_cost=target_cost, servings=servings
         )
-        weights = [self._suggest_weight(recipe, ctx) for recipe in candidates]
+        weights = [
+            self._suggest_weight(recipe, ctx) * (0.3 if recipe["id"] in slow else 1.0)
+            for recipe in candidates
+        ]
 
         chosen: list[dict[str, Any]] = []
         pool = list(zip(candidates, weights, strict=True))
@@ -1865,8 +1931,36 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         recipe id} – used when the recipe fits the meal and is not planned yet. order (1.5,
         the AI's order of the rules' best candidates): each slot gets the first recipe of
         the order that fits the meal and is not planned yet – one of another kind than the
-        day before when there is one –, else a suggestion."""
+        day before when there is one –, else a suggestion.
+
+        1.5.1, the profile: lunch and dinner only on cooking days – a day without cooking
+        gets the leftovers of the cooking day before when it can (_auto_leftover()), else
+        stays free; the time limit of the day (picks and the order only within it, the
+        suggestions see suggest()); flexitarian: at most FLEXI_MEAT_PER_WEEK meat dishes a
+        week while there are other recipes."""
         meals = meals or [self.default_meal]
+        profile = self.profile
+        flexi = profile.diet == DIET_FLEXI
+        meat_ids: set[str] = (
+            {rid for rid, r in self.recipes.items() if is_meat(r)} if flexi else set()
+        )
+        meat_weeks: dict[date, int] = {}
+
+        def meat_count(day: date) -> int:
+            monday = day - timedelta(days=day.weekday())
+            if monday not in meat_weeks:
+                count = 0
+                for offset in range(7):
+                    for entry in self.plan.get(
+                        (monday + timedelta(days=offset)).isoformat(), {}
+                    ).values():
+                        if entry.get("recipe_id") in meat_ids and not isinstance(
+                            entry.get("leftover_of"), dict
+                        ):
+                            count += 1
+                meat_weeks[monday] = count
+            return meat_weeks[monday]
+
         planned: list[dict[str, Any]] = []
         used: set[str] = set()
         # dishes already planned around these days are not planned a second time
@@ -1887,6 +1981,16 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             for meal in meals:
                 if (meal in existing and not overwrite) or meal in covered:
                     continue
+                if not self.cooks_on(day, meal):
+                    # no cooking that day (1.5.1): the leftovers of the cooking day before
+                    leftover = self._auto_leftover(day, meal, servings)
+                    if leftover is not None:
+                        self.plan.setdefault(day.isoformat(), {})[meal] = leftover
+                        planned.append(self.entry_view(day, meal, leftover))
+                    continue
+                no_meat: set[str] = (
+                    meat_ids if flexi and meat_count(day) >= FLEXI_MEAT_PER_WEEK else set()
+                )
                 target = self.budget_target(day, len(meals)) if self.weekly_budget else None
                 options = {
                     "tag": tag,
@@ -1901,14 +2005,17 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 picked = self.recipes.get((picks or {}).get((day.isoformat(), meal)) or "")
                 if (
                     picked is not None
-                    and picked["id"] not in used | nearby
+                    and picked["id"] not in used | nearby | no_meat
                     and self._fits_meal(picked, meal)
                     and not self.is_excluded(picked)
+                    and self.fits_time(picked, day, meal)
                 ):
                     suggestion = [picked]
                 if not suggestion and order:
-                    suggestion = self._ordered_pick(order, day, meal, used | nearby)
+                    suggestion = self._ordered_pick(order, day, meal, used | nearby | no_meat)
                 if not suggestion:
+                    suggestion = self.suggest(1, exclude=used | nearby | no_meat, **options)
+                if not suggestion and no_meat:
                     suggestion = self.suggest(1, exclude=used | nearby, **options)
                 if not suggestion and nearby:
                     suggestion = self.suggest(1, exclude=used, **options)  # few recipes
@@ -1916,6 +2023,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                     continue
                 recipe = suggestion[0]
                 used.add(recipe["id"])
+                if recipe["id"] in meat_ids:
+                    meat_count(day)
+                    monday = day - timedelta(days=day.weekday())
+                    meat_weeks[monday] += 1
                 entry = {
                     "recipe_id": recipe["id"],
                     "title": recipe["name"],
@@ -1929,6 +2040,39 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if planned:
             self._changed("plan")
         return planned
+
+    def _auto_leftover(
+        self, day: date, meal: str, servings: int | None = None
+    ) -> dict[str, Any] | None:
+        """A plan entry with the leftovers of the same meal on one of the two days before
+        that is a cooking day (1.5.1, auto plan on a day without cooking): a meal (no ready
+        meal, no leftovers itself) that has no leftovers yet. None when there is none."""
+        for back in (1, 2):
+            src_day = day - timedelta(days=back)
+            if not self.cooks_on(src_day, meal):
+                continue
+            source = self.plan.get(src_day.isoformat(), {}).get(meal)
+            if not source or not source.get("recipe_id"):
+                continue
+            recipe = self.recipes.get(source["recipe_id"])
+            if (
+                recipe is None
+                or isinstance(source.get("leftover_of"), dict)
+                or recipe_kind(recipe) != KIND_MEAL
+                or is_ready_meal(recipe)
+                or self.leftovers_of(src_day, meal)
+            ):
+                continue
+            return {
+                "recipe_id": recipe["id"],
+                "title": source.get("title") or recipe["name"],
+                "servings": servings or source.get("servings") or self.default_servings,
+                "note": "",
+                "cooked": False,
+                "added": dt_util.utcnow().isoformat(),
+                "leftover_of": {"date": src_day.isoformat(), "meal": meal},
+            }
+        return None
 
     def replan_meal(
         self,
@@ -2001,6 +2145,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             and (recipe := self.recipes.get(rid)) is not None
             and self._fits_meal(recipe, meal)
             and not self.is_excluded(recipe)
+            and self.fits_time(recipe, day, meal)
         ]
         if not fitting:
             return []
@@ -3039,6 +3184,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             # recipe kinds (1.5.1): [{id, label, emoji}] for the filters and the editor
             "kinds": kinds_view(),
             "leftover_max_days": LEFTOVER_MAX_DAYS,
+            # the profile (1.5.1): the options and the recipes that do not fit it (badges
+            # in the recipes tab, the filter "Passt zu mir"): {recipe id: [German badges]}
+            "profile": self.profile.export(),
+            "recipe_profile": {
+                rid: conflicts
+                for rid, recipe in self.recipes.items()
+                if (conflicts := profile_conflicts(recipe, self.profile))
+            },
         }
 
 

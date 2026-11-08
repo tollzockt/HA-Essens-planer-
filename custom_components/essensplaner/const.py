@@ -137,6 +137,28 @@ CONF_OCCASIONS_IN_BUDGET: Final = "occasions_in_budget"
 DEFAULT_OCCASIONS_IN_BUDGET: Final = True
 CONF_DRINKS_ALCOHOL: Final = "drinks_alcohol"
 DEFAULT_DRINKS_ALCOHOL: Final = True
+# profile (1.5.1, "Dein Geschmack" / "Essen" / "Dein Plan" in the panel's ⚙️, rules:
+# profile.py): diet, allergies, liked cuisines and flavours, kitchen devices, cooking days
+# and the time limits on weekdays / at the weekend (0 = egal). The defaults keep the
+# behaviour of 1.5 (the kitchen default has oven, stove and microwave).
+CONF_DIET: Final = "diet"
+CONF_ALLERGIES: Final = "allergies"
+CONF_LIKED_CUISINES: Final = "liked_cuisines"
+CONF_LIKED_FLAVORS: Final = "liked_flavors"
+CONF_KITCHEN: Final = "kitchen"
+CONF_COOK_DAYS: Final = "cook_days"
+CONF_WEEKDAY_TIME: Final = "weekday_time"
+CONF_WEEKEND_TIME: Final = "weekend_time"
+PROFILE_KEYS: Final = (
+    CONF_DIET,
+    CONF_ALLERGIES,
+    CONF_LIKED_CUISINES,
+    CONF_LIKED_FLAVORS,
+    CONF_KITCHEN,
+    CONF_COOK_DAYS,
+    CONF_WEEKDAY_TIME,
+    CONF_WEEKEND_TIME,
+)
 # leaflets of all saved branches (1.5, only with marktguru)
 CONF_ALL_LEAFLETS: Final = "all_leaflets"
 DEFAULT_ALL_LEAFLETS: Final = True

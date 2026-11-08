@@ -24,18 +24,24 @@ from .const import (
     CONF_AI_FEATURES,
     CONF_ALDI_ONLINE,
     CONF_ALL_LEAFLETS,
+    CONF_ALLERGIES,
     CONF_AUTO_COOKED,
     CONF_BRANCH_RADIUS,
     CONF_BRANCH_ROUTE,
     CONF_BRANCH_ROUTE_RADIUS,
     CONF_BRANCH_ZONES,
     CONF_BUDGET,
+    CONF_COOK_DAYS,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
+    CONF_DIET,
     CONF_DRINKS_ALCOHOL,
     CONF_EDEKA_OFFERS,
     CONF_ENABLED_MEALS,
     CONF_EXCLUDED,
+    CONF_KITCHEN,
+    CONF_LIKED_CUISINES,
+    CONF_LIKED_FLAVORS,
     CONF_MEAL_TIME_PREFIX,
     CONF_OCCASIONS_IN_BUDGET,
     CONF_OFFERS_SOURCE,
@@ -54,6 +60,8 @@ from .const import (
     CONF_STRATEGY,
     CONF_SYNC_TODO,
     CONF_WATCHLIST,
+    CONF_WEEKDAY_TIME,
+    CONF_WEEKEND_TIME,
     CONF_ZIP,
     DEFAULT_AI_FEATURES,
     DEFAULT_ALDI_ONLINE,
@@ -83,6 +91,24 @@ from .const import (
     STRATEGIES,
     STRATEGY_BALANCED,
 )
+from .profile import (
+    ALLERGEN_NAMES,
+    ALLERGENS,
+    CUISINE_NAMES,
+    CUISINES,
+    DEFAULT_COOK_DAYS,
+    DEFAULT_DIET,
+    DEFAULT_KITCHEN,
+    DEVICE_NAMES,
+    DEVICES,
+    DIET_NAMES,
+    DIETS,
+    FLAVOR_NAMES,
+    FLAVORS,
+    TIME_CHOICES,
+    TIME_RANGE,
+    WEEKDAYS,
+)
 from .retailers import DEFAULT_STORES, STORES, retailer_kind
 
 # ----------------------------------------------------------------------------------
@@ -106,6 +132,8 @@ SECTION_OFFERS = "offers"
 SECTION_STORES = "stores"
 SECTION_RECEIPTS = "receipts"
 SECTION_AI = "ai"
+# 1.5.1: the profile (taste, diet, allergies, kitchen, cooking days and time)
+SECTION_PROFILE = "profile"
 SECTIONS = [
     SECTION_GENERAL,
     SECTION_PLANNING,
@@ -113,6 +141,7 @@ SECTIONS = [
     SECTION_STORES,
     SECTION_RECEIPTS,
     SECTION_AI,
+    SECTION_PROFILE,
 ]
 
 # entity domains of the AI picker (an AI Task or a conversation agent, 1.5)
@@ -175,6 +204,22 @@ def _time_key(meal: str) -> str:
 
 
 FIELDS: tuple[Field, ...] = (
+    # Profil (1.5.1): Geschmack, Ernährung, Küche, Kochtage und Zeit
+    Field(CONF_DIET, SECTION_PROFILE, SELECT, DEFAULT_DIET, choices=tuple(DIETS)),
+    Field(CONF_ALLERGIES, SECTION_PROFILE, MULTI, [], choices=tuple(ALLERGENS), empty_ok=True),
+    Field(CONF_LIKED_CUISINES, SECTION_PROFILE, MULTI, [], choices=tuple(CUISINES), empty_ok=True),
+    Field(CONF_LIKED_FLAVORS, SECTION_PROFILE, MULTI, [], choices=tuple(FLAVORS), empty_ok=True),
+    Field(
+        CONF_KITCHEN,
+        SECTION_PROFILE,
+        MULTI,
+        list(DEFAULT_KITCHEN),
+        choices=tuple(DEVICES),
+        empty_ok=True,
+    ),
+    Field(CONF_COOK_DAYS, SECTION_PROFILE, MULTI, list(DEFAULT_COOK_DAYS), choices=tuple(WEEKDAYS)),
+    Field(CONF_WEEKDAY_TIME, SECTION_PROFILE, INT, 0, *TIME_RANGE, 5),
+    Field(CONF_WEEKEND_TIME, SECTION_PROFILE, INT, 0, *TIME_RANGE, 5),
     # Allgemein
     Field(CONF_DEFAULT_SERVINGS, SECTION_GENERAL, INT, DEFAULT_SERVINGS, *SERVINGS_RANGE, 1),
     Field(CONF_DEFAULT_MEAL, SECTION_GENERAL, SELECT, DEFAULT_MEAL, choices=tuple(ALL_MEALS)),
@@ -264,6 +309,23 @@ CHOICE_LABELS_DE: dict[str, dict[str, str]] = {
         "off": "Aus (nur eigene Angebote)",
         "marktguru": "marktguru.de (inoffiziell, eigenes Risiko)",
     },
+    "diet": dict(DIET_NAMES),
+    "allergen": dict(ALLERGEN_NAMES),
+    "cuisine": dict(CUISINE_NAMES),
+    "flavor": dict(FLAVOR_NAMES),
+    "device": {
+        **DEVICE_NAMES,
+        "kuechenmaschine": "Küchenmaschine (Thermomix & Co.)",
+    },
+    "weekday": {
+        "mon": "Montag",
+        "tue": "Dienstag",
+        "wed": "Mittwoch",
+        "thu": "Donnerstag",
+        "fri": "Freitag",
+        "sat": "Samstag",
+        "sun": "Sonntag",
+    },
     "ai_feature": {
         "occasions": "Anlässe (Menü-Vorschläge)",
         "drinks": "Getränke",
@@ -283,6 +345,7 @@ MARKTGURU_WARNING_DE = (
 # German messages of the validation (shown at the field in the panel's settings view)
 ERROR_TEXTS_DE: dict[str, str] = {
     "no_meals": "Bitte mindestens eine Mahlzeit auswählen.",
+    "no_cook_days": "Bitte mindestens einen Tag auswählen, an dem du kochst.",
     "invalid_zip": (
         "Bitte eine 5-stellige Postleitzahl eingeben oder im Essensplaner-Panel eine Filiale "
         "mit Postleitzahl hinzufügen."
@@ -521,6 +584,8 @@ def validate(
             cleaned[f.key] = value
     if CONF_ENABLED_MEALS in cleaned and (error := meals_error(cleaned[CONF_ENABLED_MEALS])):
         errors[CONF_ENABLED_MEALS] = error
+    if CONF_COOK_DAYS in cleaned and not cleaned[CONF_COOK_DAYS]:
+        errors[CONF_COOK_DAYS] = "no_cook_days"
     if (
         CONF_ZIP not in errors
         and CONF_OFFERS_SOURCE in cleaned
@@ -563,6 +628,11 @@ def choice_list(kind: str, values: Iterable[str]) -> list[dict[str, str]]:
     return [{"value": v, "label": labels.get(v, v)} for v in values]
 
 
+def time_choices() -> list[dict[str, Any]]:
+    """The time limits the panel offers: [{value: minutes, label}] (0 = "egal")."""
+    return [{"value": m, "label": f"{m} min" if m else "egal"} for m in TIME_CHOICES]
+
+
 def store_choices() -> list[dict[str, Any]]:
     """The chains of "Supermärkte" (offer_stores) with their kind (grocery / drugstore)."""
     return [
@@ -580,6 +650,7 @@ __all__ = [
     "MARKTGURU_WARNING_DE",
     "SECTIONS",
     "SECTION_AI",
+    "SECTION_PROFILE",
     "Field",
     "choice_list",
     "clamp",
@@ -594,6 +665,7 @@ __all__ = [
     "normalize_time",
     "number",
     "store_choices",
+    "time_choices",
     "validate",
     "whole",
     "zip_error",

@@ -40,6 +40,7 @@ from .ingredients import (
     to_base,
 )
 from .pricing import item_cost, pack_text
+from .profile import missing_devices, summary_texts
 from .season import recipe_season
 
 if TYPE_CHECKING:
@@ -1606,12 +1607,15 @@ def suggest_course(
     info = template_info(template)
     scored: list[tuple[float, dict[str, Any], int]] = []
     for recipe in manager.recipes.values():
-        if recipe["id"] in used or manager.is_excluded(recipe):
+        # 1.5.1: diet and allergies are hard for occasions, missing devices only count less
+        if recipe["id"] in used or manager.is_excluded(recipe, devices=False):
             continue
         courses = recipe_courses(recipe)
         if course not in courses:
             continue
         weight = manager._suggest_weight(recipe, ctx)
+        if missing_devices(recipe, manager.profile.kitchen):
+            weight *= 0.4
         weight *= 1.0 if recipe_course(recipe) == course else 0.6
         hits = _template_hits(template, course, recipe)
         if hits:
@@ -2196,6 +2200,8 @@ AI_INSTRUCTIONS = (
     "Pck.).\n"
     "7. Nichts aus 'schon_geplant' noch einmal, keine Zutaten aus 'ausgeschlossen', keine "
     "Doppelungen.\n"
+    "8. 'profil': Ernährung und Allergien gelten für alle Gerichte und Snacks; "
+    "Lieblingsküchen und -aromen bevorzugen.\n"
     'Antworte nur mit JSON: {"items": [{"gang": "main", "rezept_id": "…", "portionen": 8, '
     '"grund": "…"}, {"gang": "drink", "artikel_id": "…", "menge": 4, "grund": "…"}, '
     '{"gang": "extra", "titel": "Grillanzünder", "menge": 1, "einheit": "Pck.", "grund": '
@@ -2235,7 +2241,7 @@ def recipe_candidates(
                 for r in manager.recipes.values()
                 if recipe_course(r) == COURSE_DRINK
                 and r["id"] not in used
-                and not manager.is_excluded(r)
+                and not manager.is_excluded(r, devices=False)
                 and (alcohol_allowed(manager) or not _recipe_alcohol(r))
             ]
             drinks.sort(key=lambda r: (-manager._suggest_weight(r, ctx), fold(r["name"])))
@@ -2421,6 +2427,12 @@ def ai_payload(
             for i in occasion.get("items") or []
         ],
         "ausgeschlossen": manager.excluded,
+        # 1.5.1: diet and allergies (preferences only, no personal data)
+        "profil": {
+            k: v
+            for k, v in summary_texts(manager.profile).items()
+            if k in ("ernaehrung", "allergien", "kuechen", "aromen")
+        },
         "richtwerte": {
             "getraenke_l": (quantities or {}).get("liters"),
             "snacks_g_pro_person": 100 if COURSE_SNACK in candidates else None,
@@ -2542,7 +2554,7 @@ def parse_ai_menu(
                 recipe["id"] in used_recipes
                 or recipe["id"] in seen
                 or fold(recipe["name"]) in used_titles
-                or manager.is_excluded(recipe)
+                or manager.is_excluded(recipe, devices=False)
             ):
                 continue
             if course == COURSE_DRINK and not allowed and _recipe_alcohol(recipe):
