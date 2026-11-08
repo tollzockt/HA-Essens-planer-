@@ -256,8 +256,11 @@ def stable_id(item: dict[str, Any], retailer: str | None) -> str | None:
 
 def product_title(product: dict[str, Any]) -> str:
     """Brand and name ('Kerrygold Irische Butter'); the name when it names the brand."""
-    brand = str(product.get("brand") or "")
-    name = str(product.get("name") or "")
+    return _title(str(product.get("brand") or ""), str(product.get("name") or ""))
+
+
+@lru_cache(maxsize=4096)
+def _title(brand: str, name: str) -> str:
     if brand and fold(brand) not in fold(name):
         return f"{brand} {name}"
     return name
@@ -371,6 +374,10 @@ class ProductStore:
         self._by_twin: dict[str, set[str]] = {}
         self._by_offer: dict[str, str] = {}
         self._text_memo: tuple[int, dict[str, str]] | None = None
+        # per revision and day: {("entry", pid, branch id): PriceEntry | None, ("key", key,
+        # retailer): [fitting products]} – the shopping list asks the same products for many
+        # items and stores (best_for())
+        self._price_memo: tuple[tuple[int, str], dict[Any, Any]] | None = None
         self._lock: asyncio.Lock | None = None
 
     @staticmethod
@@ -554,6 +561,13 @@ class ProductStore:
             if (product := self.products.get(pid)) is not None
             and (wanted is None or product["retailer"] in wanted)
         ]
+
+    def memo(self, day: date) -> dict[Any, Any]:
+        """A cache that lives until the products change or the day changes."""
+        ident = (self.revision, day.isoformat())
+        if self._price_memo is None or self._price_memo[0] != ident:
+            self._price_memo = (ident, {})
+        return self._price_memo[1]
 
     def by_retailer(self, retailer: str) -> list[dict[str, Any]]:
         """All products of a chain."""
@@ -1586,6 +1600,85 @@ def product_for_item(manager: EssensplanerManager, item: dict[str, Any]) -> str 
     return None
 
 
+def product_for_hit(
+    manager: EssensplanerManager, offer: dict[str, Any], retailer: str | None = None
+) -> dict[str, Any] | None:
+    """The stored product of a search hit / offer: by its offer id, the chain's stable id
+    (REWE product id, ALDI SÜD sku) or its signature at the chain (None if not stored)."""
+    store = _store_of(manager)
+    if store is None or not isinstance(offer, dict):
+        return None
+    if offer.get("id") and (found := store.by_offer(offer["id"])) is not None:
+        return found
+    retailer = (
+        offer.get("retailer")
+        or retailer_for_store_id(offer.get("store_id"))
+        or SHOP_SOURCES.get(str(offer.get("source") or ""))
+        or retailer
+    )
+    if not retailer:
+        return None
+    stable = stable_id(offer, retailer)
+    if stable and (found := store.get(f"{retailer}:{stable}")) is not None:
+        return found
+    name = str(offer.get("product") or offer.get("title") or "").strip()
+    if not name:
+        return None
+    pack = _valid_pack(offer_pack(offer)) or _valid_pack(split_pack(name)[1])
+    return store.by_sig(retailer, signature(name, str(offer.get("brand") or ""), pack))
+
+
+def slim_product(
+    product: dict[str, Any], entry: PriceEntry | None = None, day: date | None = None
+) -> dict[str, Any]:
+    """The product as kept with a shopping item / a price comparison: {id, name, brand,
+    title, image, retailer, pack_amount, pack_unit, price (its pack price: the running
+    offer or the regular price), on_offer}."""
+    pack = product_pack(product)
+    if entry is None and day is not None:
+        entry = product_entry(product, day)
+    price = entry.price if entry is not None else None
+    if price is None:
+        price = _price((product.get("regular") or {}).get("price"))
+    return {
+        "id": product["id"],
+        "name": product.get("name") or "",
+        "brand": product.get("brand") or "",
+        "title": product_title(product),
+        "image": product.get("image"),
+        "retailer": product["retailer"],
+        "pack_amount": pack[0] if pack else None,
+        "pack_unit": pack[1] if pack else None,
+        "price": round(price, 2) if price is not None else None,
+        "on_offer": bool(entry is not None and entry.offer),
+    }
+
+
+def search_hits(
+    manager: EssensplanerManager, folded: str, retailers: Iterable[str], day: date
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """(product, prices) of the products of these chains whose brand, name, description or
+    ingredient contains the folded query and that can be bought on the day (a running
+    offer or a regular price; an only announced offer is no hit) – the article search
+    across all stores."""
+    store = _store_of(manager)
+    if store is None or not folded:
+        return []
+    wanted = set(retailers)
+    found: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for pid, text in store.search_text().items():
+        if folded not in text:
+            continue
+        product = store.products.get(pid)
+        if product is None or product["retailer"] not in wanted:
+            continue
+        prices = _prices(product, day)
+        if prices["price"] is None or (not prices["offer_now"] and prices["regular_price"] is None):
+            continue
+        found.append((product, prices))
+    return found
+
+
 # ----------------------------------------------------------------------
 # Prices
 # ----------------------------------------------------------------------
@@ -1654,9 +1747,19 @@ def product_entry(
 
 
 def _fits_key(product: dict[str, Any], key: str) -> bool:
-    return names_key_product(
-        str(product.get("name") or ""), key, str(product.get("description") or "")
-    ) or names_key_product(product_title(product), key)
+    return _fits(
+        str(product.get("name") or ""),
+        str(product.get("description") or ""),
+        product_title(product),
+        key,
+    )
+
+
+@lru_cache(maxsize=8192)
+def _fits(name: str, description: str, title: str, key: str) -> bool:
+    """names_key_product() of a product's name (with its description) or title (cached:
+    the shopping list asks it for every product of an ingredient at every store)."""
+    return names_key_product(name, key, description) or names_key_product(title, key)
 
 
 def best_for(
@@ -1677,11 +1780,19 @@ def best_for(
     if store is None or not key:
         return None
     day = day or manager.today()
+    memo = store.memo(day)
+    candidates = memo.get(("key", key, retailer))
+    if candidates is None:
+        candidates = memo[("key", key, retailer)] = [
+            product for product in store.by_key(key, [retailer]) if _fits_key(product, key)
+        ]
     best: tuple[tuple[Any, ...], dict[str, Any]] | None = None
-    for product in store.by_key(key, [retailer]):
-        if not _fits_key(product, key):
-            continue
-        entry = product_entry(product, day, branch_id)
+    for product in candidates:
+        entry_key = ("entry", product["id"], branch_id)
+        if entry_key in memo:
+            entry = memo[entry_key]
+        else:
+            entry = memo[entry_key] = product_entry(product, day, branch_id)
         if entry is None:
             continue
         cost = item_cost(amounts or {}, key, entry, category or product.get("category"), as_packs)

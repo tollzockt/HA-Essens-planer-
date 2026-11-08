@@ -838,7 +838,9 @@ async def test_live_two_sources_newest_wins(
     freezer,
     aioclient_mock: AiohttpClientMocker,
 ) -> None:
-    """REWE and marktguru in one search share its turn: the newer search is not replaced."""
+    """REWE and marktguru are asked in parallel (1.5: one lock per provider host): a slow
+    REWE answer does not hold up marktguru, and the newer search only waits for REWE – it is
+    not replaced, the older one keeps what it already asked for."""
     entry = await _rewe_entry(hass, config_entry, freezer)
     hass.config_entries.async_update_entry(
         entry,
@@ -868,9 +870,11 @@ async def test_live_two_sources_newest_wins(
         await asyncio.sleep(0)
     release.set()
     older_result, newer_result = await asyncio.gather(older, newer)
-    assert older_result.get("superseded") is True
+    assert not older_result.get("superseded")
+    assert "rewe_online" in {r["provider"] for r in older_result["results"]}
     assert not newer_result.get("superseded")
     assert {r["provider"] for r in newer_result["results"]} == {"rewe_online", "marktguru"}
+    assert [c[1].query["search"] for c in _calls(aioclient_mock)] == ["Butter", "Milch"]
 
 
 async def test_export_and_diagnostics(

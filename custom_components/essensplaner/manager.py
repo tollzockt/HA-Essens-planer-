@@ -119,7 +119,15 @@ _OFFER_COPY_FIELDS = (
     "valid_from",
     "valid_to",
     "source",
+    # 1.5: shown with the item's product
+    "image",
+    "brand",
 )
+# how a product picked with "Produkt wechseln" is remembered (shopping_set_product)
+REMEMBER_NONE = "none"
+REMEMBER_PICK = "pick"
+REMEMBER_FAVORITE = "favorite"
+REMEMBER_MODES = (REMEMBER_NONE, REMEMBER_PICK, REMEMBER_FAVORITE)
 
 # German messages for errors (used by intents / voice answers)
 ERROR_MESSAGES_DE = {
@@ -246,6 +254,10 @@ ERROR_MESSAGES_DE = {
     ),
     # product database (1.5, products.py)
     "product_not_found": "Den Artikel „{id}“ gibt es nicht in der Artikel-Datenbank.",
+    "invalid_remember": (
+        "„{remember}“ kenne ich nicht – möglich sind none (nicht merken), pick (als gewählt "
+        "merken) und favorite (⭐ Lieblingsprodukt)."
+    ),
     # AI via Home Assistant (1.5, ai.py)
     "ai_not_configured": (
         "Dafür brauche ich eine KI: wähle unter Essensplaner-Panel → Einstellungen → 🤖 KI "
@@ -1338,8 +1350,17 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             }
             if old and old.get("store_override"):
                 shopping_item["store_override"] = old["store_override"]
+            # 1.5: the recipe's product, else the product picked for the item before
+            # ("Produkt wechseln" on the previous list)
+            product_id = item.get("product_id") or (old or {}).get("product_id")
+            if product_id:
+                shopping_item["product_id"] = product_id
             new_items.append(shopping_item)
         if self.assign_stores(new_items, start):
+            total_price = round(sum(i["price"] for i in new_items if i.get("price") is not None), 2)
+        else:
+            # no store split: the products of the main store (or of the priced offer)
+            self.attach_products(new_items, start)
             total_price = round(sum(i["price"] for i in new_items if i.get("price") is not None), 2)
         for shopping_item in new_items:
             self.update_shopping_description(shopping_item)
@@ -1361,7 +1382,14 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                     "offer": i.get("offer"),
                     **{
                         field: i.get(field)
-                        for field in ("branch_id", "retailer", "store_label", "store_reason")
+                        for field in (
+                            "branch_id",
+                            "retailer",
+                            "store_label",
+                            "store_reason",
+                            "product",
+                            "product_reason",
+                        )
                         if field in i
                     },
                 }
@@ -1393,16 +1421,30 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         price: float | None = None,
         pack: str | None = None,
         offer_id: str | None = None,
+        product_id: str | None = None,
     ) -> dict[str, Any]:
         """Add a manual shopping item.
 
         store: branch (id, label, store name) to buy it at (a manual store choice).
         price/pack: price of one pack and its size as chosen by the user (e.g. from the
         article search); offer_id: a saved offer (its store, price and pack).
+        product_id (1.5): a product of the product database (search across all stores):
+        the item is that product (product_id), priced with its offer or regular price at its
+        chain (chosen; at the given store's chain its twin), bought at that chain like a
+        picked offer, and remembered as picked for the ingredient.
         Without them the price is estimated at the main store (or the given store).
         Spoken amounts become digits ("zwei Liter Milch" -> "2 Liter Milch").
         """
+        product = None
+        if product_id:
+            from .products import require_product
+
+            product = require_product(self, product_id)
         summary = normalize_spoken_quantity(str(summary or "").strip())
+        if not summary and product is not None:
+            from .products import product_title
+
+            summary = product_title(product)
         parsed = parse_ingredient(summary)
         name = parsed["name"] or summary
         amounts: dict[str, float] = {}
@@ -1428,6 +1470,15 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             if self.store_split_active:
                 raise _error("branch_not_found", branch=store)
             retailer = self.require_retailer(store)  # no branches: that retailer's prices
+        if product is not None:
+            if offer is None and price is None and not pack:
+                return self._add_product_item(item, product, store, branch, retailer)
+            item["product_id"] = product["id"]
+            self._product_key(item, product)
+            if offer is None and not store:
+                # an own price of the product: at its chain
+                branch = self._product_branch(product, None)
+                retailer = product["retailer"]
         if offer is not None and not store:
             # the branch the offer was found for (main branch first), also a further branch
             # of a chain ("Lidl Arbeit" for an offer found only at the work postcode)
@@ -1461,8 +1512,23 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             item["store_override"] = branch["id"]
             if not store and chosen is not None:
                 chosen["pins_store"] = True  # until the offer ends (see assign_stores)
+        if product is not None and offer is None:
+            from .products import PICK_PICKED, record_pick
+
+            if chosen is not None and chosen.get("retailer") == product["retailer"]:
+                chosen["product_id"] = product["id"]
+            record_pick(self, item["key"], product["id"], PICK_PICKED)
+        return self._append_item(item, retailer, branch)
+
+    def _append_item(
+        self,
+        item: dict[str, Any],
+        retailer: str | None,
+        branch: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Price, remember and append a new manual item (shopping_add())."""
         self._price_shopping_item(item, retailer, branch["id"] if branch else None)
-        self.remember_article(summary, item["key"], item.get("retailer") or retailer)
+        self.remember_article(item["summary"], item["key"], item.get("retailer") or retailer)
         self.shopping.append(item)
         if self.trip_depends_on_items():
             # an own store choice or one more offer there: other offers of that store may
@@ -1470,6 +1536,203 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             self._reassign_open_items()
         self._changed("shopping")
         return item
+
+    def _product_key(self, item: dict[str, Any], product: dict[str, Any]) -> None:
+        """The ingredient of an item that is a product of the product database: its own key
+        when the product has it, else the product's ingredient its name names ("Bergland
+        Butter" is "butter"), else the product's first ingredient when the item is named
+        like the product."""
+        from .offers import offer_matches
+        from .products import product_title
+
+        keys = [str(k) for k in product.get("keys") or [] if k]
+        if not keys or item["key"] in keys:
+            return
+        name = str(item.get("name") or "")
+        key = next((k for k in keys if offer_matches(name, k)), None)
+        if key is None and fold(name) in (fold(product_title(product)), fold(product["name"])):
+            key = keys[0]
+        if key is not None:
+            item["key"] = key
+            if product.get("category"):
+                item["category"] = product["category"]
+
+    def _product_chosen(
+        self,
+        product: dict[str, Any],
+        branch_id: str | None,
+    ) -> dict[str, Any] | None:
+        """The price picked with a product (chosen): its running offer (a copy, so the store
+        choice ends with the offer like a picked offer) or its regular price; None without a
+        price per pack."""
+        from .products import product_entry, product_title
+
+        entry = product_entry(product, self.today(), branch_id)
+        if entry is None:
+            return None
+        chosen: dict[str, Any] = {
+            "name": product_title(product),
+            "price": round(entry.price, 2),
+            "amount": entry.amount,
+            "unit": entry.unit,
+            "retailer": product["retailer"],
+            "product_id": product["id"],
+        }
+        if entry.offer:
+            offer = {
+                **entry.offer,
+                "store_id": product["retailer"],
+                "image": product.get("image"),
+                "brand": product.get("brand") or "",
+            }
+            chosen["offer_id"] = offer.get("id")
+            chosen["offer"] = {k: offer.get(k) for k in _OFFER_COPY_FIELDS}
+        return chosen
+
+    def _product_branch(
+        self, product: dict[str, Any], branch: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """The branch a product is bought at: the given branch of its chain, else the first
+        selected branch of its chain its offer applies to (main branch first)."""
+        if branch is not None and branch.get("retailer") == product["retailer"]:
+            return branch
+        offer = product.get("offer") or {}
+        from .catalog import _branch_ids, _branch_index
+
+        allowed = None
+        if offer.get("zip_codes") or offer.get("branch_ids"):
+            allowed = set(
+                _branch_ids(
+                    {
+                        "retailer": product["retailer"],
+                        "zip_codes": offer.get("zip_codes"),
+                        "branch_ids": offer.get("branch_ids"),
+                    },
+                    _branch_index(self)[0],
+                )
+            )
+        candidates = [
+            b
+            for b in self.selected_branches()
+            if b.get("retailer") == product["retailer"] and b.get("id")
+        ]
+        return next(
+            (b for b in candidates if allowed is None or not allowed or b["id"] in allowed),
+            None,
+        )
+
+    def _add_product_item(
+        self,
+        item: dict[str, Any],
+        product: dict[str, Any],
+        store: str | None,
+        branch: dict[str, Any] | None,
+        retailer: str | None,
+    ) -> dict[str, Any]:
+        """shopping_add() of a product (product_id) without an own price or offer."""
+        from .products import PICK_PICKED, _at_retailer, _store_of, record_pick
+
+        item["product_id"] = product["id"]
+        self._product_key(item, product)
+        record_pick(self, item["key"], product["id"], PICK_PICKED)
+        if store:
+            # the user's store: the product there (a branded product's twin at another
+            # chain; else that chain's product is chosen by the list)
+            if retailer and retailer != product["retailer"]:
+                db = _store_of(self)
+                twin = _at_retailer(db, product["id"], retailer) if db is not None else None
+                if twin is None:
+                    if branch is not None:
+                        item["store_override"] = branch["id"]
+                    return self._append_item(item, retailer, branch)
+                product = twin
+            chosen = self._product_chosen(product, branch.get("id") if branch else None)
+            if chosen is not None:
+                item["chosen"] = chosen
+            if branch is not None:
+                item["store_override"] = branch["id"]
+            return self._append_item(item, product["retailer"], branch)
+        # like a picked offer: bought at the product's chain (the main branch stays
+        # automatic), until its offer ends
+        target = self._product_branch(product, None)
+        chosen = self._product_chosen(product, target.get("id") if target else None)
+        if chosen is not None:
+            item["chosen"] = chosen
+        if target is not None and target["id"] != self.main_branch:
+            item["store_override"] = target["id"]
+            if chosen is not None:
+                chosen["pins_store"] = True
+        return self._append_item(item, product["retailer"], target)
+
+    def shopping_set_product(
+        self, uid: str, product_id: str | None, remember: str = REMEMBER_NONE
+    ) -> dict[str, Any]:
+        """ "Produkt wechseln": buy a shopping item as this product of the product database.
+
+        The item becomes the product (product_id; also when the list is created again),
+        priced with its offer or regular price (chosen). With a store split the item moves to
+        the product's chain when it is bought elsewhere (store_override; the same chain keeps
+        the item's branch). remember: none | pick (counts as picked for the ingredient) |
+        favorite (⭐ for the ingredient – binds the store from now on). product_id None / ""
+        lets the list choose the product again. Errors shopping_item_not_found,
+        product_not_found, invalid_remember.
+        """
+        from .products import PICK_PICKED, record_pick, require_product, set_favorite
+
+        if remember not in REMEMBER_MODES:
+            raise _error("invalid_remember", remember=remember)
+        item = next((i for i in self.shopping if i.get("uid") == uid), None)
+        if item is None:
+            raise _error("shopping_item_not_found")
+        chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else None
+        if not product_id:
+            # the store came with the product (its chain): automatic again, like the product
+            from .products import _store_of
+
+            db = _store_of(self)
+            old = db.get(item.get("product_id")) if db is not None else None
+            chains = {(old or {}).get("retailer"), (chosen or {}).get("retailer")} - {None}
+            override = self.get_branch(item.get("store_override"))
+            if override is not None and override.get("retailer") in chains:
+                item.pop("store_override", None)
+            item.pop("product_id", None)
+            if chosen is not None and chosen.get("product_id"):
+                item.pop("chosen", None)
+            self._reprice_after_change(item)
+            return item
+        product = require_product(self, product_id)
+        if not item.get("key"):
+            item["key"] = ingredient_key(self._item_name(item))
+        key = str(item["key"])
+        item["product_id"] = product["id"]
+        current = self.get_branch(item.get("branch_id")) if item.get("branch_id") else None
+        branch = self._product_branch(product, current)
+        new_chosen = self._product_chosen(product, branch.get("id") if branch else None)
+        if new_chosen is not None:
+            item["chosen"] = new_chosen
+        else:
+            item.pop("chosen", None)
+        if (
+            self.store_split_active
+            and branch is not None
+            and (current is None or current.get("id") != branch["id"])
+        ):
+            item["store_override"] = branch["id"]  # the user's choice of this product
+        if remember == REMEMBER_FAVORITE:
+            set_favorite(self, product["id"], key)
+        elif remember == REMEMBER_PICK:
+            record_pick(self, key, product["id"], PICK_PICKED)
+        self._reprice_after_change(item)
+        return item
+
+    def _reprice_after_change(self, item: dict[str, Any]) -> None:
+        """Store, price, product and description of an item after its product changed."""
+        if item.get("status") != "completed" and self.trip_depends_on_items():
+            self._reassign_open_items()
+        else:
+            chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
+            self._price_shopping_item(item, chosen.get("retailer"))
+        self._changed("shopping")
 
     def _price_shopping_item(
         self, item: dict[str, Any], retailer: str | None = None, branch_id: str | None = None
@@ -1486,6 +1749,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             item["price"] = cost["price"] if cost else None
             item["packs"] = cost["packs"] if cost else None
             item["offer"] = cost["offer"] if cost else None
+            self.attach_products([item], None, {id(item): cost})
         self.update_shopping_description(item)
 
     def _picked_offer(self, offer_id: str) -> dict[str, Any] | None:
@@ -1628,6 +1892,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if item.get("source") != "plan" and key and key != item.get("key"):
             item.update({"name": name, "key": key, "category": guess_category(name)})
             item.pop("chosen", None)  # the picked price was for another product
+            item.pop("product_id", None)  # and so was the picked product (1.5)
         chosen = item.get("chosen") or {}
         self._price_shopping_item(item, chosen.get("retailer"))
 

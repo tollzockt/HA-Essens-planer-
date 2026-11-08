@@ -645,6 +645,10 @@ add_shopping_item:
       example: "mg_12345"
       selector:
         text:
+    product_id:
+      example: "rewe:s1a2b3c4d5"
+      selector:
+        text:
 
 find_branches:
   fields:
@@ -899,3 +903,24 @@ save_product:
     favorite:
       selector:
         boolean:
+
+set_shopping_product:
+  fields:
+    item:
+      required: true
+      example: "Butter"
+      selector:
+        text:
+    product_id:
+      example: "rewe:s1a2b3c4d5"
+      selector:
+        text:
+    remember:
+      default: none
+      selector:
+        select:
+          translation_key: product_remember
+          options:
+            - none
+            - pick
+            - favorite

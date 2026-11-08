@@ -198,6 +198,7 @@ SERVICE_DELETE_RECEIPT: Final = "delete_receipt"
 # product database (1.5)
 SERVICE_SEARCH_PRODUCTS: Final = "search_products"
 SERVICE_SAVE_PRODUCT: Final = "save_product"
+SERVICE_SET_SHOPPING_PRODUCT: Final = "set_shopping_product"
 # sources of refresh_prices
 PRICE_SOURCE_OFFERS: Final = "offers"
 PRICE_SOURCE_REWE: Final = "rewe"

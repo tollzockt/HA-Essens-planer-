@@ -104,6 +104,7 @@ from .const import (
     SERVICE_SEARCH_OFFERS,
     SERVICE_SEARCH_PRODUCTS,
     SERVICE_SET_PRICE,
+    SERVICE_SET_SHOPPING_PRODUCT,
     SERVICE_SET_SHOPPING_STORE,
     SERVICE_SHOPPING_LIST,
     SERVICE_SUGGEST,
@@ -350,6 +351,14 @@ ADD_SHOPPING_ITEM_SCHEMA = vol.Schema(
         vol.Optional("price"): vol.All(vol.Coerce(float), vol.Range(min=0, max=10000)),
         vol.Optional("pack"): cv.string,
         vol.Optional("offer_id"): cv.string,
+        vol.Optional("product_id"): cv.string,
+    }
+)
+SET_SHOPPING_PRODUCT_SCHEMA = vol.Schema(
+    {
+        vol.Required("item"): cv.string,
+        vol.Optional("product_id"): vol.Any(None, cv.string),
+        vol.Optional("remember", default="none"): vol.In(["none", "pick", "favorite"]),
     }
 )
 GET_COSTS_SCHEMA = vol.Schema(
@@ -814,8 +823,17 @@ def async_setup_services(hass: HomeAssistant) -> None:
             price=call.data.get("price"),
             pack=call.data.get("pack"),
             offer_id=call.data.get("offer_id"),
+            product_id=call.data.get("product_id"),
         )
         return {"item": item}
+
+    async def set_shopping_product(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        item = manager.find_shopping_item(call.data["item"])
+        item = manager.shopping_set_product(
+            item["uid"], call.data.get("product_id"), call.data["remember"]
+        )
+        return {"item": item, "stores": manager.stores_summary()}
 
     async def export_recipes(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
@@ -1120,6 +1138,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_FIND_ALDI_STORES, find_aldi_stores, FIND_ALDI_STORES_SCHEMA),
         (SERVICE_SEARCH_PRODUCTS, search_products, SEARCH_PRODUCTS_SCHEMA),
         (SERVICE_SAVE_PRODUCT, save_product, SAVE_PRODUCT_SCHEMA),
+        (SERVICE_SET_SHOPPING_PRODUCT, set_shopping_product, SET_SHOPPING_PRODUCT_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

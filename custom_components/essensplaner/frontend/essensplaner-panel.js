@@ -101,6 +101,7 @@ const REASON_CHIP = {
   cheaper: ["💶 günstiger", "cheap", "Hier deutlich günstiger als im Hauptladen"],
   manual: ["📌 manuell", "", "Von dir hier einsortiert"],
   preferred: ["⭐ immer hier", "", "Kaufst du immer in diesem Laden"],
+  favorite: ["⭐ Lieblingsprodukt", "", "Dein Lieblingsprodukt gibt es in diesem Laden"],
   // "drugstore" (1.4: Drogerie / Haushalt at the drugstore) needs no chip: like the main
   // store's items, the store card says it
 };

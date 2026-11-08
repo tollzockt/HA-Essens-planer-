@@ -1218,8 +1218,9 @@ class ComparePricesIntent(_EssensplanerIntent):
     intent_type = INTENT_COMPARE_PRICES
     description = (
         "Essensplaner: vergleicht den Preis eines Produkts in den gewählten Läden "
-        "(eigene Ladenpreise, gelernte Normalpreise, gültige Angebote) "
-        "('Wo ist Butter am günstigsten?'). Compares the price of a product across stores."
+        "(eigene Ladenpreise, gelernte Normalpreise, gültige Angebote) und nennt das Produkt "
+        "dahinter ('Wo ist Butter am günstigsten?'). Compares the price of a product across "
+        "stores."
     )
     slot_schema = {
         vol.Required(
@@ -1231,6 +1232,7 @@ class ComparePricesIntent(_EssensplanerIntent):
     async def _async_handle(self, hass, manager, values):
         result = manager.compare_prices(strip_article(str(values["item"])))
         name = _cap(result["item"])
+        item = str(result["item"])
         results = result["results"]
         if not results:
             return f"Für {name} habe ich keinen Preis.", result
@@ -1253,12 +1255,12 @@ class ComparePricesIntent(_EssensplanerIntent):
                 if len(results) > 1:
                     return (
                         f"Ich kenne nur den Preis bei {first['label']}: "
-                        f"{format_eur(first['price'])}{_pack_hint(first)}{offer}.",
+                        f"{format_eur(first['price'])}{_pack_hint(first, item=item)}{offer}.",
                         result,
                     )
                 return (
                     f"{name} gibt es bei {first['label']} für {format_eur(first['price'])}"
-                    f"{_pack_hint(first)}{offer}.",
+                    f"{_pack_hint(first, item=item)}{offer}.",
                     result,
                 )
             tied = result.get("tied") or []
@@ -1300,7 +1302,8 @@ class ComparePricesIntent(_EssensplanerIntent):
             return speech, result
         speech = (
             f"Am günstigsten gibt es {name} bei {cheapest['label']}: "
-            f"{format_eur(cheapest['price'])}{_pack_hint(cheapest, per_unit=per_unit)}"
+            f"{format_eur(cheapest['price'])}"
+            f"{_pack_hint(cheapest, per_unit=per_unit, item=item)}"
         )
         if cheapest.get("offer"):
             speech += " im Angebot"
@@ -1316,11 +1319,19 @@ class ComparePricesIntent(_EssensplanerIntent):
 
 
 def _pack_hint(
-    result: dict[str, Any], estimate: bool = False, per_unit: bool = False, price: bool = False
+    result: dict[str, Any],
+    estimate: bool = False,
+    per_unit: bool = False,
+    price: bool = False,
+    item: str | None = None,
 ) -> str:
     """' (250 g)', ' (2 mal 250 g)', ' (250 g, Richtwert)', ' (500 g, 6,98 € pro Kilo)';
-    with price the estimate itself: ' (Richtwert 1,99 € für 250 g)'."""
+    with price the estimate itself: ' (Richtwert 1,99 € für 250 g)'. With item (1.5) the
+    product of the product database behind the price when it says more than the item's
+    name: ' (Bergland Butter, 250 g)'."""
     parts = []
+    if item is not None and (named := _product_name(result, item)):
+        parts.append(named)
     pack = ""
     if result.get("pack"):
         packs = result.get("packs") or 1
@@ -1335,6 +1346,16 @@ def _pack_hint(
     if estimate:
         parts.append("Richtwert")
     return f" ({', '.join(parts)})" if parts else ""
+
+
+def _product_name(result: dict[str, Any], item: str) -> str | None:
+    """'Bergland Butter' – the product of a price comparison result (None when it is just
+    the item's name)."""
+    product = result.get("product") if isinstance(result.get("product"), dict) else None
+    title = str((product or {}).get("title") or "").strip()
+    if not title or fold(title) == fold(item):
+        return None
+    return title
 
 
 def _base_price(result: dict[str, Any]) -> str:
@@ -1409,8 +1430,9 @@ class AddShoppingItemIntent(_EssensplanerIntent):
     response_type = intent.IntentResponseType.ACTION_DONE
     description = (
         "Essensplaner: setzt einen Artikel auf die Einkaufsliste – mit Preis aus dem Hauptladen "
-        "bzw. dem genannten Laden ('Setz Butter auf die Einkaufsliste', '2 Liter Milch auf die "
-        "Einkaufsliste'). Adds an item to the shopping list with store and price."
+        "bzw. dem genannten Laden und dem Lieblingsprodukt, falls eins gemerkt ist ('Setz "
+        "Butter auf die Einkaufsliste', '2 Liter Milch auf die Einkaufsliste'). Adds an item "
+        "to the shopping list with store, price and the favourite product."
     )
     slot_schema = {
         vol.Required(
@@ -1432,12 +1454,21 @@ class AddShoppingItemIntent(_EssensplanerIntent):
         item = manager.shopping_add(text, store=store)
         speech = f"Ich habe {item['summary']} auf die Einkaufsliste gesetzt"
         price = item.get("price")
+        # 1.5: the product of the product database (the ⭐ favourite, a pick, the cheapest)
+        product = ""
+        if what := manager._product_text(item):
+            favorite = item.get("product_reason") == "favorite"
+            product = f"{'dein Lieblingsprodukt ' if favorite else ''}{what} "
         if item.get("store_label") and price is not None:
-            speech += f" – bei {item['store_label']} etwa {format_eur(price)}"
+            speech += f" – {product}bei {item['store_label']} etwa {format_eur(price)}"
         elif item.get("store_label"):
-            speech += f" – zu kaufen bei {item['store_label']}"
+            speech += f" – {product}zu kaufen bei {item['store_label']}"
+        elif price is not None and product:
+            speech += f" – {product}für etwa {format_eur(price)}"
         elif price is not None:
             speech += f" (etwa {format_eur(price)})"
+        elif product:
+            speech += f" – {product.strip()}"
         speech += "."
         if offer := item.get("offer"):
             speech += (

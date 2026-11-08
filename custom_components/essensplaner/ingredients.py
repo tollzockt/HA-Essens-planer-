@@ -1407,7 +1407,8 @@ def aggregate(
 ) -> list[dict[str, Any]]:
     """Merge ingredient entries into shopping items.
 
-    entries: list of (ingredient, recipe_title) – ingredients already scaled.
+    entries: list of (ingredient, recipe_title) – ingredients already scaled. The product an
+    ingredient is bought as (product_id, 1.5) is carried over (the first one per item).
     """
     pantry = pantry or []
     merged: dict[str, dict[str, Any]] = {}
@@ -1430,6 +1431,9 @@ def aggregate(
         )
         if name not in item["names"]:
             item["names"].append(name)
+        product_id = ingredient.get("product_id")
+        if isinstance(product_id, str) and product_id.strip() and "product_id" not in item:
+            item["product_id"] = product_id.strip()
         amount, unit = to_base(ingredient.get("amount"), ingredient.get("unit") or "")
         if amount is None:
             item["unquantified"] = True

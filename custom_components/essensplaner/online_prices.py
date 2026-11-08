@@ -824,5 +824,5 @@ class OnlinePriceSource:
                 raise OfferError(err.message) from err
 
         return await cached_live_fetch(
-            manager, (fold(query).strip(), f"{self.key}:{store_id}"), fetch
+            manager, (fold(query).strip(), f"{self.key}:{store_id}"), fetch, self.key
         )

@@ -106,6 +106,13 @@
         "name": "Name",
         "recent": "Zuletzt gesehen"
       }
+    },
+    "product_remember": {
+      "options": {
+        "none": "Nicht merken",
+        "pick": "Als gewählt merken",
+        "favorite": "⭐ Lieblingsprodukt"
+      }
     }
   },
   "entity": {
@@ -352,6 +359,9 @@
     },
     "product_not_found": {
       "message": "Den Artikel „{id}“ gibt es nicht in der Artikel-Datenbank."
+    },
+    "invalid_remember": {
+      "message": "„{remember}“ kenne ich nicht – möglich sind none (nicht merken), pick (als gewählt merken) und favorite (⭐ Lieblingsprodukt)."
     }
   },
   "services": {
@@ -1100,6 +1110,10 @@
         "offer_id": {
           "name": "Angebot",
           "description": "Optional: ID eines gespeicherten Angebots."
+        },
+        "product_id": {
+          "name": "Produkt",
+          "description": "Optional: ID eines Produkts der Artikel-Datenbank (aus „Produkte suchen“ oder der Artikelsuche über alle Läden) – der Artikel ist dieses Produkt, mit dessen Preis und Laden."
         }
       }
     },
@@ -1316,6 +1330,24 @@
         "favorite": {
           "name": "Lieblingsprodukt",
           "description": "Den Artikel als ⭐ Lieblingsprodukt dieser Zutat merken (aus: Stern entfernen)."
+        }
+      }
+    },
+    "set_shopping_product": {
+      "name": "Produkt der Einkaufsliste wechseln",
+      "description": "Kauft einen Artikel der Einkaufsliste als Produkt der Artikel-Datenbank („Produkt wechseln“) – mit dessen Angebots- oder Normalpreis in dessen Laden; auf Wunsch als gewählt oder als ⭐ Lieblingsprodukt gemerkt.",
+      "fields": {
+        "item": {
+          "name": "Artikel",
+          "description": "Artikel der Einkaufsliste (Name oder UID), z. B. „Butter“."
+        },
+        "product_id": {
+          "name": "Produkt",
+          "description": "ID des Produkts (aus „Produkte suchen“); leer: die Liste wählt das Produkt wieder selbst."
+        },
+        "remember": {
+          "name": "Merken",
+          "description": "Die Wahl merken: gar nicht, als gewähltes Produkt oder als ⭐ Lieblingsprodukt der Zutat (bindet den Laden)."
         }
       }
     }

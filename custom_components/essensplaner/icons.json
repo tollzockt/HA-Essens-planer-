@@ -195,6 +195,9 @@
     },
     "save_product": {
       "service": "mdi:package-variant-plus"
+    },
+    "set_shopping_product": {
+      "service": "mdi:swap-horizontal-circle-outline"
     }
   }
 }

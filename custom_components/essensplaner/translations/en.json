@@ -106,6 +106,13 @@
         "name": "Name",
         "recent": "Last seen"
       }
+    },
+    "product_remember": {
+      "options": {
+        "none": "Do not remember",
+        "pick": "Remember as picked",
+        "favorite": "⭐ Favourite product"
+      }
     }
   },
   "entity": {
@@ -352,6 +359,9 @@
     },
     "product_not_found": {
       "message": "The product {id} is not in the product database."
+    },
+    "invalid_remember": {
+      "message": "Unknown choice {remember} – possible are none, pick and favorite."
     }
   },
   "services": {
@@ -1100,6 +1110,10 @@
         "offer_id": {
           "name": "Offer",
           "description": "Optional: id of a saved offer."
+        },
+        "product_id": {
+          "name": "Product",
+          "description": "Optional: ID of a product of the product database (from 'Search products' or the article search across all stores) – the item is this product, priced and bought at its store."
         }
       }
     },
@@ -1316,6 +1330,24 @@
         "favorite": {
           "name": "Favourite product",
           "description": "Remember the product as ⭐ favourite of this ingredient (off: remove the star)."
+        }
+      }
+    },
+    "set_shopping_product": {
+      "name": "Change shopping list product",
+      "description": "Buys an item of the shopping list as a product of the product database (\"Produkt wechseln\") – priced with its offer or regular price, at its store; optionally remembered as picked or as ⭐ favourite product.",
+      "fields": {
+        "item": {
+          "name": "Item",
+          "description": "Item of the shopping list (name or uid), e.g. \"Butter\"."
+        },
+        "product_id": {
+          "name": "Product",
+          "description": "ID of the product (from 'Search products'); empty: the list chooses the product again."
+        },
+        "remember": {
+          "name": "Remember",
+          "description": "Remember the choice: not at all, as picked product or as ⭐ favourite product of the ingredient (binds the store)."
         }
       }
     }

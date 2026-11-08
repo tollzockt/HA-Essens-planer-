@@ -242,6 +242,8 @@ REASON_OFFER = "offer"
 REASON_CHEAPER = "cheaper"
 REASON_MANUAL = "manual"
 REASON_PREFERRED = "preferred"
+# 1.5: the ⭐ product of the ingredient is sold there (product database, products.py)
+REASON_FAVORITE = "favorite"
 # drugstore / household item at the drugstore branch (1.4)
 REASON_DRUGSTORE = "drugstore"
 MAX_ALTERNATIVES = 4
@@ -283,7 +285,14 @@ _NO_PRODUCT_WORDS = {
 # "Buttermilch", "Zucker" the "Puderzucker", "Brot" the "Knäckebrot")
 _LOOSE_HEADS = {"hackfleisch", "hack", "tomate", "haehnchen"}
 # description parts written by the integration (rebuilt on every change)
-_DESCRIPTION_PREFIXES = ("🏪", "≈ ", "🏷️")
+_DESCRIPTION_PREFIXES = ("🏪", "≈ ", "🏷️", "📦 ")
+# the product of a shopping item (product database) and how it was chosen (stores.attach_
+# products): product = {id, name, brand, title, image, retailer, pack_amount, pack_unit,
+# price, on_offer}, product_reason = manual | favorite | picked | bought | offer | cheapest
+PRODUCT_FIELDS = ("product", "product_reason")
+# what an alternative store of an item says about its product there
+ALTERNATIVE_PRODUCT_FIELDS = ("id", "name", "brand", "title", "image")
+_UNSET: Any = object()
 
 
 def _dict(value: Any) -> dict[str, Any]:
@@ -2427,6 +2436,16 @@ class StoresMixin:
             entry = self.offer_entry(offer, self._item_name(item))
             if entry is not None:
                 return entry
+        elif chosen.get("product_id"):
+            # a product picked from the product database (1.5): its current price there
+            from .products import _store_of, product_entry
+
+            store = _store_of(self)
+            product = store.get(chosen["product_id"]) if store is not None else None
+            if product is not None and product["retailer"] == (chosen.get("retailer") or retailer):
+                entry = product_entry(product, self.today(), branch_id)
+                if entry is not None:
+                    return entry
         return make_entry(
             {
                 "name": chosen.get("name") or self._item_name(item),
@@ -2465,6 +2484,9 @@ class StoresMixin:
         price or a valid offer) even when the estimate is cheaper or the same – the
         estimate only without one (price comparison: an offer at 1,11 €/100 g is the
         store's price, not the Richtwert).
+        An item that is a product of the product database (1.5: product_id, or a price
+        picked with a product) costs that product's price at its chain (or its twin's) –
+        offers of other products there do not count.
         """
         day = day or self.today()
         today = self.today().isoformat()
@@ -2500,14 +2522,21 @@ class StoresMixin:
                 best_specific = option
             return option
 
+        chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
         regular_entry = self._chosen_entry(item, retailer, branch_id)
+        own_product = regular_entry is not None and bool(chosen.get("product_id"))
+        if regular_entry is None and (item.get("product_id") or chosen.get("product_id")):
+            regular_entry = self._own_product_entry(item, retailer, branch_id, day)
+            own_product = regular_entry is not None
         if regular_entry is None:
             regular_entry = self.regular_book(retailer).lookup(name)
         regular = consider(regular_entry)
         # without an estimate (e.g. Kaffee) nothing tells "Eiskaffee" from Kaffee: only
         # offers of the product itself price the item
         same_product = same_product or not self.has_estimate(name)
-        for offer in self.offers_for(name, day, lead_days, retailer=retailer):
+        for offer in (
+            [] if own_product else self.offers_for(name, day, lead_days, retailer=retailer)
+        ):
             if (offer.get("valid_to") or "9999")[:10] < today:
                 continue  # no longer buyable
             if branch_id and "branches" in offer and branch_id not in offer["branches"]:
@@ -2524,6 +2553,28 @@ class StoresMixin:
         if best is None:
             return None
         return {**best, "regular": regular}
+
+    def _own_product_entry(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        retailer: str | None,
+        branch_id: str | None,
+        day: date,
+    ) -> PriceEntry | None:
+        """The price of the item's own product (product_id of the recipe / "Produkt
+        wechseln" / shopping_add, or of its picked price) at a chain: the product there or
+        its twin (a branded product); None when the chain does not sell it."""
+        from .products import _at_retailer, _store_of, product_entry
+
+        store = _store_of(self)
+        chain = retailer or self.main_retailer
+        if store is None or not chain:
+            return None
+        chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
+        for pid in (item.get("product_id"), chosen.get("product_id")):
+            if pid and (product := _at_retailer(store, pid, chain)) is not None:
+                return product_entry(product, day, branch_id)
+        return None
 
     def assign_stores(
         self: EssensplanerManager, items: list[dict[str, Any]], day: date | None = None
@@ -2550,9 +2601,15 @@ class StoresMixin:
         of the product itself that saves >= offer_min (Rossmann sells coffee), never for a
         regular price.
 
+        ⭐ Lieblingsprodukt (1.5, product database): after a manual store and "immer hier",
+        an item whose ingredient has a ⭐ product goes to that product's chain (reason
+        favorite) – the main branch when the product (or, for a branded product, its twin)
+        is sold there, else the favourite's own chain, else a chain with its twin; ignored
+        when none of them is a saved branch.
+
         Sets branch_id, retailer, store_label, store_reason (main|offer|cheaper|manual|
-        preferred|drugstore), saving, price/packs/offer at that store and up to 4
-        alternatives.
+        preferred|favorite|drugstore), saving, price/packs/offer at that store and up to 4
+        alternatives, then the product of the item (attach_products()).
         Without an active split the assignment fields are removed (1.2 behaviour).
         Descriptions are not touched (see update_shopping_description()).
         """
@@ -2584,6 +2641,7 @@ class StoresMixin:
             str,
             list[tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any], str]],
         ] = {}
+        used: dict[int, dict[str, Any] | None] = {}  # id(item) -> its cost at its store
         for item in items:
             nonfood = is_nonfood_category(
                 item.get("category") or guess_category(self._item_name(item))
@@ -2622,6 +2680,11 @@ class StoresMixin:
             ):
                 override = None  # a paused branch: chosen again when it is active
             preferred = self._preferred_target(item.get("key") or "", by_retailer, selected_ids)
+            favorite = (
+                self._favorite_target(item.get("key") or "", by_retailer, main)
+                if override is None and preferred is None
+                else None
+            )
             if override is not None and override.get("retailer"):
                 target, reason = override, REASON_MANUAL
                 if override["id"] not in costs:
@@ -2634,6 +2697,8 @@ class StoresMixin:
                     costs[preferred["id"]] = self.price_at(
                         item, preferred["retailer"], preferred["id"], day
                     )
+            elif favorite is not None:
+                target, reason = favorite, REASON_FAVORITE
             elif settings["mode"] == SPLIT_MAIN_EXCEPTIONS:
                 others = [b for b in [*candidates, *extras] if b["id"] != base["id"]]
                 best: tuple[dict[str, Any], dict[str, Any]] | None = None
@@ -2672,18 +2737,19 @@ class StoresMixin:
                 if best is not None:
                     target = best[0]
                     reason = REASON_OFFER if best[1]["offer"] else REASON_CHEAPER
-            self._set_store(item, target, reason, costs, base_cost)
+            used[id(item)] = self._set_store(item, target, reason, costs, base_cost, day)
             if reason in (REASON_OFFER, REASON_CHEAPER):
                 moved.setdefault(target["id"], []).append((item, base_cost, base, base_reason))
         if settings["trip_min"] > 0:
             batch = {id(i) for i in items}
-            # a store the user goes to anyway (own store choice, "immer hier", the drugstore
-            # for its items) is no extra trip
+            # a store the user goes to anyway (own store choice, "immer hier", a ⭐ product,
+            # the drugstore for its items) is no extra trip
             visited = {
                 i.get("branch_id")
                 for i in [*items, *self.shopping]
                 if i.get("status") != "completed"
-                and i.get("store_reason") in (REASON_MANUAL, REASON_PREFERRED, REASON_DRUGSTORE)
+                and i.get("store_reason")
+                in (REASON_MANUAL, REASON_PREFERRED, REASON_FAVORITE, REASON_DRUGSTORE)
             }
             for branch_id, entries in moved.items():
                 if branch_id in visited:
@@ -2699,8 +2765,29 @@ class StoresMixin:
                 if round(total, 2) >= settings["trip_min"]:
                     continue
                 for item, base_cost, base, base_reason in entries:
-                    self._set_store(item, base, base_reason, None, base_cost)
+                    used[id(item)] = self._set_store(item, base, base_reason, None, base_cost, day)
+        self.attach_products(items, day, used)
         return True
+
+    def _favorite_target(
+        self: EssensplanerManager,
+        key: str,
+        by_retailer: dict[str, dict[str, Any]],
+        main: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """The branch a ⭐ product binds an item to (see assign_stores()), None without one."""
+        from .products import _store_of  # the product database (1.5)
+
+        store = _store_of(self)
+        if store is None or not key or not (pid := store.favorites.get(key)):
+            return None
+        product = store.get(pid)
+        if product is None:
+            return None
+        chains = [product["retailer"], *(t["retailer"] for t in store.twins(product["id"]))]
+        if main.get("retailer") in chains:
+            return main
+        return next((by_retailer[c] for c in chains if c in by_retailer), None)
 
     def _preferred_target(
         self: EssensplanerManager,
@@ -2796,8 +2883,14 @@ class StoresMixin:
         reason: str,
         costs: dict[str, dict[str, Any] | None] | None,
         main_cost: dict[str, Any] | None,
-    ) -> None:
-        """Write the assignment of one item (costs None: keep the alternatives)."""
+        day: date | None = None,
+    ) -> dict[str, Any] | None:
+        """Write the assignment of one item (costs None: keep the alternatives). Returns the
+        cost at the store (attach_products()).
+
+        Each alternative names the product it would be there (1.5: {id, name, brand,
+        title, image, …} of the product database, see _product_choice()) and is priced
+        with it when it is the item's own product (⭐, picked, the recipe's)."""
         main_id = self.main_branch
         if costs is None:
             # moved back to the main branch (trip not worth it): previous store -> alternative
@@ -2809,6 +2902,10 @@ class StoresMixin:
             }
             if item.get("offer"):
                 previous["offer"] = item["offer"]
+            if isinstance(item.get("product"), dict):
+                previous["product"] = {
+                    k: item["product"].get(k) for k in ALTERNATIVE_PRODUCT_FIELDS
+                }
             alternatives = [
                 a for a in item.get("alternatives") or [] if a.get("branch_id") != branch["id"]
             ]
@@ -2816,7 +2913,7 @@ class StoresMixin:
             cost = main_cost
         else:
             cost = costs.get(branch["id"])
-            alternatives = []
+            pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
             for other_id, other in costs.items():
                 other_branch = self.get_branch(other_id)
                 if other_id == branch["id"] or other is None or other_branch is None:
@@ -2830,7 +2927,12 @@ class StoresMixin:
                 }
                 if other["offer"]:
                     alternative["offer"] = other["offer"]
-                alternatives.append(alternative)
+                pairs.append((alternative, other))
+            pairs.sort(key=lambda a: (a[0]["price"], a[0]["branch_id"] != main_id))
+            # the product there (only for the alternatives that are kept)
+            for alternative, other in pairs[:MAX_ALTERNATIVES]:
+                self._alternative_product(item, alternative, other, day)
+            alternatives = [a for a, _ in pairs[:MAX_ALTERNATIVES]]
             alternatives.sort(key=lambda a: (a["price"], a["branch_id"] != main_id))
         item["branch_id"] = branch["id"]
         item["retailer"] = branch.get("retailer")
@@ -2846,13 +2948,237 @@ class StoresMixin:
         else:
             item["saving"] = None
         item["alternatives"] = alternatives[:MAX_ALTERNATIVES]
+        return cost
+
+    # ------------------------------------------------------------------
+    # Products of the shopping list (product database, 1.5)
+    # ------------------------------------------------------------------
+
+    def _product_choice(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        retailer: str | None,
+        branch_id: str | None,
+        cost: Any,
+        day: date,
+        moved: bool = False,
+    ) -> tuple[dict[str, Any] | None, str | None, tuple[tuple[float, int], PriceEntry] | None]:
+        """(product, reason, new cost) of an item at a chain.
+
+        A price the user picked there (chosen) keeps its product (chosen.product_id) and its
+        price. Else products.choose_for_item(): the item's own product (product_id: the
+        recipe's or picked with "Produkt wechseln") → ⭐ → a pick at that chain → the
+        cheapest fitting product. The own product, ⭐ and pick price the item ((price,
+        packs), entry); the cheapest is the product behind the price (the offer it is priced
+        with) or replaces a price that is no real price of the chain, is higher, or the
+        same; a cheaper own / store price there keeps its price without a product.
+        moved: the item is there for a better price (store reason offer / cheaper) – only
+        its own product or the product behind that price.
+        cost: price_at() of the item there (_UNSET: computed when needed)."""
+        from .products import (
+            REASON_CHEAPEST,
+            REASON_MANUAL,
+            REASON_OFFER,
+            _at_retailer,
+            _store_of,
+            choose_for_item,
+            product_entry,
+        )
+
+        store = _store_of(self)
+        key = item.get("key")
+        if store is None or not retailer or not key:
+            return None, None, None
+        chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
+        amounts = self._item_amounts(item)
+        as_packs = item.get("source") != "plan"
+        category = item.get("category")
+        picked = (
+            self._chosen_entry(item, retailer, branch_id)
+            if chosen.get("price") is not None and chosen.get("retailer") in (None, retailer)
+            else None
+        )
+        if picked is not None:
+            # a price the user picked there: its product (if any) at that price – an offer of
+            # another product there does not replace it
+            product = store.get(chosen.get("product_id"))
+            if product is None or product["retailer"] != retailer:
+                return None, None, None
+            new = item_cost(amounts, key, picked, category, as_packs)
+            return product, REASON_MANUAL, (new, picked) if new else None
+        view = {
+            "key": key,
+            "name": self._item_name(item),
+            "amounts": amounts,
+            "category": category,
+            "source": item.get("source"),
+            "product_id": item.get("product_id") or chosen.get("product_id"),
+        }
+        if moved:
+            # moved there for a price (offer / cheaper): the item's own product, else the
+            # product behind that price – a ⭐ or pick there would not have moved it
+            own = _at_retailer(store, view["product_id"], retailer) if view["product_id"] else None
+            if own is None:
+                if cost is _UNSET:
+                    cost = self.price_at(item, retailer, branch_id, day)
+                return self._product_behind(item, retailer, branch_id, cost, day)
+            entry = product_entry(own, day, branch_id)
+            new = item_cost(amounts, key, entry, category, as_packs) if entry else None
+            return own, REASON_MANUAL, (new, entry) if new and entry else None
+        product, reason = choose_for_item(self, view, retailer, branch_id, day)
+        if product is not None and reason not in (REASON_OFFER, REASON_CHEAPEST):
+            entry = product_entry(product, day, branch_id)
+            new = item_cost(amounts, key, entry, category, as_packs) if entry else None
+            return product, reason, (new, entry) if new and entry else None
+        if cost is _UNSET:
+            cost = self.price_at(
+                item, retailer if branch_id else chosen.get("retailer"), branch_id, day
+            )
+        return self._product_behind(item, retailer, branch_id, cost, day, (product, reason))
+
+    def _product_behind(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        retailer: str,
+        branch_id: str | None,
+        cost: dict[str, Any] | None,
+        day: date,
+        cheapest: tuple[dict[str, Any] | None, str | None] | None = None,
+        cheaper: bool = True,
+    ) -> tuple[dict[str, Any] | None, str | None, tuple[tuple[float, int], PriceEntry] | None]:
+        """(product, reason, new cost) behind the price of an item at a chain: the product of
+        the offer it is priced with, else the cheapest fitting product of the chain
+        (products.best_for(), or the given one) when it is cheaper than the price (only with
+        cheaper), the price is no real price (an estimate) or it costs the same (then
+        without a new cost)."""
+        from .products import REASON_CHEAPEST, REASON_OFFER, _store_of, best_for, product_entry
+
+        store = _store_of(self)
+        key = item.get("key")
+        if store is None or not key:
+            return None, None, None
+        offer_id = ((cost or {}).get("offer") or {}).get("id")
+        behind = store.by_offer(offer_id) if offer_id else None
+        if behind is not None and (behind["retailer"] == retailer or not branch_id):
+            return behind, REASON_OFFER, None
+        amounts = self._item_amounts(item)
+        as_packs = item.get("source") != "plan"
+        category = item.get("category")
+        if cheapest is None:
+            best = best_for(self, key, retailer, amounts, day, branch_id, category, as_packs)
+            product = best["product"] if best else None
+            reason = (REASON_OFFER if best["entry"].offer else REASON_CHEAPEST) if best else None
+        else:
+            product, reason = cheapest
+        if product is None:
+            return None, None, None
+        entry = product_entry(product, day, branch_id)
+        new = item_cost(amounts, key, entry, category, as_packs) if entry else None
+        if new is None or entry is None:
+            if cost is None and entry is not None:
+                # no price for the item at all (e.g. "Petersilie" without amount): the
+                # product is still named
+                return product, reason, None
+            return None, None, None
+        if cost is None or not cost.get("real") or (cheaper and new[0] < cost["price"] - 0.005):
+            return product, reason, (new, entry)
+        if abs(new[0] - cost["price"]) <= 0.01:
+            return product, reason, None
+        return None, None, None
+
+    def _alternative_product(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        alternative: dict[str, Any],
+        cost: dict[str, Any] | None,
+        day: date | None,
+    ) -> None:
+        """The product an item would be at another store (an alternative of _set_store)."""
+        from .products import slim_product
+
+        retailer = alternative.get("retailer")
+        product, _reason, new = self._product_choice(
+            item, retailer, alternative.get("branch_id"), cost, day or self.today()
+        )
+        if product is None:
+            return
+        slim = slim_product(product, new[1] if new else None, day)
+        alternative["product"] = {k: slim[k] for k in ALTERNATIVE_PRODUCT_FIELDS}
+        if new is not None:
+            alternative["price"] = new[0][0]
+            alternative["real"] = True
+            if new[1].offer:
+                alternative["offer"] = _offer_short(new[1].offer)
+            else:
+                alternative.pop("offer", None)
+
+    def attach_products(
+        self: EssensplanerManager,
+        items: list[dict[str, Any]],
+        day: date | None = None,
+        costs: dict[int, dict[str, Any] | None] | None = None,
+    ) -> int:
+        """Give open shopping items their product (product database, 1.5): product (slim:
+        id, name, brand, title, image, retailer, pack_amount, pack_unit, price, on_offer)
+        and product_reason (manual | favorite | picked | bought | offer | cheapest) at the
+        chain the item is bought at (its store; without a store split the chosen price's
+        chain, else the main branch's). The item's own product, a ⭐ or a pick price the
+        item with that product (see _product_choice()). costs: {id(item): price_at() at its
+        store} of assign_stores(). Returns the number of items with a product."""
+        from .products import _store_of, slim_product
+
+        store = _store_of(self)
+        day = day or self.today()
+        count = 0
+        for item in items:
+            if item.get("status") == "completed":
+                continue
+            for field in PRODUCT_FIELDS:
+                item.pop(field, None)
+            if store is None:
+                continue
+            chosen = item.get("chosen") if isinstance(item.get("chosen"), dict) else {}
+            branch_id = item.get("branch_id") if item.get("retailer") else None
+            retailer = (
+                item.get("retailer") if branch_id else chosen.get("retailer") or self.main_retailer
+            )
+            cost = costs[id(item)] if costs is not None and id(item) in costs else _UNSET
+            moved = bool(branch_id) and item.get("store_reason") in (REASON_OFFER, REASON_CHEAPER)
+            product, reason, new = self._product_choice(item, retailer, branch_id, cost, day, moved)
+            if product is None:
+                continue
+            if new is not None:
+                self._reprice_item(item, new[0], new[1])
+            item["product"] = slim_product(product, new[1] if new else None, day)
+            item["product_reason"] = reason
+            count += 1
+        return count
+
+    def _reprice_item(
+        self: EssensplanerManager,
+        item: dict[str, Any],
+        cost: tuple[float, int],
+        entry: PriceEntry,
+    ) -> None:
+        """Price an item with its product (the saving against the main branch follows)."""
+        old = item.get("price")
+        item["price"], item["packs"] = cost
+        item["offer"] = _offer_short(entry.offer) if entry.offer else None
+        if item.get("branch_id"):
+            if item["branch_id"] == self.main_branch:
+                item["saving"] = 0.0
+            elif item.get("saving") is not None and old is not None:
+                item["saving"] = round(item["saving"] + old - cost[0], 2)
 
     def update_shopping_description(self: EssensplanerManager, item: dict[str, Any]) -> None:
-        """Rebuild the description: '🏪 store · aisle · ≈ price · 🏷️ offer · recipes/note'.
+        """Rebuild the description: '🏪 store · 📦 brand product · aisle · ≈ price · 🏷️ offer ·
+        recipes/note'.
 
-        Without a store (split inactive) it is exactly the 1.2 description: plan items
-        'aisle · ≈ price · 🏷️ offer · recipes', manual items the user's text. What the user
-        added (a note written in the to-do app, also on a generated item) is kept.
+        Without a store (split inactive) it is the 1.2 description: plan items 'aisle · ≈
+        price · 🏷️ offer · recipes', manual items the user's text. The product of the
+        product database (1.5, attach_products()) is named when it says more than the
+        item's name ('📦 Bergland Butter'). What the user added (a note written in the to-do
+        app, also on a generated item) is kept.
         """
         plan = item.get("source") == "plan"
         category = item.get("category") or "Sonstiges"
@@ -2872,6 +3198,8 @@ class StoresMixin:
         parts: list[str] = []
         if store:
             parts.append(f"🏪 {store}")
+        if title := self._product_text(item):
+            parts.append(f"📦 {title}")
         if plan:
             parts.append(category)
         if item.get("price") is not None and (plan or store):
@@ -2880,6 +3208,21 @@ class StoresMixin:
             parts.append(offer_label(offer))
         parts.extend(extra)
         item["description"] = " · ".join(parts)
+
+    def _product_text(self: EssensplanerManager, item: dict[str, Any]) -> str | None:
+        """'Bergland Butter' – the item's product (brand + name) when it says more than the
+        item's name (None without a product)."""
+        product = item.get("product") if isinstance(item.get("product"), dict) else None
+        if not product:
+            return None
+        title = str(product.get("title") or "").strip()
+        if not title:
+            brand = str(product.get("brand") or "").strip()
+            name = str(product.get("name") or "").strip()
+            title = f"{brand} {name}".strip() if brand and fold(brand) not in fold(name) else name
+        if not title or fold(title) == fold(self._item_name(item)):
+            return None
+        return title.replace(" · ", " – ")
 
     def find_shopping_item(self: EssensplanerManager, text: str) -> dict[str, Any]:
         """Shopping item by uid or name (open items first) or a clear error.
@@ -3097,7 +3440,12 @@ class StoresMixin:
         """
         items = [i for i in self.shopping if i.get("status") != "completed"]
         if not self.store_split_active:
-            items = [i for i in items if any(f in i for f in ASSIGNED_FIELDS)]
+            items = [
+                i
+                for i in items
+                if any(f in i for f in ASSIGNED_FIELDS) or any(f in i for f in PRODUCT_FIELDS)
+            ]
+            costs: dict[int, dict[str, Any] | None] = {}
             for item in items:
                 for field in ASSIGNED_FIELDS:
                     item.pop(field, None)
@@ -3106,6 +3454,8 @@ class StoresMixin:
                 item["price"] = cost["price"] if cost else None
                 item["packs"] = cost["packs"] if cost else None
                 item["offer"] = cost["offer"] if cost else None
+                costs[id(item)] = cost
+            self.attach_products(items, None, costs)
         elif items:
             self.assign_stores(items)
         for item in items:
@@ -3242,9 +3592,12 @@ class StoresMixin:
         offer counts even when the Richtwert is cheaper. estimate: the Richtwert
         once ({price, pack, packs, unit_price, base}) when a store has no own price. A
         drugstore only counts for food with an own price or an offer of the product (no
-        estimate of butter at Rossmann).
+        estimate of butter at Rossmann). product (1.5): the product of the product database
+        behind a store's price ({id, name, brand, title, image, …} or None); a real price
+        of a fitting product there replaces an estimate.
         """
         from .manager import _error  # avoid an import cycle
+        from .products import slim_product
 
         text = normalize_spoken_quantity(str(name or "").strip())
         parsed = parse_ingredient(text)
@@ -3288,20 +3641,41 @@ class StoresMixin:
             if cost is None or (drugstore_food and not cost["specific"]):
                 continue
             entry: PriceEntry = cost["entry"]
+            price, packs, real, offer = (
+                cost["price"],
+                cost["packs"],
+                cost["specific"],
+                cost["offer"],
+            )
+            # 1.5: the product behind the price there (product database); a real price of
+            # the chain's product replaces an estimate
+            found, _reason, new = self._product_behind(
+                item,
+                retailer,
+                branch["id"] if branch else None,
+                {**cost, "real": cost["specific"]},
+                today,
+                cheaper=False,
+            )
+            if new is not None:
+                (price, packs), entry = new
+                real = True
+                offer = _offer_short(entry.offer) if entry.offer else None
             per = unit_price(entry)
             result = {
                 "branch_id": branch["id"] if branch else None,
                 "retailer": retailer,
                 "label": self.branch_label(branch) if branch else retailer_name(retailer),
-                "price": cost["price"],
-                "packs": cost["packs"],
+                "price": price,
+                "packs": packs,
                 "pack": pack_text(entry.amount, entry.unit),
                 "unit_price": round(per[0], 5) if per else None,
                 "base": per[1] if per else None,
                 "source": entry.source,
-                "real": cost["specific"],
+                "real": real,
                 "main": branch is not None and branch["id"] == self.main_branch,
-                "offer": cost["offer"],
+                "offer": offer,
+                "product": slim_product(found, entry, today) if found is not None else None,
             }
             results.append(result)
         by_price = bool(amounts)

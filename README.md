@@ -128,9 +128,9 @@ Optional im System-Prompt des Agenten: *„Für Fragen zu Essen, Rezepten, Woche
 | `essensplaner_search_recipes` | „Welche Rezepte habe ich mit Hähnchen?“ |
 | `essensplaner_create_shopping_list` | „Erstelle die Einkaufsliste für die Woche.“ |
 | `essensplaner_get_shopping_list` | „Was steht auf der Einkaufsliste?“ · „Was muss ich einkaufen?“ · „Was muss ich bei Aldi kaufen?“ · „Was kaufe ich im Hauptladen?“ · „Was kaufe ich bei Rossmann?“ |
-| `essensplaner_add_shopping_item` | „Setz Butter auf die Einkaufsliste.“ · „Füge Kaffee zur Einkaufsliste hinzu.“ (mit Preis und Laden) |
+| `essensplaner_add_shopping_item` | „Setz Butter auf die Einkaufsliste.“ · „Füge Kaffee zur Einkaufsliste hinzu.“ (mit Preis, Laden und deinem ⭐ Lieblingsprodukt) |
 | `essensplaner_set_shopping_store` | „Kauf die Butter bei REWE.“ · „Milch kaufe ich immer bei Lidl.“ · „Was kaufe ich immer bei Lidl?“ |
-| `essensplaner_compare_prices` | „Wo ist Butter am günstigsten?“ · „Vergleiche die Preise für Hackfleisch.“ (nur echte Preise deiner Läden; ein Richtwert wird als solcher gesagt) |
+| `essensplaner_compare_prices` | „Wo ist Butter am günstigsten?“ · „Vergleiche die Preise für Hackfleisch.“ (nur echte Preise deiner Läden mit dem Produkt dahinter; ein Richtwert wird als solcher gesagt) |
 | `essensplaner_clear_shopping_list` | „Lösche die Einkaufsliste.“ · „Entferne die erledigten Einträge.“ |
 | `essensplaner_auto_plan` | „Plane mir die nächste Woche (vegetarisch).“ · „Plane die Woche günstig / mit den Angeboten.“ |
 | `essensplaner_get_offers` | „Welche Angebote gibt es diese Woche?“ · „Wo ist Butter im Angebot?“ · „Was ist im Hauptladen im Angebot?“ · „Wo ist Butter bei Lidl Arbeit im Angebot?“ · „Was hat Rossmann im Angebot?“ · „Was gibt es in der Drogerie im Angebot?“ |
@@ -309,6 +309,29 @@ data:
 response_variable: artikel   # artikel.products: Marke, Name, Packung, Preis, Laden, Bild
 ```
 
+### 🛒 Einkaufsliste aus der Artikel-Datenbank
+
+Beim Erstellen der Einkaufsliste (und immer, wenn Preise, Angebote oder Läden sich ändern) bekommt jeder Artikel das **Produkt**, das du in seinem Laden kaufst – mit Bild, Marke und Packung (`product`, Grund in `product_reason`), in der Beschreibung als „📦 Bergland Butter“:
+
+1. das Produkt der Rezept-Zutat (`product_id` einer Zutat) oder das, das du mit „Produkt wechseln“ gewählt hast,
+2. dein **⭐ Lieblingsprodukt** der Zutat,
+3. ein Produkt, das du dort schon öfter gewählt oder gekauft hast (zweimal oder in den letzten 60 Tagen),
+4. sonst das **günstigste passende Produkt** dieser Kette für die benötigte Menge – bevorzugt das Angebot, mit dem der Artikel ohnehin berechnet ist.
+
+Ein ⭐ Lieblingsprodukt, ein gewähltes oder gemerktes Produkt bestimmt auch den Preis des Artikels. Ein **⭐ Lieblingsprodukt bindet den Laden** wie „immer hier“: der Artikel kommt in die Kette des Lieblingsprodukts (den Hauptladen, wenn es dort – als Markenartikel auch bei einer anderen Kette – zu haben ist), solange diese Kette einer deiner Läden ist; „immer hier“ und eine eigene Ladenwahl gehen vor. Gemerkte Käufe binden keinen Laden – sie zählen nur, wenn der Artikel ohnehin in dieser Kette landet (nicht, wenn er wegen eines günstigeren Angebots dorthin gewechselt ist). Ein Produkt, das du selbst gewählt hast, zählt auch beim Vergleich der Läden: dort kostet der Artikel den Preis dieses Produkts (bzw. desselben Markenartikels), Angebote anderer Produkte zählen dann nicht. Auch die anderen Läden eines Artikels (`alternatives`) nennen ihr Produkt, und „Wo ist Butter am günstigsten?“ (`compare_prices`) sagt, welches Produkt hinter dem günstigsten Preis steckt.
+
+**Produkt wechseln:** die Aktion `set_shopping_product` (bzw. der Websocket `essensplaner/shopping_set_product`) kauft einen Artikel der Liste als ein anderes Produkt – mit dessen Angebots- oder Normalpreis in dessen Laden (bei aufgeteilter Liste wechselt der Artikel dorthin); `remember: pick` merkt die Wahl, `remember: favorite` macht das Produkt zum ⭐ Lieblingsprodukt der Zutat. Die Auswahl dafür liefert `essensplaner/product_alternatives`. Ohne `product_id` wählt die Liste wieder selbst.
+
+**Artikel aus allen Läden:** der Websocket `essensplaner/article_search` sucht mit `scope: all` in **allen deinen Läden** zugleich – Produkte der Artikel-Datenbank, eigene Angebote, eigene und gelernte Ladenpreise, zuletzt gekaufte Artikel und (ohne Laden, zuletzt) die Richtwerte. Der Artikel selbst steht vor anderen Produkten („Butter“ vor „Butterkeksen“), darin das **Günstigste zuerst** (Grundpreis je kg / l, Stückpreise für sich, dann Packungspreis); jeder Treffer hat Bild, Marke, Laden (`store_label`), Normalpreis und `product_id`. Live werden die Online-Quellen aller Ketten gleichzeitig gefragt (je Anbieter höchstens eine Anfrage pro Sekunde). `add_shopping_item` mit `product_id` setzt genau dieses Produkt auf die Liste – mit seinem Preis, in seinem Laden (wie ein gewähltes Angebot) und als gewählt gemerkt. Ohne `scope` (Sprache, Aktionen) wird wie bisher der Hauptladen durchsucht.
+
+```yaml
+action: essensplaner.set_shopping_product
+data:
+  item: Butter
+  product_id: "lidl:s1a2b3c4d5"   # aus search_products
+  remember: favorite              # ⭐ ab jetzt immer dieses
+```
+
 ## 🧾 Kassenzettel
 
 Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deiner Kassenzettel** als eigene Preise des Ladens:
@@ -401,7 +424,7 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.move_meal` / `copy_plan` | Verschieben/Tauschen, Wochen kopieren |
 | `essensplaner.suggest_recipes` / `auto_plan` | Vorschläge / automatisch planen |
 | `essensplaner.generate_shopping_list` / `get_shopping_list` | Einkaufsliste erzeugen (mit Läden) / abrufen (optional nur ein Laden) |
-| `essensplaner.add_shopping_item` | Artikel mit Laden und Preis auf die Einkaufsliste setzen (auch ein Angebot aus „Alle Angebote meiner Läden“ per `offer_id`) |
+| `essensplaner.add_shopping_item` | Artikel mit Laden und Preis auf die Einkaufsliste setzen (auch ein Angebot aus „Alle Angebote meiner Läden“ per `offer_id` oder ein Produkt der Artikel-Datenbank per `product_id`) |
 | `essensplaner.set_shopping_store` / `assign_shopping_stores` | Laden für einen Artikel festlegen („immer hier“) / alle offenen Artikel neu zuordnen |
 | `essensplaner.mark_cooked` | Als gekocht merken (bessere Vorschläge) |
 | `essensplaner.export_recipes` / `import_recipes` | Backup & Teilen |
@@ -421,6 +444,7 @@ Alle Aktionen liefern optional eine Antwort (`response_variable`) und verstehen 
 | `essensplaner.receipt_parse_text` / `receipt_scan` | Kassenzettel-Text lokal lesen / Foto oder PDF von der KI-Aufgabe lesen lassen (Vorschlag zum Prüfen) |
 | `essensplaner.receipt_save` / `get_receipts` / `delete_receipt` | Kassenzettel speichern (Preise werden eigene Ladenpreise) / abrufen / löschen |
 | `essensplaner.search_products` / `save_product` | In der [Artikel-Datenbank](#-artikel-datenbank) suchen / eigenen Artikel anlegen oder ändern |
+| `essensplaner.set_shopping_product` | [Produkt eines Artikels der Einkaufsliste wechseln](#-einkaufsliste-aus-der-artikel-datenbank) (optional als gewählt oder ⭐ Lieblingsprodukt merken) |
 
 ```yaml
 action: essensplaner.plan_meal

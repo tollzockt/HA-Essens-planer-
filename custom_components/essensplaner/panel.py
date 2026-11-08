@@ -309,6 +309,7 @@ def merge_article_results(
     local: list[dict[str, Any]],
     live: list[dict[str, Any]],
     limit: int,
+    scope: str = "main",
 ) -> list[dict[str, Any]]:
     """Local and live article hits in one order: offers and exact matches first, at most limit.
 
@@ -318,11 +319,27 @@ def merge_article_results(
     ("Butterkekse", "Erdnussbutter", "Gehackte Tomaten" for "Tomaten" – the manager's
     _is_article rule, as for the shopping list) ranks like a substring match, so it never
     comes before the article itself. A match is only ever lowered here, never raised.
+
+    scope "all" (1.5): the hits of every store, cheapest first within the match tier
+    (articles.sort_all); a live hit of a product that is already a local hit (same product
+    of the product database or the same offer) is left out.
     """
-    from .articles import MATCH_EXACT, MATCH_SUBSTRING, _sort_key
+    from .articles import MATCH_EXACT, MATCH_SUBSTRING, SCOPE_ALL, _sort_key, sort_all
     from .ingredients import ingredient_key
 
     known = {(r.get("offer") or {}).get("id") for r in local if r.get("offer")}
+    if scope == SCOPE_ALL:
+        products = {r.get("product_id") for r in local if r.get("product_id")}
+        merged = [
+            *local,
+            *(
+                r
+                for r in live
+                if (r.get("offer") or {}).get("id") not in known
+                and (not r.get("product_id") or r["product_id"] not in products)
+            ),
+        ]
+        return sort_all(merged)[: max(1, limit)]
     merged = [*local, *(r for r in live if (r.get("offer") or {}).get("id") not in known)]
     key = ingredient_key(query)
     if key and any(r["match"] == MATCH_EXACT for r in merged):
@@ -346,7 +363,8 @@ def merge_article_results(
         vol.Required("query"): str,
         vol.Optional("store"): vol.Any(str, None),
         vol.Optional("live", default=False): bool,
-        vol.Optional("limit", default=10): vol.All(int, vol.Range(min=1, max=50)),
+        vol.Optional("limit"): vol.All(int, vol.Range(min=1, max=50)),
+        vol.Optional("scope", default="main"): vol.In(["main", "all"]),
     }
 )
 @websocket_api.async_response
@@ -355,21 +373,30 @@ async def ws_article_search(
 ) -> None:
     """Articles for the "Artikel hinzufügen" field (local; live=True also online sources).
 
-    Result {query, store: {branch_id, retailer, retailer_name, label, postcode, main} | None,
-    results: [...], live: bool, error: str | None}.
+    scope "main" (default): the given store, else the main branch; "all" (1.5): every
+    selected store, cheapest first within the match tier (only the given store's chain
+    with store). limit default 10 (main) / 20 (all), at most 50.
+
+    Result {query, scope, store: {branch_id, retailer, retailer_name, label, postcode,
+    main} | None, results: [...], live: bool, error: str | None, superseded: bool}.
     """
     if (manager := _loaded_manager(hass, connection, msg)) is None:
         return
+    from .articles import ALL_LIMIT, MAIN_LIMIT, SCOPE_ALL
     from .manager import error_message  # avoid loading the manager for the panel only
 
     query = msg["query"]
+    scope = msg["scope"]
+    limit = msg.get("limit") or (ALL_LIMIT if scope == SCOPE_ALL else MAIN_LIMIT)
     try:
         branch, retailer = manager.article_target(msg.get("store"))
-        results = manager.search_articles(query, msg.get("store"), msg["limit"])
+        if scope == SCOPE_ALL and not msg.get("store"):
+            branch, retailer = None, None  # every store
+        results = manager.search_articles(query, msg.get("store"), limit, scope)
         response = {"results": [], "live": False, "error": None}
         if msg["live"]:
             response = await manager.async_search_articles_live(
-                query, msg.get("store"), msg["limit"]
+                query, msg.get("store"), limit, scope
             )
     except ServiceValidationError as err:
         connection.send_error(msg["id"], "invalid_store", error_message(err))
@@ -378,9 +405,10 @@ async def ws_article_search(
         msg["id"],
         {
             "query": query,
+            "scope": scope,
             "store": manager.article_store_info(branch, retailer),
             "results": merge_article_results(
-                manager, query, results, response["results"], msg["limit"]
+                manager, query, results, response["results"], limit, scope
             ),
             "live": response["live"],
             "error": response["error"],
@@ -1231,6 +1259,34 @@ def ws_product_alternatives(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): f"{DOMAIN}/shopping_set_product",
+        vol.Required("uid"): str,
+        vol.Optional("product_id"): vol.Any(None, str),
+        vol.Optional("remember", default="none"): vol.In(["none", "pick", "favorite"]),
+    }
+)
+@callback
+def ws_shopping_set_product(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ "Produkt wechseln" on the shopping list: buy the item (uid) as this product
+    (product_id; None / "" = the list chooses again), priced with its offer or regular price
+    at its store; remember none | pick | favorite (⭐ for the ingredient). Result {item,
+    stores}. Errors shopping_item_not_found, product_not_found, invalid_remember."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    try:
+        item = manager.shopping_set_product(msg["uid"], msg.get("product_id"), msg["remember"])
+    except HomeAssistantError as err:
+        _product_error(connection, msg, err)
+        return
+    if msg["remember"] == "favorite":
+        _products_changed(hass)
+    connection.send_result(msg["id"], {"item": item, "stores": manager.stores_summary()})
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): f"{DOMAIN}/product_to_recipe",
         vol.Required("product_id"): str,
         vol.Optional("tags"): vol.Any(None, str, [str]),
@@ -1287,3 +1343,4 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_product_favorite)
     websocket_api.async_register_command(hass, ws_product_alternatives)
     websocket_api.async_register_command(hass, ws_product_to_recipe)
+    websocket_api.async_register_command(hass, ws_shopping_set_product)
