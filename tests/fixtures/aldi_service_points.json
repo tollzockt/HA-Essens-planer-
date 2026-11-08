@@ -1,7 +1,7 @@
 {
  "data": [
   {
-   "name": "Zum Jägertal 1",
+   "name": "Am Jagdhaus 1",
    "alcoholAvailability": [],
    "publicPhoneNumber": null,
    "facilities": [],
@@ -10,14 +10,14 @@
     "countryIsoCode": "DE",
     "regionName": "Rheinland-Pfalz",
     "regionIsoCode": "RP",
-    "address1": "Zum Jägertal 1",
+    "address1": "Am Jagdhaus 1",
     "address2": null,
     "address3": null,
-    "city": "Asbach",
-    "zipCode": "53567",
-    "district": "Asbach",
-    "latitude": "50.65618200000000",
-    "longitude": "7.41849900000000"
+    "city": "Erlenbach",
+    "zipCode": "53503",
+    "district": "Erlenbach",
+    "latitude": "48.15618200000000",
+    "longitude": "11.41849900000000"
    },
    "id": "B402",
    "availableCustomerServiceTypes": [
@@ -34,7 +34,7 @@
    "isOpenNow": false
   },
   {
-   "name": "Am Rennenberg 3",
+   "name": "Am Mühlberg 3",
    "alcoholAvailability": [],
    "publicPhoneNumber": null,
    "facilities": [],
@@ -43,14 +43,14 @@
     "countryIsoCode": "DE",
     "regionName": "Rheinland-Pfalz",
     "regionIsoCode": "RP",
-    "address1": "Am Rennenberg 3",
+    "address1": "Am Mühlberg 3",
     "address2": null,
     "address3": null,
-    "city": "Sankt Katharinen",
-    "zipCode": "53562",
-    "district": "Sankt Katharinen",
-    "latitude": "50.60336900000000",
-    "longitude": "7.33229500000000"
+    "city": "Sankt Musterberg",
+    "zipCode": "53504",
+    "district": "Sankt Musterberg",
+    "latitude": "48.10336900000000",
+    "longitude": "11.33229500000000"
    },
    "id": "B455",
    "availableCustomerServiceTypes": [
@@ -67,7 +67,7 @@
    "isOpenNow": false
   },
   {
-   "name": "Rottbitzer Straße 24",
+   "name": "Nordstraße 24",
    "alcoholAvailability": [],
    "publicPhoneNumber": null,
    "facilities": [],
@@ -76,14 +76,14 @@
     "countryIsoCode": "DE",
     "regionName": "Nordrhein-Westfalen",
     "regionIsoCode": "NW",
-    "address1": "Rottbitzer Straße 24",
+    "address1": "Nordstraße 24",
     "address2": null,
     "address3": null,
-    "city": "Bad Honnef-Rottbitze",
-    "zipCode": "53604",
-    "district": "Bad Honnef-Rottbitze",
-    "latitude": "50.64559700000000",
-    "longitude": "7.31240900000000"
+    "city": "Bad Beispiel-Nord",
+    "zipCode": "53505",
+    "district": "Bad Beispiel-Nord",
+    "latitude": "48.14559700000000",
+    "longitude": "11.31240900000000"
    },
    "id": "B456",
    "availableCustomerServiceTypes": [

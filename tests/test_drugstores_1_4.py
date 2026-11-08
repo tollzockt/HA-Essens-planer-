@@ -43,17 +43,17 @@ from custom_components.essensplaner.retailers import (
 DRUGSTORE = "Drogerie & Körperpflege"
 HOUSEHOLD = "Haushalt & Reinigung"
 
-# the user's Rossmann in Horhausen (OpenStreetMap node 5377585151, trimmed)
+# a Rossmann branch as OpenStreetMap maps it (fictional place and id, real tag layout)
 ROSSMANN_NODE = {
     "type": "node",
-    "id": 5377585151,
-    "lat": 50.5917869,
-    "lon": 7.5316102,
+    "id": 1000000001,
+    "lat": 48.0917869,
+    "lon": 11.5316102,
     "tags": {
-        "addr:city": "Horhausen (Westerwald)",
-        "addr:housenumber": "55",
-        "addr:postcode": "56593",
-        "addr:street": "Rheinstraße",
+        "addr:city": "Lindenau",
+        "addr:housenumber": "5",
+        "addr:postcode": "56501",
+        "addr:street": "Rheinweg",
         "brand": "Rossmann",
         "brand:wikidata": "Q316004",
         "name": "Rossmann",
@@ -64,22 +64,22 @@ ROSSMANN_NODE = {
 MUELLER_LIGHTING = {
     "type": "node",
     "id": 9496008662,
-    "lat": 50.4376227,
-    "lon": 7.399747,
+    "lat": 47.9376227,
+    "lon": 11.399747,
     "tags": {"name": "Müller", "shop": "lighting"},
 }
 MUELLER_OPTICIAN = {
     "type": "node",
     "id": 13585247511,
-    "lat": 50.4385517,
-    "lon": 7.4015108,
+    "lat": 47.9385517,
+    "lon": 11.4015108,
     "tags": {"addr:postcode": "56626", "name": "Müller + Daum", "shop": "optician"},
 }
 ZERRES = {
     "type": "node",
     "id": 2358292310,
-    "lat": 50.5987765,
-    "lon": 7.6113367,
+    "lat": 48.0987765,
+    "lon": 11.6113367,
     "tags": {"name": "Zerres Parfümerie und Drogerie", "shop": "chemist"},
 }
 
@@ -172,16 +172,16 @@ def test_retailer_for_osm_shop_types() -> None:
 
 def test_branch_search_finds_drugstores() -> None:
     """The query asks for chemists; only chemists of drugstore chains are kept."""
-    home = {"zone": "zone.home", "name": "Zuhause", "lat": 50.59, "lon": 7.53, "home": True}
+    home = {"zone": "zone.home", "name": "Zuhause", "lat": 48.09, "lon": 11.53, "home": True}
     query = build_query([home], 25000, False, 800)
     assert SHOP_PATTERN == "^(supermarket|discount|chemist)$"
-    assert 'nwr["shop"~"^(supermarket|discount|chemist)$"](around:25000,50.590,7.530);' in query
+    assert 'nwr["shop"~"^(supermarket|discount|chemist)$"](around:25000,48.090,11.530);' in query
     assert query.rstrip().endswith("out center tags 800;")
     chemist_with_grocery_brand = {
         "type": "node",
         "id": 7,
-        "lat": 50.591,
-        "lon": 7.532,
+        "lat": 48.091,
+        "lon": 11.532,
         "tags": {"shop": "chemist", "name": "REWE Drogerie", "brand:wikidata": "Q16968817"},
     }
     stats: dict[str, int] = {}
@@ -201,7 +201,7 @@ def test_branch_search_finds_drugstores() -> None:
         stats=stats,
     )
     assert [(r["id"], r["retailer"], r["label"], r["postcode"]) for r in results] == [
-        ("osm_node_5377585151", "rossmann", "Rossmann Rheinstraße 55", "56593")
+        ("osm_node_1000000001", "rossmann", "Rossmann Rheinweg 5", "56501")
     ]
     assert results[0]["retailer_name"] == "Rossmann"
     assert stats["unknown"] == 4
@@ -325,10 +325,10 @@ async def test_drugstore_estimates(hass: HomeAssistant, setup_integration) -> No
 
 def _stores(manager):
     rossmann = manager.save_branch(
-        {"store": "Rossmann", "street": "Rheinstraße 55", "postcode": "56593", "city": "Horhausen"}
+        {"store": "Rossmann", "street": "Rheinweg 5", "postcode": "56501", "city": "Lindenau"}
     )
-    rewe = manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 30", "postcode": "57610"})
-    lidl = manager.save_branch({"store": "Lidl", "street": "Landblum 2", "postcode": "56593"})
+    rewe = manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 3", "postcode": "57601"})
+    lidl = manager.save_branch({"store": "Lidl", "street": "Lindenweg 2", "postcode": "56501"})
     return rossmann, rewe, lidl
 
 
@@ -341,10 +341,10 @@ async def test_drugstore_is_never_the_automatic_main(
 ) -> None:
     """The only selected supermarket becomes the main branch, a drugstore only by choice."""
     manager = setup_integration.runtime_data
-    rossmann = manager.save_branch({"store": "Rossmann", "postcode": "56593"})
+    rossmann = manager.save_branch({"store": "Rossmann", "postcode": "56501"})
     assert rossmann["main"] is False
     assert manager.main_branch is None
-    rewe = manager.save_branch({"store": "REWE", "postcode": "57610"})
+    rewe = manager.save_branch({"store": "REWE", "postcode": "57601"})
     assert rewe["main"] is True  # the only grocery, although two branches are selected
     manager.set_main_branch(rossmann["id"])  # the user's choice counts
     assert manager.main_branch == rossmann["id"]
@@ -365,11 +365,11 @@ async def test_drugstore_items_go_to_the_drugstore(hass: HomeAssistant, setup_in
     assert (zahnpasta["price"], zahnpasta["saving"]) == (0.75, 0.0)
     assert (spuelmittel["branch_id"], spuelmittel["store_reason"]) == (rossmann["id"], "drugstore")
     assert (butter["branch_id"], butter["store_reason"]) == (rewe["id"], "main")
-    assert zahnpasta["description"].startswith("🏪 Rossmann Rheinstraße 55 · ")
+    assert zahnpasta["description"].startswith("🏪 Rossmann Rheinweg 5 · ")
     summary = manager.stores_summary()
     assert [(g["label"], g["open"]) for g in summary] == [
-        ("REWE Bahnhofstraße 30", 1),
-        ("Rossmann Rheinstraße 55", 2),
+        ("REWE Bahnhofstraße 3", 1),
+        ("Rossmann Rheinweg 5", 2),
     ]
 
     # a cheaper regular price at the drugstore does not move food there ...
@@ -480,25 +480,25 @@ async def test_migrate_rossmann_saved_as_marktkauf(
         "man_1",
         "rewe",
         "REWE",
-        "REWE Bahnhofstraße 30",
-        "Bahnhofstraße 30",
-        "57610",
+        "REWE Bahnhofstraße 3",
+        "Bahnhofstraße 3",
+        "57601",
         0,
-        rewe_market_id="8534500",
+        rewe_market_id="8500001",
     )
     rossmann = _branch(
         "man_2",
         "marktkauf",
         "ROSSMANN Drogeriemarkt",
-        "Marktkauf Rheinstraße 55",
-        "Rheinstraße 55",
-        "56593",
+        "Marktkauf Rheinweg 5",
+        "Rheinweg 5",
+        "56501",
         5,
         retailer_guessed=True,
     )
     # never touched: a surname, a label mentioning another chain
-    edeka = _branch("man_3", "edeka", "Müller", "EDEKA Landblum 1", "Landblum 1", "56593", 3)
-    rewe_work = _branch("man_4", "rewe", "REWE", "REWE neben Rossmann", "Hauptstraße 1", "56593", 4)
+    edeka = _branch("man_3", "edeka", "Müller", "EDEKA Lindenweg 1", "Lindenweg 1", "56501", 3)
+    rewe_work = _branch("man_4", "rewe", "REWE", "REWE neben Rossmann", "Hauptstraße 1", "56501", 4)
     hass_storage[f"{STORAGE_KEY}.{config_entry.entry_id}"] = {
         "version": 1,
         "minor_version": 1,
@@ -556,11 +556,11 @@ async def test_migrate_rossmann_saved_as_marktkauf(
     assert migrated["retailer_guessed"] is False
     assert (migrated["name"], migrated["label"]) == (
         "ROSSMANN Drogeriemarkt",
-        "Rossmann Rheinstraße 55",  # the automatic label follows the chain
+        "Rossmann Rheinweg 5",  # the automatic label follows the chain
     )
     assert (migrated["street"], migrated["postcode"], migrated["priority"]) == (
-        "Rheinstraße 55",
-        "56593",
+        "Rheinweg 5",
+        "56501",
         5,
     )
     assert manager.get_branch("man_1") == rewe
@@ -635,7 +635,7 @@ async def test_marktguru_honest_user_agent(
         ),
     )
     aioclient_mock.get(f"{MARKTGURU_API}/offers/search", json={"results": [NO_BRAND_OFFER]})
-    results = await MarktguruClient(hass).async_search("Kürbis", "56593")
+    results = await MarktguruClient(hass).async_search("Kürbis", "56501")
     assert len(results) == 1
     assert HTTP_USER_AGENT.startswith("HA-Essensplaner/1.4 (+https://github.com/")
     assert len(aioclient_mock.mock_calls) == 2

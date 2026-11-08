@@ -56,12 +56,12 @@ MG = json.loads((FIXTURES / "mg_catalog.json").read_text(encoding="utf-8"))
 SEARCH_URL = f"{MARKTGURU_API}/offers/search"
 # the user's stores (diagnostics of 11/2026)
 BRANCHES = [
-    {"store": "REWE", "postcode": "57610", "street": "Bahnhofstraße 30"},
-    {"store": "Netto", "postcode": "57632", "street": "Kornbitze 7"},
-    {"store": "Norma", "postcode": "57632", "street": "Kornbitze 1"},
-    {"store": "EDEKA", "postcode": "56593", "street": "Landblum 1", "label": "EDEKA Hoffmann"},
-    {"store": "Lidl", "postcode": "56593", "street": "Landblum 2"},
-    {"store": "Rossmann", "postcode": "56593", "street": "Rheinstraße 55"},
+    {"store": "REWE", "postcode": "57601", "street": "Bahnhofstraße 3"},
+    {"store": "Netto", "postcode": "57602", "street": "Kornweg 7"},
+    {"store": "Norma", "postcode": "57602", "street": "Kornweg 1"},
+    {"store": "EDEKA", "postcode": "56501", "street": "Lindenweg 1", "label": "EDEKA Muster"},
+    {"store": "Lidl", "postcode": "56501", "street": "Lindenweg 2"},
+    {"store": "Rossmann", "postcode": "56501", "street": "Rheinweg 5"},
 ]
 
 
@@ -186,7 +186,7 @@ async def _ws(hass: HomeAssistant, hass_ws_client, **data) -> dict[str, Any]:
 
 def test_normalize_short_notes(berlin) -> None:
     """App prices, Normalpreis, REWE Bonus, online-only, packs and local dates."""
-    milk = normalize_marktguru_short(_raw("lidl@56593", "Frische Bio-Vollmilch"))
+    milk = normalize_marktguru_short(_raw("lidl@56501", "Frische Bio-Vollmilch"))
     assert (milk["price"], milk["regular_price"], milk["loyalty"]) == (1.19, 1.35, True)
     assert milk["loyalty_note"] == "Preis nur mit App"
     assert (milk["pack_amount"], milk["pack_unit"]) == (1000, "ml")
@@ -195,26 +195,26 @@ def test_normalize_short_notes(berlin) -> None:
     assert milk["image"].startswith("https://cdn.marktguru.de/api/v1/offers/")
     assert "HINWEIS" not in milk["description"] and "Normalpreis" not in milk["description"]
 
-    snack = normalize_marktguru_short(_raw("lidl@56593", "Intermezzo"))
+    snack = normalize_marktguru_short(_raw("lidl@56501", "Intermezzo"))
     assert (snack["app_price"], snack["loyalty"], snack["loyalty_note"]) == (
         1.59,
         False,
         "mit App 1,59 €",
     )
     assert (snack["pack_amount"], snack["pack_unit"]) == (190, "g")
-    wine = normalize_marktguru_short(_raw("lidl@56593", "Identità Primitivo di Manduria"))
+    wine = normalize_marktguru_short(_raw("lidl@56501", "Identità Primitivo di Manduria"))
     assert wine["online_only"] and wine["pack_amount"] == 750
 
-    rinse = normalize_marktguru_short(_raw("rossmann@56593", "Spülmittel"))
+    rinse = normalize_marktguru_short(_raw("rossmann@56501", "Spülmittel"))
     assert (rinse["app_price"], rinse["valid_from"], rinse["valid_to"]) == (
         0.8,
         "2026-11-09",  # validFrom 2026-11-08T23:00:00Z is Monday in Germany
         "2026-11-13",
     )
-    cheese = normalize_marktguru_short(_raw("rewe-petz@57610", "Quäse Körniger Frischkäse"))
+    cheese = normalize_marktguru_short(_raw("rewe-petz@57601", "Quäse Körniger Frischkäse"))
     assert (cheese["loyalty"], cheese["loyalty_note"]) == (False, "mit App 0,10 € Bonus")
     assert cheese["description"] == "je 200-g-Becher"
-    mince = normalize_marktguru_short(_raw("rewe-petz@57610", "Hackfleisch gemischt"))
+    mince = normalize_marktguru_short(_raw("rewe-petz@57601", "Hackfleisch gemischt"))
     assert (mince["brand"], mince["title"], mince["retailer"]) == (
         "",
         "Hackfleisch gemischt",
@@ -222,15 +222,15 @@ def test_normalize_short_notes(berlin) -> None:
     )
     assert mince["store_id"] == "rewe-petz"
     # "Einzelpreis" of a multipack is never a regular price; 12 x 1 l
-    crate = normalize_marktguru_short(_raw("netto-marken-discount@57632", "H-Vollmilch"))
+    crate = normalize_marktguru_short(_raw("netto-marken-discount@57602", "H-Vollmilch"))
     assert (crate["regular_price"], crate["pack_amount"], crate["pack_unit"]) == (
         None,
         12000,
         "ml",
     )
     # oldPrice 0.0 is no old price; a real one is
-    assert normalize_marktguru_short(_raw("rossmann@56593", "Shampoo"))["old_price"] is None
-    cappuccino = normalize_marktguru_short(_raw("rossmann@56593", "Cappuccino"))
+    assert normalize_marktguru_short(_raw("rossmann@56501", "Shampoo"))["old_price"] is None
+    cappuccino = normalize_marktguru_short(_raw("rossmann@56501", "Cappuccino"))
     assert (cappuccino["price"], cappuccino["old_price"]) == (2.79, 4.99)
 
 
@@ -340,7 +340,7 @@ def test_key_matcher() -> None:
 
 def test_parse_publishers_and_leaflets(berlin) -> None:
     """Variants of known chains with numeric ids; leaflet tiles with page images."""
-    found = parse_publishers(MG["publishers"]["57610"])
+    found = parse_publishers(MG["publishers"]["57601"])
     by_name = {p["unique_name"]: p for p in found}
     assert by_name["rewe-petz"] == {
         "id": 128150,
@@ -352,7 +352,7 @@ def test_parse_publishers_and_leaflets(berlin) -> None:
     assert "kik" not in by_name and "xxxl" not in by_name  # no grocery / drugstore chain
     norma = [
         parse_leaflet(r)
-        for r in MG["leaflets"]["discounter@57632"]["results"]
+        for r in MG["leaflets"]["discounter@57602"]["results"]
         if r["advertiser"]["uniqueName"] == "norma"
     ]
     assert [(n["leaflet_id"], n["valid_from"], n["valid_to"], n["page_count"]) for n in norma] == [
@@ -373,8 +373,8 @@ async def test_paging_stops_at_expired_and_short_pages(
     (totalResults is not trusted), at most MAX_PAGES pages."""
     monkeypatch.setattr(catalog, "PAGE_LIMIT", 4)
     freezer.move_to(NOW)
-    lidl = MG["catalogs"]["lidl@56593"]
-    filler = MG["catalogs"]["rewe-petz@57610"][-1]  # expired in September
+    lidl = MG["catalogs"]["lidl@56501"]
+    filler = MG["catalogs"]["rewe-petz@57601"][-1]  # expired in September
     pages = [lidl[0:4], lidl[4:8], [lidl[8], lidl[9], filler, lidl[10]]]
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
     for offset, page in zip((0, 4, 8), pages, strict=True):
@@ -384,7 +384,7 @@ async def test_paging_stops_at_expired_and_short_pages(
             json={"totalResults": 853, "results": page},
         )
     client = catalog.CatalogClient(hass)
-    raw, count = await async_variant_offers(client, "lidl", "56593", dt_util.utcnow())
+    raw, count = await async_variant_offers(client, "lidl", "56501", dt_util.utcnow())
     assert count == 3
     assert [r["id"] for r in raw] == [r["id"] for r in lidl[:10]]  # stops at the filler
     assert client.requests == 4  # home page + 3 pages
@@ -392,9 +392,9 @@ async def test_paging_stops_at_expired_and_short_pages(
     # a page with only expired filler offers: nothing current, no further page
     aioclient_mock.clear_requests()
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
-    aioclient_mock.get(catalog_url("norma"), json={"results": MG["catalogs"]["norma@57632"]})
+    aioclient_mock.get(catalog_url("norma"), json={"results": MG["catalogs"]["norma@57602"]})
     raw, count = await async_variant_offers(
-        catalog.CatalogClient(hass), "norma", "57632", dt_util.utcnow()
+        catalog.CatalogClient(hass), "norma", "57602", dt_util.utcnow()
     )
     assert (raw, count) == ([], 1)
 
@@ -404,7 +404,7 @@ async def test_paging_stops_at_expired_and_short_pages(
     aioclient_mock.get(MARKTGURU_HOME, text=HOME_HTML)
     aioclient_mock.get(catalog_url("lidl"), json={"results": lidl[0:4]})
     raw, count = await async_variant_offers(
-        catalog.CatalogClient(hass), "lidl", "56593", dt_util.utcnow()
+        catalog.CatalogClient(hass), "lidl", "56501", dt_util.utcnow()
     )
     assert (len(raw), count) == (8, 2)
 
@@ -426,15 +426,15 @@ async def test_refresh_six_stores(
     calls = _mg_calls(aioclient_mock)
     assert calls == [
         "home",
-        "/offers/publishers@57610",
-        "/publishers/retailer/rewe-petz/offers@57610",
-        "/offers/publishers@57632",
-        "/publishers/retailer/netto-marken-discount/offers@57632",
-        "/industries/discounter/leaflets@57632",  # NORMA: leaflet images only
-        "/offers/publishers@56593",
-        "/publishers/retailer/lidl/offers@56593",
-        "/publishers/retailer/rossmann/offers@56593",
-        "/industries/supermaerkte/leaflets@56593",  # EDEKA: leaflet images only
+        "/offers/publishers@57601",
+        "/publishers/retailer/rewe-petz/offers@57601",
+        "/offers/publishers@57602",
+        "/publishers/retailer/netto-marken-discount/offers@57602",
+        "/industries/discounter/leaflets@57602",  # NORMA: leaflet images only
+        "/offers/publishers@56501",
+        "/publishers/retailer/lidl/offers@56501",
+        "/publishers/retailer/rossmann/offers@56501",
+        "/industries/supermaerkte/leaflets@56501",  # EDEKA: leaflet images only
     ]
     assert len(calls) <= 15
     assert meta["requests"] == len(calls)
@@ -456,8 +456,8 @@ async def test_refresh_six_stores(
     }
     leaflets = store.leaflets(today)
     assert {(lf["retailer"], lf["zip_code"]) for lf in leaflets} == {
-        ("norma", "57632"),
-        ("edeka", "56593"),
+        ("norma", "57602"),
+        ("edeka", "56501"),
     }
     # offers that fit the plan / watchlist went to the offers used for planning
     planned = {o["id"]: o for o in manager.offers if o.get("source") == "marktguru"}
@@ -467,11 +467,11 @@ async def test_refresh_six_stores(
     assert not any(o.get("online_only") for o in planned.values())
     rewe_butter = next(o for o in butter if o["retailer"] == "rewe")
     assert rewe_butter["branches"] == [branches["rewe"]["id"]]
-    assert rewe_butter["zip_codes"] == ["57610"]
+    assert rewe_butter["zip_codes"] == ["57601"]
     assert manager.offers_meta["targets"] == [
-        {"zip_code": "57610", "retailers": ["rewe"]},
-        {"zip_code": "57632", "retailers": ["netto-marken-discount", "norma"]},
-        {"zip_code": "56593", "retailers": ["edeka", "lidl", "rossmann"]},
+        {"zip_code": "57601", "retailers": ["rewe"]},
+        {"zip_code": "57602", "retailers": ["netto-marken-discount", "norma"]},
+        {"zip_code": "56501", "retailers": ["edeka", "lidl", "rossmann"]},
     ]
     assert manager.offers_meta["count"] == len(planned)
     assert meta["catalog"]["count"] == len(current)
@@ -696,9 +696,9 @@ async def test_live_search_only_own_chains(
     )
     searches = [c[1] for c in aioclient_mock.mock_calls if "offers/search" in str(c[1])]
     assert {u.query["zipCode"]: u.query.get("retailers") for u in searches} == {
-        "57610": "128150",
-        "57632": "126735",  # NORMA has no single offers
-        "56593": "126679,126811",
+        "57601": "128150",
+        "57602": "126735",  # NORMA has no single offers
+        "56501": "126679,126811",
     }
 
 
@@ -731,7 +731,7 @@ async def test_edeka_market_offers_in_catalog(
     manager, branches = await _user(
         hass, config_entry, freezer, marktguru=False, **{CONF_EDEKA_OFFERS: True}
     )
-    manager.save_branch({"id": branches["edeka"]["id"], "edeka_market_id": "2644015"})
+    manager.save_branch({"id": branches["edeka"]["id"], "edeka_market_id": "2600001"})
     assert catalog_plan(manager)["edeka"]
     meta = await _refresh(hass)
     assert meta["status"] == "ok", meta
@@ -756,9 +756,9 @@ async def test_edeka_market_offers_in_catalog(
     aioclient_mock.mock_calls.clear()
     await _refresh(hass)
     calls = _mg_calls(aioclient_mock)
-    assert "/industries/supermaerkte/leaflets@56593" not in calls
-    assert "/publishers/retailer/lidl/offers@56593" in calls
-    assert not manager.catalog.bucket("marktguru", "edeka", "56593")
+    assert "/industries/supermaerkte/leaflets@56501" not in calls
+    assert "/publishers/retailer/lidl/offers@56501" in calls
+    assert not manager.catalog.bucket("marktguru", "edeka", "56501")
 
 
 async def test_aldi_weekly_offers_in_catalog(
@@ -774,7 +774,7 @@ async def test_aldi_weekly_offers_in_catalog(
         freezer,
         **{CONF_ALDI_ONLINE: True, CONF_WATCHLIST: "Hackfleisch, Cola, Frischkäse"},
     )
-    manager.save_branch({"store": "Aldi Süd", "postcode": "53567", "lat": 50.62, "lon": 7.43})
+    manager.save_branch({"store": "Aldi Süd", "postcode": "53503", "lat": 48.12, "lon": 11.43})
     meta = await _refresh(hass)
     assert meta["status"] == "ok", meta
     current = manager.catalog.current_offers(manager.today())
@@ -878,7 +878,7 @@ async def test_catalog_file_kept_and_removed(
     ).async_get_config_entry_diagnostics(hass, config_entry)
     counts = diagnostics["offer_catalog"]
     assert counts["offers"] == count and counts["by_retailer"]["lidl"] == 17
-    assert "57610" not in json.dumps(counts)  # no postcodes
+    assert "57601" not in json.dumps(counts)  # no postcodes
     assert await hass.config_entries.async_remove(config_entry.entry_id)
     await hass.async_block_till_done()
     assert key not in hass_storage
@@ -911,13 +911,13 @@ async def test_store_offers_without_branches(
         freezer,
         **{
             CONF_OFFERS_SOURCE: "marktguru",
-            "zip_code": "56593",
+            "zip_code": "56501",
             "offer_stores": ["lidl", "rossmann"],
         },
     )
     meta = await _refresh(hass)
     assert meta["status"] == "ok"
-    assert meta["targets"] == [{"zip_code": "56593", "retailers": ["lidl", "rossmann"]}]
+    assert meta["targets"] == [{"zip_code": "56501", "retailers": ["lidl", "rossmann"]}]
     result = await _ws(hass, hass_ws_client, when="all", limit=100)
     assert result["stores"] == []
     assert {o["retailer"] for o in result["offers"]} == {"lidl", "rossmann"}

@@ -44,8 +44,8 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
 REWE = """REWE
 REWE Markt GmbH
-Bahnhofstr. 30
-57610 Altenkirchen
+Bahnhofstr. 3
+57601 Bergdorf
 Tel.: 02681-98765
 UID Nr.: DE123456789
                                   EUR
@@ -73,8 +73,8 @@ Markt:1234        Kasse:2     Bed.:123456
 """
 
 LIDL = """Lidl
-Landblum 2
-56593 Horhausen
+Lindenweg 2
+56501 Lindenau
                                      EUR
 Milbona H-Milch 1,5%             0,99 A
 Gouda jung Scheiben              1,79 A
@@ -101,7 +101,7 @@ Summe  0,96       7,91     8,87
 # the quantity line above its article (fits only the next article)
 ALDI = """ALDI SÜD
 Hauptstr. 12
-56593 Horhausen
+56501 Lindenau
                                 EUR
 BUTTER MILSANI 250G           1,15 A
 2 x 0,69
@@ -115,9 +115,9 @@ Datum: 03.11.2026  Uhrzeit 18:15
 """
 
 # a name line whose weight line carries the total; empties
-EDEKA = """EDEKA Hoffmann
-Landblum 1
-56593 Horhausen
+EDEKA = """EDEKA Muster
+Lindenweg 1
+56501 Lindenau
 Tel. 02687 1234
                               EUR
 GUT&GÜNSTIG BUTTER          1,39  A
@@ -132,8 +132,8 @@ SUMME                 EUR   6,59
 """
 
 NETTO = """Netto Marken-Discount
-Kornbitze 7
-57632 Flammersfeld
+Kornweg 7
+57602 Feldheim
                                EUR
 Hähnchenbrustfilet 400g      4,49 A
 Rabatt 20%                  -0,90
@@ -149,8 +149,8 @@ EC-Cash                      8,66
 # the first article is a name line plus a quantity line with its total; "Summe" alone
 NORMA = """NORMA
 Lebensmittelfilialbetrieb
-Kornbitze 1
-57632 Flammersfeld
+Kornweg 1
+57602 Feldheim
 Mozzarella
   3 x 0,69                   2,07 A
 Spaghetti                    0,79 A
@@ -187,8 +187,8 @@ Karte                       2,56
 
 ROSSMANN = """ROSSMANN
 Dirk Rossmann GmbH
-Rheinstraße 55
-56593 Horhausen
+Rheinweg 5
+56501 Lindenau
                          EUR
 ISANA DUSCHGEL 300ML     0,95 A
 ROSSMANN ZAHNPASTA       0,75 A
@@ -227,9 +227,9 @@ def test_parse_rewe_header_quantity_weight_deposit() -> None:
     parsed = parse_receipt_text(REWE, TODAY)
     assert parsed["retailer"] == "rewe"
     assert (parsed["postcode"], parsed["city"], parsed["street"]) == (
-        "57610",
-        "Altenkirchen",
-        "Bahnhofstr. 30",
+        "57601",
+        "Bergdorf",
+        "Bahnhofstr. 3",
     )
     assert parsed["date"] == "2026-11-03"
     assert (parsed["total"], parsed["sum"], parsed["checked"]) == (15.19, 15.19, True)
@@ -252,7 +252,7 @@ def test_parse_lidl_discount_and_payment() -> None:
     change are no articles, the two-digit year is read."""
     parsed = parse_receipt_text(LIDL, TODAY)
     assert parsed["retailer"] == "lidl"
-    assert parsed["postcode"] == "56593"
+    assert parsed["postcode"] == "56501"
     assert parsed["date"] == "2026-11-02"
     assert (parsed["total"], parsed["checked"]) == (8.87, True)
     cola = next(i for i in parsed["items"] if i["name"].startswith("Coca"))
@@ -276,7 +276,7 @@ def test_parse_aldi_quantity_line_before_its_article() -> None:
 def test_parse_edeka_name_line_and_empties() -> None:
     """A name line followed by its weight line with the total; Leergut is ignored."""
     parsed = parse_receipt_text(EDEKA, TODAY)
-    assert (parsed["retailer"], parsed["store"]) == ("edeka", "EDEKA Hoffmann")
+    assert (parsed["retailer"], parsed["store"]) == ("edeka", "EDEKA Muster")
     assert parsed["checked"] and parsed["total"] == 6.59
     assert _items(parsed)[2:] == [
         ("GOUDA SCHEIBEN 400G", 2.98, 2.0, None, "article", False),
@@ -291,7 +291,7 @@ def test_parse_edeka_name_line_and_empties() -> None:
         (
             NETTO,
             "netto-marken-discount",
-            "57632",
+            "57602",
             8.66,
             [
                 "Hähnchenbrustfilet 400g",
@@ -300,12 +300,12 @@ def test_parse_edeka_name_line_and_empties() -> None:
                 "Toastbrot 500g",
             ],
         ),
-        (NORMA, "norma", "57632", 3.45, ["Mozzarella", "Spaghetti", "Passierte Tomaten"]),
+        (NORMA, "norma", "57602", 3.45, ["Mozzarella", "Spaghetti", "Passierte Tomaten"]),
         (PENNY, "penny", "50667", 3.27, ["NATURJOGHURT 3,5%", "SAHNE 30%", "APFEL ELSTAR 1KG"]),
         (
             ROSSMANN,
             "rossmann",
-            "56593",
+            "56501",
             5.78,
             [
                 "ISANA DUSCHGEL 300ML",
@@ -439,7 +439,7 @@ def test_own_price_of_a_line() -> None:
 
 AI_RECEIPT = {
     "store": "Lidl",
-    "address": "Landblum 2, 56593 Horhausen",
+    "address": "Lindenweg 2, 56501 Lindenau",
     "date": "02.11.2026",
     "items": [
         {"name": "Milbona H-Milch 1,5%", "quantity": 1, "unit_price": 0.99, "total": 0.99},
@@ -481,7 +481,7 @@ def test_parse_ai_receipt() -> None:
         assert parsed["source"] == "photo"
         assert (parsed["retailer"], parsed["postcode"], parsed["date"]) == (
             "lidl",
-            "56593",
+            "56501",
             "2026-11-02",
         )
         assert (parsed["total"], parsed["sum"], parsed["checked"]) == (4.63, 4.63, True)
@@ -517,12 +517,12 @@ async def receipts_setup(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
-    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 30", "postcode": "57610"})
-    manager.save_branch({"store": "Lidl", "street": "Landblum 2", "postcode": "56593"})
+    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 3", "postcode": "57601"})
+    manager.save_branch({"store": "Lidl", "street": "Lindenweg 2", "postcode": "56501"})
     manager.save_branch(
-        {"store": "EDEKA", "name": "EDEKA Hoffmann", "street": "Landblum 1", "postcode": "56593"}
+        {"store": "EDEKA", "name": "EDEKA Muster", "street": "Lindenweg 1", "postcode": "56501"}
     )
-    manager.save_branch({"store": "Rossmann", "street": "Rheinstraße 55", "postcode": "56593"})
+    manager.save_branch({"store": "Rossmann", "street": "Rheinweg 5", "postcode": "56501"})
     return config_entry
 
 
@@ -605,7 +605,7 @@ async def test_proposal_detects_branch_and_packs(hass: HomeAssistant, receipts_s
     assert rossmann["kind"] == "drugstore"
     # a receipt without chain name: the postcode alone is not unique (3 branches there)
     anonymous = await _call(
-        hass, "receipt_parse_text", text="Landblum 9\n56593 Horhausen\nButter 1,19 A"
+        hass, "receipt_parse_text", text="Lindenweg 9\n56501 Lindenau\nButter 1,19 A"
     )
     assert anonymous["branch_id"] is None and anonymous["warnings"]
     given = await _call(

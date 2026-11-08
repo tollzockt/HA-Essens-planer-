@@ -32,7 +32,7 @@ FULL_OPTIONS: dict[str, Any] = {
     "weekly_budget": 70.0,
     "plan_strategy": "cheap",
     "offers_source": "marktguru",
-    "zip_code": "57610",
+    "zip_code": "57601",
     "offer_stores": ["lidl", "rewe", "rossmann"],
     "offers_watchlist": "Kaffee, Butter",
     "rewe_online_prices": True,

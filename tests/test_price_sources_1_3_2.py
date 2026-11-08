@@ -39,13 +39,13 @@ NO_HIT = {
 WKS = {
     "markets": [
         {
-            "wwIdent": "1478660",
+            "wwIdent": "1400001",
             "name": "REWE",
-            "companyName": "REWE Antje Holzschuh oHG",
-            "street": "Hauptstr. 38",
-            "zipCode": "53577",
-            "city": "Neustadt / Wied",
-            "location": {"latitude": 50.62237, "longitude": 7.43224},
+            "companyName": "REWE Anna Beispiel oHG",
+            "street": "Hauptstr. 8",
+            "zipCode": "53501",
+            "city": "Musterstadt",
+            "location": {"latitude": 48.12237, "longitude": 11.43224},
             "category": {"marketTypeDisplayName": "REWE", "type": "MARKET"},
         }
     ],
@@ -54,15 +54,15 @@ WKS = {
 # www.rewe.de/shop/api/marketselection/zipcodes/<zip>/services/pickup
 PICKUP = [
     {
-        "wwIdent": "1478660",
+        "wwIdent": "1400001",
         "displayName": "REWE Markt",
         "distance": 1531,
-        "latitude": "50.62237",
-        "longitude": "7.43224",
-        "companyName": "REWE Antje Holzschuh oHG",
-        "zipCode": "53577",
-        "street": "Hauptstr. 38",
-        "city": "Neustadt / Wied",
+        "latitude": "48.12237",
+        "longitude": "11.43224",
+        "companyName": "REWE Anna Beispiel oHG",
+        "zipCode": "53501",
+        "street": "Hauptstr. 8",
+        "city": "Musterstadt",
     }
 ]
 
@@ -168,17 +168,17 @@ def test_parse_new_market_shapes() -> None:
     """wksmarketsearch ({markets, paging}) and the pickup list (strings as coordinates)."""
     (market,) = parse_markets(WKS)
     assert market == {
-        "id": "1478660",
-        "name": "REWE Antje Holzschuh oHG",
-        "street": "Hauptstr. 38",
-        "postcode": "53577",
-        "city": "Neustadt / Wied",
-        "label": "REWE Antje Holzschuh oHG, Hauptstr. 38, 53577 Neustadt / Wied",
-        "lat": 50.62237,
-        "lon": 7.43224,
+        "id": "1400001",
+        "name": "REWE Anna Beispiel oHG",
+        "street": "Hauptstr. 8",
+        "postcode": "53501",
+        "city": "Musterstadt",
+        "label": "REWE Anna Beispiel oHG, Hauptstr. 8, 53501 Musterstadt",
+        "lat": 48.12237,
+        "lon": 11.43224,
     }
     (pickup,) = parse_markets(PICKUP)
-    assert (pickup["id"], pickup["lat"], pickup["lon"]) == ("1478660", 50.62237, 7.43224)
+    assert (pickup["id"], pickup["lat"], pickup["lon"]) == ("1400001", 48.12237, 11.43224)
 
 
 async def test_market_search_new_endpoint_and_pickup_fallback(
@@ -187,22 +187,22 @@ async def test_market_search_new_endpoint_and_pickup_fallback(
     """The market search uses wksmarketsearch; without markets there the pickup list."""
     assert MARKETS_URL == "https://www.rewe.de/api/wksmarketsearch"
     await _rewe_entry(hass, config_entry, freezer)
-    aioclient_mock.get(MARKETS_URL, params={"searchTerm": "53577"}, json=WKS)
+    aioclient_mock.get(MARKETS_URL, params={"searchTerm": "53501"}, json=WKS)
     result = await hass.services.async_call(
-        "essensplaner", "find_rewe_markets", {"zip": "53577"}, blocking=True, return_response=True
+        "essensplaner", "find_rewe_markets", {"zip": "53501"}, blocking=True, return_response=True
     )
-    assert [m["id"] for m in result["markets"]] == ["1478660"]
+    assert [m["id"] for m in result["markets"]] == ["1400001"]
 
     aioclient_mock.clear_requests()
     aioclient_mock.get(MARKETS_URL, status=404, json={"title": "Not Found"})
-    aioclient_mock.get(PICKUP_MARKETS_URL.format(zip="53577"), json=PICKUP)
+    aioclient_mock.get(PICKUP_MARKETS_URL.format(zip="53501"), json=PICKUP)
     result = await hass.services.async_call(
-        "essensplaner", "find_rewe_markets", {"zip": "53577"}, blocking=True, return_response=True
+        "essensplaner", "find_rewe_markets", {"zip": "53501"}, blocking=True, return_response=True
     )
-    assert [m["id"] for m in result["markets"]] == ["1478660"]
+    assert [m["id"] for m in result["markets"]] == ["1400001"]
     assert [str(c[1]).split("?")[0] for c in aioclient_mock.mock_calls] == [
         MARKETS_URL,
-        PICKUP_MARKETS_URL.format(zip="53577"),
+        PICKUP_MARKETS_URL.format(zip="53501"),
     ]
 
 

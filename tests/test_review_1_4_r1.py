@@ -213,7 +213,7 @@ def test_drugstore_food_is_food(product: str, description: str, kind: str) -> No
 
 JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 200
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
-OCR_HEAD = "REWE\nBahnhofstraße 30\n57610 Altenkirchen\n"
+OCR_HEAD = "REWE\nBahnhofstraße 3\n57601 Bergdorf\n"
 
 
 @pytest.mark.parametrize(
@@ -262,7 +262,7 @@ def test_receipt_split_discount_and_unpaired_columns() -> None:
     from custom_components.essensplaner.receipts import parse_receipt_text
 
     parsed = parse_receipt_text(
-        "NETTO\nKornbitze 7\n57632 Flammersfeld\nBUTTER\n2,39 A\nRabatt\n-0,30 A\nSUMME\n2,09",
+        "NETTO\nKornweg 7\n57602 Feldheim\nBUTTER\n2,39 A\nRabatt\n-0,30 A\nSUMME\n2,09",
         date(2026, 11, 8),
     )
     assert [(i["name"], i["price"], i["discount"]) for i in parsed["items"]] == [
@@ -293,9 +293,9 @@ async def receipts_entry(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
-    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 30", "postcode": "57610"})
-    manager.save_branch({"store": "Netto", "street": "Kornbitze 7", "postcode": "57632"})
-    manager.save_branch({"store": "Lidl", "street": "Landblum 2", "postcode": "56593"})
+    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 3", "postcode": "57601"})
+    manager.save_branch({"store": "Netto", "street": "Kornweg 7", "postcode": "57602"})
+    manager.save_branch({"store": "Lidl", "street": "Lindenweg 2", "postcode": "56501"})
     return config_entry
 
 
@@ -362,7 +362,9 @@ async def test_receipt_offer_price_is_no_regular_price(
     manager.add_offer(
         "Kerrygold Butter", "Netto", 1.79, "250 g", date(2026, 11, 2), date(2026, 11, 7), 2.39
     )
-    text = "NETTO\nKornbitze 7\n57632 Flammersfeld\nKerrygold Irische Butter 1,79 A\nSUMME 1,79\n03.11.2026"
+    text = (
+        "NETTO\nKornweg 7\n57602 Feldheim\nKerrygold Irische Butter 1,79 A\nSUMME 1,79\n03.11.2026"
+    )
     proposal = await _service(hass, "receipt_parse_text", text=text)
     item = proposal["items"][0]
     assert item["key"] == "butter" and item["offer"]["price"] == 1.79
@@ -589,8 +591,8 @@ async def test_failing_aldi_is_not_asked_every_minute(
     manager.save_branch(
         {
             "store": "Aldi Süd",
-            "postcode": "53567",
-            "street": "Zum Jägertal 1",
+            "postcode": "53503",
+            "street": "Am Jagdhaus 1",
             "aldi_service_point": "B402",
         }
     )
@@ -619,11 +621,11 @@ async def test_linking_an_edeka_market_fetches_soon(
     entry = await _entry_with(hass, config_entry, freezer, **{CONF_EDEKA_OFFERS: True})
     manager = entry.runtime_data
     branch = manager.save_branch(
-        {"store": "EDEKA", "name": "EDEKA Hoffmann", "street": "Landblum 1", "postcode": "56593"}
+        {"store": "EDEKA", "name": "EDEKA Muster", "street": "Lindenweg 1", "postcode": "56501"}
     )
     await _minutes(hass, freezer, 4)  # start checks: nothing linked yet
     assert aioclient_mock.call_count == 0
-    manager.save_branch({"id": branch["id"], "edeka_market_id": "2644015"})
+    manager.save_branch({"id": branch["id"], "edeka_market_id": "2600001"})
     await _minutes(hass, freezer, 2)
     assert aioclient_mock.call_count == 1
     await _minutes(hass, freezer, 10)
@@ -640,7 +642,7 @@ async def test_switching_marktguru_off_drops_its_offers(
 
     entry = await _entry_with(hass, config_entry, freezer, **{CONF_OFFERS_SOURCE: "marktguru"})
     manager = entry.runtime_data
-    manager.save_branch({"store": "REWE", "postcode": "57610", "street": "Bahnhofstraße 30"})
+    manager.save_branch({"store": "REWE", "postcode": "57601", "street": "Bahnhofstraße 3"})
     offer = {
         "id": "mg_1",
         "product": "Knoblauch",
@@ -652,9 +654,9 @@ async def test_switching_marktguru_off_drops_its_offers(
         "keys": ["knoblauch"],
         "image": "https://cdn.marktguru.de/api/v1/offers/1/images/default/0/small.webp",
         "source": "marktguru",
-        "zip_codes": ["57610"],
+        "zip_codes": ["57601"],
     }
-    manager.catalog.set_bucket("marktguru", "rewe", "57610", [dict(offer)], "ok")
+    manager.catalog.set_bucket("marktguru", "rewe", "57601", [dict(offer)], "ok")
     manager.offers.append(dict(offer))
     await manager.catalog.async_save()
     await manager.async_save_now()
@@ -683,7 +685,7 @@ async def test_marktguru_pause_holds_for_live_searches(
     aioclient_mock.get(f"{MARKTGURU_API}/offers/search", status=429)
     entry = await _entry_with(hass, config_entry, freezer, **{CONF_OFFERS_SOURCE: "marktguru"})
     manager = entry.runtime_data
-    manager.save_branch({"store": "REWE", "postcode": "57610", "street": "Bahnhofstraße 30"})
+    manager.save_branch({"store": "REWE", "postcode": "57601", "street": "Bahnhofstraße 3"})
     # a refusal of the article search: paused, no request for the next searches
     response = await manager.async_search_articles_live("Kaffee")
     assert "pausiert" in response["error"]
@@ -718,14 +720,14 @@ async def test_upgrade_from_1_3_items_recipes_and_learned_prices(
 
     await hass.config.async_set_time_zone("Europe/Berlin")
     freezer.move_to(datetime.fromisoformat("2026-11-04T10:00:00+01:00"))
-    rewe = _branch("man_1", "rewe", "REWE", "REWE Bahnhofstraße 30", "Bahnhofstraße 30", "57610", 0)
+    rewe = _branch("man_1", "rewe", "REWE", "REWE Bahnhofstraße 3", "Bahnhofstraße 3", "57601", 0)
     rossmann = _branch(
         "man_2",
         "marktkauf",
         "ROSSMANN Drogeriemarkt",
-        "Marktkauf Rheinstraße 55",
-        "Rheinstraße 55",
-        "56593",
+        "Marktkauf Rheinweg 5",
+        "Rheinweg 5",
+        "56501",
         5,
     )
 
@@ -877,9 +879,9 @@ async def test_voice_drugstore_shopping_list(
     """'Was kaufe ich in der Drogerie?' reads the items of the saved drugstore, also one
     named just "Rossmann" (voice-docs-r1-2)."""
     manager = setup_integration.runtime_data
-    manager.save_branch({"store": "REWE", "postcode": "57610", "street": "Bahnhofstraße 30"})
+    manager.save_branch({"store": "REWE", "postcode": "57601", "street": "Bahnhofstraße 3"})
     manager.set_main_branch(manager.branches[0]["id"])
-    rossmann = manager.save_branch({"store": "Rossmann", "postcode": "56593", "name": "Rossmann"})
+    rossmann = manager.save_branch({"store": "Rossmann", "postcode": "56501", "name": "Rossmann"})
     manager.shopping_add("Zahnpasta")
     manager.shopping_add("Duschgel")
     manager.shopping_add("Butter")
@@ -906,7 +908,7 @@ async def test_voice_offer_hint_names_the_reason(
         entry, options={**entry.options, CONF_EDEKA_OFFERS: True, CONF_ALDI_ONLINE: True}
     )
     await hass.async_block_till_done()
-    entry.runtime_data.save_branch({"store": "EDEKA", "postcode": "56593"})
+    entry.runtime_data.save_branch({"store": "EDEKA", "postcode": "56501"})
     speech = await _speech(hass, "essensplaner_get_offers")
     assert "nicht eingeschaltet" not in speech
     assert "Markt-ID" in speech and "noch nicht abgerufen" in speech

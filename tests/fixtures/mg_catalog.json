@@ -1,7 +1,7 @@
 {
  "_note": "Trimmed marktguru answers of 2026-11-07 (short catalog format, discovery, leaflet lists). No API keys.",
  "publishers": {
-  "57610": {
+  "57601": {
    "totalResults": 16,
    "skippedResults": 0,
    "results": [
@@ -87,7 +87,7 @@
     }
    ]
   },
-  "57632": {
+  "57602": {
    "totalResults": 17,
    "skippedResults": 0,
    "results": [
@@ -178,7 +178,7 @@
     }
    ]
   },
-  "56593": {
+  "56501": {
    "totalResults": 16,
    "skippedResults": 0,
    "results": [
@@ -266,7 +266,7 @@
   }
  },
  "catalogs": {
-  "rewe-petz@57610": [
+  "rewe-petz@57601": [
    {
     "id": 25624937,
     "description": "mild gesäuert, je 250-g-Pckg.",
@@ -688,7 +688,7 @@
     "validTo": "2026-09-26T21:59:00Z"
    }
   ],
-  "netto-marken-discount@57632": [
+  "netto-marken-discount@57602": [
    {
     "id": 25536612,
     "description": "oder Extra gekühlt, versch. Sorten 250 g, ab einem Einkaufswert von 30 Euro 0.99",
@@ -1050,7 +1050,7 @@
     "validTo": "2026-09-26T21:59:00Z"
    }
   ],
-  "lidl@56593": [
+  "lidl@56501": [
    {
     "id": 25545977,
     "description": "HINWEIS: MIT LIDL PLUS APP 3,8% Fett. Gekühlt. Je 1l. Normalpreis: 1.35. Bioland",
@@ -1562,7 +1562,7 @@
     "validTo": "2026-11-07T22:59:00Z"
    }
   ],
-  "rossmann@56593": [
+  "rossmann@56501": [
    {
     "id": 25650832,
     "description": "HINWEIS: MIT ROSSMANN APP COUPON  0.80 € 500 ml",
@@ -1954,7 +1954,7 @@
     "validTo": "2026-09-26T21:59:00Z"
    }
   ],
-  "norma@57632": [
+  "norma@57602": [
    {
     "id": 13140383,
     "description": "Ø 26x23cm//12 Liter mit Glasdeckel Thermo-Energiesparboden Edelstahlgriffe mit Fingerschutz Ideal für Gastro, Großküchen und Vereine Inkl. Glasdeckel mit Dampfloch",
@@ -2048,7 +2048,7 @@
   ]
  },
  "leaflets": {
-  "discounter@57632": {
+  "discounter@57602": {
    "totalResults": 11,
    "skippedResults": 0,
    "results": [
@@ -2208,7 +2208,7 @@
     }
    ]
   },
-  "supermaerkte@56593": {
+  "supermaerkte@56501": {
    "totalResults": 1,
    "skippedResults": 0,
    "results": [
@@ -2228,7 +2228,7 @@
     }
    ]
   },
-  "drogerie-gesundheit@56593": {
+  "drogerie-gesundheit@56501": {
    "totalResults": 1,
    "skippedResults": 0,
    "results": [

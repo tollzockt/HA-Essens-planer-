@@ -392,7 +392,7 @@ def parse_market(raw: Any) -> dict[str, Any] | None:
     postcode = str(city_info.get("zipCode") or raw.get("zipCode_keyword") or "").strip()
     city = _clean(city_info.get("name"))
     if postcode and city.startswith(f"{postcode} "):
-        city = city[len(postcode) + 1 :]  # "55593 Rüdesheim (Nahe)"
+        city = city[len(postcode) + 1 :]  # "55501 Musterheim"
     street = _clean(address.get("street"))
     name = _clean(raw.get("name")) or STORE_NAME
     coordinates = dict_of(raw.get("coordinates"))
@@ -554,7 +554,7 @@ class EdekaSource(OnlinePriceSource):
     def target(
         self, manager: EssensplanerManager, branch: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any] | None, str | None]:
-        """The first linked EDEKA branch and all linked market ids ("2644015,12553")."""
+        """The first linked EDEKA branch and all linked market ids ("2600001,12553")."""
         markets = edeka_markets(manager, branch)
         if not markets:
             return None, None

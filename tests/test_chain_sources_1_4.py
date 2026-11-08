@@ -50,7 +50,7 @@ from custom_components.essensplaner.stores import LEARNED_SOURCES
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = datetime.fromisoformat("2026-11-04T10:00:00+01:00")  # Wednesday
-EDEKA_MARKET = "2644015"  # EDEKA Hoffmann, Landblum 1, 56593 Horhausen
+EDEKA_MARKET = "2600001"  # EDEKA Muster, Lindenweg 1, 56501 Lindenau
 ALDI_STORE = "B402"
 
 
@@ -120,7 +120,7 @@ async def _aldi_entry(
         options[CONF_ALDI_ONLINE] = True
     await _setup(hass, entry, freezer, **options)
     entry.runtime_data.save_branch(
-        {"store": "Aldi Süd", "postcode": "53567", "street": "Zum Jägertal 1", **branch}
+        {"store": "Aldi Süd", "postcode": "53503", "street": "Am Jagdhaus 1", **branch}
     )
     return entry
 
@@ -132,7 +132,7 @@ async def _edeka_entry(
     if enabled:
         options[CONF_EDEKA_OFFERS] = True
     await _setup(hass, entry, freezer, **options)
-    data: dict[str, Any] = {"store": "EDEKA", "postcode": "56593", "street": "Landblum 1"}
+    data: dict[str, Any] = {"store": "EDEKA", "postcode": "56501", "street": "Lindenweg 1"}
     if link:
         data["edeka_market_id"] = EDEKA_MARKET
     entry.runtime_data.save_branch(data)
@@ -207,12 +207,12 @@ def test_aldi_parse_other_answers() -> None:
     assert stores[0] == {
         "id": "B402",
         "name": "ALDI SÜD",
-        "street": "Zum Jägertal 1",
-        "postcode": "53567",
-        "city": "Asbach",
-        "label": "ALDI SÜD, Zum Jägertal 1, 53567 Asbach",
-        "lat": 50.656182,
-        "lon": 7.418499,
+        "street": "Am Jagdhaus 1",
+        "postcode": "53503",
+        "city": "Erlenbach",
+        "label": "ALDI SÜD, Am Jagdhaus 1, 53503 Erlenbach",
+        "lat": 48.156182,
+        "lon": 11.418499,
         "distance_km": 4.1,
     }
     assert aldi.weekly_category(_load("aldi_category_tree")) == "1588161426582123"
@@ -298,7 +298,7 @@ async def test_aldi_refresh_learns_prices_and_offers(
     aioclient_mock: AiohttpClientMocker,
 ) -> None:
     """Nearest service point (stored on the branch), regular prices, reduced = offers."""
-    entry = await _aldi_entry(hass, config_entry, freezer, lat=50.6201, lon=7.4312)
+    entry = await _aldi_entry(hass, config_entry, freezer, lat=48.1201, lon=11.4312)
     manager = entry.runtime_data
     branch = manager.get_main_branch()
     status = aldi.aldi_status(manager)
@@ -314,13 +314,13 @@ async def test_aldi_refresh_learns_prices_and_offers(
     assert status["status"] == "ok"
     assert (status["service_point"], status["searched"], status["learned"]) == (ALDI_STORE, 3, 3)
     assert status["offers"] == 1
-    assert status["store_label"] == "ALDI SÜD, Zum Jägertal 1, 53567 Asbach"
+    assert status["store_label"] == "ALDI SÜD, Am Jagdhaus 1, 53503 Erlenbach"
     assert "3 Preise gelernt, 1 reduzierte Artikel als Angebot." in status["message"]
     # one service point request at the branch (rounded), then one search per term
     points = _calls(aioclient_mock, SERVICE_POINTS_URL)
     assert len(points) == 1
     # a store's own location is sent rounded to about 100 m
-    assert (points[0][1].query["latitude"], points[0][1].query["longitude"]) == ("50.62", "7.431")
+    assert (points[0][1].query["latitude"], points[0][1].query["longitude"]) == ("48.12", "11.431")
     searches = _calls(aioclient_mock, ALDI_SEARCH_URL)
     assert [c[1].query["q"] for c in searches] == ["Butter", "Milch", "Eier"]
     query = searches[0][1].query
@@ -379,14 +379,14 @@ async def test_aldi_service_point_from_home_zone(
     """A branch without coordinates: the store nearest to home is used."""
     entry = await _aldi_entry(hass, config_entry, freezer)
     manager = entry.runtime_data
-    await hass.config.async_update(latitude=50.6302, longitude=7.4441)
+    await hass.config.async_update(latitude=48.1302, longitude=11.4441)
     await hass.async_block_till_done()
     _mock_aldi(aioclient_mock)
     status = await async_refresh_aldi_prices(hass, manager)
     assert (status["status"], status["service_point"]) == ("ok", ALDI_STORE)
     point = _calls(aioclient_mock, SERVICE_POINTS_URL)[0][1].query
     # the home location is sent rounded to about 1 km (security-privacy-r1-6)
-    assert (point["latitude"], point["longitude"]) == ("50.63", "7.44")
+    assert (point["latitude"], point["longitude"]) == ("48.13", "11.44")
 
 
 @pytest.mark.parametrize(
@@ -445,7 +445,7 @@ async def test_aldi_service_point_lookup_refused(
     aioclient_mock: AiohttpClientMocker,
 ) -> None:
     """A refused store lookup pauses the source as well (nothing else is sent)."""
-    entry = await _aldi_entry(hass, config_entry, freezer, lat=50.62, lon=7.43)
+    entry = await _aldi_entry(hass, config_entry, freezer, lat=48.12, lon=11.43)
     manager = entry.runtime_data
     aioclient_mock.get(SERVICE_POINTS_URL, status=403)
     result = await async_refresh_aldi_prices(hass, manager)
@@ -538,14 +538,14 @@ async def test_find_aldi_stores(
     aioclient_mock: AiohttpClientMocker,
 ) -> None:
     """find_aldi_stores: coordinates, a known postcode, the branch; also with the option off."""
-    entry = await _aldi_entry(hass, config_entry, freezer, enabled=False, lat=50.62, lon=7.43)
+    entry = await _aldi_entry(hass, config_entry, freezer, enabled=False, lat=48.12, lon=11.43)
     manager = entry.runtime_data
     aioclient_mock.get(SERVICE_POINTS_URL, json=_load("aldi_service_points"))
 
-    result = await _call(hass, "find_aldi_stores", lat=50.65, lon=7.42)
+    result = await _call(hass, "find_aldi_stores", lat=48.15, lon=11.42)
     assert result["location"] == {
-        "lat": 50.65,
-        "lon": 7.42,
+        "lat": 48.15,
+        "lon": 11.42,
         "source": "coordinates",
         "zip_code": None,
     }
@@ -558,7 +558,7 @@ async def test_find_aldi_stores(
     result = await _call(hass, "find_aldi_stores")
     assert result["location"]["source"] == "branch"
     # a postcode is located with a saved branch at that postcode
-    result = await _call(hass, "find_aldi_stores", zip="53567")
+    result = await _call(hass, "find_aldi_stores", zip="53503")
     assert result["location"]["source"] == "postcode"
     with pytest.raises(ServiceValidationError) as err:
         await _call(hass, "find_aldi_stores", zip="99999")
@@ -584,7 +584,7 @@ async def test_find_aldi_stores(
     aioclient_mock.clear_requests()
     aioclient_mock.get(SERVICE_POINTS_URL, status=403)
     with pytest.raises(HomeAssistantError) as err:
-        await _call(hass, "find_aldi_stores", lat=50.65, lon=7.42)
+        await _call(hass, "find_aldi_stores", lat=48.15, lon=11.42)
     assert err.value.translation_key == "aldi_blocked"
     assert "aldi" not in manager.price_sources_meta
 
@@ -600,8 +600,8 @@ async def test_save_branch_validates_chain_ids(
     with pytest.raises(ServiceValidationError) as err:
         manager.save_branch({"store": "Aldi Süd", "aldi_service_point": "B 402!"})
     assert err.value.translation_key == "invalid_aldi_store"
-    branch = manager.save_branch({"store": "EDEKA", "edeka_market_id": " 2644015 "})
-    assert branch["edeka_market_id"] == "2644015"
+    branch = manager.save_branch({"store": "EDEKA", "edeka_market_id": " 2600001 "})
+    assert branch["edeka_market_id"] == "2600001"
     branch = await _call(hass, "save_branch", id=branch["id"], edeka_market_id="")
     assert branch["branch"]["edeka_market_id"] == ""
     aldi_branch = await _call(hass, "save_branch", store="Aldi Süd", aldi_service_point="B402")
@@ -717,17 +717,17 @@ def test_edeka_parse_helpers(berlin) -> None:
     assert kind({"description": "Ballaststoff Limo, Zero Zucker"}) == "Ballaststoff Limo"
 
     markets = edeka.parse_markets(_load("edeka_markets"))
-    assert [m["id"] for m in markets] == ["2644015", "8000788", "10005029"]
+    assert [m["id"] for m in markets] == ["2600001", "8000788", "10005029"]
     assert markets[0] == {
-        "id": "2644015",
-        "name": "EDEKA Hoffmann",
+        "id": "2600001",
+        "name": "EDEKA Muster",
         "channel": "EDEKA",
-        "street": "Landblum 1",
-        "postcode": "56593",
-        "city": "Horhausen",
-        "label": "EDEKA Hoffmann, Landblum 1, 56593 Horhausen",
-        "lat": 50.593412,
-        "lon": 7.528812,
+        "street": "Lindenweg 1",
+        "postcode": "56501",
+        "city": "Lindenau",
+        "label": "EDEKA Muster, Lindenweg 1, 56501 Lindenau",
+        "lat": 48.093412,
+        "lon": 11.528812,
     }
     assert markets[1]["channel"] == "nah & gut"
     with pytest.raises(EdekaUnexpected):
@@ -780,19 +780,19 @@ async def test_find_edeka_markets(
     manager = entry.runtime_data
     aioclient_mock.get(EDEKA_MARKETS_URL, json=_load("edeka_markets"))
     result = await _call(hass, "find_edeka_markets")
-    assert result["zip_code"] == "56593"
+    assert result["zip_code"] == "56501"
     assert [(m["id"], m["branch_id"]) for m in result["markets"]] == [
-        ("2644015", None),
+        ("2600001", None),
         ("8000788", None),
         ("10005029", None),
     ]
     request = _calls(aioclient_mock, EDEKA_MARKETS_URL)[0]
-    assert request[1].query["searchstring"] == "56593"
+    assert request[1].query["searchstring"] == "56501"
     assert request[3]["User-Agent"] == HTTP_USER_AGENT
     branch = manager.get_main_branch()
     manager.save_branch({"id": branch["id"], "edeka_market_id": EDEKA_MARKET})
     client = await hass_ws_client(hass)
-    await client.send_json({"id": 1, "type": f"{DOMAIN}/edeka_markets", "zip": "56593"})
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/edeka_markets", "zip": "56501"})
     msg = await client.receive_json()
     assert msg["success"]
     assert msg["result"]["markets"][0]["branch_id"] == branch["id"]
@@ -805,7 +805,7 @@ async def test_find_edeka_markets(
         EDEKA_MARKETS_URL, text="<html></html>", headers={"Content-Type": "text/html"}
     )
     with pytest.raises(HomeAssistantError) as err:
-        await _call(hass, "find_edeka_markets", zip="56593")
+        await _call(hass, "find_edeka_markets", zip="56501")
     assert err.value.translation_key == "edeka_blocked"
     assert "edeka" not in manager.price_sources_meta
 
@@ -820,9 +820,7 @@ async def test_edeka_refresh_keeps_matching_offers(
     entry = await _edeka_entry(hass, config_entry, freezer)
     manager = entry.runtime_data
     branch = manager.get_main_branch()
-    other = manager.save_branch(
-        {"store": "EDEKA", "postcode": "56305", "street": "Urbacher Straße 35"}
-    )
+    other = manager.save_branch({"store": "EDEKA", "postcode": "56302", "street": "Waldstraße 35"})
     status = edeka.edeka_status(manager)
     assert (status["status"], status["market_id"]) == ("pending", EDEKA_MARKET)
     answer = _load("edeka_offers")
@@ -1001,7 +999,7 @@ async def test_diagnostics_redact_chain_ids(
     entry = await _edeka_entry(hass, config_entry, freezer)
     manager = entry.runtime_data
     manager.save_branch(
-        {"store": "Aldi Süd", "postcode": "53567", "aldi_service_point": ALDI_STORE}
+        {"store": "Aldi Süd", "postcode": "53503", "aldi_service_point": ALDI_STORE}
     )
     aioclient_mock.get(EDEKA_OFFERS_URL, json=_load("edeka_offers"))
     await async_refresh_edeka_offers(hass, manager)

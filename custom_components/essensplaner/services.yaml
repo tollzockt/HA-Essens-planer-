@@ -567,7 +567,7 @@ save_branch:
       selector:
         text:
     edeka_market_id:
-      example: "2644015"
+      example: "2600001"
       selector:
         text:
     aldi_service_point:
@@ -726,14 +726,14 @@ find_rewe_markets:
 find_edeka_markets:
   fields:
     zip:
-      example: "56593"
+      example: "56501"
       selector:
         text:
 
 find_aldi_stores:
   fields:
     zip:
-      example: "57632"
+      example: "57602"
       selector:
         text:
     lat:

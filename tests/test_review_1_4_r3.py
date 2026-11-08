@@ -37,9 +37,9 @@ async def stores_manager(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
-    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 30", "postcode": "57610"})
-    manager.save_branch({"store": "Netto", "street": "Kornbitze 7", "postcode": "57632"})
-    manager.save_branch({"store": "Lidl", "street": "Landblum 2", "postcode": "56593"})
+    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 3", "postcode": "57601"})
+    manager.save_branch({"store": "Netto", "street": "Kornweg 7", "postcode": "57602"})
+    manager.save_branch({"store": "Lidl", "street": "Lindenweg 2", "postcode": "56501"})
     return manager
 
 
@@ -298,7 +298,7 @@ async def test_set_price_question_through_the_conversation(
     await hass.async_block_till_done()
     assert await async_setup_component(hass, "conversation", {})
     manager = config_entry.runtime_data
-    manager.save_branch({"store": "Lidl", "street": "Landblum 2", "postcode": "56593"})
+    manager.save_branch({"store": "Lidl", "street": "Lindenweg 2", "postcode": "56501"})
     for text in (
         "Was kostet bei Lidl 1 kg Hackfleisch?",
         "Wie viel kostet beim Lidl ein 500 g Paket Kaffee?",
@@ -346,7 +346,7 @@ async def test_compare_prices_tie_names_only_the_cheapest(
     """REWE and Lidl 1,99 €, Netto 2,49 €: Netto is no store "für 1,99 €"; "überall" only
     when every store has the price (fix-regressions-r3-6)."""
     manager = stores_manager
-    manager.save_branch({"store": "Norma", "street": "Kornbitze 1", "postcode": "57632"})
+    manager.save_branch({"store": "Norma", "street": "Kornweg 1", "postcode": "57602"})
     labels = {b["retailer"]: manager.branch_label(b) for b in manager.selected_branches()}
     rewe, lidl, netto, norma = (labels[r] for r in ("rewe", "lidl", NETTO, "norma"))
     manager.set_price("Butter", 1.99, 250, "g", "REWE")

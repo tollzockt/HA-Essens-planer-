@@ -192,9 +192,9 @@ async def receipts_manager(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
-    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 30", "postcode": "57610"})
-    manager.save_branch({"store": "Netto", "street": "Kornbitze 7", "postcode": "57632"})
-    manager.save_branch({"store": "Lidl", "street": "Landblum 2", "postcode": "56593"})
+    manager.save_branch({"store": "REWE", "street": "Bahnhofstraße 3", "postcode": "57601"})
+    manager.save_branch({"store": "Netto", "street": "Kornweg 7", "postcode": "57602"})
+    manager.save_branch({"store": "Lidl", "street": "Lindenweg 2", "postcode": "56501"})
     return manager
 
 
@@ -206,7 +206,7 @@ async def _service(hass: HomeAssistant, service: str, **data: Any) -> Any:
     )
 
 
-NETTO_HEAD = "NETTO\nKornbitze 7\n57632 Flammersfeld\n"
+NETTO_HEAD = "NETTO\nKornweg 7\n57602 Feldheim\n"
 NETTO = "netto-marken-discount"
 
 
@@ -378,10 +378,10 @@ async def test_aldi_auto_link_starts_no_second_refresh(
     manager.save_branch(
         {
             "store": "Aldi Süd",
-            "postcode": "56593",
+            "postcode": "56501",
             "street": "Hauptstr. 1",
-            "lat": 50.62,
-            "lon": 7.43,
+            "lat": 48.12,
+            "lon": 11.43,
         }
     )
     await _minutes(hass, freezer, 10)

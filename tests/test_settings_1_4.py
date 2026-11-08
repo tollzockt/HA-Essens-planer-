@@ -118,8 +118,8 @@ def test_validate_rules() -> None:
     assert messages["zip_code"] == schema.ERROR_TEXTS_DE["invalid_zip"]
     assert messages["shopping_sync_entity"] == "Bitte eine Entität der Art „todo“ wählen."
     # marktguru: a postcode of a selected branch is enough; a wrong postcode never is
-    assert schema.validate({**base, "offers_source": "marktguru"}, ["57610"])[1] == {}
-    assert schema.validate({**base, "offers_source": "marktguru", "zip_code": "123"}, ["57610"])[
+    assert schema.validate({**base, "offers_source": "marktguru"}, ["57601"])[1] == {}
+    assert schema.validate({**base, "offers_source": "marktguru", "zip_code": "123"}, ["57601"])[
         1
     ] == {"zip_code": "invalid_zip"}
     # numbers as text with a comma (panel inputs), times with seconds (flow)
@@ -158,8 +158,8 @@ async def test_get_settings(
 ) -> None:
     """Values, defaults, field limits, choices (entities from the states) and hints."""
     entry = setup_integration
-    hass.states.async_set("zone.home", "0", {"friendly_name": "Zuhause", "latitude": 50.6})
-    hass.states.async_set("zone.arbeit", "0", {"friendly_name": "Arbeit", "latitude": 50.7})
+    hass.states.async_set("zone.home", "0", {"friendly_name": "Zuhause", "latitude": 48.1})
+    hass.states.async_set("zone.arbeit", "0", {"friendly_name": "Arbeit", "latitude": 48.2})
     hass.states.async_set("todo.bring", "3", {"friendly_name": "Bring!"})
     hass.states.async_set("ai_task.ollama", "unavailable", {"friendly_name": "Ollama"})
     hass.config_entries.async_update_entry(
@@ -167,7 +167,7 @@ async def test_get_settings(
         options={
             **entry.options,
             "offers_source": "marktguru",
-            "zip_code": "57610",
+            "zip_code": "57601",
             "rewe_online_prices": True,
             "receipt_ai_task_entity": "ai_task.ollama",
             "branch_zones": "zone.arbeit",
@@ -180,7 +180,7 @@ async def test_get_settings(
     res = msg["result"]
     values = res["values"]
     assert values["offers_source"] == "marktguru"
-    assert values["zip_code"] == "57610"
+    assert values["zip_code"] == "57601"
     assert values["branch_zones"] == ["zone.arbeit"]
     assert values["time_abendessen"] == "18:30"
     assert values["receipt_ai_task_entity"] == "ai_task.ollama"
@@ -349,7 +349,7 @@ async def test_save_settings_marktguru_with_branch_postcodes(
 ) -> None:
     """marktguru without a postcode in the settings works with branches that have one."""
     entry = setup_integration
-    entry.runtime_data.save_branch({"store": "Lidl", "postcode": "56593"})
+    entry.runtime_data.save_branch({"store": "Lidl", "postcode": "56501"})
     client = await hass_ws_client(hass)
     msg = await _ws(client, 1, "save_settings", values={"offers_source": "marktguru"})
     assert msg["result"] == {"saved": True, "reload": True}
@@ -357,9 +357,9 @@ async def test_save_settings_marktguru_with_branch_postcodes(
     assert entry.options["offers_source"] == "marktguru"
     assert entry.options["zip_code"] == ""
     # the branch survived the reload
-    assert entry.runtime_data.branch_postcodes() == ["56593"]
+    assert entry.runtime_data.branch_postcodes() == ["56501"]
     msg = await _ws(client, 2, "get_settings")
-    assert msg["result"]["branch_postcodes"] == ["56593"]
+    assert msg["result"]["branch_postcodes"] == ["56501"]
     assert msg["result"]["main_branch"] == "Lidl"
 
 

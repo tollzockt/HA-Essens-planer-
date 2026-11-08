@@ -4,19 +4,19 @@
  "offset": 0,
  "markets": [
   {
-   "id": 2644015,
+   "id": 2600001,
    "isEdekaHomepageMarket": true,
    "isEdekaAppMarket": true,
-   "name": "EDEKA Hoffmann",
-   "name_searchable": "EDEKA Hoffmann",
-   "address_searchable": "Landblum 1 Horhausen 56593 Rheinland-Pfalz",
+   "name": "EDEKA Muster",
+   "name_searchable": "EDEKA Muster",
+   "address_searchable": "Lindenweg 1 Lindenau 56501 Rheinland-Pfalz",
    "searchable_terms": [
-    "EDEKA Hoffmann",
-    "Landblum 1",
-    "Horhausen",
+    "EDEKA Muster",
+    "Lindenweg 1",
+    "Lindenau",
     "Rheinland-Pfalz"
    ],
-   "zipCode_keyword": "56593",
+   "zipCode_keyword": "56501",
    "distributionChannelName": "EDEKA",
    "distributionChannelType": "EDEKA",
    "region_abbreviation_keyword": "rr",
@@ -27,28 +27,28 @@
    "contact": {
     "address": {
      "city": {
-      "name": "Horhausen",
-      "zipCode": "56593"
+      "name": "Lindenau",
+      "zipCode": "56501"
      },
-     "street": "Landblum 1",
+     "street": "Lindenweg 1",
      "federalState": "Rheinland-Pfalz"
     },
     "facsimileNumber": "+492687921957",
     "phoneNumber": "+492687559"
    },
    "imprint": {
-    "companyName": "EDEKA Stefan Hoffmann",
+    "companyName": "EDEKA Stefan Muster",
     "address": {
      "city": {
-      "name": "Horhausen",
-      "zipCode": "56593"
+      "name": "Lindenau",
+      "zipCode": "56501"
      },
-     "street": "Landblum 1"
+     "street": "Lindenweg 1"
     }
    },
    "coordinates": {
-    "lat": "50.59341209999999",
-    "lon": "7.5288122"
+    "lat": "48.09341209999999",
+    "lon": "11.5288122"
    },
    "businessHours": {
     "monday": {
@@ -81,14 +81,14 @@
    ],
    "merchant": {
     "id": 10001922,
-    "name": "EDEKA Stefan Hoffmann",
+    "name": "EDEKA Stefan Muster",
     "address": {
-     "street": "Landblum 1",
-     "city": "Horhausen",
-     "zipCode": "56593"
+     "street": "Lindenweg 1",
+     "city": "Lindenau",
+     "zipCode": "56501"
     }
    },
-   "url": "https://www.edeka.de/eh/rhein-ruhr/edeka-hoffmann-landblum-1/index.jsp",
+   "url": "https://www.edeka.de/eh/rhein-ruhr/edeka-muster-lindenweg-1/index.jsp",
    "nationalOffers": true,
    "validFrom": "31.08.2010",
    "services": [
@@ -116,16 +116,16 @@
    "id": 8000788,
    "isEdekaHomepageMarket": true,
    "isEdekaAppMarket": true,
-   "name": "EDEKA Geschull",
-   "name_searchable": "EDEKA Geschull",
-   "address_searchable": "Marienstr. 1 Breitscheid 53547 Rheinland-Pfalz",
+   "name": "EDEKA Gerber",
+   "name_searchable": "EDEKA Gerber",
+   "address_searchable": "Kirchstr. 1 Breitenau 53502 Rheinland-Pfalz",
    "searchable_terms": [
-    "EDEKA Geschull",
-    "Marienstr. 1",
-    "Breitscheid",
+    "EDEKA Gerber",
+    "Kirchstr. 1",
+    "Breitenau",
     "Rheinland-Pfalz"
    ],
-   "zipCode_keyword": "53547",
+   "zipCode_keyword": "53502",
    "distributionChannelName": "nah & gut",
    "distributionChannelType": "EDEKA",
    "region_abbreviation_keyword": "rr",
@@ -136,28 +136,28 @@
    "contact": {
     "address": {
      "city": {
-      "name": "Breitscheid",
-      "zipCode": "53547"
+      "name": "Breitenau",
+      "zipCode": "53502"
      },
-     "street": "Marienstraße 1",
+     "street": "Kirchstraße 1",
      "federalState": "Rheinland-Pfalz"
     },
     "facsimileNumber": "+492638947879",
     "phoneNumber": "+492638947878"
    },
    "imprint": {
-    "companyName": "EDEKA Gschull",
+    "companyName": "EDEKA Gerber",
     "address": {
      "city": {
-      "name": "Breitscheid",
-      "zipCode": "53547"
+      "name": "Breitenau",
+      "zipCode": "53502"
      },
-     "street": "Marienstr. 1"
+     "street": "Kirchstr. 1"
     }
    },
    "coordinates": {
-    "lat": "50.5724917",
-    "lon": "7.4612865"
+    "lat": "48.0724917",
+    "lon": "11.4612865"
    },
    "businessHours": {
     "monday": {
@@ -190,11 +190,11 @@
    ],
    "merchant": {
     "id": 10001917,
-    "name": "EDEKA Gschull",
+    "name": "EDEKA Gerber",
     "address": {
-     "street": "Marienstr. 1",
-     "city": "Breitscheid",
-     "zipCode": "53547"
+     "street": "Kirchstr. 1",
+     "city": "Breitenau",
+     "zipCode": "53502"
     }
    },
    "nationalOffers": false,
@@ -224,16 +224,16 @@
    "id": 10005029,
    "isEdekaHomepageMarket": true,
    "isEdekaAppMarket": true,
-   "name": "EDEKA Fellenzer",
-   "name_searchable": "EDEKA Fellenzer",
-   "address_searchable": "Urbacher Str. 35 Puderbach 56305 Rheinland-Pfalz",
+   "name": "EDEKA Beispiel",
+   "name_searchable": "EDEKA Beispiel",
+   "address_searchable": "Waldstr. 35 Buchenau 56302 Rheinland-Pfalz",
    "searchable_terms": [
-    "EDEKA Fellenzer",
-    "Urbacher Str. 35",
-    "Puderbach",
+    "EDEKA Beispiel",
+    "Waldstr. 35",
+    "Buchenau",
     "Rheinland-Pfalz"
    ],
-   "zipCode_keyword": "56305",
+   "zipCode_keyword": "56302",
    "distributionChannelName": "EDEKA",
    "distributionChannelType": "EDEKA",
    "region_abbreviation_keyword": "rr",
@@ -244,27 +244,27 @@
    "contact": {
     "address": {
      "city": {
-      "name": "Puderbach",
-      "zipCode": "56305"
+      "name": "Buchenau",
+      "zipCode": "56302"
      },
-     "street": "Urbacher Straße 35",
+     "street": "Waldstraße 35",
      "federalState": "Rheinland-Pfalz"
     },
     "phoneNumber": "+492684979201"
    },
    "imprint": {
-    "companyName": "Karl-Heinz Fellenzer e.K.",
+    "companyName": "Karl Beispiel e.K.",
     "address": {
      "city": {
-      "name": "Puderbach",
-      "zipCode": "56305"
+      "name": "Buchenau",
+      "zipCode": "56302"
      },
-     "street": "Urbacher Str. 24"
+     "street": "Waldstr. 24"
     }
    },
    "coordinates": {
-    "lat": "50.5928",
-    "lon": "7.60891"
+    "lat": "48.0928",
+    "lon": "11.60891"
    },
    "businessHours": {
     "monday": {
@@ -297,11 +297,11 @@
    ],
    "merchant": {
     "id": 10001905,
-    "name": "Karl-Heinz Fellenzer e.K.",
+    "name": "Karl Beispiel e.K.",
     "address": {
-     "street": "Urbacher Str. 24",
-     "city": "Puderbach",
-     "zipCode": "56305"
+     "street": "Waldstr. 24",
+     "city": "Buchenau",
+     "zipCode": "56302"
     }
    },
    "url": "https://www.edeka.de/eh/rhein-ruhr/edeka-fellenzer-urbacher-straße-35/index.jsp",
@@ -332,7 +332,7 @@
  "_links": {
   "self": {
    "rel": "self",
-   "href": "/api/marketsearch/markets?searchstring=56593&page=0&size=10"
+   "href": "/api/marketsearch/markets?searchstring=56501&page=0&size=10"
   }
  }
 }

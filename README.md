@@ -296,8 +296,8 @@ action: essensplaner.receipt_parse_text
 data:
   text: |
     Lidl
-    Landblum 2
-    56593 Horhausen
+    Lindenweg 2
+    56501 Lindenau
     Milbona H-Milch 1,5%     0,99 A
     Butter                   1,69 A
     zu zahlen                2,68
