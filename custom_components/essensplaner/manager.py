@@ -972,6 +972,15 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "added": dt_util.utcnow().isoformat(),
         }
         previous = self.plan.get(day.isoformat(), {}).get(meal) or {}
+        same_dish = bool(previous) and (
+            previous.get("recipe_id") == entry["recipe_id"]
+            and previous.get("title") == entry["title"]
+        )
+        if same_dish:
+            # the same dish changed (servings, note, drinks – e.g. "Getränk hinzufügen" in
+            # the panel, 1.5): it stays cooked and keeps when it was planned
+            entry["cooked"] = bool(previous.get("cooked"))
+            entry["added"] = previous.get("added") or entry["added"]
         if drinks is not None:
             if cleaned := self._plan_drinks(drinks):
                 entry["drinks"] = cleaned
@@ -2324,6 +2333,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
 
     def export(self) -> dict[str, Any]:
         """All data for the frontend panel."""
+        from .ai import ai_panel
         from .drinks import alcohol_allowed
         from .occasions import occasion_meta, occasions_export
         from .season import recipe_season_export, season_aware, season_info
@@ -2376,6 +2386,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             # recipes that fit (🍂 badges; recipes without a season are left out)
             "season": {**season_info(self.today()), "season_aware": season_aware(self)},
             "recipe_season": recipe_season_export(self),
+            # the AI buttons of the panel (1.5): which features are switched on and whether
+            # the AI is reachable – no entity settings, prompts or answers
+            "ai": ai_panel(self.hass, self),
         }
 
 

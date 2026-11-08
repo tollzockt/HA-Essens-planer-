@@ -644,7 +644,9 @@ def template_info(template: str | None) -> dict[str, Any]:
 
 
 def templates_view() -> list[dict[str, Any]]:
-    """Templates for the panel: [{id, title, emoji, time, duration_h, courses}]."""
+    """Templates for the panel: [{id, title, emoji, time, duration_h, courses, counts}]
+    (counts: how many dishes per course the template wants – the panel's "✓ Fehlendes
+    übernehmen" fills up to them like apply_menu())."""
     return [
         {
             "id": key,
@@ -653,6 +655,7 @@ def templates_view() -> list[dict[str, Any]]:
             "time": info["time"],
             "duration_h": info["duration_h"],
             "courses": list(info["courses"]),
+            "counts": dict(info["courses"]),
         }
         for key, info in TEMPLATES.items()
     ]

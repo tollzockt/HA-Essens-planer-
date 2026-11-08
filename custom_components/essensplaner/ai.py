@@ -232,6 +232,30 @@ def ai_status(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, An
     }
 
 
+def ai_panel(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, Any]:
+    """What the panel needs to show its AI buttons ("🤖 KI-Menü", "🤖 mit KI") – also for
+    users who are not administrators (ai_status is admin-only): {configured, available,
+    label, mode, enabled: {feature: bool}, ready: {feature: bool}}. enabled = switched on
+    with an AI entity (the button shows); ready = also reachable right now. No last result,
+    no prompts."""
+    entity = ai_entity(manager)
+    available = ai_available(hass, entity)
+    receipts = ai_entity(manager, AI_FEATURE_RECEIPTS)
+    receipts_available = ai_available(hass, receipts)
+    enabled = {f: ai_enabled(manager, f) for f in AI_FEATURES}
+    return {
+        "configured": entity is not None,
+        "available": available,
+        "label": _label(hass, entity),
+        "mode": ai_mode(entity),
+        "enabled": enabled,
+        "ready": {
+            f: enabled[f] and (receipts_available if f == AI_FEATURE_RECEIPTS else available)
+            for f in AI_FEATURES
+        },
+    }
+
+
 # ----------------------------------------------------------------------------------
 # JSON in and out
 # ----------------------------------------------------------------------------------

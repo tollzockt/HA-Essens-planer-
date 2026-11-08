@@ -238,6 +238,49 @@ const OFFERS_MODES = ["recipes", "stores", "leaflets"];
 /** A page of a leaflet ("{page}" counted from page_base). */
 const leafletPage = (template, index, base) => (template ? String(template).replace("{page}", String((Number(base) || 0) + index)) : "");
 
+/* 1.5: occasions ("🎉 Anlass"), drinks ("🍷 Passt dazu"), season */
+const OCC_COURSES = ["starter", "main", "side", "dessert", "snack", "drink", "extra"];
+const DISH_COURSES = new Set(["starter", "main", "side", "dessert", "snack"]);
+const COURSE_ADD = { starter: "＋ Vorspeise", main: "＋ Gericht", side: "＋ Beilage", dessert: "＋ Dessert", snack: "＋ Snack", drink: "＋ Getränk", extra: "＋ Zubehör" };
+// recipe tags of drinks (occasions.DRINK_TAGS, folded): a drink gets no "🍷 Passt dazu"
+const DRINK_TAGS = new Set(["getraenk", "getraenke", "drink", "drinks", "cocktail", "cocktails", "mocktail", "mocktails", "bowle", "punsch", "heissgetraenk"]);
+const DRINK_EMOJI = { wine: "🍷", sparkling: "🥂", beer: "🍺", mixed: "🍹", soft: "🥤", juice: "🧃", hot: "☕", water: "💧" };
+// the fields of an occasion item a suggestion carries (occasions._ITEM_FIELDS without uid
+// and servings: the occasion's servings count)
+const OCC_ITEM_FIELDS = ["recipe_id", "product_id", "title", "name", "quantity", "unit", "alcohol", "note", "ai", "auto", "drink", "hint"];
+const AI_WAIT = "bis zu 2 Minuten";
+// a recipe counts as "in season" (🍂 badge, filter) from this score of season.recipe_season
+const SEASON_BADGE = 0.25;
+const drinkEmoji = (d) => DRINK_EMOJI[d?.kind] || (d?.alcohol ? "🍷" : "🥤");
+const isDrinkRecipe = (r) => (r?.tags || []).some((t) => DRINK_TAGS.has(fold(t)));
+/** "≈ 23 €" in the week plan (cents from below 10 €). */
+const euShort = (v) => (Number(v) >= 10 ? `${Math.round(Number(v))} €` : eur(v));
+const qtyText = (x) => (x?.quantity ? `${num(Math.round(Number(x.quantity) * 100) / 100)} ${x.unit || ""}`.trim() : "");
+const alcBadge = (alcohol, kids = false) => `<span class="alcb ${alcohol ? "" : "free"}">${alcohol ? "mit Alkohol" : kids ? "alkoholfrei · für Kinder" : "alkoholfrei"}</span>`;
+/** An occasion item from a suggestion of occasion_suggest (dishes, drinks, extras, AI). */
+const occItem = (s, course) => {
+  const raw = { course: s.course || course };
+  for (const k of OCC_ITEM_FIELDS) if (s[k] != null && s[k] !== "") raw[k] = s[k];
+  return raw;
+};
+/** An occasion item from a drink of drinks_suggest (like occasions.drink_item). */
+const drinkItem = (d) => {
+  const item = { course: "drink", title: d.title, alcohol: Boolean(d.alcohol) };
+  if (d.name && d.name !== d.title) item.name = d.name;
+  if (d.recipe_id) item.recipe_id = d.recipe_id;
+  else if (d.quantity) {
+    item.quantity = d.quantity;
+    item.unit = d.unit || "l";
+  }
+  if (d.id) {
+    item.drink = d.id;
+    item.auto = "drink";
+  }
+  if (d.hint) item.hint = d.hint;
+  if (d.ai) item.ai = true;
+  return item;
+};
+
 /* settings view (1.4): sections and a short German help per field; ranges, defaults and
  * the validation come from the backend (options_schema.py). Home Assistant's own options
  * dialog (Geräte & Dienste → Konfigurieren) only toggles the sidebar panel since 1.4. */
@@ -287,7 +330,7 @@ const SETTING_INFO = {
   branch_route_radius_m: ["Korridor am Arbeitsweg", "So weit darf ein Laden höchstens neben dem Arbeitsweg liegen.", "m"],
   receipt_ai_task_entity: ["KI-Aufgabe für Kassenzettel-Fotos", "Optional: eine KI-Aufgabe (z. B. Claude, OpenAI, Google Gemini oder Ollama mit Bildverarbeitung) liest Fotos und PDFs. Sie bekommt nur das Bild des Kassenzettels. Leer: die KI aus „🤖 KI“, wenn sie eine KI-Aufgabe ist. Ohne KI kannst du den Text einfügen – er wird lokal gelesen."],
   ai_entity: ["KI (über Home Assistant)", "Eine KI-Aufgabe (ai_task) oder ein Gesprächsagent (conversation, z. B. Jarvis). Die KI ordnet und ergänzt nur die Vorschläge der Regeln und wird nur auf Knopfdruck gefragt."],
-  ai_features: ["KI nutzen für", "Ohne Haken arbeitet die Funktion nur nach Regeln."],
+  ai_features: ["KI nutzen für", "Ohne Haken arbeitet die Funktion nur nach Regeln. Mit Haken gibt es die Knöpfe „🤖 KI-Menü“ im Anlass, „🤖 KI-Vorschläge“ bei den Getränken und „🤖 mit KI“ beim automatischen Planen – die KI wird nur gefragt, wenn du sie drückst."],
 };
 /* where the choices of entity / select / multi fields come from (keys of get_settings'
  * choices) – the field type and limits come from the backend (options_schema.py) */
@@ -408,7 +451,7 @@ const STYLE = `
 
   /* week */
   .weeklabel { font-size: 18px; font-weight: 500; text-align: center; padding: 0 6px; }
-  .progress { height: 6px; border-radius: 999px; background: var(--ep-divider); overflow: hidden; min-width: 90px; flex: 0 1 160px; }
+  .progress { height: 6px; border-radius: 999px; background: var(--ep-divider); overflow: hidden; min-width: 90px; flex: 0 1 120px; }
   .progress > div { height: 100%; background: var(--ep-primary); border-radius: inherit; transition: width .3s; }
   .week { display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 12px; }
   @media (max-width: 1180px) { .week { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); } }
@@ -978,6 +1021,131 @@ const STYLE = `
     .lfnav { display: none; }
     .prcats .chip, .prfilter .chip, .lftools .chip { min-height: 40px; }
   }
+  /* 1.5: occasions in the week plan and their editor, season, drinks */
+  .occ { width: 100%; text-align: left; border: none; cursor: pointer; font: inherit; color: inherit; display: flex; gap: 9px; align-items: center; padding: 8px 9px; border-radius: 9px; background: color-mix(in srgb, #8e24aa 13%, var(--ep-card)); border-left: 4px solid #8e24aa; transition: box-shadow .15s; }
+  .occ:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .occ .oemoji { width: 38px; height: 38px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: var(--ep-card); }
+  .occ .otxt { min-width: 0; }
+  .occ .t { font-weight: 600; line-height: 1.2; font-size: 14px; overflow-wrap: anywhere; }
+  .occ .s { font-size: 11.5px; color: color-mix(in srgb, var(--ep-secondary-text) 70%, var(--primary-text-color, #212121)); margin-top: 2px; }
+  .seasonrow { display: flex; gap: 12px; align-items: center; padding: 10px 14px; margin: -4px 0 16px; }
+  .seasonrow .semoji { font-size: 26px; flex: none; line-height: 1; }
+  .seasonrow .stxt { flex: 1; min-width: 0; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+  .seasonrow .bdg { vertical-align: 1px; }
+  .seasonrow .btn { flex: none; }
+  .recipe .sbadge { position: absolute; top: 8px; left: 8px; max-width: calc(100% - 56px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(0,0,0,.6); color: #fff; border-radius: 999px; font-size: 12px; padding: 2px 9px; }
+  .suglist { display: flex; flex-direction: column; gap: 6px; }
+  .suglist:empty { display: none; }
+  .sg { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--ep-divider); background: var(--ep-card); color: inherit; font: inherit; border-radius: 10px; padding: 6px 10px; cursor: pointer; min-height: 48px; }
+  .sg:hover, .sg.sel { border-color: var(--ep-primary); background: var(--ep-accent-bg); }
+  .sg .sgt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .sg .why, .ocrow .why, .prow .why { font-size: 12px; color: var(--ep-secondary-text); overflow-wrap: anywhere; line-height: 1.35; }
+  .sg .pp { text-align: right; white-space: nowrap; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .alcb { display: inline-block; font-size: 10.5px; font-weight: 500; line-height: 1.6; border-radius: 999px; padding: 0 7px; white-space: nowrap; vertical-align: 1px; background: color-mix(in srgb, #8e24aa 14%, transparent); color: color-mix(in srgb, #8e24aa 45%, var(--primary-text-color, #212121)); }
+  .alcb.free { background: color-mix(in srgb, #2e7d32 14%, transparent); color: color-mix(in srgb, #2e7d32 45%, var(--primary-text-color, #212121)); }
+  /* the occasion editor (full screen on phones) */
+  .modal.occmodal { width: min(900px, 100%); }
+  @media (max-width: 600px) {
+    .overlay.full { padding: 0; }
+    .overlay.full .modal { width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+    .overlay.full .modal .mhead { padding-top: calc(12px + env(safe-area-inset-top)); }
+    .overlay.full .modal .mfoot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  }
+  .ochead { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
+  .ochead .oname { grid-column: span 2; }
+  .ochead .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ep-secondary-text); min-width: 0; }
+  .ochead input:not([type=checkbox]), .ochead select { width: 100%; min-width: 0; color: var(--primary-text-color); font-size: 15px; }
+  .ochead .switch { color: var(--primary-text-color); }
+  .stepper2 { display: flex; align-items: center; gap: 4px; }
+  .stepper2 input { flex: 1; min-width: 0; text-align: center; }
+  .stepper2 .icon { flex: none; border: 1px solid var(--ep-divider); width: 40px; height: 40px; }
+  .stepper2 .icon[disabled] { opacity: .35; pointer-events: none; }
+  .ocsum { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 10px 12px; border-radius: 12px; background: var(--ep-accent-bg); }
+  .ocsum .big { font-size: 20px; font-weight: 700; color: var(--ep-green); }
+  .ocmore { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+  .ocstate { font-size: 12.5px; color: var(--ep-secondary-text); margin-left: auto; }
+  .occourses { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .ocsec { border: 1px solid var(--ep-divider); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .ocsec > h4 { margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .ocsec > h4 .meta { font-weight: 400; margin-left: auto; }
+  .ocsec.wide { grid-column: 1 / -1; }
+  .ocitems { display: flex; flex-wrap: wrap; gap: 6px; }
+  .occhip { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; border-radius: 999px; background: var(--ep-accent-bg); font-size: 13.5px; }
+  .occhip .on { border: none; background: none; color: inherit; font: inherit; padding: 4px 2px 4px 4px; text-align: left; overflow-wrap: anywhere; min-height: 40px; min-width: 0; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .occhip button.on { cursor: pointer; }
+  .occhip button.on:hover > span:not(.othumb):not(.meta):not(.alcb) { text-decoration: underline; }
+  .occhip .meta { font-size: 12px; white-space: nowrap; }
+  .occhip .icon { width: 36px; height: 36px; font-size: 13px; flex: none; }
+  .occhip.ai { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ep-primary) 50%, transparent); }
+  .occhip.missing { opacity: .6; }
+  .othumb { width: 30px; height: 30px; border-radius: 50%; background: var(--ep-card) center/cover no-repeat; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; }
+  .chip.ocplus { border: 1px dashed var(--ep-divider); background: transparent; font-size: 13px; padding: 6px 11px; min-height: 36px; }
+  .ocadd { border-top: 1px dashed var(--ep-divider); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .ocadd .addq { display: flex; gap: 6px; align-items: center; }
+  .ocadd .addq input { flex: 1; min-width: 0; }
+  .extras { display: flex; flex-direction: column; }
+  .extras label { display: flex; gap: 10px; align-items: center; padding: 4px 2px; min-height: 40px; border-top: 1px solid var(--ep-divider); cursor: pointer; font-size: 14px; }
+  .extras label:first-child { border-top: none; }
+  .extras label input { width: 20px; height: 20px; accent-color: var(--ep-primary); flex: none; margin: 0; }
+  .extras label > span:not(.meta) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .extras label .meta { white-space: nowrap; }
+  .extras label.missing > span:not(.meta) { color: var(--ep-secondary-text); }
+  .ocmenu { border: 1px solid var(--ep-primary); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--ep-primary) 5%, var(--ep-card)); }
+  .ocmenu h4 { margin: 0; }
+  .ocmenu .mcs { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0 18px; }
+  .ocmenu .mc { display: flex; flex-direction: column; min-width: 0; }
+  .ocmenu .mc > b { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ep-secondary-text); margin-top: 4px; }
+  .ocrow { display: flex; gap: 8px; align-items: center; padding: 4px 0; min-width: 0; border-top: 1px solid var(--ep-divider); }
+  .mc > b + .ocrow { border-top: none; }
+  .ocrow .oi { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .ocrow .meta { white-space: nowrap; }
+  .ocrow .btn { flex: none; }
+  .spin { display: inline-block; animation: spin 1.2s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  details.ocnotes > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; font-weight: 500; }
+  details.ocnotes textarea { min-height: 70px; }
+  .tplgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+  .tplgrid button { border: 1px solid var(--ep-divider); background: var(--ep-card); color: inherit; font: inherit; font-size: 13.5px; border-radius: 12px; padding: 8px 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; min-height: 78px; overflow-wrap: anywhere; }
+  .tplgrid button .e { font-size: 26px; line-height: 1.1; }
+  .tplgrid button .meta { font-size: 11.5px; }
+  .tplgrid button.on { border-color: var(--ep-primary); background: var(--ep-accent-bg); box-shadow: inset 0 0 0 1px var(--ep-primary); }
+  /* drinks ("🍷 Passt dazu", meal entry) */
+  .dchips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .dchips .chip { font-size: 13px; padding: 6px 12px; min-height: 36px; display: inline-flex; align-items: center; gap: 5px; }
+  .dchips .chip.alc { background: color-mix(in srgb, #8e24aa 12%, transparent); }
+  .dchips .chip.on { box-shadow: inset 0 0 0 2px var(--ep-primary); }
+  .dchip-x { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; background: var(--ep-accent-bg); padding-left: 11px; font-size: 13.5px; }
+  .dchip-x .icon { width: 34px; height: 34px; font-size: 13px; }
+  .dinfo { font-size: 13.5px; line-height: 1.45; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 10px; background: var(--ep-accent-bg); }
+  .dinfo .row { margin: 0; }
+  /* auto plan results */
+  .plist { display: flex; flex-direction: column; border: 1px solid var(--ep-divider); border-radius: 10px; overflow: hidden; }
+  .prow { display: flex; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--ep-divider); align-items: flex-start; }
+  .prow:first-child { border-top: none; }
+  .prow .pd { flex: none; width: 84px; font-weight: 600; font-size: 13.5px; }
+  .prow .pd .meta { font-weight: 400; }
+  .prow .pi { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  label.switch.aiswitch { align-items: flex-start; padding: 8px 10px; border: 1px solid var(--ep-divider); border-radius: 10px; line-height: 1.4; }
+  label.switch.aiswitch input { margin-top: 1px; flex: none; }
+  /* season view */
+  .seasonhead { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 16px; }
+  .seasonhead b { min-width: 0; text-align: center; }
+  .prodchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .prodchips .bdg { font-size: 13px; padding: 4px 11px; }
+  .srecipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+  @media (max-width: 600px) {
+    .seasonrow { flex-wrap: wrap; padding: 10px 12px; }
+    .seasonrow .btn { margin-left: auto; }
+    .occourses { grid-template-columns: 1fr; }
+    .ochead { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ochead .oname { grid-column: 1 / -1; }
+    .tplgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .prow .pd { width: 70px; }
+  }
+  @media (pointer: coarse) {
+    .dchips .chip, .chip.ocplus { min-height: 40px; }
+    .occhip .icon, .dchip-x .icon { width: 40px; height: 40px; }
+  }
   /* touch screens: every control at least 40 px high */
   @media (pointer: coarse) {
     .rline .ign { min-height: 40px; }
@@ -988,6 +1156,8 @@ const STYLE = `
     button.chip, label.chip, .zonechips .chip, .chainchips .chip { min-height: 40px; display: inline-flex; align-items: center; gap: 4px; }
     input:not([type=checkbox]):not([type=radio]), select { min-height: 40px; }
     .rewebox input { padding: 8px 10px; }
+    .pick { min-height: 44px; }
+    .starbtn { min-width: 40px; min-height: 40px; }
   }
 `;
 
@@ -1071,6 +1241,10 @@ class EssensplanerPanel extends HTMLElement {
     this._lf = { when: "current", result: null, loading: false, error: null, stale: true, seq: 0 };
     this._lfView = null; // the open leaflet viewer
     this._badImages = new Set(); // image URLs that failed: shown as placeholder at once
+    // 1.5: the open occasion editor, "🍂 Saison" filter of the recipes, "🍷 Passt dazu"
+    this._occ = null;
+    this._seasonOnly = false;
+    this._drinkCache = {};
     // receipts (1.4): list of the stores tab and the capture dialog
     this._receipts = null;
     this._receiptsLoading = false;
@@ -1216,6 +1390,14 @@ class EssensplanerPanel extends HTMLElement {
       this._dataJson = json;
       this._data = data;
       this._costs = {};
+      this._drinkCache = {}; // drinks follow offers and the options
+      // an open occasion editor shows a change made elsewhere (voice, calendar)
+      const occ = this._occ;
+      const fresh = occ && !occ.saving && this._occView(occ.id);
+      if (fresh && fresh.updated !== occ.view.updated) {
+        occ.view = fresh;
+        this._occRender(occ);
+      }
       if (!this._weekStart) this._weekStart = mondayOf(fromIso(this._data.today));
       if (pricesStale) {
         this._storePricesStale = true;
@@ -1594,7 +1776,8 @@ class EssensplanerPanel extends HTMLElement {
           if (entry) {
             planned += 1;
             const recipe = this._recipe(entry.recipe_id);
-            const sub = [entry.servings ? `👥 ${entry.servings}` : "", recipe?.total_time ? `⏱ ${recipe.total_time} min` : "", entry.note || ""].filter(Boolean).join(" · ");
+            const drinks = entry.drinks?.length ? `🥤 ${entry.drinks[0].title}${entry.drinks.length > 1 ? ` +${entry.drinks.length - 1}` : ""}` : "";
+            const sub = [entry.servings ? `👥 ${entry.servings}` : "", recipe?.total_time ? `⏱ ${recipe.total_time} min` : "", entry.note || "", drinks].filter(Boolean).join(" · ");
             const mc = weekCosts?.[iso]?.[mealId];
             const costHtml = mc?.cost != null ? `<span class="cost">≈ ${eur(mc.cost)}</span>${mc.on_offer?.length ? `<span class="tagoffer" title="Im Angebot: ${esc(mc.on_offer.join(", "))}">🏷️ ${mc.on_offer.length}</span>` : ""}` : "";
             const thumb = recipe?.image && safeUrl(recipe.image)
@@ -1610,15 +1793,18 @@ class EssensplanerPanel extends HTMLElement {
         })
         .join("");
       const cls = iso === today ? "today" : iso < today ? "past" : "";
+      // 1.5: occasions of the day ("🎬 Filmabend · 20:00 · 👥 4 · ≈ 23 €")
+      const occasions = this._occasionsOn(iso).map((o) => this._occCardHtml(o)).join("");
       days += `<div class="card day ${cls}">
           <div class="dayhead"><span class="wd">${WEEKDAYS[i]}</span><span class="dt">${day.getDate()}. ${MONTHS[day.getMonth()]}</span>${iso === today ? '<span class="badge">Heute</span>' : ""}</div>
-          ${slots}
+          ${occasions}${slots}
         </div>`;
     }
     const capacity = 7 * this._data.meals.length;
     const pct = capacity ? Math.min(100, Math.round((planned / capacity) * 100)) : 0;
     return `
       ${this._renderHero()}
+      ${this._renderSeasonRow()}
       <div class="row">
         <button class="icon" data-action="week" data-delta="-7" title="Vorherige Woche">◀</button>
         <div class="weeklabel">${esc(label)}</div>
@@ -1629,6 +1815,7 @@ class EssensplanerPanel extends HTMLElement {
         ${this._budgetPill(start)}
         <span class="spacer"></span>
         <button class="btn" data-action="copy-week" title="Plan der Vorwoche in diese Woche übernehmen">⧉ Letzte Woche übernehmen</button>
+        <button class="btn" data-action="occasion-new" title="Filmabend, Grillabend, Weihnachtsessen … mit Gängen, Getränken und Zubehör">🎉 Anlass planen</button>
         <button class="btn" data-action="auto-plan">✨ Automatisch planen</button>
         <button class="btn primary" data-action="shopping-from-week">🛒 Einkaufsliste</button>
       </div>
@@ -1683,6 +1870,7 @@ class EssensplanerPanel extends HTMLElement {
     const q = fold(this._search).trim();
     const list = this._data.recipes.filter((r) => {
       if (this._favOnly && !r.favorite) return false;
+      if (this._seasonOnly && !this._seasonOf(r.id)) return false;
       if (this._tag && !(r.tags || []).some((t) => fold(t) === fold(this._tag))) return false;
       if (!q) return true;
       const hay = fold([r.name, ...(r.tags || []), ...(r.ingredients || []).map((i) => i.name)].join(" "));
@@ -1709,8 +1897,10 @@ class EssensplanerPanel extends HTMLElement {
       .map((r) => {
         const perServing = this._data.recipe_costs?.[r.id];
         const meta = [r.total_time ? `⏱ ${r.total_time} min` : "", perServing ? `💶 ≈ ${eur(perServing)}/Port.` : "", r.cooked_count ? `🍳 ${r.cooked_count}×` : ""].filter(Boolean).join(" · ");
+        const season = this._seasonOf(r.id);
         return `<div class="card recipe" data-action="open-recipe" data-id="${esc(r.id)}">
             <div class="img" ${bg(r.image)}>${safeUrl(r.image) ? "" : dishEmoji(r.name)}
+              ${season ? `<span class="sbadge" title="${esc(season.hints.join(" · "))}">🍂 ${esc((season.items || [])[0] || "Saison")}</span>` : ""}
               <button class="icon fav ${r.favorite ? "on" : ""}" data-action="toggle-fav" data-id="${esc(r.id)}" title="Favorit">${r.favorite ? "★" : "☆"}</button>
             </div>
             <div class="body">
@@ -1727,6 +1917,7 @@ class EssensplanerPanel extends HTMLElement {
         <input type="search" placeholder="🔍 Rezepte oder Zutaten suchen …" value="${esc(this._search)}" data-input="search" data-focuskey="search" style="flex:1;min-width:200px">
         <select data-change="sort" title="Sortierung">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === this._sort ? "selected" : ""}>${v}</option>`).join("")}</select>
         <button class="btn ${this._favOnly ? "primary" : ""}" data-action="fav-only">★ Favoriten</button>
+        <button class="btn ${this._seasonOnly ? "primary" : ""}" data-action="season-only" aria-pressed="${this._seasonOnly}" title="Rezepte mit Zutaten der Saison und zur Zeit des Jahres">🍂 Saison</button>
       </div>
       <div class="row">
         <button class="btn primary" data-action="new-recipe">＋ Neues Rezept</button>
@@ -2334,6 +2525,20 @@ class EssensplanerPanel extends HTMLElement {
       case "open-entry":
         this._openEntry(d.date, d.meal);
         break;
+      /* 1.5: occasions, season */
+      case "occasion-open":
+        this._openOccasion(d.id);
+        break;
+      case "occasion-new":
+        this._openOccasionNew({ date: d.date || null });
+        break;
+      case "season-open":
+        this._openSeason();
+        break;
+      case "season-only":
+        this._seasonOnly = !this._seasonOnly;
+        this._renderContent();
+        break;
       case "cook":
         this._openCooking(d.id, Number(d.servings) || undefined, d.date ? { date: d.date, meal: d.meal } : null);
         break;
@@ -2758,8 +2963,8 @@ class EssensplanerPanel extends HTMLElement {
    *  Escape. */
   _showModal(title, body, footer, onMount, opts = {}) {
     this._modalRoot.innerHTML = `
-      <div class="overlay">
-        <div class="modal" role="dialog" aria-label="${esc(title)}">
+      <div class="overlay ${opts.full ? "full" : ""}">
+        <div class="modal ${opts.cls || ""}" role="dialog" aria-label="${esc(title)}">
           <div class="mhead"><h2>${esc(title)}</h2><button class="icon" data-close title="Schließen">✕</button></div>
           <div class="mbody">${body}</div>
           ${footer ? `<div class="mfoot">${footer}</div>` : ""}
@@ -2786,6 +2991,8 @@ class EssensplanerPanel extends HTMLElement {
     this._lfView = null;
     // a closed receipt dialog stays closed when its upload / reading finishes
     this._receipt = null;
+    // … and so does a closed occasion editor
+    this._occ = null;
   }
 
   _mealOptions(selected) {
@@ -2804,13 +3011,17 @@ class EssensplanerPanel extends HTMLElement {
         .slice(0, 80);
       if (!items.length) return `<div class="pick" style="cursor:default">Kein Rezept gefunden – wird als Freitext eingetragen.</div>`;
       return items
-        .map((r) => `<button class="pick ${r.id === selected ? "sel" : ""}" data-pick="${esc(r.id)}">${dishEmoji(r.name)} ${esc(r.name)}${r.favorite ? ' <span class="stars"><span class="on">★</span></span>' : ""}<span class="m">${r.total_time ? r.total_time + " min" : ""}</span></button>`)
+        .map((r) => {
+          const season = this._seasonOf(r.id);
+          return `<button class="pick ${r.id === selected ? "sel" : ""}" data-pick="${esc(r.id)}">${dishEmoji(r.name)} ${esc(r.name)}${r.favorite ? ' <span class="stars"><span class="on">★</span></span>' : ""}${season ? ` <span title="${esc(season.hints.join(" · "))}">🍂</span>` : ""}<span class="m">${r.total_time ? r.total_time + " min" : ""}</span></button>`;
+        })
         .join("");
     };
     const body = `
       <div class="hint" style="display:flex;align-items:center;gap:6px"><i style="width:9px;height:9px;border-radius:50%;background:${this._mealColor(meal)};display:inline-block"></i>${esc(this._dateLabel(date))} · ${esc(this._mealLabel(meal))}</div>
       <input type="search" placeholder="Rezept suchen oder Freitext („Pizza bestellen“) …" class="q" value="${esc(current && !current.recipe_id ? current.title : "")}">
-      <div class="row" style="margin:0"><button class="btn small suggest">💡 Vorschläge</button><span class="suggestions chips"></span></div>
+      <div class="row" style="margin:0"><button class="btn small psuggest">💡 Vorschläge</button><span class="hint">nach Favoriten, Saison, Angeboten und Abwechslung</span></div>
+      <div class="suggestions suglist"></div>
       <div class="picklist">${listHtml()}</div>
       <div class="grid2">
         <label class="field">Portionen<input type="number" min="1" max="50" class="servings" value="${servings}"></label>
@@ -2836,13 +3047,21 @@ class EssensplanerPanel extends HTMLElement {
       list.addEventListener("dblclick", (ev) => {
         if (ev.target.closest("[data-pick]")) root.querySelector(".save").click();
       });
+      // 1.5: with the reasons ("⭐ Favorit · 🍂 Saison: Kürbis · 🏷️ Angebot: Hack")
       const suggest = async () => {
+        const box = root.querySelector(".suggestions");
+        box.innerHTML = '<span class="hint">⏳ Suche Vorschläge …</span>';
         const res = await this._service("suggest_recipes", { count: 4, meal, date }, true);
-        root.querySelector(".suggestions").innerHTML =
-          (res?.recipes || []).map((r) => `<button class="chip" data-sugg="${esc(r.id)}">${dishEmoji(r.name)} ${esc(r.name)}</button>`).join("") ||
-          '<span class="hint">Keine passenden Rezepte</span>';
+        box.innerHTML =
+          (res?.recipes || [])
+            .map((r) => {
+              const why = (r.reasons || []).join(" · ");
+              return `<button class="sg" data-sugg="${esc(r.id)}"><span class="sthumb">${dishEmoji(r.name)}</span><span class="sgt"><b>${esc(r.name)}</b>${why ? `<div class="why">${esc(why)}</div>` : ""}</span>${r.cost ? `<span class="pp"><span class="meta">≈ ${eur(r.cost)}</span></span>` : ""}</button>`;
+            })
+            .join("") || '<span class="hint">Keine passenden Rezepte</span>';
       };
-      root.querySelector(".suggest").addEventListener("click", suggest);
+      // (not ".suggest": that is the article dropdown of the shopping list)
+      root.querySelector(".psuggest").addEventListener("click", suggest);
       if (autoSuggest) suggest();
       root.querySelector(".suggestions").addEventListener("click", (ev) => {
         const chip = ev.target.closest("[data-sugg]");
@@ -2850,6 +3069,7 @@ class EssensplanerPanel extends HTMLElement {
         selected = chip.dataset.sugg;
         query = "";
         q.value = "";
+        root.querySelectorAll(".suggestions [data-sugg]").forEach((x) => x.classList.toggle("sel", x === chip));
         list.innerHTML = listHtml();
         list.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
       });
@@ -2876,6 +3096,7 @@ class EssensplanerPanel extends HTMLElement {
       <div class="meta" style="font-size:14px">${[entry.servings ? `👥 ${entry.servings} Portionen` : "", recipe?.total_time ? `⏱ ${recipe.total_time} min` : "", entry.cooked ? "✅ gekocht" : ""].filter(Boolean).join(" · ")}</div>
       ${entry.note ? `<div>📝 ${esc(entry.note)}</div>` : ""}
       ${!recipe ? `<div class="hint">Freitext ohne Rezept – Zutaten landen nicht auf der Einkaufsliste.</div>` : ""}
+      ${recipe && isDrinkRecipe(recipe) ? "" : `<div class="section drinksec"><h4>🥤 Getränke dazu</h4><div class="dchips"></div><div class="dadd"></div></div>`}
       <div class="section">
         <h4>Verschieben / Tauschen</h4>
         <div class="grid2">
@@ -2890,6 +3111,7 @@ class EssensplanerPanel extends HTMLElement {
       ${entry.cooked ? "" : `<button class="btn cooked">✅ Gekocht</button>`}
       ${recipe ? `<button class="btn showr">📖 Rezept</button><button class="btn primary cookbtn">👩‍🍳 Kochmodus</button>` : ""}`;
     this._showModal(entry.title, body, footer, (root) => {
+      this._entryDrinks(root, date, meal, entry);
       root.querySelector(".remove").addEventListener("click", async () => {
         await this._service("remove_meal", { date, meal });
         this._closeModal();
@@ -2931,6 +3153,7 @@ class EssensplanerPanel extends HTMLElement {
       const res = await this._service("get_recipe", { recipe: id, servings }, true);
       const r = res?.recipe || base;
       const current = this._recipe(id) || base;
+      const season = this._data.recipe_season?.[id];
       const body = `
         <div class="heroimg" ${bg(r.image)}>${safeUrl(r.image) ? "" : dishEmoji(r.name)}</div>
         <div class="row" style="margin:0;justify-content:space-between">
@@ -2939,7 +3162,9 @@ class EssensplanerPanel extends HTMLElement {
         </div>
         <div class="meta">${[r.prep_time ? `Vorbereitung ${r.prep_time} min` : "", r.cook_time ? `Kochen ${r.cook_time} min` : "", r.total_time ? `Gesamt ${r.total_time} min` : "", current.cooked_count ? `🍳 ${current.cooked_count}× gekocht${current.last_cooked ? `, zuletzt ${this._dateLabel(current.last_cooked)}` : ""}` : ""].filter(Boolean).join(" · ")}</div>
         <div class="chips">${(r.tags || []).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+        ${season?.hints?.length ? `<div class="meta">${esc(season.hints.join(" · "))}</div>` : ""}${season?.out?.length ? `<div class="meta">⏳ Gerade nicht in Saison: ${esc(season.out.join(", "))}</div>` : ""}
         ${r.cost ? `<div class="section"><div class="costbox"><span class="big">≈ ${eur(r.cost.total)}</span><span class="meta">${eur(r.cost.per_serving)} pro Portion${r.cost.savings ? ` · 🏷️ ${eur(r.cost.savings)} gespart` : ""} · Schätzung</span></div>${r.cost.on_offer?.length ? `<div class="meta">🏷️ Im Angebot: ${r.cost.on_offer.map((o) => `${esc(o.ingredient)} (${esc(o.store)} ${eur(o.price)}${o.valid_to ? ` bis ${shortDate(o.valid_to)}` : ""})`).join(", ")}</div>` : ""}${r.cost.unknown?.length ? `<div class="hint">Ohne Preis: ${esc(r.cost.unknown.join(", "))}</div>` : ""}</div>` : ""}
+        ${isDrinkRecipe(r) ? "" : `<div class="section drinkbox"><h4>🍷 Passt dazu</h4><div class="dchips"><span class="hint">⏳ Suche passende Getränke …</span></div><div class="dinfo" hidden></div></div>`}
         <div><h4>Zutaten</h4>${(r.ingredient_lines || []).length ? `<ul>${r.ingredient_lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : '<div class="hint">Keine Zutaten hinterlegt.</div>'}</div>
         <div><h4>Zubereitung</h4>${(r.steps || []).length ? `<ol>${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : '<div class="hint">Keine Schritte hinterlegt.</div>'}</div>
         ${r.notes ? `<div><h4>Notizen</h4><div>${esc(r.notes)}</div></div>` : ""}
@@ -2953,12 +3178,15 @@ class EssensplanerPanel extends HTMLElement {
           <div><button class="btn primary plan">📅 Einplanen</button></div>
         </div>`;
       const footer = `
+        ${ctx?.occasion ? `<button class="btn back" title="Zurück zum Anlass">← Anlass</button>` : ""}
         <button class="btn danger delete" title="Löschen">🗑</button>
         <button class="btn share" title="Rezept teilen">📤</button>
         <button class="btn fav">${current.favorite ? "★ Favorit" : "☆ Favorit"}</button>
         <button class="btn edit">✏️ Bearbeiten</button>
         <button class="btn primary cookbtn">👩‍🍳 Kochmodus</button>`;
       this._showModal(r.name, body, footer, (root) => {
+        this._fillDrinks(root, r, ctx);
+        root.querySelector(".back")?.addEventListener("click", () => this._openOccasion(ctx.occasion));
         const input = root.querySelector(".servings");
         const set = (v) => {
           servings = Math.max(1, Math.min(50, v || 1));
@@ -3333,21 +3561,66 @@ class EssensplanerPanel extends HTMLElement {
   _openAutoPlan(start, days) {
     const strategy = this._data.economy?.strategy || "balanced";
     const budget = this._data.economy?.budget;
+    // 1.5: "🤖 mit KI" – the AI orders the rules' best candidates (feature "season")
+    const ai = this._aiOn("season");
+    const st = { busy: false };
     const body = `
       <div class="hint">${esc(this._dateLabel(start))} + ${days - 1} Tage · nur freie Plätze werden gefüllt.${budget ? ` Wochenbudget: ${eur(budget)}.` : ""}</div>
       <div class="strategy">${Object.entries(STRATEGY_LABELS).map(([k, [label, desc]]) => `<label><input type="radio" name="strategy" value="${k}" ${k === strategy ? "checked" : ""}><span><b>${label}</b><br><span class="meta">${desc}</span></span></label>`).join("")}</div>
-      <div><h4>Mahlzeiten</h4><div class="chips">${this._data.meals.map((m) => `<label class="chip"><input type="checkbox" class="pm" value="${m.id}" ${m.id === this._data.default_meal ? "checked" : ""}> ${esc(m.label)}</label>`).join("")}</div></div>`;
+      <div><h4>Mahlzeiten</h4><div class="chips">${this._data.meals.map((m) => `<label class="chip"><input type="checkbox" class="pm" value="${m.id}" ${m.id === this._data.default_meal ? "checked" : ""}> ${esc(m.label)}</label>`).join("")}</div></div>
+      ${ai ? `<label class="switch aiswitch"><input type="checkbox" class="pai"><span>🤖 <b>mit KI</b> (${esc(this._aiName())}) – ordnet die besten Vorschläge der Regeln nach Saison, Angeboten und Abwechslung. Dauert ${AI_WAIT}.${this._aiOffline("season") ? `<br><span class="meta">⚠️ ${esc(this._aiName())} ist gerade nicht erreichbar – dann wird nach Regeln geplant.</span>` : ""}</span></label>` : ""}
+      <div class="ferr" hidden></div>`;
     const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary go">✨ Planen</button>`;
+    const result = (res, usedAi) => {
+      const planned = res?.planned || [];
+      const total = res?.week?.total;
+      const rows = planned
+        .map((p) => `<div class="prow"><span class="pd">${esc(shortDate(p.date))}<br><span class="meta">${esc(this._mealLabel(p.meal))}</span></span><span class="pi"><b>${esc(p.title)}</b>${(p.reasons || []).length ? `<div class="why">${esc(p.reasons.join(" · "))}</div>` : ""}</span></div>`)
+        .join("");
+      const aiNote = usedAi && res?.ai
+        ? res.ai.ok
+          ? `<div class="notice">🤖 ${esc(this._aiName())} hat die Reihenfolge der Vorschläge bestimmt – geprüft gegen deine Rezepte.</div>`
+          : `<div class="notice warn">🤖 ${esc(res.ai.error || "Die KI hat nicht geantwortet.")} Es wurde nach Regeln geplant.</div>`
+        : "";
+      return `<div class="costbox"><span class="big">✨ ${planned.length} ${planned.length === 1 ? "Mahlzeit" : "Mahlzeiten"} eingeplant</span>${total ? `<span class="meta">Woche ≈ ${eur(total)}</span>` : ""}</div>
+        ${aiNote}
+        ${rows ? `<div class="plist">${rows}</div>` : '<div class="hint">Keine freien Plätze oder passenden Rezepte.</div>'}`;
+    };
     this._showModal("Woche automatisch planen", body, footer, (root) => {
-      root.querySelector(".go").addEventListener("click", async () => {
+      const go = root.querySelector(".go");
+      go.addEventListener("click", async () => {
+        if (st.busy) return;
         const meals = [...root.querySelectorAll(".pm:checked")].map((x) => x.value);
         const chosen = root.querySelector('input[name="strategy"]:checked')?.value;
-        const res = await this._service("auto_plan", { start_date: start, days, meals: meals.length ? meals : [this._data.default_meal], strategy: chosen }, true);
-        this._closeModal();
+        const withAi = Boolean(root.querySelector(".pai")?.checked);
+        st.busy = withAi ? "ai" : "rules";
+        go.disabled = true;
+        go.innerHTML = withAi ? `<span class="spin">⏳</span> ${esc(this._aiName())} plant … (${AI_WAIT})` : "⏳ Plane …";
+        root.querySelectorAll(".mbody input").forEach((x) => (x.disabled = true));
+        let res;
+        try {
+          res = await this._service("auto_plan", { start_date: start, days, meals: meals.length ? meals : [this._data.default_meal], strategy: chosen, ...(withAi ? { ai: true } : {}) }, true);
+        } catch (e) {
+          st.busy = false;
+          if (this._modal?.root !== root) return;
+          go.disabled = false;
+          go.textContent = "✨ Planen";
+          root.querySelectorAll(".mbody input").forEach((x) => (x.disabled = false));
+          return;
+        }
+        st.busy = false;
         const n = res?.planned?.length || 0;
-        const total = res?.week?.total;
-        this._toast(n ? `✨ ${n} Mahlzeiten eingeplant${total ? ` · Woche ≈ ${eur(total)}` : ""}` : "Keine freien Plätze oder passenden Rezepte");
+        if (this._modal?.root !== root) {
+          // closed meanwhile: the result as a toast
+          this._toast(n ? `✨ ${n} Mahlzeiten eingeplant` : "Keine freien Plätze oder passenden Rezepte");
+          return;
+        }
+        root.querySelector(".mbody").innerHTML = result(res, withAi);
+        root.querySelector(".mfoot").innerHTML = `<button class="btn primary" data-close>✓ Fertig</button>`;
       });
+    }, {
+      sticky: () => Boolean(st.busy),
+      guard: () => st.busy !== "ai" || confirm(`${this._aiName()} plant noch. Trotzdem schließen? (Die Planung läuft weiter.)`),
     });
   }
 
@@ -5353,6 +5626,949 @@ class EssensplanerPanel extends HTMLElement {
       update();
       scroller.focus({ preventScroll: true });
     });
+  }
+
+  /* ------------------------------------------------------------ occasions, drinks, season (1.5) */
+  _occasionsOn(iso) {
+    return (this._data.occasions || []).filter((o) => o.date === iso);
+  }
+
+  _occView(id) {
+    return (this._data.occasions || []).find((o) => o.id === id) || null;
+  }
+
+  _occTemplate(id) {
+    return (this._data.occasion_meta?.templates || []).find((t) => t.id === id) || null;
+  }
+
+  _courseInfo(id) {
+    return (this._data.occasion_meta?.courses || []).find((c) => c.id === id) || { id, label: id, emoji: "" };
+  }
+
+  /** An AI feature is switched on with an AI (its button shows). */
+  _aiOn(feature) {
+    return Boolean(this._data?.ai?.enabled?.[feature]);
+  }
+
+  _aiName() {
+    return this._data?.ai?.label || "Die KI";
+  }
+
+  /** Switched on, but the AI is not reachable right now. */
+  _aiOffline(feature) {
+    return this._aiOn(feature) && !this._data?.ai?.ready?.[feature];
+  }
+
+  /** A recipe's season (🍂 badge) – or null. */
+  _seasonOf(id) {
+    const s = this._data?.recipe_season?.[id];
+    return s && s.score >= SEASON_BADGE && (s.items?.length || s.hints?.length) ? s : null;
+  }
+
+  _occCardHtml(o) {
+    const who = `👥 ${o.guests}${o.children ? `+${o.children}` : ""}`;
+    const meta = [o.time || "ganztägig", who].join(" · ");
+    const tip = [o.summary, `${o.guests} Gäste${o.children ? `, ${o.children} Kinder` : ""}`].filter(Boolean).join(" – ");
+    const cost = o.cost?.total ? ` · <span class="cost">≈ ${euShort(o.cost.total)}</span>` : "";
+    return `<button class="occ" data-action="occasion-open" data-id="${esc(o.id)}" title="${esc(tip)}">
+        <span class="oemoji" aria-hidden="true">${esc(o.emoji || "🎉")}</span>
+        <span class="otxt"><div class="t">${esc(o.title)}</div><div class="s">${esc(meta)}${cost}</div></span>
+      </button>`;
+  }
+
+  /** "Jetzt Saison: Kürbis, Grünkohl … 🏮 Martinstag" below the hero. */
+  _renderSeasonRow() {
+    const s = this._data.season;
+    const produce = s?.produce || [];
+    if (!produce.length && !(s?.windows || []).length) return "";
+    const names = produce
+      .slice(0, 7)
+      .map((p) => `${esc(p.label)}${p.new ? '<span title="neu in der Saison">✨</span>' : ""}`)
+      .join(", ");
+    const windows = (s.windows || []).map((w) => `<span class="bdg">${esc(w.emoji)} ${esc(w.label)}</span>`).join(" ");
+    const soon = (s.upcoming || []).slice(0, 2).map((w) => `${esc(w.emoji)} ${esc(w.label)} ab ${esc(dayText(w.start))}`).join(", ");
+    return `<div class="card seasonrow">
+        <span class="semoji" aria-hidden="true">${esc(s.season?.emoji || "🍂")}</span>
+        <div class="stxt"><b>Jetzt Saison:</b> ${names || "–"}${produce.length > 7 ? " …" : ""} ${windows}${soon ? ` <span class="meta">· bald: ${soon}</span>` : ""}</div>
+        <button class="btn small" data-action="season-open">🍂 Saisonkalender</button>
+      </div>`;
+  }
+
+  /** The season of a month: produce, times of the year, fitting recipes (ws season). */
+  _openSeason() {
+    const today = this._today();
+    let year = Number(today.slice(0, 4));
+    let month = Number(today.slice(5, 7));
+    let seq = 0;
+    const current = () => year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7));
+    const html = (v) => {
+      const produce = v.produce || [];
+      const chip = (p) => `<span class="bdg ${p.strict ? "ok" : ""}" title="${p.new ? "neu in der Saison" : p.ending ? "bald vorbei" : ""}">${esc(p.label)}${p.new ? " ✨" : p.ending ? " ⏳" : ""}</span>`;
+      const windows = (v.windows || []).map((w) => `<span class="bdg"><b>${esc(w.emoji)} ${esc(w.label)}</b></span>`).join("");
+      const upcoming = (v.upcoming || []).map((w) => `<span class="bdg">${esc(w.emoji)} ${esc(w.label)} ab ${esc(dayText(w.start))}</span>`).join("");
+      const recipes = (v.recipes || [])
+        .map((r) => `<button class="sg" data-season-recipe="${esc(r.id)}"><span class="sthumb">${r.image && safeUrl(r.image) ? this._img(r.image, dishEmoji(r.name)) : dishEmoji(r.name)}</span><span class="sgt"><b>${esc(r.name)}</b><div class="why">${esc((r.hints || []).join(" · "))}</div></span></button>`)
+        .join("");
+      const out = (v.out_of_season || []).map((r) => `${esc(r.name)} <span class="meta">(${esc((r.items || []).join(", "))})</span>`).join(" · ");
+      return `
+        <div class="seasonhead"><button class="icon" data-smonth="-1" aria-label="Vorheriger Monat" title="Vorheriger Monat">‹</button><b>${esc(v.season?.emoji || "")} ${esc(v.season?.label || "")} · ${esc(v.month_name || "")} ${esc(String(v.date || "").slice(0, 4))}</b><button class="icon" data-smonth="1" aria-label="Nächster Monat" title="Nächster Monat">›</button></div>
+        ${v.season_aware === false ? `<div class="notice warn">„Saison berücksichtigen“ ist aus: Vorschläge achten nur mit der Planungsart „🍂 Saisonal“ auf die Saison. <button class="btn small" data-season-settings>⚙️ Budget & Planung</button></div>` : ""}
+        ${windows || upcoming ? `<div><h4>Zeit des Jahres</h4><div class="prodchips">${windows}${upcoming}</div></div>` : ""}
+        <div><h4>Obst, Gemüse & Co. der Saison</h4>${produce.length ? `<div class="prodchips">${produce.map(chip).join("")}</div><div class="hint" style="margin-top:6px">✨ neu in der Saison · ⏳ bald vorbei · grün: typisch für diese Zeit</div>` : '<div class="hint">Nichts Besonderes.</div>'}</div>
+        <div><h4>Passt aus deinen Rezepten</h4>${recipes ? `<div class="srecipes">${recipes}</div>` : '<div class="hint">Keine deiner Rezepte passt besonders – frag Jarvis „Was hat gerade Saison?“ oder importiere ein Saisonrezept.</div>'}</div>
+        ${out ? `<details class="srcbox"><summary>Gerade nicht in Saison (${(v.out_of_season || []).length})</summary><div style="line-height:1.6">${out}</div></details>` : ""}`;
+    };
+    this._showModal("🍂 Saisonkalender", '<div class="loading">Lade …</div>', `<button class="btn primary" data-close>Schließen</button>`, (root) => {
+      const body = root.querySelector(".mbody");
+      const load = async () => {
+        const my = ++seq;
+        const msg = { type: `${DOMAIN}/season`, limit: 12 };
+        if (!current()) msg.date = `${year}-${pad2(month)}-15`;
+        try {
+          const v = await this._hass.callWS(msg);
+          if (my !== seq || this._modal?.root !== root) return;
+          body.innerHTML = html(v);
+        } catch (err) {
+          if (my === seq && this._modal?.root === root) body.innerHTML = `<div class="notice err">${esc(errText(err))}</div>`;
+        }
+      };
+      root.addEventListener("click", (ev) => {
+        const step = ev.target.closest("[data-smonth]");
+        if (step) {
+          month += Number(step.dataset.smonth);
+          if (month < 1) [month, year] = [12, year - 1];
+          if (month > 12) [month, year] = [1, year + 1];
+          load();
+          return;
+        }
+        const r = ev.target.closest("[data-season-recipe]");
+        if (r) return this._openRecipe(r.dataset.seasonRecipe);
+        if (ev.target.closest("[data-season-settings]")) {
+          this._closeModal();
+          this._openSettings("planning");
+        }
+      });
+      load();
+    });
+  }
+
+  /** "🎉 Anlass planen": template, date, time, guests – then the editor. */
+  _openOccasionNew(prefill = {}) {
+    const templates = this._data.occasion_meta?.templates || [];
+    let tpl = prefill.template || templates[0]?.id || "anlass";
+    const info = (id) => templates.find((t) => t.id === id) || { title: "Anlass", emoji: "🎉", time: "" };
+    // default: the next Saturday of the shown week (from today on)
+    const todayDate = fromIso(this._today());
+    const from = this._weekStart && this._weekStart > todayDate ? this._weekStart : todayDate;
+    const date = prefill.date || toIso(addDays(from, (5 - weekdayIndex(from) + 7) % 7));
+    let timeEdited = false;
+    const body = `
+      <div class="hint">Ein Anlass hat eigene Gänge (Vorspeise, Hauptgang, Beilagen, Dessert, Snacks), Getränke und Zubehör – mit Kosten und eigener Einkaufsliste. Er steht im Wochenplan und im Kalender.</div>
+      <div class="tplgrid" role="radiogroup" aria-label="Vorlage">${templates
+        .map((t) => `<button type="button" role="radio" aria-checked="${t.id === tpl}" class="${t.id === tpl ? "on" : ""}" data-tpl="${esc(t.id)}"><span class="e" aria-hidden="true">${esc(t.emoji)}</span><b>${esc(t.title)}</b><span class="meta">${t.time ? `${esc(t.time)} Uhr` : ""}</span></button>`)
+        .join("")}</div>
+      <label class="field">Name (optional)<input class="otitle" maxlength="80" placeholder="${esc(info(tpl).title)}"></label>
+      <div class="grid2">
+        <label class="field">Datum<input type="date" class="odate" value="${esc(date)}"></label>
+        <label class="field">Uhrzeit<input type="time" class="otime" value="${esc(info(tpl).time || "")}"></label>
+        <label class="field">Gäste (Erwachsene)<input type="number" inputmode="numeric" class="oguests" min="1" max="200" value="${esc(prefill.guests || this._data.default_servings || 2)}"></label>
+        <label class="field">Kinder<input type="number" inputmode="numeric" class="ochildren" min="0" max="100" value="0"></label>
+      </div>
+      <label class="switch"><input type="checkbox" class="ofill" checked> ✨ Gerichte, Getränke und Zubehör gleich vorschlagen</label>
+      <div class="ferr" hidden></div>`;
+    const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary osave">🎉 Anlegen</button>`;
+    this._showModal("🎉 Anlass planen", body, footer, (root) => {
+      const grid = root.querySelector(".tplgrid");
+      const title = root.querySelector(".otitle");
+      const time = root.querySelector(".otime");
+      time.addEventListener("input", () => (timeEdited = true));
+      grid.addEventListener("click", (ev) => {
+        const b = ev.target.closest("[data-tpl]");
+        if (!b) return;
+        tpl = b.dataset.tpl;
+        grid.querySelectorAll("[data-tpl]").forEach((x) => {
+          x.classList.toggle("on", x === b);
+          x.setAttribute("aria-checked", String(x === b));
+        });
+        title.placeholder = info(tpl).title;
+        if (!timeEdited) time.value = info(tpl).time || "";
+      });
+      const save = root.querySelector(".osave");
+      save.addEventListener("click", async () => {
+        const err = root.querySelector(".ferr");
+        const occasion = {
+          template: tpl,
+          date: root.querySelector(".odate").value || this._today(),
+          guests: Math.max(1, Number(root.querySelector(".oguests").value) || 1),
+          children: Math.max(0, Number(root.querySelector(".ochildren").value) || 0),
+          auto_fill: root.querySelector(".ofill").checked,
+        };
+        if (title.value.trim()) occasion.title = title.value.trim();
+        if (time.value) occasion.time = time.value;
+        save.disabled = true;
+        save.textContent = occasion.auto_fill ? "⏳ Stelle zusammen …" : "⏳ Lege an …";
+        err.hidden = true;
+        try {
+          const res = await this._hass.callWS({ type: `${DOMAIN}/occasion_save`, occasion });
+          if (this._modal?.root !== root) return;
+          this._toast(`🎉 ${res.occasion.label}: ${this._dateLabel(res.occasion.date)}`);
+          this._openOccasion(res.occasion.id, res.occasion);
+        } catch (e) {
+          err.hidden = false;
+          err.textContent = errText(e);
+          save.disabled = false;
+          save.textContent = "🎉 Anlegen";
+        }
+      });
+    }, { sticky: true });
+  }
+
+  /** The occasion editor (full screen on phones). Every change is saved at once. */
+  _openOccasion(id, view = null) {
+    view = view || this._occView(id);
+    if (!view) return this._toast("Diesen Anlass gibt es nicht mehr.");
+    const st = { id, view, saving: 0, saved: false, error: null, add: null, menu: null, drinks: null, extras: null, extraCourses: new Set(), queue: Promise.resolve(), draft: {}, applying: false };
+    this._occ = st;
+    const footer = `<button class="btn danger" data-oc="delete" aria-label="Anlass löschen" title="Anlass löschen">🗑<span class="wide-only"> Löschen</span></button><span class="spacer"></span><button class="btn" data-oc="shop" title="Einkaufsliste für den Anlass">🛒 Einkaufsliste<span class="wide-only"> für den Anlass</span></button><button class="btn primary" data-close>✓ Fertig</button>`;
+    this._showModal(view.label || view.title, this._occBodyHtml(st), footer, (root) => {
+      st.root = root;
+      root.addEventListener("click", (ev) => {
+        const step = ev.target.closest("[data-ostep]");
+        if (step) return this._occStep(st, step.dataset.ostep, Number(step.dataset.delta));
+        const el = ev.target.closest("[data-oc]");
+        if (!el || el.matches("input[type=checkbox]")) return;
+        this._occAction(st, el.dataset.oc, el).catch(() => {});
+      });
+      root.addEventListener("change", (ev) => this._occChange(st, ev.target));
+      root.addEventListener("input", (ev) => {
+        if (!ev.target.classList.contains("oaddq") || !st.add) return;
+        st.add.query = ev.target.value;
+        const box = root.querySelector(".oaddres");
+        if (box) box.innerHTML = this._occAddResultsHtml(st);
+      });
+      root.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter" || !ev.target.classList.contains("oaddq")) return;
+        ev.preventDefault();
+        this._occAction(st, "add-text", ev.target).catch(() => {});
+      });
+      this._occLoadExtras(st);
+    }, {
+      full: true,
+      cls: "occmodal",
+      sticky: true,
+      guard: () => this._occ !== st || !(st.menu?.aiBusy || st.drinks?.aiBusy) || confirm(`${this._aiName()} arbeitet noch. Trotzdem schließen?`),
+    });
+  }
+
+  _occStepper(key, label, value, min, max) {
+    return `<div class="field"><span>${label}</span><span class="stepper2"><button class="icon" data-ostep="${key}" data-delta="-1" aria-label="${label}: weniger" ${value <= min ? "disabled" : ""}>−</button><input type="number" inputmode="numeric" class="o${key}" data-ofocus="${key}" min="${min}" max="${max}" value="${value}" aria-label="${label}"><button class="icon" data-ostep="${key}" data-delta="1" aria-label="${label}: mehr" ${value >= max ? "disabled" : ""}>＋</button></span></div>`;
+  }
+
+  _occBodyHtml(st) {
+    const o = st.view;
+    const templates = this._data.occasion_meta?.templates || [];
+    const guests = st.draft.guests ?? o.guests;
+    const children = st.draft.children ?? o.children ?? 0;
+    const head = `<div class="ochead">
+        <label class="field oname">Name<input class="otitle" data-ofocus="title" maxlength="80" value="${esc(o.title)}"></label>
+        <label class="field">Vorlage<select class="otpl" data-ofocus="tpl">${templates.map((t) => `<option value="${esc(t.id)}" ${t.id === o.template ? "selected" : ""}>${esc(t.emoji)} ${esc(t.title)}</option>`).join("")}</select></label>
+        <label class="field">Datum<input type="date" class="odate" data-ofocus="date" value="${esc(o.date)}"></label>
+        <label class="field">Uhrzeit<input type="time" class="otime" data-ofocus="time" value="${esc(o.time || "")}" ${o.time ? "" : "disabled"}></label>
+        <label class="switch"><input type="checkbox" class="oallday" data-ofocus="allday" ${o.time ? "" : "checked"}> ganztägig</label>
+        ${this._occStepper("guests", "Gäste", guests, 1, 200)}
+        ${this._occStepper("children", "Kinder", children, 0, 100)}
+      </div>`;
+    const cost = o.cost || {};
+    const sum = `<div class="ocsum">
+        <span class="big">≈ ${eur(cost.total || 0)}</span>
+        <span class="meta">${eur(cost.per_person || 0)} pro Person · ${o.persons || guests} Personen, ${o.servings || guests} Portionen · Schätzung</span>
+        ${cost.on_offer?.length ? `<span class="meta">🏷️ Im Angebot: ${esc(cost.on_offer.slice(0, 4).join(", "))}</span>` : ""}
+        ${cost.unknown?.length ? `<span class="meta">Ohne Preis: ${esc(cost.unknown.slice(0, 5).join(", "))}${cost.unknown.length > 5 ? " …" : ""}</span>` : ""}
+      </div>`;
+    const busy = Boolean(st.menu?.loading || st.menu?.aiBusy || st.applying);
+    const ai = this._aiOn("occasions");
+    const tools = `<div class="ocmore">
+        <button class="btn small" data-oc="menu" ${busy ? "disabled" : ""}>💡 Menü vorschlagen</button>
+        ${ai ? `<button class="btn small" data-oc="menu-ai" ${busy ? "disabled" : ""} title="${esc(this._aiOffline("occasions") ? `${this._aiName()} ist gerade nicht erreichbar` : `${this._aiName()} stellt ein Menü aus deinen Rezepten zusammen`)}">${st.menu?.aiBusy ? `<span class="spin">⏳</span> ${esc(this._aiName())} denkt nach …` : "🤖 KI-Menü"}</button>` : ""}
+        <span class="ocstate" aria-live="polite">${st.saving ? "⏳ Speichere …" : st.saved ? "✓ gespeichert" : ""}</span>
+      </div>`;
+    const shown = (o.courses || []).map((c) => c.id);
+    for (const c of [...st.extraCourses, "drink", "extra"]) if (!shown.includes(c)) shown.push(c);
+    shown.sort((a, b) => OCC_COURSES.indexOf(a) - OCC_COURSES.indexOf(b));
+    const others = OCC_COURSES.filter((c) => !shown.includes(c));
+    const more = others.length ? `<div class="ocmore"><span class="meta">Weitere Gänge:</span>${others.map((c) => `<button class="chip ocplus" data-oc="course-add" data-course="${c}">${esc(COURSE_ADD[c])}</button>`).join("")}</div>` : "";
+    const notes = `<details class="ocnotes" ${o.notes ? "open" : ""}><summary>📝 Notizen</summary><textarea class="onotes" data-ofocus="notes" maxlength="500" placeholder="z. B. wer was mitbringt, Allergien …">${esc(o.notes || "")}</textarea></details>`;
+    return `${head}${sum}${st.error ? `<div class="notice err">${esc(st.error)}</div>` : ""}${tools}${this._occMenuHtml(st)}
+      <div class="occourses">${shown.map((c) => this._occCourseHtml(st, c)).join("")}</div>
+      ${more}${notes}`;
+  }
+
+  _occCourseHtml(st, course) {
+    const o = st.view;
+    const info = (o.courses || []).find((c) => c.id === course) || { ...this._courseInfo(course), cost: null };
+    const items = (o.items || []).filter((i) => i.course === course);
+    const head = `<h4>${esc(info.emoji || this._courseInfo(course).emoji)} ${esc(info.label || this._courseInfo(course).label)}${items.length && info.cost != null ? `<span class="meta">≈ ${eur(info.cost)}</span>` : ""}</h4>`;
+    const adding = st.add?.course === course;
+    const addBtn = adding ? this._occAddHtml(st) : `<div><button class="btn small" data-oc="add" data-course="${course}">${esc(COURSE_ADD[course])}</button></div>`;
+    if (course === "extra") return `<section class="ocsec" data-course="extra">${head}${this._occExtrasHtml(st, items)}${addBtn}</section>`;
+    const chips = items.map((i) => this._occChipHtml(i)).join("");
+    return `<section class="ocsec ${adding ? "wide" : ""}" data-course="${course}">${head}
+        ${chips ? `<div class="ocitems">${chips}</div>` : `<div class="hint">${course === "drink" ? "Noch keine Getränke." : "Noch nichts geplant."}</div>`}
+        ${this._occMissingHtml(st, course)}
+        ${addBtn}
+      </section>`;
+  }
+
+  _occChipHtml(i) {
+    const recipe = i.recipe_id ? this._recipe(i.recipe_id) : null;
+    const icon = i.course === "drink" ? drinkEmoji(i) : recipe ? dishEmoji(recipe.name) : i.product ? "📦" : "📝";
+    const thumb = i.image && safeUrl(i.image) ? `<span class="othumb" ${bg(i.image)}></span>` : `<span class="othumb" aria-hidden="true">${icon}</span>`;
+    const sub = [i.quantity_text, i.cost != null ? `≈ ${eur(i.cost)}` : ""].filter(Boolean).join(" · ");
+    const title = [i.hint, i.note, i.ai ? "🤖 von der KI vorgeschlagen" : "", i.missing ? "nicht mehr vorhanden" : ""].filter(Boolean).join(" · ");
+    const inner = `${thumb}<span>${esc(i.title)}${i.ai ? " 🤖" : ""}</span>${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${i.course === "drink" ? alcBadge(i.alcohol) : ""}`;
+    const main = recipe ? `<button class="on" data-oc="recipe" data-id="${esc(recipe.id)}" title="${esc(title || "Rezept öffnen")}">${inner}</button>` : `<span class="on" title="${esc(title)}">${inner}</span>`;
+    return `<span class="occhip ${i.ai ? "ai" : ""} ${i.missing ? "missing" : ""}">${main}<button class="icon" data-oc="remove" data-uid="${esc(i.uid)}" aria-label="${esc(i.title)} entfernen" title="Entfernen">✕</button></span>`;
+  }
+
+  /** The template's extras that belong to a dish course and are missing ("＋ Popcorn"). */
+  _occMissingHtml(st, course) {
+    const all = st.extras?.items || [];
+    const missing = all.filter((e) => (e.course || "extra") === course);
+    if (!missing.length) return "";
+    return `<div class="ocitems">${missing.map((e) => `<button class="chip ocplus" data-oc="extra-on" data-n="${all.indexOf(e)}" title="Aus der Vorlage">＋ ${esc(e.title)}${e.quantity ? ` <span class="meta">${esc(qtyText(e))}</span>` : ""}</button>`).join("")}</div>`;
+  }
+
+  /** Zubehör as a checklist: ticked = part of the occasion, unticked = the template's. */
+  _occExtrasHtml(st, items) {
+    const all = st.extras?.items || [];
+    const missing = all.filter((e) => (e.course || "extra") === "extra");
+    const rows = [
+      ...items.map((i) => `<label><input type="checkbox" checked data-oc="extra-off" data-uid="${esc(i.uid)}"><span>${esc(i.title)}</span><span class="meta">${esc([i.quantity_text, i.cost != null ? `≈ ${eur(i.cost)}` : ""].filter(Boolean).join(" · "))}</span></label>`),
+      ...missing.map((e) => `<label class="missing"><input type="checkbox" data-oc="extra-on" data-n="${all.indexOf(e)}"><span>${esc(e.title)}</span><span class="meta">${esc(qtyText(e))}</span></label>`),
+    ];
+    if (rows.length) return `<div class="extras">${rows.join("")}</div>`;
+    return `<div class="hint">${st.extras?.loading ? "⏳ …" : "Kein Zubehör."}</div>`;
+  }
+
+  _occAddHtml(st) {
+    const a = st.add;
+    const course = a.course;
+    let list = "";
+    if (course === "drink") list = this._occDrinksHtml(st);
+    else if (DISH_COURSES.has(course)) {
+      if (a.loading) list = `<div class="hint">⏳ Suche passende Gerichte …</div>`;
+      else if (a.error) list = `<div class="notice err">${esc(a.error)}</div>`;
+      else if ((a.items || []).length) list = `<div class="hint">Vorschläge nach deinen Rezepten, Saison und Angeboten:</div><div class="suglist">${a.items.map((s, n) => this._occSuggRow(s, n)).join("")}</div>`;
+      else list = `<div class="hint">Keine passenden Rezepte für diesen Gang – such unten oder trag etwas ein.</div>`;
+    }
+    const placeholder = course === "drink" ? "Anderes Getränk, z. B. Apfelschorle" : course === "extra" ? "z. B. Teelichter, Servietten" : "Rezept suchen oder Freitext …";
+    return `<div class="ocadd">${list}
+        <div class="addq"><input type="search" class="oaddq" data-ofocus="addq" placeholder="${esc(placeholder)}" value="${esc(a.query || "")}" enterkeyhint="done" aria-label="${esc(placeholder)}"><button class="btn small" data-oc="add-text" title="Hinzufügen">＋</button><button class="btn small ghost" data-oc="add-close">Fertig</button></div>
+        <div class="suglist oaddres">${this._occAddResultsHtml(st)}</div>
+      </div>`;
+  }
+
+  /** Recipes matching what is typed in the add field (drinks only for "Getränke"). */
+  _occAddResultsHtml(st) {
+    const a = st.add;
+    const q = fold(a?.query || "").trim();
+    if (!q || a.course === "extra") return "";
+    const used = new Set((st.view.items || []).map((i) => i.recipe_id).filter(Boolean));
+    const drinks = a.course === "drink";
+    const hits = this._data.recipes
+      .filter((r) => !used.has(r.id) && isDrinkRecipe(r) === drinks && (fold(r.name).includes(q) || (r.tags || []).some((t) => fold(t).includes(q))))
+      .slice(0, 6);
+    return hits
+      .map((r) => `<button class="sg" data-oc="add-recipe" data-id="${esc(r.id)}"><span class="sthumb">${dishEmoji(r.name)}</span><span class="sgt"><b>${esc(r.name)}</b><div class="why">📖 ${esc((r.tags || []).slice(0, 3).join(" · ") || "Rezept")}</div></span><span class="pp"><span class="meta">＋</span></span></button>`)
+      .join("");
+  }
+
+  _occSuggRow(s, n) {
+    const recipe = s.recipe_id ? this._recipe(s.recipe_id) : null;
+    const why = (s.reasons || []).join(" · ") || s.reason || "";
+    const img = recipe?.image && safeUrl(recipe.image) ? this._img(recipe.image, dishEmoji(s.title)) : dishEmoji(s.title);
+    return `<button class="sg" data-oc="add-sugg" data-n="${n}"><span class="sthumb">${img}</span><span class="sgt"><b>${esc(s.title)}</b>${s.ai ? " 🤖" : ""}${why ? `<div class="why">${esc(why)}</div>` : ""}</span><span class="pp">${s.cost != null ? `<b>≈ ${eur(s.cost)}</b>` : ""}<span class="meta">＋ dazu</span></span></button>`;
+  }
+
+  /** A suggested drink (drinks_suggest) as a button row. */
+  _drinkRow(x, attrs) {
+    const qty = x.recipe_id ? "📖 Rezept" : x.quantity ? `${num(x.quantity)} ${x.unit || "l"}${x.bottles ? ` · ${x.bottles} Fl.` : ""}` : "";
+    const offer = x.offer ? `🏷️ ${x.offer.text || `${x.offer.store || ""} ${eur(x.offer.price)}`}` : "";
+    const why = [x.ai ? `🤖 ${x.reason || "KI-Vorschlag"}` : x.reason ? `passt zu: ${x.reason}` : "", x.hint, offer].filter(Boolean).join(" · ");
+    return `<button class="sg" ${attrs}><span class="sthumb">${drinkEmoji(x)}</span><span class="sgt"><b>${esc(x.title)}</b> ${alcBadge(x.alcohol, x.kids)}${why ? `<div class="why">${esc(why)}</div>` : ""}</span><span class="pp">${qty ? `<span class="meta">${esc(qty)}</span>` : ""}<span class="meta">＋ dazu</span></span></button>`;
+  }
+
+  _occDrinksHtml(st) {
+    const d = st.drinks || {};
+    const alcohol = this._data.occasion_meta?.alcohol !== false;
+    const ai = this._aiOn("drinks");
+    const tools = `<div class="ocmore">${alcohol ? `<button class="chip ${d.alcohol !== false ? "active" : ""}" data-oc="drinks-alc" aria-pressed="${d.alcohol !== false}">🍷 mit Alkohol</button>` : '<span class="hint">Nur alkoholfreie Vorschläge (⚙️ Budget & Planung).</span>'}
+        ${ai ? `<button class="btn small" data-oc="drinks-ai" ${d.aiBusy || d.loading ? "disabled" : ""}>${d.aiBusy ? `<span class="spin">⏳</span> ${esc(this._aiName())} denkt nach …` : "🤖 KI-Vorschläge"}</button>` : ""}</div>`;
+    let list;
+    if (d.loading) list = `<div class="hint">⏳ Suche passende Getränke …</div>`;
+    else if (d.error) list = `<div class="notice err">${esc(d.error)}</div>`;
+    else {
+      const all = d.result?.drinks || [];
+      const have = new Set((st.view.items || []).filter((i) => i.course === "drink").map((i) => fold(i.title)));
+      const free = all.filter((x) => !have.has(fold(x.title)));
+      list = free.length ? `<div class="suglist">${free.map((x) => this._drinkRow(x, `data-oc="drink-add" data-n="${all.indexOf(x)}"`)).join("")}</div>` : `<div class="hint">${all.length ? "Alle Vorschläge sind schon dabei." : "Keine Vorschläge."}</div>`;
+    }
+    const busy = d.aiBusy ? `<div class="notice"><span class="spin">⏳</span> ${esc(this._aiName())} sucht Getränke (${AI_WAIT}) – bis dahin die Vorschläge nach Regeln.</div>` : "";
+    const note = d.aiNote ? `<div class="notice warn">🤖 ${esc(d.aiNote)}</div>` : "";
+    const q = d.result?.quantities;
+    const amount = q?.liters ? `<div class="hint">Für ${q.guests} Gäste${q.children ? ` und ${q.children} Kinder` : ""}${q.hours ? ` in ${num(q.hours)} Stunden` : ""} etwa ${num(q.liters)} l Getränke.</div>` : "";
+    return tools + busy + note + list + amount;
+  }
+
+  _occMenuHtml(st) {
+    const m = st.menu;
+    if (!m) return "";
+    const head = m.source === "ai" ? `🤖 Menü-Vorschlag von ${esc(this._aiName())}` : "💡 Menü-Vorschlag nach Regeln";
+    const busy = m.aiBusy ? `<div class="notice"><span class="spin">⏳</span> ${esc(this._aiName())} stellt das Menü zusammen (${AI_WAIT}) – bis dahin die Vorschläge nach Regeln.</div>` : "";
+    const note = m.aiError ? `<div class="notice warn">🤖 ${esc(m.aiError)} Hier die Vorschläge nach Regeln.</div>` : "";
+    if (m.loading && !m.suggestions) return `<div class="ocmenu"><h4>${head}</h4>${busy}<div class="hint">⏳ Stelle zusammen …</div></div>`;
+    if (m.error) return `<div class="ocmenu"><h4>${head}</h4><div class="notice err">${esc(m.error)}</div><div class="ocmore"><button class="btn small ghost" data-oc="menu-close">Schließen</button></div></div>`;
+    const sugg = this._occFreshMenu(st, m.suggestions);
+    const groups = OCC_COURSES.filter((c) => (sugg[c] || []).length)
+      .map((c) => {
+        const info = this._courseInfo(c);
+        const rows = sugg[c]
+          .slice(0, c === "drink" ? 5 : c === "extra" ? 8 : 3)
+          .map((s, n) => {
+            const why = (s.reasons || []).join(" · ") || s.reason || s.hint || "";
+            const right = s.cost != null ? `≈ ${eur(s.cost)}` : qtyText(s);
+            return `<div class="ocrow"><span class="oi"><b>${esc(s.title)}</b>${s.ai ? " 🤖" : ""}${c === "drink" ? ` ${alcBadge(s.alcohol, s.kids)}` : ""}${why ? `<div class="why">${esc(why)}</div>` : ""}</span>${right ? `<span class="meta">${esc(right)}</span>` : ""}<button class="btn small" data-oc="menu-add" data-course="${c}" data-n="${n}" aria-label="${esc(s.title)} hinzufügen">＋</button></div>`;
+          })
+          .join("");
+        return `<div class="mc"><b>${esc(info.emoji)} ${esc(info.label)}</b>${rows}</div>`;
+      })
+      .join("");
+    const picks = this._occMenuPicks(st, sugg).length;
+    return `<div class="ocmenu" aria-live="polite"><h4>${head}</h4>${busy}${note}${groups ? `<div class="mcs">${groups}</div>` : '<div class="hint">Keine weiteren Vorschläge – es ist schon alles dabei.</div>'}
+        <div class="ocmore">${picks || st.applying ? `<button class="btn small primary" data-oc="menu-apply" ${st.applying ? "disabled" : ""} title="Je Gang so viele wie die Vorlage vorsieht, Getränke (wenn noch keine da sind) und fehlendes Zubehör">${st.applying ? "⏳ Übernehme …" : `✓ Fehlendes übernehmen (${picks})`}</button>` : groups ? '<span class="hint">Es fehlt nichts – einzelne Vorschläge kommen mit ＋ dazu.</span>' : ""}<button class="btn small ghost" data-oc="menu-close">Schließen</button></div>
+      </div>`;
+  }
+
+  /** Suggestions without what the occasion already has. */
+  _occFreshMenu(st, suggestions) {
+    const items = st.view.items || [];
+    const used = new Set(items.map((i) => i.recipe_id).filter(Boolean));
+    const titles = new Set(items.map((i) => fold(i.title)));
+    const out = {};
+    for (const [c, list] of Object.entries(suggestions || {})) out[c] = (list || []).filter((s) => !(s.recipe_id && used.has(s.recipe_id)) && !titles.has(fold(s.title)));
+    return out;
+  }
+
+  /** What "✓ Fehlendes übernehmen" adds (like occasions.apply_menu): per dish course up to
+   *  the template's count, drinks when there are none yet, the missing extras. */
+  _occMenuPicks(st, sugg) {
+    const counts = this._occTemplate(st.view.template)?.counts || {};
+    const items = st.view.items || [];
+    const picks = [];
+    for (const c of OCC_COURSES) {
+      const list = sugg[c] || [];
+      if (!list.length) continue;
+      const present = items.filter((i) => i.course === c).length;
+      if (c === "drink") {
+        if (!present) picks.push(...list.slice(0, 5).map((s) => occItem(s, c)));
+      } else if (c === "extra") picks.push(...list.map((s) => occItem(s, c)));
+      else picks.push(...list.slice(0, Math.max(0, (counts[c] ?? 1) - present)).map((s) => occItem(s, c)));
+    }
+    return picks;
+  }
+
+  _occChange(st, t) {
+    if (t.matches("input[type=checkbox][data-oc]")) return this._occAction(st, t.dataset.oc, t).catch(() => {});
+    const o = st.view;
+    if (t.classList.contains("otitle")) {
+      const title = t.value.trim();
+      if (title && title !== o.title) this._occSave(st, { title });
+      else t.value = o.title;
+    } else if (t.classList.contains("otpl")) this._occSave(st, { template: t.value }, { extras: true });
+    else if (t.classList.contains("odate")) {
+      if (t.value && t.value !== o.date) this._occSave(st, { date: t.value });
+    } else if (t.classList.contains("otime")) {
+      if (t.value && t.value !== o.time) this._occSave(st, { time: t.value });
+    } else if (t.classList.contains("oallday")) this._occSave(st, { time: t.checked ? "" : this._occTemplate(o.template)?.time || "19:00" });
+    else if (t.classList.contains("oguests") || t.classList.contains("ochildren")) this._occStep(st, t.classList.contains("oguests") ? "guests" : "children", 0, Number(t.value));
+    else if (t.classList.contains("onotes")) {
+      if (t.value !== (o.notes || "")) this._occSave(st, { notes: t.value });
+    }
+  }
+
+  /** Guests / children: − / ＋ (saved after a short pause) or typed. */
+  _occStep(st, key, delta, value = null) {
+    const [min, max] = key === "guests" ? [1, 200] : [0, 100];
+    const cur = st.draft[key] ?? st.view[key] ?? min;
+    const typed = value != null && Number.isFinite(value);
+    const next = Math.max(min, Math.min(max, typed ? Math.round(value) : cur + delta));
+    st.draft[key] = next;
+    const input = st.root?.querySelector(`.o${key}`);
+    if (input && Number(input.value) !== next) input.value = String(next);
+    st.root?.querySelectorAll(`[data-ostep="${key}"]`).forEach((b) => (b.disabled = Number(b.dataset.delta) < 0 ? next <= min : next >= max));
+    clearTimeout(st.stepTimer);
+    st.stepTimer = setTimeout(() => {
+      const patch = {};
+      for (const k of ["guests", "children"]) if (st.draft[k] != null && st.draft[k] !== st.view[k]) patch[k] = st.draft[k];
+      if (Object.keys(patch).length) this._occSave(st, patch, { extras: true });
+    }, typed ? 0 : 500);
+  }
+
+  /** Save a change (one after the other); the answer is the new view. Errors show in the
+   *  editor. Returns the occasion or null. */
+  _occSave(st, patch, opts = {}) {
+    st.saving += 1;
+    st.saved = false;
+    this._occState(st);
+    const run = async () => {
+      let result = null;
+      try {
+        const res = await this._hass.callWS({ type: `${DOMAIN}/occasion_save`, occasion: { id: st.id, ...patch } });
+        result = res.occasion;
+        if (this._occ === st) {
+          st.view = res.occasion;
+          st.error = null;
+          for (const k of Object.keys(st.draft)) if (st.draft[k] === st.view[k]) delete st.draft[k];
+          if (opts.extras) this._occLoadExtras(st);
+        }
+      } catch (err) {
+        if (this._occ === st) {
+          st.error = errText(err);
+          st.draft = {};
+        }
+      } finally {
+        st.saving -= 1;
+        if (this._occ === st) {
+          st.saved = !st.error && !st.saving;
+          this._occRender(st);
+        }
+      }
+      return result;
+    };
+    st.queue = st.queue.then(run, run);
+    return st.queue;
+  }
+
+  _occState(st) {
+    const el = st.root?.querySelector(".ocstate");
+    if (el) el.textContent = st.saving ? "⏳ Speichere …" : st.saved ? "✓ gespeichert" : "";
+  }
+
+  /** Render the editor again (keeps the focus, the typed text and the scroll position). */
+  _occRender(st) {
+    if (this._occ !== st || !st.root?.isConnected) return;
+    const modal = st.root.querySelector(".modal");
+    const body = st.root.querySelector(".mbody");
+    const active = this.shadowRoot.activeElement;
+    const key = active && body.contains(active) ? active.dataset?.ofocus : null;
+    const typed = key ? { value: active.value, caret: active.selectionStart } : null;
+    const top = modal.scrollTop;
+    body.innerHTML = this._occBodyHtml(st);
+    st.root.querySelector(".mhead h2").textContent = st.view.label || st.view.title;
+    modal.scrollTop = top;
+    if (!key) return;
+    const el = body.querySelector(`[data-ofocus="${key}"]`);
+    if (!el) return;
+    if (["title", "notes", "addq"].includes(key) && typed.value != null) el.value = typed.value;
+    el.focus({ preventScroll: true });
+    try {
+      if (typed.caret != null && el.setSelectionRange) el.setSelectionRange(typed.caret, typed.caret);
+    } catch (e) {
+      /* no caret (number, date) */
+    }
+  }
+
+  async _occAction(st, action, el) {
+    const d = el.dataset;
+    switch (action) {
+      case "remove":
+      case "extra-off":
+        await this._occSave(st, { remove_items: [d.uid] }, { extras: action === "extra-off" });
+        break;
+      case "extra-on": {
+        const e = st.extras?.items?.[Number(d.n)];
+        if (!e) break;
+        st.extras.items = st.extras.items.filter((x) => x !== e);
+        this._occRender(st);
+        await this._occSave(st, { add_items: [occItem(e, e.course || "extra")] });
+        break;
+      }
+      case "recipe":
+        this._openRecipe(d.id, undefined, { occasion: st.id });
+        break;
+      case "course-add":
+        st.extraCourses.add(d.course);
+      // falls through: the new course opens with its suggestions
+      case "add": {
+        const course = d.course;
+        st.add = { course, query: "", items: null, loading: DISH_COURSES.has(course), error: null };
+        this._occRender(st);
+        if (course === "drink") this._occLoadDrinks(st);
+        else if (DISH_COURSES.has(course)) this._occLoadCourse(st, course);
+        st.root.querySelector(`.ocsec[data-course="${course}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        break;
+      }
+      case "add-close":
+        st.add = null;
+        this._occRender(st);
+        break;
+      case "add-sugg": {
+        const s = st.add?.items?.[Number(d.n)];
+        if (!s) break;
+        const course = st.add.course;
+        st.add.items = st.add.items.filter((x) => x !== s);
+        await this._occSave(st, { add_items: [occItem(s, course)] });
+        break;
+      }
+      case "add-recipe": {
+        if (!st.add) break;
+        const course = st.add.course;
+        st.add.query = "";
+        await this._occSave(st, { add_items: [{ recipe_id: d.id, course }] });
+        break;
+      }
+      case "add-text": {
+        if (!st.add) break;
+        const input = st.root.querySelector(".oaddq");
+        const text = String(input?.value || st.add.query || "").trim();
+        if (!text) {
+          input?.focus();
+          break;
+        }
+        const course = st.add.course;
+        st.add.query = "";
+        if (input) input.value = "";
+        const recipe = this._data.recipes.find((r) => fold(r.name) === fold(text));
+        await this._occSave(st, { add_items: [recipe ? { recipe_id: recipe.id, course } : { title: text, course }] });
+        break;
+      }
+      case "drink-add": {
+        const x = st.drinks?.result?.drinks?.[Number(d.n)];
+        if (x) await this._occSave(st, { add_items: [drinkItem(x)] });
+        break;
+      }
+      case "drinks-alc":
+        st.drinks = { ...(st.drinks || {}), alcohol: st.drinks?.alcohol === false };
+        this._occLoadDrinks(st);
+        break;
+      case "drinks-ai":
+        this._occLoadDrinks(st, true);
+        break;
+      case "menu":
+      case "menu-ai":
+        this._occMenu(st, action === "menu-ai");
+        break;
+      case "menu-add": {
+        const list = this._occFreshMenu(st, st.menu?.suggestions)[d.course] || [];
+        const s = list[Number(d.n)];
+        if (s) await this._occSave(st, { add_items: [occItem(s, d.course)] });
+        break;
+      }
+      case "menu-apply": {
+        const picks = this._occMenuPicks(st, this._occFreshMenu(st, st.menu?.suggestions));
+        if (!picks.length || st.applying) break;
+        st.applying = true;
+        st.menuSeq = (st.menuSeq || 0) + 1; // a later AI answer is not shown any more
+        this._occRender(st);
+        const saved = await this._occSave(st, { add_items: picks });
+        st.applying = false;
+        if (saved) {
+          st.menu = null;
+          const names = picks.map((p) => p.title || this._recipe(p.recipe_id)?.name).filter(Boolean);
+          this._toast(`✓ ${names.length} übernommen: ${names.slice(0, 3).join(", ")}${names.length > 3 ? " …" : ""}`);
+          this._occLoadExtras(st);
+        }
+        this._occRender(st);
+        break;
+      }
+      case "menu-close":
+        st.menu = null;
+        st.menuSeq = (st.menuSeq || 0) + 1;
+        this._occRender(st);
+        break;
+      case "shop":
+        await this._occShopping(st, el);
+        break;
+      case "delete": {
+        const o = st.view;
+        if (!confirm(`„${o.title}“ (${this._dateLabel(o.date)}) löschen? Einträge auf der Einkaufsliste bleiben.`)) break;
+        try {
+          await this._hass.callWS({ type: `${DOMAIN}/occasion_delete`, occasion_id: st.id });
+        } catch (err) {
+          st.error = errText(err);
+          this._occRender(st);
+          break;
+        }
+        this._toast(`🗑 ${o.label || o.title} gelöscht`);
+        this._closeModal();
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  async _occLoadCourse(st, course) {
+    const my = (st.addSeq = (st.addSeq || 0) + 1);
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/occasion_suggest`, occasion_id: st.id, course, count: 5 });
+      if (this._occ !== st || st.addSeq !== my || st.add?.course !== course) return;
+      Object.assign(st.add, { items: res.suggestions?.[course] || [], loading: false });
+    } catch (err) {
+      if (this._occ !== st || st.addSeq !== my || st.add?.course !== course) return;
+      Object.assign(st.add, { loading: false, error: errText(err) });
+    }
+    this._occRender(st);
+  }
+
+  /** Drinks for the occasion (rules; ai: the AI's first – a failing AI keeps the rules). */
+  async _occLoadDrinks(st, ai = false) {
+    const dr = (st.drinks = { ...(st.drinks || {}), error: null, aiNote: null, loading: !ai || !st.drinks?.result, aiBusy: ai });
+    const my = (st.drinkSeq = (st.drinkSeq || 0) + 1);
+    this._occRender(st);
+    const msg = { type: `${DOMAIN}/drinks_suggest`, occasion_id: st.id };
+    if (dr.alcohol === false) msg.alcohol = false;
+    if (ai) msg.ai = true;
+    try {
+      const res = await this._hass.callWS(msg);
+      if (this._occ !== st || st.drinkSeq !== my) return;
+      dr.result = res;
+      if (ai && res.ai && !res.ai.ok) dr.aiNote = `${res.ai.error || "Die KI hat nicht geantwortet."} Hier die Vorschläge nach Regeln.`;
+    } catch (err) {
+      if (this._occ !== st || st.drinkSeq !== my) return;
+      dr.error = errText(err);
+    }
+    dr.loading = false;
+    dr.aiBusy = false;
+    this._occRender(st);
+  }
+
+  /** The template's extras that are missing (checklist, "＋ Popcorn"). */
+  async _occLoadExtras(st) {
+    const my = (st.extraSeq = (st.extraSeq || 0) + 1);
+    st.extras = { ...(st.extras || { items: [] }), loading: true };
+    let items = [];
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/occasion_suggest`, occasion_id: st.id, course: "extra" });
+      items = res.suggestions?.extra || [];
+    } catch (err) {
+      items = [];
+    }
+    if (this._occ !== st || st.extraSeq !== my) return;
+    st.extras = { loading: false, items };
+    this._occRender(st);
+  }
+
+  /** "💡 Menü vorschlagen" / "🤖 KI-Menü": the rule menu at once, the AI's when it answers
+   *  (a failing AI keeps the rules and says why). */
+  async _occMenu(st, ai) {
+    const my = (st.menuSeq = (st.menuSeq || 0) + 1);
+    st.menu = { loading: true, aiBusy: ai, source: "rules", suggestions: null, aiError: null, error: null };
+    this._occRender(st);
+    const ask = (withAi) => this._hass.callWS({ type: `${DOMAIN}/occasion_suggest`, occasion_id: st.id, count: 3, ai: withAi });
+    const live = () => this._occ === st && st.menuSeq === my && st.menu;
+    ask(false)
+      .then((res) => {
+        if (!live() || st.menu.source === "ai") return;
+        st.menu.suggestions = res.suggestions || {};
+        st.menu.loading = false;
+        this._occRender(st);
+      })
+      .catch((err) => {
+        if (!live() || st.menu.suggestions) return;
+        st.menu.loading = false;
+        if (!st.menu.aiBusy) st.menu.error = errText(err);
+        this._occRender(st);
+      });
+    if (!ai) return;
+    try {
+      const res = await ask(true);
+      if (!live()) return;
+      if (res.ai?.ok) {
+        st.menu.suggestions = res.suggestions || {};
+        st.menu.source = "ai";
+      } else {
+        st.menu.aiError = res.ai?.error || "Die KI hat nicht geantwortet.";
+        st.menu.suggestions = st.menu.suggestions || res.suggestions || {};
+      }
+    } catch (err) {
+      if (!live()) return;
+      st.menu.aiError = errText(err);
+    }
+    st.menu.loading = false;
+    st.menu.aiBusy = false;
+    this._occRender(st);
+  }
+
+  async _occShopping(st, el) {
+    const label = el.innerHTML;
+    el.disabled = true;
+    el.textContent = "⏳ Erstelle die Liste …";
+    let res;
+    try {
+      res = await this._service("generate_shopping_list", { start_date: st.view.date, days: 1, occasion: st.id }, true);
+    } catch (e) {
+      el.disabled = false;
+      el.innerHTML = label;
+      return;
+    }
+    const n = res?.items?.length || 0;
+    this._toast(n ? `🛒 ${n} Artikel für ${st.view.label || st.view.title} auf der Einkaufsliste` : `Für ${st.view.label || st.view.title} gibt es nichts einzukaufen.`);
+    this._closeModal();
+    if (n) this._goTab("shopping");
+  }
+
+  /** "🍷 Passt dazu" in a recipe: drink chips; a tap shows why, the offer and actions. */
+  async _fillDrinks(root, recipe, ctx) {
+    const box = root.querySelector(".drinkbox");
+    if (!box) return;
+    this._drinkCache = this._drinkCache || {};
+    let res = this._drinkCache[recipe.id];
+    if (!res) {
+      try {
+        res = await this._hass.callWS({ type: `${DOMAIN}/drinks_suggest`, recipe_ids: [recipe.id] });
+        this._drinkCache[recipe.id] = res;
+      } catch (err) {
+        if (box.isConnected) box.querySelector(".dchips").innerHTML = `<span class="hint">${esc(errText(err))}</span>`;
+        return;
+      }
+    }
+    if (!box.isConnected) return;
+    const drinks = (res.drinks || []).slice(0, 6);
+    const chips = box.querySelector(".dchips");
+    const info = box.querySelector(".dinfo");
+    const entry = ctx?.date && ctx?.meal ? (this._data.plan[ctx.date] || {})[ctx.meal] : null;
+    if (!drinks.length) {
+      chips.innerHTML = '<span class="hint">Keine Vorschläge.</span>';
+      return;
+    }
+    chips.innerHTML = drinks.map((x, n) => `<button class="chip ${x.alcohol ? "alc" : ""}" data-dn="${n}" aria-expanded="false" title="${esc(x.reason || x.hint || "")}">${drinkEmoji(x)} ${esc(x.title)}</button>`).join("") + (res.alcohol ? "" : '<span class="meta">nur alkoholfrei</span>');
+    let open = -1;
+    chips.addEventListener("click", (ev) => {
+      const chip = ev.target.closest("[data-dn]");
+      if (!chip) return;
+      const n = Number(chip.dataset.dn);
+      open = open === n ? -1 : n;
+      chips.querySelectorAll("[data-dn]").forEach((c) => {
+        c.classList.toggle("on", Number(c.dataset.dn) === open);
+        c.setAttribute("aria-expanded", String(Number(c.dataset.dn) === open));
+      });
+      if (open < 0) {
+        info.hidden = true;
+        return;
+      }
+      const x = drinks[open];
+      const has = (entry?.drinks || []).some((y) => fold(y.title) === fold(x.title));
+      info.hidden = false;
+      info.innerHTML = `<div><b>${drinkEmoji(x)} ${esc(x.title)}</b> ${alcBadge(x.alcohol, x.kids)}${x.hint ? ` <span class="meta">· ${esc(x.hint)}</span>` : ""}</div>
+        ${x.reason ? `<div class="meta">Passt zu: ${esc(x.reason)}</div>` : ""}
+        ${x.offer ? `<div class="meta">🏷️ Im Angebot: ${esc(x.offer.title || x.title)} · ${esc(x.offer.text || eur(x.offer.price))}</div>` : ""}
+        <div class="row">
+          ${entry && !has ? `<button class="btn small primary" data-dact="meal">＋ Zur Mahlzeit</button>` : entry ? '<span class="meta">✓ bei dieser Mahlzeit</span>' : ""}
+          <button class="btn small" data-dact="list">🛒 Auf die Einkaufsliste</button>
+          ${x.recipe_id && this._recipe(x.recipe_id) ? `<button class="btn small" data-dact="recipe">📖 Rezept</button>` : ""}
+        </div>`;
+    });
+    info.addEventListener("click", async (ev) => {
+      const act = ev.target.closest("[data-dact]")?.dataset.dact;
+      const x = drinks[open];
+      if (!act || !x) return;
+      if (act === "recipe") return this._openRecipe(x.recipe_id);
+      if (act === "list") {
+        await this._todo("add_item", { item: x.name || x.title });
+        this._toast(`🛒 ${x.name || x.title} auf die Einkaufsliste gesetzt`);
+        return;
+      }
+      const drinksNow = [...(entry.drinks || []), { title: x.title, alcohol: Boolean(x.alcohol), ...(x.recipe_id ? { recipe_id: x.recipe_id } : {}) }];
+      let saved;
+      try {
+        saved = await this._planDrinks(ctx.date, ctx.meal, entry, drinksNow);
+      } catch (e) {
+        return;
+      }
+      entry.drinks = saved?.entry?.drinks || drinksNow;
+      this._toast(`🥤 ${x.title} zu ${entry.title}`);
+      ev.target.closest(".row").innerHTML = '<span class="meta">✓ bei dieser Mahlzeit</span>';
+    });
+  }
+
+  /** The drinks of a plan entry (plan_meal with the same dish keeps it, also "gekocht"). */
+  async _planDrinks(date, meal, entry, drinks) {
+    // a typed drink without "alcohol": the backend tells by its name
+    const data = { date, meal, drinks: drinks.map((x) => ({ title: x.title, ...(typeof x.alcohol === "boolean" ? { alcohol: x.alcohol } : {}), ...(x.recipe_id ? { recipe_id: x.recipe_id } : {}) })) };
+    if (entry.servings) data.servings = entry.servings;
+    if (entry.recipe_id) data.recipe = entry.recipe_id;
+    else data.title = entry.title;
+    if (entry.note) data.note = entry.note;
+    return this._service("plan_meal", data, true);
+  }
+
+  /** "🥤 Getränke" of the meal-entry dialog: chips with ✕, "🍷 Getränk hinzufügen". */
+  _entryDrinks(root, date, meal, entry) {
+    const box = root.querySelector(".drinksec");
+    if (!box) return;
+    const st = { drinks: [...(entry.drinks || [])], sugg: null, open: false, loading: false, busy: false };
+    const render = () => {
+      const chips = st.drinks.map((x, n) => `<span class="dchip-x">${drinkEmoji(x)} ${esc(x.title)} ${alcBadge(x.alcohol)}<button class="icon" data-dx="${n}" aria-label="${esc(x.title)} entfernen" title="Entfernen">✕</button></span>`).join("");
+      const have = new Set(st.drinks.map((x) => fold(x.title)));
+      const list = st.loading ? '<div class="hint">⏳ Suche passende Getränke …</div>' : (st.sugg || []).filter((x) => !have.has(fold(x.title))).map((x) => this._drinkRow(x, `data-dadd="${st.sugg.indexOf(x)}"`)).join("");
+      box.querySelector(".dchips").innerHTML = chips || '<span class="hint">Noch kein Getränk.</span>';
+      box.querySelector(".dadd").innerHTML = st.open
+        ? `<div class="suglist">${list}</div><div class="addq" style="display:flex;gap:6px"><input type="search" class="dq" placeholder="Anderes Getränk, z. B. Apfelschorle" aria-label="Anderes Getränk" style="flex:1;min-width:0" enterkeyhint="done"><button class="btn small" data-dfree>＋</button></div>`
+        : `<button class="btn small" data-dopen>🍷 Getränk hinzufügen</button>`;
+    };
+    const save = async (drinks) => {
+      if (st.busy) return false;
+      st.busy = true;
+      try {
+        const res = await this._planDrinks(date, meal, entry, drinks);
+        st.drinks = res?.entry?.drinks || drinks;
+        entry.drinks = st.drinks;
+        return true;
+      } catch (e) {
+        return false;
+      } finally {
+        st.busy = false;
+        render();
+      }
+    };
+    const add = (x) => save([...st.drinks, { title: x.title, ...(typeof x.alcohol === "boolean" ? { alcohol: x.alcohol } : {}), ...(x.recipe_id ? { recipe_id: x.recipe_id } : {}) }]);
+    box.addEventListener("click", async (ev) => {
+      const t = ev.target;
+      const dx = t.closest("[data-dx]");
+      if (dx) return save(st.drinks.filter((_, n) => n !== Number(dx.dataset.dx)));
+      if (t.closest("[data-dopen]")) {
+        st.open = true;
+        st.loading = true;
+        render();
+        const msg = { type: `${DOMAIN}/drinks_suggest` };
+        if (entry.recipe_id) msg.recipe_ids = [entry.recipe_id];
+        else msg.titles = [entry.title];
+        try {
+          st.sugg = (await this._hass.callWS(msg)).drinks || [];
+        } catch (err) {
+          st.sugg = [];
+          this._toast(errText(err));
+        }
+        st.loading = false;
+        render();
+        box.querySelector(".dq")?.focus({ preventScroll: true });
+        return;
+      }
+      const dadd = t.closest("[data-dadd]");
+      if (dadd) return add(st.sugg[Number(dadd.dataset.dadd)]);
+      if (t.closest("[data-dfree]")) {
+        const text = box.querySelector(".dq")?.value.trim();
+        if (text) add({ title: text });
+      }
+    });
+    box.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" || !ev.target.classList.contains("dq")) return;
+      ev.preventDefault();
+      const text = ev.target.value.trim();
+      if (text) add({ title: text });
+    });
+    render();
   }
 
   /* ------------------------------------------------------------ settings view (⚙️, 1.4) */

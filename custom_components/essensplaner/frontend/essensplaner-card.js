@@ -8,6 +8,7 @@
  *   start: today | monday           (week mode)
  *   show_images: true
  *   show_ingredients: false         (next mode)
+ *   show_occasions: true            (today: "Heute: 🎬 Filmabend", week: occasion chips)
  *
  * Loaded automatically by the integration – no resource needs to be added.
  */
@@ -82,6 +83,7 @@ const CARD_STYLE = `
     background: color-mix(in srgb, var(--meal-color) 13%, transparent); }
   .chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--meal-color); }
   .chip.done { opacity: .55; text-decoration: line-through; }
+  .chip.occ { font-weight: 500; }
   .free { font-size: 13px; color: var(--secondary-text-color); }
   .msg { padding: 16px; color: var(--secondary-text-color); }
 `;
@@ -103,7 +105,7 @@ class EssensplanerCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { mode: "today", days: 7, start: "today", show_images: true, show_ingredients: false, ...config };
+    this._config = { mode: "today", days: 7, start: "today", show_images: true, show_ingredients: false, show_occasions: true, ...config };
     this._render();
   }
 
@@ -167,6 +169,12 @@ class EssensplanerCard extends HTMLElement {
     return this._data.all_meals.find((m) => m.id === id)?.label || id;
   }
 
+  /** Occasions of a day (1.5; none with show_occasions: false or an older backend). */
+  _occasions(iso) {
+    if (this._config.show_occasions === false) return [];
+    return (this._data.occasions || []).filter((o) => o.date === iso);
+  }
+
   _thumb(entry, mealId) {
     const recipe = this._data.recipes.find((r) => r.id === entry?.recipe_id);
     const url = this._config.show_images && recipe && safeUrl(recipe.image);
@@ -222,10 +230,12 @@ class EssensplanerCard extends HTMLElement {
     const tomorrow = toIso(addDays(d, 1));
     const tPlan = Object.entries(this._data.plan[tomorrow] || {});
     const tMain = tPlan.find(([m]) => m === this._data.default_meal) || tPlan[0];
+    const occasions = this._occasions(today);
+    const occLine = occasions.length ? `<span>Heute: <b>${occasions.map((o) => `${esc(o.label || o.title)}${o.time ? ` ${esc(o.time)}` : ""}`).join(", ")}</b></span>` : "";
     return `<div class="wrap">
         ${this._head("Heute", `${WEEKDAYS[weekdayIndex(d)]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`)}
         <div class="meals">${rows}</div>
-        <div class="foot"><span>Morgen: <b>${tMain ? esc(tMain[1].title) : "noch frei"}</b></span><span style="flex:1"></span>${this._budgetLine()}</div>
+        <div class="foot">${occLine}<span>Morgen: <b>${tMain ? esc(tMain[1].title) : "noch frei"}</b></span><span style="flex:1"></span>${this._budgetLine()}</div>
       </div>`;
   }
 
@@ -271,11 +281,13 @@ class EssensplanerCard extends HTMLElement {
       const plan = this._data.plan[iso] || {};
       const order = this._data.all_meals.map((m) => m.id);
       const entries = Object.entries(plan).sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
-      const items = entries.length
-        ? entries
-            .map(([id, e]) => `<span class="chip ${e.cooked ? "done" : ""}" style="--meal-color:${MEAL_STYLE[id]?.color || "var(--primary-color)"}" title="${esc(this._label(id))}"><i></i>${esc(e.title)}</span>`)
-            .join("")
-        : `<span class="free">–</span>`;
+      const occasions = this._occasions(iso)
+        .map((o) => `<span class="chip occ" style="--meal-color:#8e24aa" title="Anlass${o.time ? ` · ${esc(o.time)}` : ""}">${esc(o.emoji || "🎉")} ${esc(o.title)}</span>`)
+        .join("");
+      const meals = entries
+        .map(([id, e]) => `<span class="chip ${e.cooked ? "done" : ""}" style="--meal-color:${MEAL_STYLE[id]?.color || "var(--primary-color)"}" title="${esc(this._label(id))}"><i></i>${esc(e.title)}</span>`)
+        .join("");
+      const items = occasions || meals ? occasions + meals : `<span class="free">–</span>`;
       rows.push(`<div class="day ${iso === this._data.today ? "today" : ""}" data-open><div class="wd">${WEEKDAYS_SHORT[weekdayIndex(d)]}<small>${d.getDate()}. ${MONTHS[d.getMonth()]}</small></div><div class="items">${items}</div></div>`);
     }
     const budget = this._budgetLine();
@@ -321,6 +333,7 @@ class EssensplanerCardEditor extends HTMLElement {
           </label>` : ""}
         ${c.mode === "next" ? `<label class="cb"><input type="checkbox" data-key="show_ingredients" ${c.show_ingredients ? "checked" : ""}> Zutaten anzeigen</label>` : ""}
         <label class="cb"><input type="checkbox" data-key="show_images" ${c.show_images !== false ? "checked" : ""}> Bilder anzeigen</label>
+        ${c.mode !== "next" ? `<label class="cb"><input type="checkbox" data-key="show_occasions" ${c.show_occasions !== false ? "checked" : ""}> Anlässe anzeigen (z. B. „Heute: 🎬 Filmabend“)</label>` : ""}
       </div>`;
     this.querySelectorAll("[data-key]").forEach((el) =>
       el.addEventListener("change", () => {
