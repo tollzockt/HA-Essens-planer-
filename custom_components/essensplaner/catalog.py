@@ -169,8 +169,10 @@ INDUSTRIES: dict[str, str] = {
     "budnikowsky": "drogerie-gesundheit",
 }
 
-MSG_OFF = "Keine Angebotsquelle eingeschaltet (marktguru, EDEKA oder ALDI SÜD in den Optionen)."
-MSG_NO_TARGETS = "Keine gültige Postleitzahl (Optionen oder Filialen)"
+MSG_OFF = (
+    "Keine Angebotsquelle eingeschaltet (marktguru, EDEKA oder ALDI SÜD in den Einstellungen)."
+)
+MSG_NO_TARGETS = "Keine gültige Postleitzahl (Einstellungen oder Filialen)"
 MSG_NO_BRANCH = (
     "Für die eingeschalteten Quellen fehlt noch die Filiale (EDEKA: Markt verknüpfen, "
     "ALDI SÜD: Filiale speichern)."

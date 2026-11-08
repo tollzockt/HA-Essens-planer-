@@ -1,20 +1,22 @@
 """Settings in the panel (1.4): options_schema.py and the websockets get_settings /
-save_settings (admins), with the same rules as the options flow."""
+save_settings (admins), with the rules of the 1.3 options flow. Home Assistant's options
+dialog only toggles the sidebar panel since 1.4 (test_config_flow.py)."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.essensplaner import options_schema as schema
+from custom_components.essensplaner import const, options_schema as schema
 from custom_components.essensplaner.const import DOMAIN
 
-from .test_config_flow import ECONOMY, GENERAL, _defaults
+from .test_config_flow import _defaults
 
 DE = json.loads(
     (
@@ -34,21 +36,37 @@ async def _ws(client: Any, msg_id: int, msg_type: str, **data: Any) -> dict[str,
 
 
 def test_texts_match_translations() -> None:
-    """The German messages and labels are the ones of the options flow (translations)."""
-    for code in ("no_meals", "invalid_zip"):
-        assert schema.ERROR_TEXTS_DE[code] == DE["options"]["error"][code]
-    for kind, labels in schema.CHOICE_LABELS_DE.items():
-        assert labels == DE["selector"][kind]["options"], kind
+    """Choice labels used by services.yaml too (meals, strategies) are the translated
+    ones; every choice and every validation code has a German text."""
+    for kind in ("meal", "strategy"):
+        assert schema.CHOICE_LABELS_DE[kind] == DE["selector"][kind]["options"], kind
+    assert sorted(schema.CHOICE_LABELS_DE["split_mode"]) == sorted(const.SPLIT_MODES)
+    assert sorted(schema.CHOICE_LABELS_DE["offers_source"]) == sorted(schema.OFFERS_SOURCES)
+    assert "eigenes Risiko" in schema.CHOICE_LABELS_DE["offers_source"]["marktguru"]
+    source = Path(schema.__file__).read_text(encoding="utf-8")
+    codes = set(re.findall(r'return (?:\(?None, |None if \w+ else )?"(\w+)"', source))
+    assert {"no_meals", "invalid_zip", "out_of_range", "invalid_entity"} <= codes
+    assert codes <= set(schema.ERROR_TEXTS_DE)
 
 
-def test_every_flow_option_has_a_field() -> None:
-    """The panel knows every option of the three flow steps (and nothing else)."""
-    keys = set()
-    for step in ("init", "economy", "stores"):
-        keys |= set(DE["options"]["step"][step]["data"])
+def test_every_option_has_a_field() -> None:
+    """The panel knows every option the integration reads (all CONF_* keys of const.py
+    except the setup's starter-recipe import) – nothing is left to the options flow."""
+    keys = {
+        getattr(const, name)
+        for name in dir(const)
+        if name.startswith("CONF_") and name not in ("CONF_IMPORT_STARTER", "CONF_MEAL_TIME_PREFIX")
+    }
+    keys |= {f"{const.CONF_MEAL_TIME_PREFIX}{meal}" for meal in const.ALL_MEALS}
     assert keys == set(schema.FIELD_MAP)
     sections = {f.section for f in schema.FIELDS}
     assert sections == set(schema.SECTIONS)
+    # the 1.4 sources are off for new installations
+    defaults = schema.default_values()
+    assert defaults["offers_source"] == "off"
+    for key in ("rewe_online_prices", "aldi_online_prices", "edeka_offers"):
+        assert defaults[key] is False, key
+    assert defaults["receipt_ai_task_entity"] is None
 
 
 def test_validate_rules() -> None:
@@ -97,7 +115,7 @@ def test_validate_rules() -> None:
     messages = schema.error_messages(errors)
     assert messages["default_servings"] == "Bitte einen Wert von 1 bis 20 eingeben."
     assert messages["store_split_min_percent"] == "Bitte einen Wert von 0 bis 90 eingeben."
-    assert messages["zip_code"] == DE["options"]["error"]["invalid_zip"]
+    assert messages["zip_code"] == schema.ERROR_TEXTS_DE["invalid_zip"]
     assert messages["shopping_sync_entity"] == "Bitte eine Entität der Art „todo“ wählen."
     # marktguru: a postcode of a selected branch is enough; a wrong postcode never is
     assert schema.validate({**base, "offers_source": "marktguru"}, ["57610"])[1] == {}
@@ -114,23 +132,20 @@ def test_validate_rules() -> None:
     assert cleaned["weekly_budget"] == 0.0
 
 
-async def test_current_values_are_the_flow_defaults(
+async def test_new_installation_shows_the_defaults(
     hass: HomeAssistant, setup_integration: MockConfigEntry
 ) -> None:
-    """What the panel shows for an option is what the options flow shows (same defaults)."""
+    """A fresh setup shows the defaults in the panel (with the servings chosen at setup);
+    the options dialog shows the same panel switch."""
     entry = setup_integration
     values = schema.current_values({**entry.data, **entry.options})
+    expected = {
+        **schema.default_values(),
+        "enabled_meals": ["fruehstueck", "mittagessen", "abendessen"],
+    }
+    assert values == expected
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    for key, default in _defaults(result).items():
-        if key.startswith("time_"):
-            default = default[:5]
-        assert values[key] == default, key
-    result = await hass.config_entries.options.async_configure(result["flow_id"], GENERAL)
-    for key, default in _defaults(result).items():
-        assert values[key] == default, key
-    result = await hass.config_entries.options.async_configure(result["flow_id"], ECONOMY)
-    for key, default in _defaults(result).items():
-        assert values[key] == default, key
+    assert _defaults(result) == {"show_panel": values["show_panel"]}
 
 
 # ----------------------------------------------------------------------------------
@@ -226,7 +241,7 @@ async def test_settings_need_an_admin(
 async def test_save_settings_errors_store_nothing(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
 ) -> None:
-    """Invalid values come back per field (German, like the options flow) and nothing is
+    """Invalid values come back per field (German, like the 1.3 options flow) and nothing is
     stored or reloaded."""
     entry = setup_integration
     manager = entry.runtime_data
@@ -250,7 +265,7 @@ async def test_save_settings_errors_store_nothing(
         "errors": {
             "enabled_meals": "Bitte mindestens eine Mahlzeit auswählen.",
             "store_split_trip_min": "Bitte einen Wert von 0 bis 50 eingeben.",
-            "zip_code": DE["options"]["error"]["invalid_zip"],
+            "zip_code": schema.ERROR_TEXTS_DE["invalid_zip"],
         },
     }
     await hass.async_block_till_done()
@@ -261,7 +276,7 @@ async def test_save_settings_errors_store_nothing(
 async def test_save_settings_stores_and_reloads(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
 ) -> None:
-    """Valid settings are stored like the options flow stores them; other option keys stay,
+    """Valid settings are stored like the 1.3 options flow stored them; other option keys stay,
     an emptied entity picker is removed, the entry reloads; saving again changes nothing."""
     entry = setup_integration
     hass.config_entries.async_update_entry(

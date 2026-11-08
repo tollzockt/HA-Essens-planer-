@@ -1,10 +1,35 @@
 # Changelog
 
-## 1.4.0 (in Arbeit)
+## 1.4.0
+
+Preise und Angebote direkt von den Ketten, alle Angebote deiner Läden, Kassenzettel als echte
+Ladenpreise, Drogerien als Läden – und alle Einstellungen im Panel. Deine Daten und
+Einstellungen bleiben erhalten; alle neuen Online-Quellen sind aus, bis du sie einschaltest.
+Wer den eingebauten Sprachagenten nutzt, kopiert `custom_sentences/de/essensplaner.yaml` erneut
+(neue Ketten). HACS-Release: `v1.4.0`.
+
+### Einstellungen im Panel
+- **⚙️ oben rechts im Panel** öffnet alle Einstellungen (am Handy als ganze Seite, am PC als
+  großes Fenster): Allgemein, Budget & Planung, Angebote & Preisquellen, Läden & Einkauf und
+  Kassenzettel, jedes Feld mit kurzer Erklärung. Geprüft wird wie bisher (Bereiche, mindestens
+  eine Mahlzeit, marktguru braucht eine Postleitzahl oder Läden mit Postleitzahl); Fehler
+  stehen direkt am Feld, gespeichert werden nur geänderte Werte. Danach lädt der Essensplaner
+  neu, das Panel verbindet sich von selbst wieder. Nur für Administratoren. Neue Websockets
+  `essensplaner/get_settings` und `essensplaner/save_settings`.
+- **„Konfigurieren“ unter Einstellungen → Geräte & Dienste** hat nur noch einen Schalter:
+  „Panel in der Seitenleiste anzeigen“ – damit kommst du immer wieder an die Einstellungen.
+  Alle anderen Werte bleiben beim Speichern dort unverändert. Die Einrichtung
+  (Beispielrezepte, Portionen) ist gleich geblieben.
+- Die neuen Quellen (EDEKA-Angebote, ALDI-SÜD-Preise, KI-Aufgabe für Kassenzettel) gibt es nur
+  in den Einstellungen des Panels, ebenso REWE-Onlinepreise und marktguru (mit dem
+  AGB-Hinweis direkt am Schalter). Für neue Installationen ist alles aus.
+- Fehlermeldungen, Sprachantworten und Hinweise im Panel verweisen auf die Einstellungen im
+  Panel statt auf „Konfigurieren“; Hinweise wie „Einschalten: ⚙️ Angebote & Preisquellen“
+  öffnen den passenden Bereich.
 
 ### Drogerien als Läden
 - **Rossmann, dm, Müller und Budni** gibt es als Ketten: in der Filialsuche (OpenStreetMap,
-  Drogerien sind dort `shop=chemist`), beim Speichern von Hand, in den Optionen, per Sprache
+  Drogerien sind dort `shop=chemist`), beim Speichern von Hand, in den Einstellungen, per Sprache
   („Was kaufe ich bei Rossmann?“) und bei Angeboten. Ein „Müller“-Leuchtengeschäft oder
   -Optiker wird nicht als Drogerie erkannt.
 - Neue Abteilungen **„Drogerie & Körperpflege“** und **„Haushalt & Reinigung“** mit gut 30
@@ -65,8 +90,10 @@
   Seiten). Der Katalog liegt in einer eigenen Datei (`.storage/essensplaner.catalog.<id>`)
   und wird mit der Integration gelöscht; in den Diagnose-Daten stehen nur Anzahlen.
 - **marktguru nur auf eigenes Risiko:** die AGB von marktguru (Stand Februar 2026) untersagen
-  das automatische Auslesen; das steht jetzt deutlich in den Optionen. Neue Installationen:
-  aus. Wer marktguru schon nutzt, behält seine Einstellung.
+  das automatische Auslesen und erlauben nur die private Nutzung. Das steht jetzt deutlich
+  am Schalter in den Einstellungen, in der Preisquellen-Karte und im README; marktguru ist
+  nur noch eine Ergänzung zu den direkten Quellen der Ketten. Neue Installationen: aus. Wer
+  marktguru schon nutzt, behält seine Einstellung.
 
 ### Kassenzettel
 - **Kassenzettel speichern und die echten Preise übernehmen** (statt geschätzter Preise):
@@ -89,14 +116,6 @@
   wird mit der Integration gelöscht (andere Dateien im Medienordner nicht).
 
 ### Panel
-- **Einstellungen im Panel:** ⚙️ oben rechts öffnet alle Einstellungen (am Handy als ganze
-  Seite) – Allgemein, Budget & Planung, Angebote & Preisquellen, Läden & Einkauf und
-  Kassenzettel, jedes Feld mit kurzer Erklärung. Es gelten dieselben Regeln wie im
-  Optionsdialog (Bereiche, mindestens eine Mahlzeit, marktguru braucht eine Postleitzahl oder
-  Läden mit Postleitzahl); Fehler stehen direkt am Feld. Nach dem Speichern lädt der
-  Essensplaner neu, das Panel verbindet sich danach von selbst wieder. Nur für
-  Administratoren; der Optionsdialog unter *Geräte & Dienste* funktioniert weiter. Neue
-  Websockets `essensplaner/get_settings` und `essensplaner/save_settings`.
 - **Angebote:** Umschalter „🍽️ Für meine Rezepte“ (wie bisher) und „🏪 Alle Angebote meiner
   Läden“: Läden als Chips (mehrere wählbar, wird gemerkt), Aktuell / Ab nächster Woche / Alle,
   Lebensmittel / Drogerie & Haushalt / Alles, Suche, Sortierung (Ersparnis, Preis, Grundpreis,
@@ -125,6 +144,9 @@
   Angebot „ab Montag“ begann bisher schon am Sonntag); der Platzhalter „thisisnobrand123“
   erscheint nicht mehr als Marke. Angebotsbilder kommen von `cdn.marktguru.de`.
 - Mehrfachpackungen in Litern („12 x 1 Liter“) werden als 12 l erkannt.
+- Öffnest du das Panel nach dem Update, bevor Home Assistant neu gestartet ist, zeigt es
+  „bitte neu starten“, statt die neuen Bereiche immer wieder abzufragen.
+- Alle Textfelder der Aktionen haben ein Beispiel in den Entwicklerwerkzeugen.
 
 ## 1.3.2
 

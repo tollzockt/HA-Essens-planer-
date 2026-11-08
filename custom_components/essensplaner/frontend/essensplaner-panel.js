@@ -203,7 +203,8 @@ const num = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
 const parseNum = (v) => Number(String(v ?? "").trim().replace(/\s*€$/, "").replace(",", "."));
 
 /* settings view (1.4): sections and a short German help per field; ranges, defaults and
- * the validation come from the backend (options_schema.py, the same as the options flow) */
+ * the validation come from the backend (options_schema.py). Home Assistant's own options
+ * dialog (Geräte & Dienste → Konfigurieren) only toggles the sidebar panel since 1.4. */
 const SETTINGS_SECTIONS = [
   ["general", "🏠 Allgemein"],
   ["planning", "💶 Budget & Planung"],
@@ -224,10 +225,10 @@ const SETTING_INFO = {
   auto_mark_cooked: ["Automatisch als gekocht markieren", "Nach Ablauf des Tages zählen geplante Rezepte als gekocht (bessere Vorschläge)."],
   shopping_sync_entity: ["Einkaufsliste kopieren nach", "Optional: eine weitere To-do-Liste (z. B. Bring!), die die Einträge ebenfalls bekommt."],
   register_intents: ["Sprachbefehle registrieren", "Damit Assist, Jarvis und andere Sprachassistenten den Planer nutzen können."],
-  show_panel: ["Panel in der Seitenleiste", "Ausgeschaltet verschwindet der Eintrag „Essensplaner“ nach dem Speichern aus der Seitenleiste – wieder einschalten unter Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren."],
+  show_panel: ["Panel in der Seitenleiste", "Ausgeschaltet verschwindet der Eintrag „Essensplaner“ (und damit diese Einstellungen) nach dem Speichern aus der Seitenleiste – wieder einschalten unter Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren."],
   weekly_budget: ["Wochenbudget", "Euro pro Woche fürs Essen, 0 = kein Budget.", "€"],
   plan_strategy: ["Planungsart", "Für die automatische Planung und Vorschläge."],
-  offers_source: ["marktguru-Angebote (inoffiziell)", "Ergänzung für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Penny, Kaufland, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden, außerdem Live-Suche in „Artikel hinzufügen“."],
+  offers_source: ["marktguru-Angebote (inoffiziell)", "Nur eine Ergänzung zu den direkten Quellen der Ketten (EDEKA-Angebote, ALDI SÜD, REWE-Onlinepreise) – für Läden ohne eigene Angebotsquelle (Lidl, REWE, Netto, Penny, Kaufland, NORMA, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden, außerdem Live-Suche in „Artikel hinzufügen“. Standardmäßig aus."],
   zip_code: ["Postleitzahl", "Für die Angebote in deiner Nähe. Kann leer bleiben, wenn deine Läden eine Postleitzahl haben."],
   offer_stores: ["Läden (ohne gespeicherte Filialen)", "Nur Angebote dieser Ketten. Hast du Filialen gespeichert, zählen deren Ketten."],
   offers_watchlist: ["Merkliste", "Zusätzliche Produkte, deren Angebote du sehen willst, kommagetrennt (z. B. „Kaffee, Butter“)."],
@@ -1624,7 +1625,7 @@ class EssensplanerPanel extends HTMLElement {
     if (!split && !branches.length && this._pref("storehint", "on") !== "off") {
       hint = `<div class="notice hintcard"><span>🏪 <b>Tipp:</b> Wähle im Tab <button class="btn small" data-action="go-tab" data-tab="stores" data-sec="mine">🏪 Läden & Preise</button> deinen Hauptladen, dann wird die Liste nach Läden sortiert.</span><button class="icon" data-action="hide-storehint" title="Tipp ausblenden" aria-label="Tipp ausblenden">✕</button></div>`;
     } else if (!split && mode === "off") {
-      hint = `<div class="hint" style="margin-bottom:10px">ℹ️ Die Aufteilung nach Läden ist in den Optionen ausgeschaltet.</div>`;
+      hint = `<div class="hint" style="margin-bottom:10px">ℹ️ Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Läden & Einkauf")}</div>`;
     }
     return `<div class="shopping">
       ${total ? `<div class="card shopstat"><span class="num">${open.length}</span><span class="meta">offen<br>${done.length} erledigt</span><div class="progress"><div style="width:${pct}%"></div></div><span class="meta">${pct}%</span>${priced.length ? `<span class="meta" style="text-align:right"><b style="font-size:16px;color:var(--primary-text-color)">≈ ${eur(sum)}</b><br>${offersUsed ? `🏷️ ${offersUsed} im Angebot · ` : ""}ganze Packungen</span>` : ""}</div>` : ""}
@@ -3761,7 +3762,7 @@ class EssensplanerPanel extends HTMLElement {
     const online = eco.offers_source === "marktguru";
     const catalog = eco.catalog || {};
     const rewe = eco.price_sources?.rewe || {};
-    const enable = (label) => `<div class="hint">Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} <span class="meta">(auch unter Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren)</span>${label ? ` ${esc(label)}` : ""}</div>`;
+    const enable = (label) => `<div class="hint">Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}${label ? ` ${esc(label)}` : ""}</div>`;
     const targets = (this._data.offer_targets || []).map((t) => `<span class="bdg">PLZ ${esc(t.zip_code)} · ${esc((t.stores || []).join(", "))}</span>`).join("");
     const chips = {
       ok: '<span class="bdg ok">✅ ok</span>',

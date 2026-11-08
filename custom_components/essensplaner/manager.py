@@ -135,10 +135,13 @@ ERROR_MESSAGES_DE = {
     "meal_not_planned": "Am {date} ist zu dieser Mahlzeit nichts geplant.",
     "dish_not_planned": "„{name}“ ist in den nächsten Tagen nicht geplant.",
     "invalid_json": "Die Rezeptdaten konnten nicht gelesen werden.",
-    "offers_disabled": "Online-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren).",
+    "offers_disabled": (
+        "Online-Angebote sind nicht aktiviert (Essensplaner-Panel → Einstellungen → "
+        "Angebote & Preisquellen)."
+    ),
     "invalid_zip": (
-        "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen "
-        "oder eine Filiale mit Postleitzahl hinzufügen."
+        "Bitte in den Einstellungen des Essensplaner-Panels eine gültige Postleitzahl für "
+        "Angebote eintragen oder eine Filiale mit Postleitzahl hinzufügen."
     ),
     "invalid_strategy": "Die Planungsart „{strategy}“ kenne ich nicht.",
     "invalid_price": "Den Preis „{price}“ habe ich nicht verstanden.",
@@ -168,11 +171,12 @@ ERROR_MESSAGES_DE = {
     ),
     "store_split_off": (
         "Die Einkaufsliste wird gerade nicht nach Läden aufgeteilt. Dafür brauchst du einen "
-        "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“), und die Aufteilung nach "
-        "Läden muss in den Optionen eingeschaltet sein."
+        "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“), und die Aufteilung "
+        "nach Läden muss in den Einstellungen (Läden & Einkauf) eingeschaltet sein."
     ),
     "rewe_disabled": (
-        "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+        "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner-Panel → "
+        "Einstellungen → Angebote & Preisquellen)."
     ),
     "rewe_no_market": (
         "Keine REWE-Filiale mit Markt-ID – füge eine REWE-Filiale hinzu und trage ihre "
@@ -182,7 +186,8 @@ ERROR_MESSAGES_DE = {
     "rewe_failed": "Die Abfrage beim REWE-Onlineshop ist fehlgeschlagen ({error}).",
     "rewe_postcode_required": "Bitte gib eine Postleitzahl an (5 Ziffern).",
     "aldi_disabled": (
-        "ALDI-SÜD-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+        "ALDI-SÜD-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner-Panel → "
+        "Einstellungen → Angebote & Preisquellen)."
     ),
     "aldi_no_store": (
         "Keine ALDI-SÜD-Filiale – füge im Panel eine ALDI-SÜD-Filiale hinzu (am besten aus "
@@ -201,7 +206,10 @@ ERROR_MESSAGES_DE = {
         "und Längengrad an."
     ),
     "invalid_aldi_store": "„{value}“ ist keine gültige ALDI-SÜD-Filialnummer (z. B. B402).",
-    "edeka_disabled": "EDEKA-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren).",
+    "edeka_disabled": (
+        "EDEKA-Angebote sind nicht aktiviert (Essensplaner-Panel → Einstellungen → Angebote "
+        "& Preisquellen)."
+    ),
     "edeka_no_market": (
         "Keine EDEKA-Filiale mit Markt-ID – füge eine EDEKA-Filiale hinzu und wähle ihren "
         "Markt (zu finden mit „EDEKA-Märkte suchen“)."
@@ -219,8 +227,8 @@ ERROR_MESSAGES_DE = {
     ),
     "receipt_no_items": "Auf dem Kassenzettel habe ich keine Artikel mit Preis gefunden.",
     "receipt_ai_not_configured": (
-        "Für Fotos von Kassenzetteln brauche ich eine KI-Aufgabe (AI Task): wähle sie in den "
-        "Optionen (Essensplaner → Konfigurieren → Läden & Einkauf) – oder füge den Text des "
+        "Für Fotos von Kassenzetteln brauche ich eine KI-Aufgabe (AI Task): wähle sie unter "
+        "Essensplaner-Panel → Einstellungen → Kassenzettel – oder füge den Text des "
         "Kassenzettels ein."
     ),
     "receipt_ai_unavailable": (

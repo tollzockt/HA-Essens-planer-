@@ -87,11 +87,11 @@ async def test_split_off_reasons(
     _branches(manager)
     manager.shopping_add("Butter")
     speech = await _speech(hass, "essensplaner_get_shopping_list", store="Aldi")
-    assert speech.startswith("Die Aufteilung nach Läden ist in den Optionen ausgeschaltet. ")
+    assert speech.startswith("Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet. ")
     response = await _intent(hass, "essensplaner_set_shopping_store", item="Butter", store="Lidl")
     assert response.response_type == intent.IntentResponseType.ERROR
     assert response.speech["plain"]["speech"] == (
-        "Die Aufteilung nach Läden ist in den Optionen ausgeschaltet."
+        "Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet."
     )
 
 

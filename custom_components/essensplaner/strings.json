@@ -21,97 +21,15 @@
   "options": {
     "step": {
       "init": {
-        "title": "Essensplaner options",
-        "description": "Tip: all settings are now also available directly in the Essensplaner panel – use the gear ⚙️ at the top right (administrators only). They can still be changed here as well.",
+        "title": "Essensplaner panel",
+        "description": "All settings are now in the Essensplaner panel, behind the ⚙️ gear at the top right. There you set meals, budget, offers and price sources (EDEKA, ALDI SÜD, REWE, marktguru), stores and receipts (admins only).\n\nThis dialog only shows or hides the panel in the sidebar, so you can always get back to the settings. All other settings stay unchanged when you save here.",
         "data": {
-          "default_servings": "Default servings",
-          "enabled_meals": "Meals",
-          "default_meal": "Default meal",
-          "pantry_staples": "Pantry staples",
-          "shopping_sync_entity": "Copy shopping list to",
-          "register_intents": "Voice assistant / LLM tools",
-          "show_panel": "Sidebar panel",
-          "excluded": "Never suggest",
-          "auto_mark_cooked": "Count planned meals as cooked",
-          "time_fruehstueck": "Time: Breakfast",
-          "time_mittagessen": "Time: Lunch",
-          "time_snack": "Time: Snack",
-          "time_abendessen": "Time: Dinner"
+          "show_panel": "Show the panel in the sidebar"
         },
         "data_description": {
-          "default_servings": "Used when planning meals.",
-          "enabled_meals": "Which meals you plan.",
-          "default_meal": "Used when no meal is given (e.g. 'Plan lasagna for Friday').",
-          "pantry_staples": "Comma separated. These never end up on the shopping list.",
-          "shopping_sync_entity": "Optional: another todo list (e.g. Bring!, Shopping list) that receives the items, too.",
-          "register_intents": "Registers intents so Assist, Jarvis and other LLM agents (also via MCP) can use the planner.",
-          "show_panel": "Shows the Essensplaner app in the sidebar.",
-          "excluded": "Comma separated tags or ingredients that suggestions and auto planning avoid, e.g. 'Fisch, Pilze'.",
-          "auto_mark_cooked": "After the day is over, planned recipes count as cooked (better suggestions).",
-          "time_fruehstueck": "Used for the calendar and 'Next meal'.",
-          "time_mittagessen": "Used for the calendar and 'Next meal'.",
-          "time_snack": "Used for the calendar and 'Next meal'.",
-          "time_abendessen": "Used for the calendar and 'Next meal'."
-        }
-      },
-      "economy": {
-        "title": "Budget & offers",
-        "description": "Weekly budget, planning style and supermarket offers. The offers of EDEKA and ALDI SÜD come directly from the chains (next step 'Stores & shopping'). marktguru.de is an optional supplement **at your own risk**: marktguru's terms (February 2026) forbid reading data automatically and allow private use only; the interface is unofficial and can change at any time. When enabled, the meal planner loads all offers of your saved stores about two to three times a week (one request per chain and postcode, about 10–15 requests in all; Aldi, Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm …; for NORMA or EDEKA often only leaflet images) and matches them locally with your recipes and shopping list. The shopping list field 'Artikel hinzufügen' also searches marktguru live (what you type, from 3 characters, with the postcode of your branch).",
-        "data": {
-          "weekly_budget": "Weekly budget",
-          "plan_strategy": "Planning style",
-          "offers_source": "Online offers",
-          "zip_code": "Zip code",
-          "offer_stores": "Supermarkets",
-          "offers_watchlist": "Watch list"
-        },
-        "data_description": {
-          "weekly_budget": "EUR per week for food, 0 = no budget.",
-          "plan_strategy": "Used for automatic planning and suggestions.",
-          "offers_source": "Where current and upcoming offers come from. marktguru (at your own risk, see above): all offers of your stores – loaded every 3 days and for a new leaflet (Saturday/Monday), 'Refresh offers' at most once an hour –, plus a live search while you type in 'Artikel hinzufügen'.",
-          "zip_code": "For the offers of the shops near you. Can stay empty if your branches (in the panel) have a postcode – then their postcodes are searched.",
-          "offer_stores": "Only offers of these shops (without branches). With branches their stores count – drugstores like Rossmann or dm too.",
-          "offers_watchlist": "Additional products to look for, comma separated (e.g. 'Kaffee, Butter')."
-        }
-      },
-      "stores": {
-        "title": "Stores & shopping",
-        "description": "How the shopping list is split across your stores, where branches are searched and which chain sources (REWE and ALDI SÜD online prices, EDEKA offers) are used. You choose your branches in the Essensplaner panel under '🏪 Läden & Preise' – the first supermarket automatically becomes your main store (a drugstore like Rossmann or dm only if you make it one). Saved branches: {branches} · main store: {main_branch}. Receipts: photos are read by the chosen AI task, pasted text is read locally; the checked prices become own prices of the store.\n\nPrivacy: the branch search sends the coordinates of your zones, rounded to about 100 m, to OpenStreetMap (overpass-api.de) only when you start it.",
-        "data": {
-          "store_split_mode": "Shopping list by store",
-          "store_split_min_saving": "Cheaper elsewhere from",
-          "store_split_min_percent": "… or cheaper from",
-          "store_split_offer_min": "Offer is worth it from",
-          "store_split_trip_min": "Extra store is worth it from",
-          "branch_zones": "Zones for the branch search",
-          "branch_radius_km": "Radius around the zones",
-          "branch_route": "Include the way to work",
-          "branch_route_radius_m": "Distance to the way to work",
-          "rewe_online_prices": "REWE online prices (experimental)",
-          "aldi_online_prices": "ALDI SÜD online prices (experimental)",
-          "edeka_offers": "EDEKA offers of your market",
-          "receipt_ai_task_entity": "AI task for receipt photos"
-        },
-        "data_description": {
-          "store_split_mode": "'Main store + exceptions': everything goes to the main store, only offers and clearly cheaper items go to your other stores; drugstore and household items (toothpaste, detergent …) go to your drugstore (Rossmann, dm, Müller, Budni) if you saved one. 'Everything at the main store' only shows other stores as alternatives. Works as soon as you have a main store.",
-          "store_split_min_saving": "An item moves to another store if it is at least this much cheaper there (default 1.00 EUR). Only real store prices count, not estimates.",
-          "store_split_min_percent": "… or if it is at least this many percent cheaper there (default 20 %). One of the two conditions is enough; items are never moved for less than 0.20 EUR.",
-          "store_split_offer_min": "An offer in another store counts from this saving (default 0.30 EUR).",
-          "store_split_trip_min": "Is the trip worth it? If an extra store saves less in total, everything goes back to the main store. 0 = off.",
-          "branch_zones": "'Search nearby' (OpenStreetMap) searches around these zones. Empty = automatic: home and zones with 'Arbeit' or 'Work' in their name.",
-          "branch_radius_km": "Search radius around each zone (default 3 km).",
-          "branch_route": "Also find stores along the straight line from home to the other zones, e.g. on the way to work.",
-          "branch_route_radius_m": "How far a store may be from the way to work at most (default 800 m).",
-          "rewe_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the REWE online shop. The market ID of your REWE branch and search terms (ingredients, shopping list items, your article search) are sent to www.rewe.de – automatically at most once a week. If REWE refuses the requests, they are paused for 7 days; learned prices stay. May stop working at any time. Needs a REWE branch with a market ID (in the panel).",
-          "aldi_online_prices": "⚠️ Experimental, off by default: uses the unofficial interface of the ALDI SÜD web site (api.aldi-sued.de). The location of your ALDI SÜD branch (once, to find the nearest store) and search terms (ingredients, shopping list items, your article search) are sent to ALDI SÜD – automatically at most once a week. Regular prices are learned; articles reduced right now appear as offers. If ALDI SÜD refuses the requests, they are paused for 7 days; learned prices stay. Needs an ALDI SÜD branch (in the panel).",
-          "edeka_offers": "Off by default: loads the leaflet offers of your EDEKA market from www.edeka.de once a day (every EDEKA merchant has his own offers). Only the market ID of your EDEKA branch is sent. Matching offers are used for planning, budget and the shopping list. Unofficial interface: if EDEKA refuses the requests, they are paused for 7 days. Needs an EDEKA branch with a market ID (in the panel: 'Find market').",
-          "receipt_ai_task_entity": "Optional: an AI Task entity (e.g. Ollama, OpenAI, Google) that reads photos and PDFs of receipts. Only the receipt image is sent to it – no recipes, branches or prices. Without one you can paste the text of a receipt; it is read locally. Receipts set the store's prices as own prices (after you checked them)."
+          "show_panel": "Shows the Essensplaner app in the sidebar – with the meal plan, shopping list, offers and the settings (⚙️). Switched off, the entry disappears after saving; voice commands, sensors and actions keep working."
         }
       }
-    },
-    "error": {
-      "no_meals": "Select at least one meal.",
-      "invalid_zip": "Please enter a 5-digit zip code or add a branch with a postcode in the Essensplaner panel."
     }
   },
   "selector": {
@@ -129,12 +47,6 @@
         "cheap": "Cheap (budget)",
         "offers": "Use offers",
         "variety": "Variety"
-      }
-    },
-    "offers_source": {
-      "options": {
-        "off": "Off (manual offers only)",
-        "marktguru": "marktguru.de (unofficial, at your own risk)"
       }
     },
     "clear_mode": {
@@ -172,17 +84,10 @@
     },
     "price_source": {
       "options": {
-        "offers": "Supermarket offers (marktguru.de)",
+        "offers": "Offers of your stores (EDEKA, ALDI SÜD, marktguru)",
         "rewe": "REWE online shop (experimental)",
         "aldi": "ALDI SÜD online prices (experimental)",
         "edeka": "EDEKA offers of your market"
-      }
-    },
-    "split_mode": {
-      "options": {
-        "off": "Off – one list as before",
-        "main_only": "Everything at the main store",
-        "main_exceptions": "Main store + exceptions (recommended)"
       }
     }
   },
@@ -279,10 +184,10 @@
       "message": "The recipe data could not be read."
     },
     "offers_disabled": {
-      "message": "Online offers are not enabled (Essensplaner → Configure)."
+      "message": "Online offers are not enabled (Essensplaner panel → settings → offers & price sources)."
     },
     "invalid_zip": {
-      "message": "Please enter a valid zip code for offers in the options or add a branch with a postcode."
+      "message": "Please enter a valid zip code for offers in the settings of the Essensplaner panel or add a branch with a postcode."
     },
     "invalid_strategy": {
       "message": "Unknown planning strategy \"{strategy}\"."
@@ -306,7 +211,7 @@
       "message": "There are several branches for \"{branch}\" – please be more specific, e.g. with the street."
     },
     "store_split_off": {
-      "message": "The shopping list is not split by store right now. That needs a main store (Essensplaner panel, section „Läden und Preise“) and the split by store turned on in the options."
+      "message": "The shopping list is not split by store right now. That needs a main store (Essensplaner panel, section „Läden und Preise“) and the split by store turned on in the settings (stores & shopping)."
     },
     "overpass_busy": {
       "message": "OpenStreetMap is busy right now – please try again in a few minutes."
@@ -327,7 +232,7 @@
       "message": "No zone with coordinates found – set the home zone in Home Assistant or choose zones."
     },
     "rewe_disabled": {
-      "message": "REWE online prices are not enabled (experimental, Essensplaner → Configure)."
+      "message": "REWE online prices are not enabled (experimental, Essensplaner panel → settings → offers & price sources)."
     },
     "rewe_no_market": {
       "message": "No REWE branch with a market ID – add a REWE branch and enter its market ID (find it with 'Find REWE markets')."
@@ -342,7 +247,7 @@
       "message": "Please enter a postcode (5 digits)."
     },
     "aldi_disabled": {
-      "message": "ALDI SÜD online prices are not enabled (experimental, Essensplaner → Configure)."
+      "message": "ALDI SÜD online prices are not enabled (experimental, Essensplaner panel → settings → offers & price sources)."
     },
     "aldi_no_store": {
       "message": "No ALDI SÜD branch – add an ALDI SÜD branch in the panel (best from the map search) or choose it with 'Find ALDI SÜD stores'."
@@ -363,7 +268,7 @@
       "message": "\"{value}\" is no valid ALDI SÜD store number (e.g. B402)."
     },
     "edeka_disabled": {
-      "message": "EDEKA offers are not enabled (Essensplaner → Configure)."
+      "message": "EDEKA offers are not enabled (Essensplaner panel → settings → offers & price sources)."
     },
     "edeka_no_market": {
       "message": "No EDEKA branch with a market ID – add an EDEKA branch and choose its market (find it with 'Find EDEKA markets')."
@@ -396,7 +301,7 @@
       "message": "I found no articles with a price on the receipt."
     },
     "receipt_ai_not_configured": {
-      "message": "Receipt photos need an AI task: choose one in the options (Essensplaner → Configure → Stores & shopping) – or paste the text of the receipt."
+      "message": "Receipt photos need an AI task: choose one under Essensplaner panel → settings → receipts – or paste the text of the receipt."
     },
     "receipt_ai_unavailable": {
       "message": "The AI task {entity} is not available right now – please try again later or paste the text of the receipt."
@@ -1170,7 +1075,7 @@
         },
         "radius_km": {
           "name": "Radius",
-          "description": "Search radius around each zone in kilometers (default from the options, 3 km)."
+          "description": "Search radius around each zone in kilometers (default from the settings, 3 km)."
         },
         "route": {
           "name": "Way to work",
@@ -1192,11 +1097,11 @@
     },
     "refresh_prices": {
       "name": "Refresh prices",
-      "description": "Fetches prices from an online source now: 'offers' loads the supermarket offers (marktguru), 'rewe' the regular prices of the REWE online shop, 'aldi' the regular prices and reduced articles of ALDI SÜD (both experimental: must be enabled in the options and need a branch of the chain; paused for 7 days if the chain refuses automated requests), 'edeka' the offers of your EDEKA market (enabled in the options, EDEKA branch with market ID).",
+      "description": "Fetches prices from an online source now: 'offers' loads all offers of your stores (EDEKA and ALDI SÜD directly, marktguru if enabled), 'rewe' the regular prices of the REWE online shop, 'aldi' the regular prices and reduced articles of ALDI SÜD (both experimental: must be enabled in the panel settings and need a branch of the chain; paused for 7 days if the chain refuses automated requests), 'edeka' the offers of your EDEKA market (enabled in the settings, EDEKA branch with market ID).",
       "fields": {
         "source": {
           "name": "Source",
-          "description": "offers = supermarket offers (marktguru.de), rewe = REWE online shop prices (experimental), aldi = ALDI SÜD prices (experimental), edeka = offers of your EDEKA market."
+          "description": "offers = offers of your stores (EDEKA, ALDI SÜD, marktguru if enabled), rewe = REWE online shop prices (experimental), aldi = ALDI SÜD prices (experimental), edeka = offers of your EDEKA market."
         }
       }
     },
@@ -1206,7 +1111,7 @@
       "fields": {
         "zip": {
           "name": "Postcode",
-          "description": "Default: the postcode of your REWE branch, else the postcode from the options."
+          "description": "Default: the postcode of your REWE branch, else the postcode from the settings."
         }
       }
     },
@@ -1216,7 +1121,7 @@
       "fields": {
         "zip": {
           "name": "Postcode",
-          "description": "Default: the postcode of your EDEKA branch, else the postcode from the options."
+          "description": "Default: the postcode of your EDEKA branch, else the postcode from the settings."
         }
       }
     },
@@ -1254,7 +1159,7 @@
     },
     "receipt_scan": {
       "name": "Read receipt photo",
-      "description": "Lets the AI task chosen in the options read a photo or PDF of a receipt and returns the same proposal as 'Read receipt text'. Only the image is sent to the AI.",
+      "description": "Lets the AI task chosen in the settings read a photo or PDF of a receipt and returns the same proposal as 'Read receipt text'. Only the image is sent to the AI.",
       "fields": {
         "upload_id": {
           "name": "Upload ID",
@@ -1266,7 +1171,7 @@
         },
         "entity_id": {
           "name": "AI task",
-          "description": "Use this AI Task entity instead of the one from the options."
+          "description": "Use this AI Task entity instead of the one from the settings."
         },
         "branch": {
           "name": "Branch",

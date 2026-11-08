@@ -679,46 +679,31 @@ async def test_learn_from_offers(hass: HomeAssistant, setup_integration) -> None
     assert set(manager.store_prices_learned) == {"lidl", "aldi-sued"}
 
 
-async def test_options_flow_marktguru_with_branches(hass: HomeAssistant, setup_integration) -> None:
-    """marktguru needs a zip code option or selected branches with a postcode."""
-    from homeassistant.data_entry_flow import FlowResultType
-
+async def test_settings_marktguru_with_branches(
+    hass: HomeAssistant, setup_integration, hass_ws_client
+) -> None:
+    """marktguru needs a zip code or selected branches with a postcode (1.4: checked by the
+    panel's settings, websocket save_settings; the options flow only toggles the panel)."""
     entry = setup_integration
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {
-            "default_servings": 2,
-            "enabled_meals": ["mittagessen", "abendessen"],
-            "default_meal": "abendessen",
-            "time_fruehstueck": "07:30:00",
-            "time_mittagessen": "12:30:00",
-            "time_snack": "15:30:00",
-            "time_abendessen": "18:30:00",
-            "register_intents": True,
-            "show_panel": True,
-        },
-    )
-    assert result["step_id"] == "economy"
-    economy = {
-        "weekly_budget": 0,
-        "plan_strategy": "balanced",
-        "offers_source": "marktguru",
-        "zip_code": "",
-        "offer_stores": ["lidl"],
-    }
-    result = await hass.config_entries.options.async_configure(result["flow_id"], economy)
-    assert result["errors"] == {"zip_code": "invalid_zip"}  # neither zip code nor branches
+    client = await hass_ws_client(hass)
+    settings = {"offers_source": "marktguru", "zip_code": "", "offer_stores": ["lidl"]}
+
+    async def save(msg_id: int, values: dict) -> dict:
+        await client.send_json(
+            {"id": msg_id, "type": "essensplaner/save_settings", "values": values}
+        )
+        msg = await client.receive_json()
+        assert msg["success"], msg
+        return msg["result"]
+
+    result = await save(1, settings)
+    assert set(result["errors"]) == {"zip_code"}  # neither zip code nor branches
+    assert "offers_source" not in entry.options
 
     entry.runtime_data.save_branch({"store": "Lidl", "postcode": "80331"})
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {**economy, "zip_code": "123"}
-    )
-    assert result["errors"] == {"zip_code": "invalid_zip"}  # a wrong zip code stays wrong
-    result = await hass.config_entries.options.async_configure(result["flow_id"], economy)
-    assert result["step_id"] == "stores"  # 1.3: third step "Läden & Einkauf"
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    result = await save(2, {**settings, "zip_code": "123"})
+    assert set(result["errors"]) == {"zip_code"}  # a wrong zip code stays wrong
+    assert await save(3, settings) == {"saved": True, "reload": True}
     await hass.async_block_till_done()
     manager = entry.runtime_data
     assert manager.offers_source == "marktguru"

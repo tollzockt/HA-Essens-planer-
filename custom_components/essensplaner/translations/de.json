@@ -21,97 +21,15 @@
   "options": {
     "step": {
       "init": {
-        "title": "Essensplaner Optionen",
-        "description": "Tipp: Alle Einstellungen findest du jetzt auch direkt im Essensplaner-Panel – über das Zahnrad ⚙️ oben rechts (nur für Administratoren). Hier bleiben sie weiterhin änderbar.",
+        "title": "Essensplaner-Panel",
+        "description": "Alle Einstellungen findest du jetzt im Essensplaner-Panel über das ⚙️-Zahnrad oben rechts. Dort stellst du Mahlzeiten, Budget, Angebote und Preisquellen (EDEKA, ALDI SÜD, REWE, marktguru), Läden und Kassenzettel ein (nur für Administratoren).\n\nHier kannst du nur das Panel in der Seitenleiste ein- oder ausblenden – so kommst du jederzeit wieder an die Einstellungen. Alle anderen Einstellungen bleiben beim Speichern unverändert.",
         "data": {
-          "default_servings": "Standard-Portionen",
-          "enabled_meals": "Mahlzeiten",
-          "default_meal": "Standard-Mahlzeit",
-          "pantry_staples": "Vorratsschrank",
-          "shopping_sync_entity": "Einkaufsliste kopieren nach",
-          "register_intents": "Sprachassistent / LLM-Tools",
-          "show_panel": "Seitenleisten-Panel",
-          "excluded": "Nie vorschlagen",
-          "auto_mark_cooked": "Geplantes automatisch als gekocht zählen",
-          "time_fruehstueck": "Uhrzeit: Frühstück",
-          "time_mittagessen": "Uhrzeit: Mittagessen",
-          "time_snack": "Uhrzeit: Snack",
-          "time_abendessen": "Uhrzeit: Abendessen"
+          "show_panel": "Panel in der Seitenleiste anzeigen"
         },
         "data_description": {
-          "default_servings": "Wird beim Planen von Mahlzeiten verwendet.",
-          "enabled_meals": "Welche Mahlzeiten du planst.",
-          "default_meal": "Wird genommen, wenn keine Mahlzeit genannt wird (z. B. „Plane Lasagne für Freitag“).",
-          "pantry_staples": "Kommagetrennt. Diese Zutaten landen nie auf der Einkaufsliste.",
-          "shopping_sync_entity": "Optional: weitere To-do-Liste (z. B. Bring!, Einkaufsliste), die die Einträge ebenfalls erhält.",
-          "register_intents": "Registriert Intents, damit Assist, Jarvis und andere LLM-Agenten (auch per MCP) den Planer nutzen können.",
-          "show_panel": "Zeigt die Essensplaner-App in der Seitenleiste.",
-          "excluded": "Kommagetrennte Kategorien oder Zutaten, die Vorschläge und automatische Planung vermeiden, z. B. „Fisch, Pilze“.",
-          "auto_mark_cooked": "Nach Ablauf des Tages zählen geplante Rezepte als gekocht (bessere Vorschläge).",
-          "time_fruehstueck": "Für den Kalender und „Nächste Mahlzeit“.",
-          "time_mittagessen": "Für den Kalender und „Nächste Mahlzeit“.",
-          "time_snack": "Für den Kalender und „Nächste Mahlzeit“.",
-          "time_abendessen": "Für den Kalender und „Nächste Mahlzeit“."
-        }
-      },
-      "economy": {
-        "title": "Budget & Angebote",
-        "description": "Wochenbudget, Planungsart und Supermarkt-Angebote. Die Angebote von EDEKA und ALDI SÜD kommen direkt von den Ketten (nächster Schritt „Läden & Einkauf“). marktguru.de ist eine optionale Ergänzung **auf eigenes Risiko**: Laut den AGB von marktguru (Stand Februar 2026) ist das automatische Auslesen von Daten untersagt und nur die private Nutzung erlaubt; die Schnittstelle ist inoffiziell und kann sich jederzeit ändern. Eingeschaltet lädt der Essensplaner etwa zwei- bis dreimal pro Woche alle Angebote deiner gespeicherten Läden (je Kette und Postleitzahl ein Abruf, insgesamt etwa 10–15 Anfragen; Aldi, Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm …; bei NORMA oder EDEKA oft nur Prospektbilder) und gleicht sie lokal mit Rezepten und Einkaufsliste ab. Außerdem sucht das Feld „Artikel hinzufügen“ live bei marktguru (was du tippst, ab 3 Zeichen, mit der Postleitzahl deiner Filiale).",
-        "data": {
-          "weekly_budget": "Wochenbudget",
-          "plan_strategy": "Planungsart",
-          "offers_source": "Online-Angebote",
-          "zip_code": "Postleitzahl",
-          "offer_stores": "Supermärkte",
-          "offers_watchlist": "Merkliste"
-        },
-        "data_description": {
-          "weekly_budget": "Euro pro Woche fürs Essen, 0 = kein Budget.",
-          "plan_strategy": "Für automatische Planung und Vorschläge.",
-          "offers_source": "Woher aktuelle und kommende Angebote kommen. marktguru (auf eigenes Risiko, siehe oben): alle Angebote deiner Läden – Abruf alle 3 Tage und zum neuen Prospekt (Samstag/Montag), „Angebote aktualisieren“ höchstens einmal pro Stunde –, außerdem Live-Suche beim Tippen in „Artikel hinzufügen“.",
-          "zip_code": "Für die Angebote der Märkte in deiner Nähe. Kann leer bleiben, wenn deine Filialen (im Panel) eine Postleitzahl haben – dann wird für deren Postleitzahlen gesucht.",
-          "offer_stores": "Nur Angebote dieser Märkte (ohne Filialen). Mit Filialen zählen deren Läden – auch Drogerien wie Rossmann oder dm.",
-          "offers_watchlist": "Zusätzliche Produkte, nach denen gesucht wird, kommagetrennt (z. B. „Kaffee, Butter“)."
-        }
-      },
-      "stores": {
-        "title": "Läden & Einkauf",
-        "description": "Wie die Einkaufsliste auf deine Läden verteilt wird, wo Filialen gesucht werden und welche Ketten-Quellen (REWE- und ALDI-SÜD-Onlinepreise, EDEKA-Angebote) genutzt werden. Deine Filialen wählst du im Essensplaner-Panel unter „🏪 Läden & Preise“ – der erste Supermarkt wird automatisch dein Hauptladen (eine Drogerie wie Rossmann oder dm nur, wenn du sie selbst dazu machst). Filialen gespeichert: {branches} · Hauptladen: {main_branch}. Kassenzettel: Fotos liest die gewählte KI-Aufgabe, eingefügter Text wird lokal gelesen; die geprüften Preise werden eigene Preise des Ladens.\n\nDatenschutz: Die Filialsuche sendet nur auf Knopfdruck die auf ca. 100 m gerundeten Koordinaten deiner Zonen an OpenStreetMap (overpass-api.de).",
-        "data": {
-          "store_split_mode": "Einkaufsliste nach Läden",
-          "store_split_min_saving": "Woanders günstiger ab",
-          "store_split_min_percent": "… oder günstiger ab",
-          "store_split_offer_min": "Angebot lohnt sich ab",
-          "store_split_trip_min": "Extra-Laden lohnt sich ab",
-          "branch_zones": "Zonen für die Filialsuche",
-          "branch_radius_km": "Umkreis um die Zonen",
-          "branch_route": "Arbeitsweg einbeziehen",
-          "branch_route_radius_m": "Abstand zum Arbeitsweg",
-          "rewe_online_prices": "REWE-Onlinepreise (experimentell)",
-          "aldi_online_prices": "ALDI-SÜD-Onlinepreise (experimentell)",
-          "edeka_offers": "EDEKA-Angebote deines Markts",
-          "receipt_ai_task_entity": "KI-Aufgabe für Kassenzettel-Fotos"
-        },
-        "data_description": {
-          "store_split_mode": "„Hauptladen + Ausnahmen“: Alles kommt in den Hauptladen, nur Angebote und deutlich günstigere Artikel in deine anderen Läden; Drogerie- und Haushaltsartikel (Zahnpasta, Waschmittel …) in deine Drogerie (Rossmann, dm, Müller, Budni), wenn du eine gespeichert hast. „Alles im Hauptladen“ zeigt andere Läden nur als Alternative. Wirkt, sobald du einen Hauptladen hast.",
-          "store_split_min_saving": "Ein Artikel wandert in einen anderen Laden, wenn er dort mindestens so viel günstiger ist (Standard 1,00 €). Es zählen nur echte Ladenpreise, keine Richtwerte.",
-          "store_split_min_percent": "… oder wenn er dort mindestens so viel Prozent günstiger ist (Standard 20 %). Eine der beiden Bedingungen reicht; unter 0,20 € Ersparnis wird nie verschoben.",
-          "store_split_offer_min": "Ein Angebot in einem anderen Laden zählt ab dieser Ersparnis (Standard 0,30 €).",
-          "store_split_trip_min": "Lohnt sich der Weg? Spart ein zusätzlicher Laden insgesamt weniger, kommt alles zurück in den Hauptladen. 0 = aus.",
-          "branch_zones": "Um diese Zonen sucht „In der Nähe suchen“ (OpenStreetMap). Leer = automatisch: Zuhause und Zonen mit „Arbeit“ bzw. „Work“ im Namen.",
-          "branch_radius_km": "Suchradius um jede Zone (Standard 3 km).",
-          "branch_route": "Auch Läden entlang der Strecke (Luftlinie) von Zuhause zu den anderen Zonen finden, z. B. auf dem Weg zur Arbeit.",
-          "branch_route_radius_m": "So weit darf ein Laden höchstens neben dem Arbeitsweg liegen (Standard 800 m).",
-          "rewe_online_prices": "⚠️ Experimentell, standardmäßig aus: nutzt die inoffizielle Schnittstelle des REWE-Onlineshops. Dabei werden die Markt-ID deiner REWE-Filiale und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) an www.rewe.de gesendet – automatisch höchstens einmal pro Woche. Lehnt REWE die Abfragen ab, wird 7 Tage pausiert; gelernte Preise bleiben. Kann jederzeit aufhören zu funktionieren. Braucht eine REWE-Filiale mit Markt-ID (im Panel).",
-          "aldi_online_prices": "⚠️ Experimentell, standardmäßig aus: nutzt die inoffizielle Schnittstelle der ALDI-SÜD-Website (api.aldi-sued.de). Dabei werden die Lage deiner ALDI-SÜD-Filiale (einmal, um die nächste Filiale zu finden) und Suchbegriffe (Zutaten, Artikel der Einkaufsliste, deine Artikelsuche) an ALDI SÜD gesendet – automatisch höchstens einmal pro Woche. Gelernt werden die Normalpreise; gerade reduzierte Artikel erscheinen als Angebot. Lehnt ALDI SÜD die Abfragen ab, wird 7 Tage pausiert; gelernte Preise bleiben. Braucht eine ALDI-SÜD-Filiale (im Panel).",
-          "edeka_offers": "Standardmäßig aus: lädt einmal am Tag die Prospekt-Angebote deines EDEKA-Markts von www.edeka.de (jeder EDEKA-Kaufmann hat eigene Angebote). Gesendet wird nur die Markt-ID deiner EDEKA-Filiale. Passende Angebote fließen in Planung, Budget und Einkaufsliste ein. Inoffizielle Schnittstelle: lehnt EDEKA die Abfragen ab, wird 7 Tage pausiert. Braucht eine EDEKA-Filiale mit Markt-ID (im Panel: „Markt suchen“).",
-          "receipt_ai_task_entity": "Optional: eine AI-Task-Entität (z. B. Ollama, OpenAI, Google), die Fotos und PDFs von Kassenzetteln liest. Ihr wird nur das Bild des Kassenzettels geschickt – keine Rezepte, Filialen oder Preise. Ohne Auswahl kannst du den Text eines Kassenzettels einfügen; er wird lokal gelesen. Aus Kassenzetteln werden die Preise des Ladens als eigene Preise übernommen (nach deiner Prüfung)."
+          "show_panel": "Zeigt die Essensplaner-App in der Seitenleiste – mit Wochenplan, Einkaufsliste, Angeboten und den Einstellungen (⚙️). Ausgeschaltet verschwindet der Eintrag nach dem Speichern; Sprachbefehle, Sensoren und Dienste laufen weiter."
         }
       }
-    },
-    "error": {
-      "no_meals": "Bitte mindestens eine Mahlzeit auswählen.",
-      "invalid_zip": "Bitte eine 5-stellige Postleitzahl eingeben oder im Essensplaner-Panel eine Filiale mit Postleitzahl hinzufügen."
     }
   },
   "selector": {
@@ -129,12 +47,6 @@
         "cheap": "Günstig (Budget)",
         "offers": "Angebote nutzen",
         "variety": "Abwechslung"
-      }
-    },
-    "offers_source": {
-      "options": {
-        "off": "Aus (nur eigene Angebote)",
-        "marktguru": "marktguru.de (inoffiziell, eigenes Risiko)"
       }
     },
     "clear_mode": {
@@ -172,17 +84,10 @@
     },
     "price_source": {
       "options": {
-        "offers": "Supermarkt-Angebote (marktguru.de)",
+        "offers": "Angebote deiner Läden (EDEKA, ALDI SÜD, marktguru)",
         "rewe": "REWE-Onlineshop (experimentell)",
         "aldi": "ALDI-SÜD-Onlinepreise (experimentell)",
         "edeka": "EDEKA-Angebote deines Markts"
-      }
-    },
-    "split_mode": {
-      "options": {
-        "off": "Aus – eine Liste wie bisher",
-        "main_only": "Alles im Hauptladen",
-        "main_exceptions": "Hauptladen + Ausnahmen (empfohlen)"
       }
     }
   },
@@ -279,10 +184,10 @@
       "message": "Die Rezeptdaten konnten nicht gelesen werden."
     },
     "offers_disabled": {
-      "message": "Online-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren)."
+      "message": "Online-Angebote sind nicht aktiviert (Essensplaner-Panel → Einstellungen → Angebote & Preisquellen)."
     },
     "invalid_zip": {
-      "message": "Bitte in den Optionen eine gültige Postleitzahl für Angebote eintragen oder eine Filiale mit Postleitzahl hinzufügen."
+      "message": "Bitte in den Einstellungen des Essensplaner-Panels eine gültige Postleitzahl für Angebote eintragen oder eine Filiale mit Postleitzahl hinzufügen."
     },
     "invalid_strategy": {
       "message": "Unbekannte Planungsart „{strategy}“."
@@ -306,7 +211,7 @@
       "message": "Es gibt mehrere Filialen zu „{branch}“ – bitte genauer angeben, z. B. mit der Straße."
     },
     "store_split_off": {
-      "message": "Die Einkaufsliste wird gerade nicht nach Läden aufgeteilt. Dafür brauchst du einen Hauptladen (im Essensplaner-Panel unter „Läden und Preise“), und die Aufteilung nach Läden muss in den Optionen eingeschaltet sein."
+      "message": "Die Einkaufsliste wird gerade nicht nach Läden aufgeteilt. Dafür brauchst du einen Hauptladen (im Essensplaner-Panel unter „Läden und Preise“), und die Aufteilung nach Läden muss in den Einstellungen (Läden & Einkauf) eingeschaltet sein."
     },
     "overpass_busy": {
       "message": "OpenStreetMap ist gerade ausgelastet – bitte in ein paar Minuten erneut versuchen."
@@ -327,7 +232,7 @@
       "message": "Keine Zone mit Koordinaten gefunden – lege in Home Assistant die Zone „Zuhause“ fest oder wähle Zonen aus."
     },
     "rewe_disabled": {
-      "message": "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+      "message": "REWE-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner-Panel → Einstellungen → Angebote & Preisquellen)."
     },
     "rewe_no_market": {
       "message": "Keine REWE-Filiale mit Markt-ID – füge eine REWE-Filiale hinzu und trage ihre Markt-ID ein (zu finden mit „REWE-Märkte suchen“)."
@@ -342,7 +247,7 @@
       "message": "Bitte gib eine Postleitzahl an (5 Ziffern)."
     },
     "aldi_disabled": {
-      "message": "ALDI-SÜD-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner → Konfigurieren)."
+      "message": "ALDI-SÜD-Onlinepreise sind nicht aktiviert (experimentell, Essensplaner-Panel → Einstellungen → Angebote & Preisquellen)."
     },
     "aldi_no_store": {
       "message": "Keine ALDI-SÜD-Filiale – füge im Panel eine ALDI-SÜD-Filiale hinzu (am besten aus der Kartensuche) oder wähle sie mit „ALDI-SÜD-Filiale suchen“."
@@ -363,7 +268,7 @@
       "message": "„{value}“ ist keine gültige ALDI-SÜD-Filialnummer (z. B. B402)."
     },
     "edeka_disabled": {
-      "message": "EDEKA-Angebote sind nicht aktiviert (Essensplaner → Konfigurieren)."
+      "message": "EDEKA-Angebote sind nicht aktiviert (Essensplaner-Panel → Einstellungen → Angebote & Preisquellen)."
     },
     "edeka_no_market": {
       "message": "Keine EDEKA-Filiale mit Markt-ID – füge eine EDEKA-Filiale hinzu und wähle ihren Markt (zu finden mit „EDEKA-Märkte suchen“)."
@@ -396,7 +301,7 @@
       "message": "Auf dem Kassenzettel habe ich keine Artikel mit Preis gefunden."
     },
     "receipt_ai_not_configured": {
-      "message": "Für Fotos von Kassenzetteln brauche ich eine KI-Aufgabe (AI Task): wähle sie in den Optionen (Essensplaner → Konfigurieren → Läden & Einkauf) – oder füge den Text des Kassenzettels ein."
+      "message": "Für Fotos von Kassenzetteln brauche ich eine KI-Aufgabe (AI Task): wähle sie unter Essensplaner-Panel → Einstellungen → Kassenzettel – oder füge den Text des Kassenzettels ein."
     },
     "receipt_ai_unavailable": {
       "message": "Die KI-Aufgabe {entity} ist gerade nicht verfügbar – bitte später erneut versuchen oder den Text des Kassenzettels einfügen."
@@ -1170,7 +1075,7 @@
         },
         "radius_km": {
           "name": "Umkreis",
-          "description": "Suchradius um jede Zone in Kilometern (Standard aus den Optionen, 3 km)."
+          "description": "Suchradius um jede Zone in Kilometern (Standard aus den Einstellungen, 3 km)."
         },
         "route": {
           "name": "Arbeitsweg",
@@ -1192,11 +1097,11 @@
     },
     "refresh_prices": {
       "name": "Preise aktualisieren",
-      "description": "Holt jetzt Preise aus einer Online-Quelle: „offers“ lädt die Supermarkt-Angebote (marktguru), „rewe“ die Normalpreise aus dem REWE-Onlineshop, „aldi“ die Normalpreise und reduzierten Artikel von ALDI SÜD (beide experimentell: müssen in den Optionen eingeschaltet sein und brauchen eine Filiale der Kette; lehnt die Kette automatische Abfragen ab, wird 7 Tage pausiert), „edeka“ die Angebote deines EDEKA-Markts (eingeschaltet in den Optionen, EDEKA-Filiale mit Markt-ID).",
+      "description": "Holt jetzt Preise aus einer Online-Quelle: „offers“ lädt alle Angebote deiner Läden (EDEKA und ALDI SÜD direkt, marktguru falls eingeschaltet), „rewe“ die Normalpreise aus dem REWE-Onlineshop, „aldi“ die Normalpreise und reduzierten Artikel von ALDI SÜD (beide experimentell: müssen in den Einstellungen des Panels eingeschaltet sein und brauchen eine Filiale der Kette; lehnt die Kette automatische Abfragen ab, wird 7 Tage pausiert), „edeka“ die Angebote deines EDEKA-Markts (eingeschaltet in den Einstellungen, EDEKA-Filiale mit Markt-ID).",
       "fields": {
         "source": {
           "name": "Quelle",
-          "description": "offers = Supermarkt-Angebote (marktguru.de), rewe = Preise aus dem REWE-Onlineshop (experimentell), aldi = ALDI-SÜD-Preise (experimentell), edeka = Angebote deines EDEKA-Markts."
+          "description": "offers = Angebote deiner Läden (EDEKA, ALDI SÜD, marktguru falls eingeschaltet), rewe = Preise aus dem REWE-Onlineshop (experimentell), aldi = ALDI-SÜD-Preise (experimentell), edeka = Angebote deines EDEKA-Markts."
         }
       }
     },
@@ -1206,7 +1111,7 @@
       "fields": {
         "zip": {
           "name": "Postleitzahl",
-          "description": "Standard: die Postleitzahl deiner REWE-Filiale, sonst die aus den Optionen."
+          "description": "Standard: die Postleitzahl deiner REWE-Filiale, sonst die aus den Einstellungen."
         }
       }
     },
@@ -1216,7 +1121,7 @@
       "fields": {
         "zip": {
           "name": "Postleitzahl",
-          "description": "Standard: die Postleitzahl deiner EDEKA-Filiale, sonst die aus den Optionen."
+          "description": "Standard: die Postleitzahl deiner EDEKA-Filiale, sonst die aus den Einstellungen."
         }
       }
     },
@@ -1254,7 +1159,7 @@
     },
     "receipt_scan": {
       "name": "Kassenzettel-Foto lesen",
-      "description": "Lässt die in den Optionen gewählte KI-Aufgabe (AI Task) ein Foto oder PDF eines Kassenzettels lesen und liefert denselben Vorschlag wie „Kassenzettel-Text lesen“. Der KI wird nur das Bild geschickt.",
+      "description": "Lässt die in den Einstellungen gewählte KI-Aufgabe (AI Task) ein Foto oder PDF eines Kassenzettels lesen und liefert denselben Vorschlag wie „Kassenzettel-Text lesen“. Der KI wird nur das Bild geschickt.",
       "fields": {
         "upload_id": {
           "name": "Upload-ID",
@@ -1266,7 +1171,7 @@
         },
         "entity_id": {
           "name": "KI-Aufgabe",
-          "description": "Diese AI-Task-Entität statt der aus den Optionen nutzen."
+          "description": "Diese AI-Task-Entität statt der aus den Einstellungen nutzen."
         },
         "branch": {
           "name": "Filiale",

@@ -1,10 +1,11 @@
 """Option keys, defaults, ranges and validation of the Essensplaner settings (1.4).
 
-One place for the rules of the options flow (Einstellungen → Geräte & Dienste →
-Essensplaner → Konfigurieren) and of the panel's own settings view (⚙️, websockets
-essensplaner/get_settings and essensplaner/save_settings): what a value may be, how it is
-stored and which German message an invalid value gets. The options flow keeps its
-voluptuous selectors (Home Assistant's UI) and takes the ranges and checks from here.
+The settings are changed in the panel's own settings view (⚙️, websockets
+essensplaner/get_settings and essensplaner/save_settings). This module holds their rules:
+what a value may be, how it is stored and which German message an invalid value gets.
+Home Assistant's options flow (Einstellungen → Geräte & Dienste → Essensplaner →
+Konfigurieren) only toggles the sidebar panel (show_panel) since 1.4; the setup flow takes
+the servings range from here.
 """
 
 from __future__ import annotations
@@ -72,7 +73,7 @@ from .const import (
 from .retailers import DEFAULT_STORES, STORES, retailer_kind
 
 # ----------------------------------------------------------------------------------
-# Ranges (the selectors of the options flow use the same numbers)
+# Ranges (the setup flow's servings selector uses the same numbers)
 # ----------------------------------------------------------------------------------
 SERVINGS_RANGE = (1, 20)
 BUDGET_RANGE = (0, 2000)
@@ -194,7 +195,8 @@ FIELDS: tuple[Field, ...] = (
 )
 FIELD_MAP: dict[str, Field] = {f.key: f for f in FIELDS}
 
-# German labels of the choices (the same texts as the selectors in translations/de.json)
+# German labels of the choices (meal and strategy: the same texts as the selectors in
+# translations/de.json, which services.yaml uses)
 CHOICE_LABELS_DE: dict[str, dict[str, str]] = {
     "meal": dict(MEAL_LABELS),
     "strategy": {
@@ -220,11 +222,7 @@ MARKTGURU_WARNING_DE = (
     "nur privat."
 )
 
-# error codes the options flow shows (translation keys under options.error)
-FLOW_ERRORS = ("no_meals", "invalid_zip")
-
-# German messages of the validation (options flow: the codes no_meals / invalid_zip are
-# translation keys under options.error with the same text)
+# German messages of the validation (shown at the field in the panel's settings view)
 ERROR_TEXTS_DE: dict[str, str] = {
     "no_meals": "Bitte mindestens eine Mahlzeit auswählen.",
     "invalid_zip": (
@@ -247,7 +245,7 @@ _ENTITY_RE = re.compile(r"^(?P<domain>[a-z0-9_]+)\.[a-z0-9_]+$")
 
 
 # ----------------------------------------------------------------------------------
-# Small helpers (also used by the options flow)
+# Small helpers
 # ----------------------------------------------------------------------------------
 
 
@@ -335,8 +333,8 @@ def _copy(value: Any) -> Any:
 
 
 def current_values(options: Mapping[str, Any]) -> dict[str, Any]:
-    """The settings as the options flow shows them: stored value, else the default;
-    numbers inside their ranges, times as "HH:MM", zones as a list."""
+    """The settings as the panel shows them: stored value, else the default; numbers
+    inside their ranges, times as "HH:MM", zones as a list."""
     values: dict[str, Any] = {}
     for f in FIELDS:
         raw = options.get(f.key)
@@ -445,8 +443,8 @@ def clean_value(f: Field, raw: Any) -> tuple[Any, str | None]:
 def validate(
     values: Mapping[str, Any], branch_postcodes: Sequence[str] = ()
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    """(cleaned values, {key: error code}) of a full set of settings, with the rules of
-    the options flow: every value in its range, at least one meal, and marktguru needs a
+    """(cleaned values, {key: error code}) of a full set of settings (the rules of the
+    1.3 options flow): every value in its range, at least one meal, and marktguru needs a
     5-digit postcode or selected branches with a postcode. Unknown keys are ignored."""
     cleaned: dict[str, Any] = {}
     errors: dict[str, str] = {}
@@ -515,7 +513,6 @@ __all__ = [
     "ERROR_TEXTS_DE",
     "FIELDS",
     "FIELD_MAP",
-    "FLOW_ERRORS",
     "MARKTGURU_WARNING_DE",
     "SECTIONS",
     "Field",

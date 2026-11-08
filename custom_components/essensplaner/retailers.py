@@ -142,7 +142,7 @@ RETAILERS: dict[str, dict[str, Any]] = {
     },
 }
 
-# display names (marktguru ids), also used by the options flow
+# display names (marktguru ids), also used by the panel's settings (offer_stores)
 STORES: dict[str, str] = {rid: info["name"] for rid, info in RETAILERS.items()}
 # offer_stores default of new installs (no drugstores: they are added as branches)
 DEFAULT_STORES: list[str] = [

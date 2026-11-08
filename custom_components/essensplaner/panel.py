@@ -891,7 +891,7 @@ def ws_get_settings(
 def ws_save_settings(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Check and store settings of the panel (admins), with the rules of the options flow.
+    """Check and store settings of the panel (admins), with the rules of options_schema.py.
 
     values: some or all settings (missing ones keep their value; unknown keys are ignored).
     Invalid: {saved: false, errors: {key: German message}} and nothing is stored. Valid: the

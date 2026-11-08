@@ -143,7 +143,8 @@ def test_services_translated(lang: str) -> None:
 
 
 def test_services_yaml_fields_complete() -> None:
-    """Every field has a selector; text fields have an example."""
+    """Every field has a selector; text and object fields have an example (1.4: also the
+    optional ones, so the developer tools show what to type)."""
     for service, spec in SERVICES_YAML.items():
         for field, field_spec in _fields(service).items():
             assert isinstance(field_spec.get("selector"), dict), f"{service}.{field}"
@@ -151,7 +152,7 @@ def test_services_yaml_fields_complete() -> None:
                 f"{service}.{field}: texts belong into the translations"
             )
             selector = field_spec["selector"]
-            if "text" in selector and field_spec.get("required"):
+            if "text" in selector or "object" in selector:
                 assert "example" in field_spec, f"{service}.{field}"
         assert spec is None or set(spec) <= {"fields", "target"}, service
 
@@ -351,26 +352,20 @@ def _check_step(section: str, result: dict[str, Any]) -> None:
 
 
 def _flow_texts() -> tuple[set[str], set[str]]:
-    """Error and abort keys used in config_flow.py (1.4: the checks shared with the
-    panel's settings live in options_schema.py and return the codes in FLOW_ERRORS)."""
-    from custom_components.essensplaner.options_schema import FLOW_ERRORS
-
+    """Error and abort keys used in config_flow.py (1.4: the options step has no errors;
+    the panel's settings get their German messages from options_schema.py)."""
     source = (PKG / "config_flow.py").read_text(encoding="utf-8")
-    shared = (PKG / "options_schema.py").read_text(encoding="utf-8")
     errors = set(re.findall(r'errors\[[^\]]+\]\s*=\s*"(\w+)"', source))
-    returned = set(re.findall(r'return (?:None if \w+ else )?"(\w+)"', shared))
-    assert returned == set(FLOW_ERRORS)
-    errors |= set(FLOW_ERRORS)
     aborts = set(re.findall(r'async_abort\(reason="(\w+)"\)', source))
     return errors, aborts
 
 
 def test_flow_errors_translated() -> None:
-    """All form errors and abort reasons of config_flow.py are translated."""
+    """All form errors and abort reasons of config_flow.py are translated, nothing extra."""
     errors, aborts = _flow_texts()
-    assert {"no_meals", "invalid_zip"} <= errors
+    assert aborts == {"single_instance_allowed"}
     for lang in LANGUAGES:
-        assert sorted(TRANSLATIONS[lang]["options"]["error"]) == sorted(errors), lang
+        assert sorted(TRANSLATIONS[lang]["options"].get("error", {})) == sorted(errors), lang
         assert sorted(TRANSLATIONS[lang]["config"]["abort"]) == sorted(aborts), lang
 
 
@@ -385,27 +380,38 @@ async def test_config_flow_translated(hass: HomeAssistant) -> None:
 
 
 async def test_options_flow_translated(hass: HomeAssistant, setup_integration) -> None:
-    """All options steps (init, economy, stores) are fully translated."""
+    """The one options step (1.4: only the sidebar panel) is fully translated and points to
+    the panel's settings; the removed steps economy / stores left no texts behind."""
     entry: MockConfigEntry = setup_integration
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    steps = []
-    while result["type"] == "form":
-        steps.append(result["step_id"])
-        _check_step("options", result)
-        # submit the defaults of the form
-        data = {
-            str(marker): marker.default()
-            for marker in result["data_schema"].schema
-            if callable(getattr(marker, "default", None)) and marker.default() is not None
-        }
-        if result["step_id"] == "init":
-            data["enabled_meals"] = data.get("enabled_meals") or ["abendessen"]
-        result = await hass.config_entries.options.async_configure(result["flow_id"], data)
-        assert not result.get("errors"), result
+    assert result["type"] == "form" and result["step_id"] == "init"
+    _check_step("options", result)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"show_panel": True}
+    )
     assert result["type"] == "create_entry"
-    assert steps == ["init", "economy", "stores"]
     for lang in LANGUAGES:
-        assert sorted(TRANSLATIONS[lang]["options"]["step"]) == sorted(steps), lang
+        options = TRANSLATIONS[lang]["options"]
+        assert sorted(options) == ["step"], lang
+        assert sorted(options["step"]) == ["init"], lang
+        assert "⚙️" in options["step"]["init"]["description"], lang
+    assert TRANSLATIONS["de"]["options"]["step"]["init"]["description"].startswith(
+        "Alle Einstellungen findest du jetzt im Essensplaner-Panel über das ⚙️-Zahnrad oben rechts. "
+    )
+
+
+def _used_selectors() -> set[str]:
+    """translation_key of all select selectors in services.yaml and config_flow.py."""
+    keys = {select["translation_key"] for select in _yaml_selects(SERVICES_YAML)}
+    source = (PKG / "config_flow.py").read_text(encoding="utf-8")
+    return keys | set(re.findall(r'translation_key="(\w+)"', source))
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_no_stale_selectors(lang: str) -> None:
+    """Every translated selector is used (1.4: offers_source / split_mode went with the
+    options steps; the panel's settings have their own German labels)."""
+    assert sorted(TRANSLATIONS[lang]["selector"]) == sorted(_used_selectors())
 
 
 # ----------------------------------------------------------------------

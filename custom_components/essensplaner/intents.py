@@ -99,7 +99,7 @@ class _SpokenError(HomeAssistantError):
 def _split_off_reason(manager: EssensplanerManager) -> str:
     """Why the shopping list is not split by store right now."""
     if manager.split_mode == SPLIT_OFF:
-        return "Die Aufteilung nach Läden ist in den Optionen ausgeschaltet."
+        return "Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet."
     return (
         "Die Einkaufsliste ist nicht nach Läden aufgeteilt – dafür brauche ich einen "
         "Hauptladen (im Essensplaner-Panel unter „Läden und Preise“)."
@@ -857,7 +857,7 @@ class GetOffersIntent(_EssensplanerIntent):
         if not offers:
             hint = ""
             if manager.offers_source == "off" and not manager.offers:
-                hint = " Online-Angebote sind in den Optionen noch nicht aktiviert."
+                hint = " Online-Angebote sind in den Einstellungen noch nicht aktiviert."
             return f"Ich habe keine passenden Angebote gefunden.{hint}", {"offers": []}
         top = offers[:5]
         parts = []

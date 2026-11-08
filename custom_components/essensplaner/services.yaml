@@ -48,14 +48,17 @@ add_recipe:
           unit_of_measurement: min
           mode: box
     notes: &notes
+      example: "Am Vortag zubereiten schmeckt noch besser."
       selector:
         text:
           multiline: true
     source_url: &source_url
+      example: "https://www.chefkoch.de/rezepte/1234567/spaghetti-bolognese.html"
       selector:
         text:
           type: url
     image: &image
+      example: "https://example.com/bilder/bolognese.jpg"
       selector:
         text:
           type: url
@@ -77,6 +80,7 @@ update_recipe:
       selector:
         text:
     name:
+      example: "Spaghetti Bolognese vegetarisch"
       selector:
         text:
     servings: *servings
@@ -160,6 +164,7 @@ plan_meal:
         text:
     servings: *servings
     note:
+      example: "Oma kommt zu Besuch"
       selector:
         text:
 
@@ -244,6 +249,7 @@ generate_shopping_list:
 mark_cooked:
   fields:
     recipe:
+      example: "Linsensuppe"
       selector:
         text:
     date: *date
@@ -326,6 +332,9 @@ import_recipes:
   fields:
     recipes:
       required: true
+      example: >-
+        [{"name": "Spaghetti Bolognese", "servings": 4, "ingredients":
+        [{"name": "Spaghetti", "amount": 500, "unit": "g"}]}]
       selector:
         object:
     overwrite:
@@ -781,6 +790,10 @@ receipt_save:
   fields:
     receipt:
       required: true
+      example: >-
+        {"store": "Lidl", "date": "2026-11-07", "total": 4.38, "items":
+        [{"name": "Butter", "price": 1.69}, {"name": "Vollmilch 1 l", "price": 0.99},
+        {"name": "Bananen", "key": "banane", "price": 1.70, "amount": 1, "unit": "kg"}]}
       selector:
         object:
 

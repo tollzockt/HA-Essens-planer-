@@ -754,7 +754,7 @@ async def test_edeka_off_by_default(
     manager = entry.runtime_data
     status = await async_refresh_edeka_offers(hass, manager, force=True)
     assert (status["status"], status["enabled"], status["experimental"]) == ("off", False, False)
-    assert status["message"] == "EDEKA-Angebote sind aus (in den Optionen einschaltbar)."
+    assert status["message"] == "EDEKA-Angebote sind aus (in den Einstellungen einschaltbar)."
     assert (await async_fetch_edeka_offers(hass, manager))[1]["status"] == "off"
     with pytest.raises(ServiceValidationError) as err:
         await _call(hass, "refresh_prices", source="edeka")

@@ -486,9 +486,9 @@ class OnlinePriceSource:
             status, errors = STATUS_PENDING, []  # failed with an older interface
         last_success = parse_time(meta.get("last_success"))
         if not enabled:
-            message = f"{self.title} sind aus (experimentell, in den Optionen einschaltbar)."
+            message = f"{self.title} sind aus (experimentell, in den Einstellungen einschaltbar)."
             if not self.experimental:
-                message = f"{self.title} sind aus (in den Optionen einschaltbar)."
+                message = f"{self.title} sind aus (in den Einstellungen einschaltbar)."
         elif not self.has_target(manager):
             message = self.no_target_message(manager)
         elif until is not None:

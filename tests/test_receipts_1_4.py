@@ -1063,26 +1063,38 @@ async def test_remove_entry_deletes_only_receipt_files(
     assert other.read_bytes() == JPEG and stranger.read_text() == "bleibt"
 
 
-async def test_receipt_ai_option(hass: HomeAssistant, receipts_setup) -> None:
-    """The stores step offers the AI Task entity (empty by default) and stores / clears it."""
+async def test_receipt_ai_option(hass: HomeAssistant, receipts_setup, hass_ws_client) -> None:
+    """The panel's settings offer the AI Task entity (empty by default) and store / clear it
+    (1.4: no longer in the options flow, which only toggles the sidebar panel)."""
     entry = receipts_setup
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {"enabled_meals": ["abendessen"], "default_servings": 2, "default_meal": "abendessen"},
+    hass.states.async_set("ai_task.bon_leser", "unknown", {"friendly_name": "Bon-Leser"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "essensplaner/get_settings"})
+    msg = await client.receive_json()
+    assert msg["result"]["values"]["receipt_ai_task_entity"] is None
+    assert msg["result"]["defaults"]["receipt_ai_task_entity"] is None
+    assert {"value": "ai_task.bon_leser", "label": "Bon-Leser", "available": True} in msg["result"][
+        "choices"
+    ]["ai_task_entities"]
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "essensplaner/save_settings",
+            "values": {"receipt_ai_task_entity": "ai_task.bon_leser"},
+        }
     )
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
-    assert result["step_id"] == "stores"
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"receipt_ai_task_entity": "ai_task.bon_leser"}
-    )
-    assert entry.options["receipt_ai_task_entity"] == "ai_task.bon_leser"
+    assert (await client.receive_json())["result"] == {"saved": True, "reload": True}
     await hass.async_block_till_done()
+    assert entry.options["receipt_ai_task_entity"] == "ai_task.bon_leser"
+    # the options dialog of Home Assistant keeps it
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {"enabled_meals": ["abendessen"], "default_servings": 2, "default_meal": "abendessen"},
+    await hass.config_entries.options.async_configure(result["flow_id"], {"show_panel": False})
+    await hass.async_block_till_done()
+    assert entry.options["receipt_ai_task_entity"] == "ai_task.bon_leser"
+    # an emptied picker removes it (receipts as pasted text only)
+    await client.send_json(
+        {"id": 3, "type": "essensplaner/save_settings", "values": {"receipt_ai_task_entity": ""}}
     )
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert (await client.receive_json())["result"] == {"saved": True, "reload": True}
+    await hass.async_block_till_done()
     assert "receipt_ai_task_entity" not in entry.options
