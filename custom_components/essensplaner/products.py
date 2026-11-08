@@ -90,6 +90,7 @@ from .pricing import (
     format_eur,
     item_cost,
     offer_pack,
+    pack_fit,
     pack_text,
     plausible_pack,
     to_pricing_base,
@@ -123,6 +124,9 @@ DESCRIPTION_MAX = 120
 NAME_MAX = 120
 MAX_VIEW_LIMIT = 100
 ALTERNATIVES_LIMIT = 20
+# best_for(): products costing at most this share more for the amount count as "about the
+# same" – the smallest sufficient pack of them wins (1.5.1)
+PACK_CLOSE_SHARE = 0.12
 
 # kinds of products that are stored (1.5.1: an unknown kind too – "unsorted", the AI sorts it)
 STORED_KINDS = frozenset({KIND_FOOD, KIND_DRINKS, KIND_DRUG, KIND_HOUSEHOLD, KIND_UNKNOWN})
@@ -1864,8 +1868,10 @@ def best_for(
 ) -> dict[str, Any] | None:
     """The cheapest product of a chain for an ingredient: only products of the key's
     product itself (names_key_product), priced on the day; cheapest for the needed amount
-    (item_cost), then per g / ml / piece, then an offer first. Returns {product, entry,
-    price, packs, unit_price} or None."""
+    in whole packs (item_cost), then per g / ml / piece, then an offer first. Among the
+    products that cost at most PACK_CLOSE_SHARE more for the amount, the smallest
+    sufficient pack wins (1.5.1: one carrot is no 2-kg bag when a 500-g bag costs about the
+    same). Returns {product, entry, price, packs, unit_price} or None."""
     store = _store_of(manager)
     if store is None or not key:
         return None
@@ -1876,7 +1882,7 @@ def best_for(
         candidates = memo[("key", key, retailer)] = [
             product for product in store.by_key(key, [retailer]) if _fits_key(product, key)
         ]
-    best: tuple[tuple[Any, ...], dict[str, Any]] | None = None
+    scored: list[tuple[tuple[Any, ...], float | None, dict[str, Any]]] = []
     for product in candidates:
         entry_key = ("entry", product["id"], branch_id)
         if entry_key in memo:
@@ -1885,7 +1891,8 @@ def best_for(
             entry = memo[entry_key] = product_entry(product, day, branch_id)
         if entry is None:
             continue
-        cost = item_cost(amounts or {}, key, entry, category or product.get("category"), as_packs)
+        aisle = category or product.get("category")
+        cost = item_cost(amounts or {}, key, entry, aisle, as_packs)
         per = _per_unit(product, entry.price)
         rank = (
             cost is None,
@@ -1895,9 +1902,11 @@ def best_for(
             entry.price,
             product["id"],
         )
-        if best is None or rank < best[0]:
-            best = (
+        fit = pack_fit(amounts, key, entry, cost[1], aisle) if cost else None
+        scored.append(
+            (
                 rank,
+                fit,
                 {
                     "product": product,
                     "entry": entry,
@@ -1906,7 +1915,19 @@ def best_for(
                     "unit_price": per[0] if per else None,
                 },
             )
-    return best[1] if best else None
+        )
+    if not scored:
+        return None
+    best = min(scored, key=lambda s: s[0])
+    if best[1] is not None and best[2]["price"] is not None:
+        limit = best[2]["price"] * (1 + PACK_CLOSE_SHARE) + 0.005
+        close = [
+            s
+            for s in scored
+            if s[1] is not None and s[2]["price"] is not None and s[2]["price"] <= limit
+        ]
+        best = min(close, key=lambda s: (round(s[1], 3), s[0]))
+    return best[2]
 
 
 def _at_retailer(store: ProductStore, pid: Any, retailer: str) -> dict[str, Any] | None:

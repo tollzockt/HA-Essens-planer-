@@ -47,6 +47,10 @@ _PACKAGE_UNITS = {
     "Rolle",  # "1 Rolle Blätterteig (275 g)"; toilet paper is priced per Rolle
 }
 COUNT_UNITS = {"", "Stück", "Stange", "Kopf", "Knolle"}
+# fresh produce is also sold loose: a pack leaving more than this many times the need over
+# is not the item's product (it keeps its estimate, see loose_produce())
+LOOSE_CATEGORY = "Obst & Gemüse"
+LOOSE_SURPLUS = 3.0
 
 # average weight of one piece (g), keyed by the last word of the ingredient key
 _PIECE_WEIGHTS = {
@@ -648,6 +652,32 @@ def package_cost(
         return None
     packs = max(1, math.ceil(total / pack_amount - 1e-6))
     return round(packs * entry.price, 2), packs
+
+
+def pack_fit(
+    amounts: dict[str, float] | None,
+    key: str,
+    entry: PriceEntry,
+    packs: int | None,
+    category: str | None = None,
+) -> float | None:
+    """How many times the bought whole packs hold what the amounts need (1.0: exactly,
+    25: a 2-kg bag for one carrot); None without amounts, packs or a pack size."""
+    if not amounts or not packs:
+        return None
+    pack_amount, pack_unit = to_pricing_base(entry.amount, entry.unit)
+    if not pack_amount:
+        return None
+    need = package_need(amounts, key, pack_amount, pack_unit, entry.spice, category)
+    if need <= 0:
+        return None
+    return packs * pack_amount / need
+
+
+def loose_produce(category: str | None, fit: float | None) -> bool:
+    """Fresh produce whose pack is far bigger than the need (more than LOOSE_SURPLUS times
+    the need left over, e.g. a 2-kg bag for one carrot): bought loose instead."""
+    return category == LOOSE_CATEGORY and fit is not None and fit - 1 > LOOSE_SURPLUS
 
 
 def piece_weight_known(key: str) -> bool:

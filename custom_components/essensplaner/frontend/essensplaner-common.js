@@ -54,13 +54,16 @@ export const CATEGORY_ICONS = {
 export const NONFOOD_CATEGORIES = ["Drogerie & Körperpflege", "Haushalt & Reinigung"];
 
 const DISH_EMOJIS = [
-  [/pizza/, "🍕"],
+  // filled pasta first: "Tortellini" holds "torte", "Ravioli in Sahnesauce" is no cake
+  [/tortellin|tortellon|ravioli|cannelloni|maultasche|agnolotti|cappelletti/, "🍝"],
+  [/pizza|flammkuchen/, "🍕"],
   [/burger/, "🍔"],
   [/wrap|burrito|taco|tortilla|fajita/, "🌯"],
   [/pfannkuchen|pancake|crepe|waffel/, "🥞"],
   [/oats|muesli|porridge|haferbrei|granola/, "🥣"],
   [/shakshuka|ruehrei|spiegelei|omelett|eier/, "🍳"],
-  [/kuchen|torte|bananenbrot|muffin|brownie|cookie|keks/, "🍰"],
+  // cakes only (a savoury "Sahne-" / "Rahm-" dish is none): Kuchen, Torte, Sahnetorte …
+  [/kuchen|torte(?!ll)|tarte|bananenbrot|muffin|brownie|cookie|keks/, "🍰"],
   [/brot|broetchen|toast|sandwich/, "🥪"],
   [/suppe|eintopf|chili|gulasch|bruehe/, "🍲"],
   [/curry|dal|reis|risotto|paella|bowl/, "🍛"],
@@ -68,7 +71,7 @@ const DISH_EMOJIS = [
   [/lachs|fisch|thunfisch|garnele|shrimp|scampi/, "🐟"],
   [/haehnchen|huhn|chicken|pute/, "🍗"],
   [/schnitzel|steak|braten|fleisch/, "🥩"],
-  [/nudel|pasta|spaghetti|lasagne|penne|spaetzle|gnocchi|tagliatelle|maccheroni/, "🍝"],
+  [/nudel|pasta|spaghetti|lasagne|penne|spaetzle|gnocchi|tagliatelle|maccheroni|makkaroni|fusilli|farfalle|rigatoni|linguine|bandnudel/, "🍝"],
   [/ramen|pho|asia|wok/, "🍜"],
   [/kartoffel|pommes|gratin/, "🥔"],
   [/gemuese|ofen|auflauf/, "🥘"],

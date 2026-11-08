@@ -79,8 +79,10 @@ from .pricing import (
     format_eur,
     item_cost,
     lookup_keys,
+    loose_produce,
     make_entry,
     offer_pack,
+    pack_fit,
     pack_text,
     piece_weight_known,
     unit_price,
@@ -3143,6 +3145,14 @@ class StoresMixin:
                 # no price for the item at all (e.g. "Petersilie" without amount): the
                 # product is still named
                 return product, reason, None
+            return None, None, None
+        if (
+            cost is not None
+            and not cost.get("real")
+            and loose_produce(category, pack_fit(amounts, key, entry, new[1], category))
+        ):
+            # 1.5.1: an estimate for fresh produce (sold loose) stays – one carrot is no
+            # 2-kg bag with "↪ 1920 g übrig"
             return None, None, None
         if cost is None or not cost.get("real") or (cheaper and new[0] < cost["price"] - 0.005):
             return product, reason, (new, entry)

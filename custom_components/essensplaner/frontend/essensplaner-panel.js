@@ -1230,6 +1230,146 @@ const STYLE = `
     .pick { min-height: 44px; }
     .starbtn { min-width: 40px; min-height: 40px; }
   }
+  /* 1.5.1: compact phone layout – desktop keeps its layout (the wrappers are "contents") */
+  .tab .ts { display: none; }
+  .tab .ti { line-height: 1; }
+  .addchips { display: none; }
+  .weekacts, .shopacts, .offchips, .offacts { display: contents; }
+  .srclines { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px; }
+  .bars { margin: 6px 0 18px; }
+  .budgetcard .bsave { grid-column: 2; }
+  .recipe { position: relative; }
+  .recipe .img { overflow: hidden; }
+  .recipe .img > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* a small picture is shown whole on a neutral background instead of blown up */
+  .recipe .img > img.lowres { object-fit: scale-down; padding: 6px; }
+  .recipe .img:has(> img.lowres) { background: color-mix(in srgb, var(--ep-secondary-text) 12%, var(--ep-card)); }
+  .recipe .img .sbadge { z-index: 1; }
+  .soffer .sostore .sn { min-width: 0; }
+  @media (max-width: 600px) {
+    main { padding: 10px; }
+    .meta, .hint { font-size: 13px; }
+    button.chip { font-size: 13px; padding: 4px 12px; }
+    .row { gap: 6px; margin-bottom: 10px; }
+    /* tabs: icon over a short label – all six fit, nothing is cut off */
+    .tabs { padding: 0 2px; gap: 0; }
+    .tab { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 7px 2px 5px; font-size: 12px; letter-spacing: 0; position: relative; }
+    .tab .ti { font-size: 19px; }
+    .tab .tl { display: none; }
+    .tab .ts { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .tab .count { position: absolute; top: 2px; left: calc(50% + 7px); font-size: 10px; line-height: 15px; padding: 0 5px; }
+    /* week plan: compact hero, filled meals as cards, empty meals as one row of chips */
+    .hero { flex-wrap: nowrap; align-items: flex-start; gap: 12px; padding: 12px; min-height: 0; margin-bottom: 10px; }
+    .hero > div:not(.bigemoji):not(.side) { flex: 1; min-width: 0; }
+    .hero .bigemoji { font-size: 34px; width: 40px; flex: none; text-align: center; margin-top: 2px; }
+    .hero .kicker { font-size: 11.5px; letter-spacing: .05em; }
+    .hero .htitle { font-size: 18px; margin: 2px 0 4px; overflow-wrap: anywhere; }
+    .hero .hmeta { font-size: 13.5px; }
+    .hero .hactions { margin-top: 8px; gap: 6px; }
+    .hero:not(.img) .hactions { margin-left: -52px; }
+    .hero .hactions .btn { padding: 6px 12px; }
+    .seasonrow { margin: 0 0 10px; gap: 10px; }
+    .seasonrow .semoji { font-size: 22px; }
+    .seasonrow .stxt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.45; }
+    .weekacts { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; padding-bottom: 2px; }
+    .weekacts::-webkit-scrollbar { display: none; }
+    .weekacts .btn { flex: none; }
+    .weekacts .primary { order: -1; }
+    .week { grid-template-columns: 1fr; gap: 8px; }
+    .day { padding: 10px 12px; gap: 6px; }
+    .slot.vacant { display: none; }
+    .slot .label { margin: 0 0 3px; }
+    .meal, .occ { padding: 6px 8px; gap: 8px; }
+    .meal .thumb, .occ .oemoji { width: 34px; height: 34px; font-size: 20px; }
+    .meal .t, .occ .t { font-size: 14.5px; }
+    .meal .s, .occ .s { font-size: 12.5px; }
+    .addchips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip.addchip { min-height: 40px; display: inline-flex; align-items: center; padding: 4px 12px; font-size: 13px; background: transparent; color: var(--primary-text-color); border: 1px dashed color-mix(in srgb, var(--meal-color) 60%, var(--ep-divider)); }
+    .chip.addchip.over { border-style: solid; background: var(--ep-accent-bg); }
+    .dndtip { display: none; }
+    /* recipes: a list with a thumbnail */
+    .recfind input[type=search] { flex: 1 1 100% !important; }
+    .recfind select { flex: 1 1 0; min-width: 0; }
+    .recacts, .kindrow { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .recacts::-webkit-scrollbar { display: none; }
+    .recacts > * { flex: none; }
+    .recacts .spacer { display: none; }
+    .recipes { grid-template-columns: 1fr; gap: 8px; }
+    .recipe { flex-direction: row; align-items: flex-start; }
+    .recipe:hover { transform: none; }
+    .recipe .img { width: 72px; height: 72px; flex: none; margin: 10px 0 10px 10px; border-radius: 10px; font-size: 36px; }
+    .recipe .img > img.lowres { padding: 3px; }
+    .recipe .sbadge { top: auto; left: 3px; bottom: 3px; max-width: none; padding: 0 4px; font-size: 12px; line-height: 1.5; }
+    .recipe .sbadge .sbt { display: none; }
+    .recipe .fav { top: 2px; right: 2px; width: 40px; height: 40px; background: none; color: var(--ep-secondary-text); font-size: 19px; }
+    .recipe .fav.on { color: #f4b400; }
+    .recipe .body { padding: 9px 40px 10px 12px; gap: 4px; min-width: 0; }
+    .recipe .name { font-size: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .recipe .chips { flex-wrap: nowrap; overflow: hidden; }
+    .recipe .chips .chip { flex: none; font-size: 12px; padding: 1px 8px; }
+    .recipe .chips .chip:nth-child(n+4) { display: none; }
+    /* shopping list: the add field and the view switch, the other actions as a chip row */
+    .shopstat { padding: 10px 12px; gap: 10px; margin-bottom: 10px; }
+    .shopstat .num { font-size: 22px; }
+    .shopstat .sdone { white-space: nowrap; }
+    .shopstat .spct { display: none; }
+    .shoptools { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
+    .shopacts, .offchips, .offacts, .weekacts { max-width: 100%; min-width: 0; }
+    .shoptools .seg { align-self: flex-start; }
+    .shopacts { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .shopacts::-webkit-scrollbar { display: none; }
+    .shopacts .btn { flex: none; font-size: 13.5px; }
+    .shopacts .spacer { display: none; }
+    .storehead { padding: 10px 12px 8px; }
+    .group h3 { padding: 8px 12px 6px; }
+    .aisle { padding: 6px 12px 2px; }
+    .item { gap: 8px; padding: 4px 2px 4px 12px; }
+    .item .sum { font-size: 15px; line-height: 1.25; }
+    .item .icon { width: 34px; }
+    .item .price { font-size: 13px; }
+    .pline, .item .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+    .item .desc .lomore { display: none; }
+    /* articles and offers of the stores: compact rows (picture, text, price; ⭐ ➕ on the right) */
+    .soffers { grid-template-columns: 1fr; gap: 8px; }
+    .soffer { display: grid; grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; padding: 8px 6px 8px 10px; position: relative; }
+    .soffer .sotop, .prcard .sotop { grid-column: 1; grid-row: 1; padding: 0; gap: 10px; }
+    .soffer .soimg { width: 56px; height: 56px; font-size: 26px; border-radius: 9px; }
+    .soffer .soimg .imgph { font-size: 26px; }
+    .soffer .brand { font-size: 11px; }
+    .soffer .pname { font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .soffer .pack { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .soffer .soprice, .soffer .someta { grid-column: 1; padding: 2px 0 0 66px; }
+    .soffer .soprice { grid-row: 2; }
+    .soffer .pr { font-size: 17px; }
+    .soffer .someta { grid-row: 3; flex-wrap: nowrap; overflow: hidden; }
+    .soffer .someta > .bdg { flex: none; }
+    .soffer .sostore { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+    .soffer .sostore .sn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .soffer .acts { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; padding: 0; margin: 0; gap: 4px; }
+    .prcard .acts { justify-content: flex-end; padding-top: 44px; }
+    .soffer .acts .btn { flex: none; width: 40px; height: 40px; min-height: 40px; padding: 0; justify-content: center; font-size: 16px; }
+    .soffer .albl { display: none; }
+    .sofav { top: 6px; right: 6px; }
+    /* offers for the recipes: compact budget, scrollable chip rows, folded sources */
+    .budgetcard { padding: 10px 12px; gap: 4px 12px; margin-bottom: 10px; }
+    .budgetcard .big { font-size: 22px; }
+    .budgetcard .bsave { grid-column: 1 / -1; }
+    .bars { height: 30px; margin: 4px 0 16px; }
+    .offrow { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
+    .offrow > .spacer { display: none; }
+    .offchips, .offacts { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .offchips::-webkit-scrollbar, .offacts::-webkit-scrollbar { display: none; }
+    .offchips > *, .offacts > * { flex: none; }
+    .offacts .btn { font-size: 13.5px; }
+    .offers { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .offer { padding: 10px; gap: 10px; min-width: 0; }
+    .offer .oimg { width: 56px; height: 56px; font-size: 26px; }
+    .offer .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .offer .chips::-webkit-scrollbar { display: none; }
+    .offer .chips > * { flex: none; }
+    .sowhen { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .sowhen > * { flex: none; }
+  }
 `;
 
 class EssensplanerPanel extends HTMLElement {
@@ -1622,12 +1762,12 @@ class EssensplanerPanel extends HTMLElement {
       <header>
         <div class="toolbar"><span class="menu"></span><div class="title">🍽️ Essensplaner</div><button class="icon gear" data-gear title="Einstellungen" aria-label="Einstellungen">⚙️</button></div>
         <div class="tabs">
-          <button class="tab" data-tab="plan">🗓️ Wochenplan</button>
-          <button class="tab" data-tab="recipes">📖 Rezepte <span class="count" data-count="recipes"></span></button>
-          <button class="tab" data-tab="shopping">🛒 Einkaufsliste <span class="count" data-count="shopping"></span></button>
-          <button class="tab" data-tab="products">📦 Artikel</button>
-          <button class="tab" data-tab="offers">💶 Angebote<span class="long"> & Budget</span> <span class="count" data-count="offers"></span></button>
-          <button class="tab" data-tab="stores">🏪 Läden<span class="long"> & Preise</span></button>
+          <button class="tab" data-tab="plan"><span class="ti">🗓️</span><span class="tl">Wochenplan</span><span class="ts">Plan</span></button>
+          <button class="tab" data-tab="recipes"><span class="ti">📖</span><span class="tl">Rezepte</span><span class="ts">Rezepte</span><span class="count" data-count="recipes"></span></button>
+          <button class="tab" data-tab="shopping"><span class="ti">🛒</span><span class="tl">Einkaufsliste</span><span class="ts">Einkauf</span><span class="count" data-count="shopping"></span></button>
+          <button class="tab" data-tab="products"><span class="ti">📦</span><span class="tl">Artikel</span><span class="ts">Artikel</span></button>
+          <button class="tab" data-tab="offers"><span class="ti">💶</span><span class="tl">Angebote<span class="long"> & Budget</span></span><span class="ts">Angebote</span><span class="count" data-count="offers"></span></button>
+          <button class="tab" data-tab="stores"><span class="ti">🏪</span><span class="tl">Läden<span class="long"> & Preise</span></span><span class="ts">Läden</span></button>
         </div>
       </header>
       <main><div class="loading">Lade …</div></main>
@@ -1644,6 +1784,8 @@ class EssensplanerPanel extends HTMLElement {
     this._updateGear();
     // 1.5: a product / leaflet image that cannot be loaded becomes its placeholder (emoji)
     this.shadowRoot.addEventListener("error", (ev) => this._brokenImage(ev.target), true);
+    // 1.5.1: a picture smaller than its box is shown whole (contain), not blown up
+    this.shadowRoot.addEventListener("load", (ev) => this._imageLoaded(ev.target), true);
     const menu = document.createElement("ha-menu-button");
     menu.hass = this._hass;
     menu.narrow = this._narrow;
@@ -1882,6 +2024,7 @@ class EssensplanerPanel extends HTMLElement {
       const iso = toIso(day);
       const meals = this._data.plan[iso] || {};
       const slotIds = [...this._data.meals.map((m) => m.id), ...Object.keys(meals).filter((id) => !this._data.meals.some((m) => m.id === id))];
+      const emptyIds = [];
       const slots = slotIds
         .map((mealId) => {
           const entry = meals[mealId];
@@ -1905,17 +2048,22 @@ class EssensplanerPanel extends HTMLElement {
                 ${thumb}<span><div class="t">${esc(entryTitle(entry, iso))}</div>${sub || costHtml ? `<div class="s">${esc(sub)} ${costHtml}</div>` : ""}</span>
               </button>`;
           } else {
+            emptyIds.push(mealId);
             inner = `<button class="add" data-action="add-entry" data-date="${iso}" data-meal="${mealId}">＋ <span>hinzufügen</span></button>`;
           }
-          return `<div class="slot" style="--meal-color:${color}" data-drop-date="${iso}" data-drop-meal="${mealId}"><div class="label"><i></i>${esc(this._mealLabel(mealId))}</div>${inner}</div>`;
+          return `<div class="slot ${entry ? "" : "vacant"}" style="--meal-color:${color}" data-drop-date="${iso}" data-drop-meal="${mealId}"><div class="label"><i></i>${esc(this._mealLabel(mealId))}</div>${inner}</div>`;
         })
         .join("");
+      // 1.5.1: phones show the empty slots as one row of small chips ("＋ Frühstück ＋ Snack")
+      const addChips = emptyIds.length
+        ? `<div class="addchips">${emptyIds.map((mealId) => `<button class="chip addchip" style="--meal-color:${this._mealColor(mealId)}" data-action="add-entry" data-date="${iso}" data-meal="${mealId}" data-drop-date="${iso}" data-drop-meal="${mealId}" aria-label="${esc(this._mealLabel(mealId))} am ${esc(WEEKDAYS[i])} planen">＋ ${esc(this._mealLabel(mealId))}</button>`).join("")}</div>`
+        : "";
       const cls = iso === today ? "today" : iso < today ? "past" : "";
       // 1.5: occasions of the day ("🎬 Filmabend · 20:00 · 👥 4 · ≈ 23 €")
       const occasions = this._occasionsOn(iso).map((o) => this._occCardHtml(o)).join("");
       days += `<div class="card day ${cls}">
           <div class="dayhead"><span class="wd">${WEEKDAYS[i]}</span><span class="dt">${day.getDate()}. ${MONTHS[day.getMonth()]}</span>${iso === today ? '<span class="badge">Heute</span>' : ""}</div>
-          ${occasions}${slots}
+          ${occasions}${slots}${addChips}
         </div>`;
     }
     const capacity = 7 * this._data.meals.length;
@@ -1932,13 +2080,15 @@ class EssensplanerPanel extends HTMLElement {
         <span class="meta">${planned}/${capacity} geplant</span>
         ${this._budgetPill(start)}
         <span class="spacer"></span>
-        <button class="btn" data-action="copy-week" title="Plan der Vorwoche in diese Woche übernehmen">⧉ Letzte Woche übernehmen</button>
-        <button class="btn" data-action="occasion-new" title="Filmabend, Grillabend, Weihnachtsessen … mit Gängen, Getränken und Zubehör">🎉 Anlass planen</button>
-        <button class="btn" data-action="auto-plan">✨ Automatisch planen</button>
-        <button class="btn primary" data-action="shopping-from-week">🛒 Einkaufsliste</button>
+        <div class="weekacts">
+          <button class="btn" data-action="copy-week" title="Plan der Vorwoche in diese Woche übernehmen">⧉ Letzte Woche übernehmen</button>
+          <button class="btn" data-action="occasion-new" title="Filmabend, Grillabend, Weihnachtsessen … mit Gängen, Getränken und Zubehör">🎉 Anlass planen</button>
+          <button class="btn" data-action="auto-plan">✨ Automatisch planen</button>
+          <button class="btn primary" data-action="shopping-from-week">🛒 Einkaufsliste</button>
+        </div>
       </div>
       <div class="week">${days}</div>
-      <p class="hint" style="text-align:center;margin-top:14px">Tipp: Mahlzeiten mit der Maus auf einen anderen Tag ziehen – belegte Plätze werden getauscht.</p>`;
+      <p class="hint dndtip" style="text-align:center;margin-top:14px">Tipp: Mahlzeiten mit der Maus auf einen anderen Tag ziehen – belegte Plätze werden getauscht.</p>`;
   }
 
   _weekCostMap(start) {
@@ -2020,11 +2170,13 @@ class EssensplanerPanel extends HTMLElement {
         const perServing = this._data.recipe_costs?.[r.id];
         const meta = [r.total_time ? `⏱ ${r.total_time} min` : "", perServing ? `💶 ≈ ${eur(perServing)}/Port.` : "", r.cooked_count ? `🍳 ${r.cooked_count}×` : ""].filter(Boolean).join(" · ");
         const season = this._seasonOf(r.id);
+        // 1.5.1: a picture (not a background): small pictures are not blown up (lowres, see
+        // _imageLoaded()); phones show the card as a row with a thumbnail
         return `<div class="card recipe" data-action="open-recipe" data-id="${esc(r.id)}">
-            <div class="img" ${bg(r.image)}>${safeUrl(r.image) ? "" : dishEmoji(r.name)}
-              ${season ? `<span class="sbadge" title="${esc(season.hints.join(" · "))}">🍂 ${esc((season.items || [])[0] || "Saison")}</span>` : ""}
-              <button class="icon fav ${r.favorite ? "on" : ""}" data-action="toggle-fav" data-id="${esc(r.id)}" title="Favorit">${r.favorite ? "★" : "☆"}</button>
+            <div class="img">${safeUrl(r.image) ? this._img(r.image, dishEmoji(r.name)) : dishEmoji(r.name)}
+              ${season ? `<span class="sbadge" title="${esc(season.hints.join(" · "))}">🍂<span class="sbt"> ${esc((season.items || [])[0] || "Saison")}</span></span>` : ""}
             </div>
+            <button class="icon fav ${r.favorite ? "on" : ""}" data-action="toggle-fav" data-id="${esc(r.id)}" title="Favorit" aria-label="Favorit" aria-pressed="${Boolean(r.favorite)}">${r.favorite ? "★" : "☆"}</button>
             <div class="body">
               <div class="name">${esc(r.name)}</div>
               ${r.rating ? `<div class="stars">${stars(r.rating)}</div>` : ""}
@@ -2035,13 +2187,13 @@ class EssensplanerPanel extends HTMLElement {
       })
       .join("");
     return `
-      <div class="row">
+      <div class="row recfind">
         <input type="search" placeholder="🔍 Rezepte oder Zutaten suchen …" value="${esc(this._search)}" data-input="search" data-focuskey="search" style="flex:1;min-width:200px">
         <select data-change="sort" title="Sortierung">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === this._sort ? "selected" : ""}>${v}</option>`).join("")}</select>
         <button class="btn ${this._favOnly ? "primary" : ""}" data-action="fav-only">★ Favoriten</button>
         <button class="btn ${this._seasonOnly ? "primary" : ""}" data-action="season-only" aria-pressed="${this._seasonOnly}" title="Rezepte mit Zutaten der Saison und zur Zeit des Jahres">🍂 Saison</button>
       </div>
-      <div class="row">
+      <div class="row recacts">
         <button class="btn primary" data-action="new-recipe">＋ Neues Rezept</button>
         <button class="btn" data-action="import">🌐 Von URL importieren</button>
         <button class="btn" data-action="cook-with">🧊 Was kann ich kochen?</button>
@@ -2134,6 +2286,15 @@ class EssensplanerPanel extends HTMLElement {
         .filter((p) => p && !p.startsWith("≈ ") && !p.startsWith("🏷️ ") && !(byStore && p.startsWith("🏪 ")) && !(item.product && p.startsWith("📦 ")));
       return parts.filter((p) => !(item.status !== "completed" && p === item.category)).join(" · ");
     };
+    // 1.5.1: "↪ 200 g übrig – z. B. für Chili" – phones show only "↪ 200 g übrig"
+    const descHtml = (text) =>
+      text
+        .split(" · ")
+        .map((part) => {
+          const cut = part.startsWith("↪") ? part.indexOf(" – ") : -1;
+          return cut > 0 ? `${esc(part.slice(0, cut))}<span class="lomore">${esc(part.slice(cut))}</span>` : esc(part);
+        })
+        .join(" · ");
     // 1.5: picture in front (the product's or the aisle's emoji), brand and product below
     // the name; both open "Produkt wechseln"
     const thumbOf = (item, isOpen) => {
@@ -2163,7 +2324,7 @@ class EssensplanerPanel extends HTMLElement {
       <div class="item ${isOpen ? "" : "done"}">
         <label class="chk"><input type="checkbox" data-change="toggle-item" data-uid="${esc(item.uid)}" ${isOpen ? "" : "checked"} aria-label="${esc(item.summary)} erledigt"></label>
         ${thumbOf(item, isOpen)}
-        <div class="txt"><div class="sum">${esc(item.summary)}${reason && item.store_reason !== "offer" ? `<span class="reason ${reason[1]}" title="${esc(reason[2])}">${reason[0]}</span>` : ""}</div>${productLine(item, isOpen)}${describe(item) ? `<div class="desc">${esc(describe(item))}</div>` : ""}</div>
+        <div class="txt"><div class="sum">${esc(item.summary)}${reason && item.store_reason !== "offer" ? `<span class="reason ${reason[1]}" title="${esc(reason[2])}">${reason[0]}</span>` : ""}</div>${productLine(item, isOpen)}${describe(item) ? `<div class="desc" title="${esc(describe(item))}">${descHtml(describe(item))}</div>` : ""}</div>
         ${item.price != null ? `<div class="price">≈ ${eur(item.price)}${offer}${saving}</div>` : ""}
         ${split && isOpen ? `<button class="icon swap" data-action="pick-store" data-uid="${esc(item.uid)}" title="Laden wählen" aria-label="Laden wählen">⇄</button>` : ""}
         <button class="icon" data-action="delete-item" data-uid="${esc(item.uid)}" title="Entfernen" aria-label="Entfernen">✕</button>
@@ -2210,7 +2371,7 @@ class EssensplanerPanel extends HTMLElement {
       hint = `<div class="hint" style="margin-bottom:10px">ℹ️ Die Aufteilung nach Läden ist in den Einstellungen ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Läden & Einkauf")}</div>`;
     }
     return `<div class="shopping">
-      ${total ? `<div class="card shopstat"><span class="num">${open.length}</span><span class="meta">offen<br>${done.length} erledigt</span><div class="progress"><div style="width:${pct}%"></div></div><span class="meta">${pct}%</span>${priced.length ? `<span class="meta" style="text-align:right"><b style="font-size:16px;color:var(--primary-text-color)">≈ ${eur(sum)}</b><br>${offersUsed ? `🏷️ ${offersUsed} im Angebot · ` : ""}ganze Packungen</span>` : ""}</div>` : ""}
+      ${total ? `<div class="card shopstat"><span class="num">${open.length}</span><span class="meta sdone">offen<br>${done.length} erledigt</span><div class="progress"><div style="width:${pct}%"></div></div><span class="meta spct">${pct}%</span>${priced.length ? `<span class="meta" style="text-align:right"><b style="font-size:16px;color:var(--primary-text-color)">≈ ${eur(sum)}</b><br>${offersUsed ? `🏷️ ${offersUsed} im Angebot · ` : ""}ganze Packungen</span>` : ""}</div>` : ""}
       ${hint}
       <div class="row addrow">
         <div class="addwrap">
@@ -2219,15 +2380,17 @@ class EssensplanerPanel extends HTMLElement {
         </div>
         <button class="btn primary" data-action="add-item">Hinzufügen</button>
       </div>
-      <div class="row">
+      <div class="row shoptools">
         ${split ? `<div class="seg" role="group" aria-label="Sortierung"><button class="${byStore ? "on" : ""}" data-action="shop-mode" data-mode="store">🏪 Nach Laden</button><button class="${byStore ? "" : "on"}" data-action="shop-mode" data-mode="aisle">🧺 Nach Abteilung</button></div>` : ""}
-        <button class="btn" data-action="shopping-next-week">🗓️ Aus Plan (7 Tage) erstellen</button>
-        ${open.length ? `<button class="btn" data-action="share-list">📤 Teilen / Kopieren</button>` : ""}
-        ${split && open.length ? `<button class="btn" data-action="assign-stores" title="Alle offenen Artikel neu auf die Läden verteilen">🔄 Läden neu zuordnen</button>` : ""}
-        ${this._isAdmin() ? `<button class="btn" data-action="receipt-new" title="Kassenzettel fotografieren oder Text einfügen – seine Preise werden die Preise des Ladens">🧾 Kassenzettel</button>` : ""}
-        <span class="spacer"></span>
-        ${done.length ? `<button class="btn ghost" data-action="clear-done">🧹 Erledigte entfernen (${done.length})</button>` : ""}
-        ${total ? `<button class="btn danger" data-action="clear-all">🗑 Liste leeren</button>` : ""}
+        <div class="shopacts" role="group" aria-label="Aktionen">
+          <button class="btn" data-action="shopping-next-week">🗓️ Aus Plan<span class="wide-only"> (7 Tage) erstellen</span></button>
+          ${open.length ? `<button class="btn" data-action="share-list">📤 Teilen<span class="wide-only"> / Kopieren</span></button>` : ""}
+          ${split && open.length ? `<button class="btn" data-action="assign-stores" title="Alle offenen Artikel neu auf die Läden verteilen">🔄 Läden neu zuordnen</button>` : ""}
+          ${this._isAdmin() ? `<button class="btn" data-action="receipt-new" title="Kassenzettel fotografieren oder Text einfügen – seine Preise werden die Preise des Ladens">🧾 Kassenzettel</button>` : ""}
+          <span class="spacer"></span>
+          ${done.length ? `<button class="btn ghost" data-action="clear-done">🧹 Erledigte entfernen (${done.length})</button>` : ""}
+          ${total ? `<button class="btn danger" data-action="clear-all">🗑 Liste leeren</button>` : ""}
+        </div>
       </div>
       ${open.length ? listHtml : `<div class="empty"><div class="big">${done.length ? "🎉" : "🛒"}</div>${done.length ? "Alles erledigt!" : "Die Einkaufsliste ist leer."}<br><span class="hint">Plane Mahlzeiten und erstelle die Liste per Knopfdruck – oder sag „Jarvis, erstelle die Einkaufsliste“.</span></div>`}
       ${done.length ? `<div class="card group"><h3>✅ Erledigt</h3>${done.map(renderItem).join("")}</div>` : ""}
@@ -3746,6 +3909,8 @@ class EssensplanerPanel extends HTMLElement {
     });
     const stores = [...new Set((this._data.offers || []).map((o) => o.store).filter(Boolean))].sort();
     const maxDay = Math.max(1, ...(week.days || []).map((d) => d.total || 0));
+    // 1.5.1: no empty chart (nothing planned or priced this week)
+    const anyDay = (week.days || []).some((d) => (d.total || 0) > 0);
     const bars = (week.days || [])
       .map((d) => `<div style="height:${Math.round(((d.total || 0) / maxDay) * 100)}%" title="${shortDate(d.date)}: ${eur(d.total)}"><span>${shortDate(d.date).split(" ")[0]}</span></div>`)
       .join("");
@@ -3755,9 +3920,9 @@ class EssensplanerPanel extends HTMLElement {
         <div>
           ${budget ? `<div class="meta">Budget ${eur(budget)} · ${week.remaining >= 0 ? `noch <b>${eur(week.remaining)}</b> frei` : `<b style="color:var(--ep-red)">${eur(-week.remaining)} drüber</b>`}</div>
           <div class="progress" style="height:10px;max-width:none;margin-top:6px"><div style="width:${Math.min(100, Math.round(ratio * 100))}%;background:${ratio > 1 ? "#c62828" : ratio > 0.85 ? "#ef6c00" : "#2e7d32"}"></div></div>` : `<div class="hint">Kein Wochenbudget festgelegt – einstellen unter ${this._settingsLink("planning", "⚙️ Budget & Planung")}.</div>`}
-          <div class="meta" style="margin-top:6px">${week.savings ? `🏷️ ${eur(week.savings)} durch Angebote gespart · ` : ""}Nächste Woche bisher ≈ ${eur(next.total || 0)}</div>
         </div>
-        <div class="bars" style="margin:6px 0 18px">${bars}</div>
+        <div class="meta bsave">${week.savings ? `🏷️ ${eur(week.savings)} durch Angebote gespart · ` : ""}Nächste Woche bisher ≈ ${eur(next.total || 0)}</div>
+        ${anyDay ? `<div class="bars">${bars}</div>` : ""}
       </div>`;
     const targets = this._data.offer_targets || [];
     const zips = targets.length
@@ -3781,9 +3946,16 @@ class EssensplanerPanel extends HTMLElement {
       (rewe?.enabled
         ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
         : "");
+    const sourceText = `${sourceLines}${online && !marktguru ? `<div class="meta">Für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Rossmann …) gibt es optional marktguru (inoffiziell, eigenes Risiko): ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}</div>` : ""}`;
+    // 1.5.1: phones fold the sources (several lines would push the offers down)
+    const sourceBox = !sourceText
+      ? ""
+      : this._narrowQuery?.matches
+        ? `<details class="srcbox offsrc"><summary>ℹ️ Quellen${meta.last_update ? ` · ${esc(new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }))}` : ""}</summary><div class="srclines">${sourceText}</div></details>`
+        : `<div class="srclines">${sourceText}</div>`;
     const info = online
-      ? `${sourceLines}${marktguru ? "" : `<div class="meta">Für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Rossmann …) gibt es optional marktguru (inoffiziell, eigenes Risiko): ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}</div>`}`
-      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${sourceLines}`;
+      ? sourceBox
+      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${sourceBox}`;
     const branchLabels = Object.fromEntries((this._data.branches || []).map((b) => [b.id, b]));
     const cards = offers
       .map((o) => {
@@ -3808,15 +3980,19 @@ class EssensplanerPanel extends HTMLElement {
       })
       .join("");
     return `${budgetHtml}
-      <div class="row">
-        <button class="chip ${when === "current" ? "active" : ""}" data-action="offers-when" data-when="current">Aktuell</button>
-        <button class="chip ${when === "upcoming" ? "active" : ""}" data-action="offers-when" data-when="upcoming">Ab nächster Woche</button>
-        <button class="chip ${when === "all" ? "active" : ""}" data-action="offers-when" data-when="all">Alle</button>
-        <button class="chip ${this._offersMine !== false ? "active" : ""}" data-action="offers-mine">Nur passend zu meinen Rezepten</button>
+      <div class="row offrow">
+        <div class="offchips" role="group" aria-label="Filter">
+          <button class="chip ${when === "current" ? "active" : ""}" data-action="offers-when" data-when="current">Aktuell</button>
+          <button class="chip ${when === "upcoming" ? "active" : ""}" data-action="offers-when" data-when="upcoming">Ab nächster Woche</button>
+          <button class="chip ${when === "all" ? "active" : ""}" data-action="offers-when" data-when="all">Alle</button>
+          <button class="chip ${this._offersMine !== false ? "active" : ""}" data-action="offers-mine">Nur passend zu meinen Rezepten</button>
+        </div>
         <span class="spacer"></span>
-        ${online ? `<button class="btn" data-action="refresh-offers" ${this._refreshing.has("offers-tab") ? "disabled" : ""}>${this._refreshing.has("offers-tab") ? "⏳ Lade Angebote …" : "🔄 Aktualisieren"}</button>` : ""}
-        <button class="btn" data-action="add-offer">＋ Angebot eintragen</button>
-        <button class="btn ghost" data-action="go-tab" data-tab="stores" data-sec="prices">💶 Preise</button>
+        <div class="offacts">
+          ${online ? `<button class="btn" data-action="refresh-offers" ${this._refreshing.has("offers-tab") ? "disabled" : ""}>${this._refreshing.has("offers-tab") ? "⏳ Lade Angebote …" : "🔄 Aktualisieren"}</button>` : ""}
+          <button class="btn" data-action="add-offer">＋ Angebot<span class="wide-only"> eintragen</span></button>
+          <button class="btn ghost" data-action="go-tab" data-tab="stores" data-sec="prices">💶 Preise</button>
+        </div>
       </div>
       ${stores.length > 1 ? `<div class="row chips tagrow"><button class="chip ${this._offersStore ? "" : "active"}" data-action="offers-store" data-store="">Alle Märkte</button>${stores.map((st) => `<button class="chip ${st === this._offersStore ? "active" : ""}" data-action="offers-store" data-store="${esc(st)}">${esc(st)}</button>`).join("")}</div>` : ""}
       <div class="row">
@@ -4955,15 +5131,15 @@ class EssensplanerPanel extends HTMLElement {
     const busy = this._refreshing.has("offers-tab");
     return `
       <div class="sochips" role="group" aria-label="Läden">${this._soChipsHtml()}</div>
-      <div class="sotools">
+      <div class="sotools sowhen">
         ${whens}
         <span class="seg" role="group" aria-label="Art">${kinds}</span>
       </div>
       <div class="sotools">
         <input type="search" placeholder="🔍 In den Angeboten suchen, z. B. „Kaffee“" value="${esc(so.query)}" data-input="so-query" data-focuskey="so-query" aria-label="In den Angeboten suchen">
-        <label class="switch">Sortieren <select data-change="so-sort" aria-label="Sortieren">${Object.entries(OFFER_SORTS).map(([k, v]) => `<option value="${k}" ${k === so.sort ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label class="switch"><span class="wide-only">Sortieren</span> <select data-change="so-sort" aria-label="Sortieren">${Object.entries(OFFER_SORTS).map(([k, v]) => `<option value="${k}" ${k === so.sort ? "selected" : ""}>${v}</option>`).join("")}</select></label>
         <button class="btn" data-action="refresh-offers" ${busy ? "disabled" : ""}>${busy ? "⏳ Lade Angebote …" : "🔄 Aktualisieren"}</button>
-        <button class="btn" data-action="add-offer">＋ Angebot eintragen</button>
+        <button class="btn" data-action="add-offer">＋ Angebot<span class="wide-only"> eintragen</span></button>
       </div>
       <div class="sobody">${this._soBodyHtml()}</div>`;
   }
@@ -5138,17 +5314,17 @@ class EssensplanerPanel extends HTMLElement {
           <div class="sot">${o.brand ? `<div class="brand">${esc(o.brand)}</div>` : ""}<div class="pname">${esc(o.product || o.title)}</div>${desc ? `<div class="pack">${esc(desc)}</div>` : ""}</div>`;
     let acts;
     if (product) {
-      acts = `<button class="btn small" data-action="pr-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>`;
+      acts = `<button class="btn small" data-action="pr-add" data-id="${esc(o.id)}" aria-label="Auf die Einkaufsliste" title="Auf die Einkaufsliste">➕<span class="albl"> Auf die Einkaufsliste</span></button>`;
     } else {
       // one of the planning offers already (📌 would only add a second copy)
       const counts = (this._data.offers || []).some((x) => String(x.id) === String(o.id));
-      acts = `<button class="btn small" data-action="so-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>
-          ${counts ? `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Passt zu deinen Rezepten oder der Einkaufsliste – zählt schon für Planung, Budget und Einkaufsliste">✓ Zählt schon</button>` : `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌 Merken</button>`}`;
+      acts = `<button class="btn small" data-action="so-add" data-id="${esc(o.id)}" aria-label="Auf die Einkaufsliste" title="Auf die Einkaufsliste">➕<span class="albl"> Auf die Einkaufsliste</span></button>
+          ${counts ? `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" aria-label="Zählt schon" title="Passt zu deinen Rezepten oder der Einkaufsliste – zählt schon für Planung, Budget und Einkaufsliste">✓<span class="albl"> Zählt schon</span></button>` : `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" aria-label="Merken" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌<span class="albl"> Merken</span></button>`}`;
     }
     return `<div class="card soffer ${o.current ? "" : "later"} ${product ? "prcard" : ""}">
         ${product ? `<div class="sotop" data-action="pr-open" data-enter="pr-open" data-id="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.title || o.product)} – Details">${top}</div>${fav}` : `<div class="sotop">${top}</div>`}
         <div class="soprice">${price}${ref && o.price != null && ref > o.price ? `<span class="old" title="${product || !o.old_price ? "Normalpreis" : "Streichpreis"}">${eur(ref)}</span>` : ""}${o.discount ? `<span class="disc">−${o.discount}%</span>` : ""}${unit ? `<span class="up">${esc(unit)}</span>` : ""}</div>
-        <div class="someta"><span class="sostore">${retailerDot(o.retailer, o.store).replace('class="rdot"', 'class="rdot xs"')}${esc(where)}</span>${badges.join("")}</div>
+        <div class="someta"><span class="sostore">${retailerDot(o.retailer, o.store).replace('class="rdot"', 'class="rdot xs"')}<span class="sn">${esc(where)}</span></span>${badges.join("")}</div>
         <div class="acts">${acts}</div>
       </div>`;
   }
@@ -5258,6 +5434,14 @@ class EssensplanerPanel extends HTMLElement {
     const src = safeUrl(url);
     if (!src || this._badImages.has(src)) return `<span class="imgph" aria-hidden="true">${esc(ph)}</span>`;
     return `<img loading="lazy" decoding="async" src="${esc(src)}" alt="${esc(alt)}" data-ph="${esc(ph)}">`;
+  }
+
+  _imageLoaded(img) {
+    if (img?.tagName !== "IMG" || !img.naturalWidth) return;
+    const box = img.parentElement;
+    if (!box) return;
+    const small = img.naturalWidth < box.clientWidth * 0.9 || img.naturalHeight < box.clientHeight * 0.9;
+    img.classList.toggle("lowres", small);
   }
 
   _brokenImage(img) {
@@ -6183,7 +6367,7 @@ class EssensplanerPanel extends HTMLElement {
     return `<div class="card seasonrow">
         <span class="semoji" aria-hidden="true">${esc(s.season?.emoji || "🍂")}</span>
         <div class="stxt"><b>Jetzt Saison:</b> ${names || "–"}${produce.length > 7 ? " …" : ""} ${windows}${soon ? ` <span class="meta">· bald: ${soon}</span>` : ""}</div>
-        <button class="btn small" data-action="season-open">🍂 Saisonkalender</button>
+        <button class="btn small" data-action="season-open">🍂 <span class="wide-only">Saisonkalender</span><span class="narrow-only">Kalender</span></button>
       </div>`;
   }
 

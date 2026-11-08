@@ -81,6 +81,8 @@ from .kinds import (
 )
 from .pricing import (
     COUNT_UNITS,
+    LOOSE_CATEGORY,
+    loose_produce,
     offer_pack,
     pack_text,
     package_cost,
@@ -2226,6 +2228,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         product = item.get("product") if isinstance(item.get("product"), dict) else None
         if product and product.get("pack_amount") and product.get("pack_unit"):
             pack = to_pricing_base(float(product["pack_amount"]), str(product["pack_unit"]))
+        own_pack = bool(pack and pack[0])
         if not pack or not pack[0]:
             pack = None
             for entry in self.best_price(name, day):
@@ -2237,10 +2240,15 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if not pack or not pack[0] or pack[1] not in PACK_LEFTOVER_MIN:
             return None
         pack_amount, pack_unit = float(pack[0]), pack[1]
-        left = packs * pack_amount - package_need(
-            amounts, key, pack_amount, pack_unit, spice, category
-        )
+        need = package_need(amounts, key, pack_amount, pack_unit, spice, category)
+        left = packs * pack_amount - need
         if left < PACK_LEFTOVER_MIN[pack_unit] or left < PACK_LEFTOVER_SHARE * pack_amount:
+            return None
+        if category == LOOSE_CATEGORY and (
+            not own_pack or loose_produce(category, packs * pack_amount / need if need else None)
+        ):
+            # fresh produce is also sold loose: no hint for an estimate's pack or for a bag
+            # far bigger than the need
             return None
         left = float(round(left / 10) * 10) if pack_unit in ("g", "ml") else float(int(left))
         return {
