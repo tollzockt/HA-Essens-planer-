@@ -180,6 +180,12 @@ _KIND_AISLES = {
 
 RECIPE_STEP = "Nach Packungsanleitung zubereiten."
 RECIPE_TAG = "Fertiggericht"
+# the course tag of a recipe from a product (1.5, like the bundled ready meals): a dessert
+# or a snack by its name or aisle, a drink is only a drink, else a main dish
+RECIPE_MAIN_TAG = "Hauptgericht"
+RECIPE_DESSERT_TAG = "Dessert"
+RECIPE_SNACK_TAG = "Snack"
+RECIPE_DRINK_TAG = "Getränk"
 
 
 # ----------------------------------------------------------------------
@@ -1962,6 +1968,23 @@ def delete_product(manager: EssensplanerManager, pid: Any) -> dict[str, Any]:
     return product
 
 
+def recipe_tags(product: dict[str, Any]) -> list[str]:
+    """The tags of a recipe made from a product: "Fertiggericht" and its course –
+    "Getränk" for a drink, "Dessert" / "Snack" by its name or aisle, else "Hauptgericht" (so
+    it fills a meal slot like the bundled ready meals, see manager._fits_meal())."""
+    from .occasions import COURSE_DESSERT, COURSE_DRINK, COURSE_SNACK, guess_course
+
+    title = product_title(product)
+    course = guess_course(title)
+    if product.get("kind") == KIND_DRINKS or course == COURSE_DRINK:
+        return [RECIPE_DRINK_TAG]
+    if course == COURSE_DESSERT:
+        return [RECIPE_TAG, RECIPE_DESSERT_TAG]
+    if course == COURSE_SNACK or product.get("category") == "Backen & Süßes":
+        return [RECIPE_TAG, RECIPE_SNACK_TAG]
+    return [RECIPE_TAG, RECIPE_MAIN_TAG]
+
+
 def product_to_recipe(
     manager: EssensplanerManager, pid: Any, tags: list[str] | str | None = None
 ) -> dict[str, Any]:
@@ -1985,7 +2008,7 @@ def product_to_recipe(
         "name": product_title(product),
         "ingredients": [ingredient],
         "steps": [RECIPE_STEP],
-        "tags": list(tags) if tags else [RECIPE_TAG],
+        "tags": list(tags) if tags else recipe_tags(product),
         "image": product.get("image") or "",
         "notes": f"{product_title(product)} von {retailer_name(product['retailer'])}",
     }

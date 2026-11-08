@@ -253,6 +253,7 @@ CHOICE_LABELS_DE: dict[str, dict[str, str]] = {
         "cheap": "Günstig (Budget)",
         "offers": "Angebote nutzen",
         "variety": "Abwechslung",
+        "seasonal": "Saisonal",
     },
     "split_mode": {
         "off": "Aus – eine Liste wie bisher",

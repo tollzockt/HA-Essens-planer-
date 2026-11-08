@@ -870,7 +870,9 @@ async def test_alternatives_and_recipe(
     recipe = product_to_recipe(manager, pizza["id"])
     assert recipe["name"] == "Bergland Steinofen-Pizza Salami"
     assert recipe["steps"] == ["Nach Packungsanleitung zubereiten."]
-    assert recipe["tags"] == ["Fertiggericht"] and recipe["image"] == pizza["image"]
+    # 1.5 (P6): with its course, like the bundled ready meals (fills a meal slot)
+    assert recipe["tags"] == ["Fertiggericht", "Hauptgericht"]
+    assert recipe["image"] == pizza["image"]
     ingredient = recipe["ingredients"][0]
     assert (ingredient["amount"], ingredient["unit"], ingredient["note"]) == (1, "Pck.", "350 g")
     assert ingredient["product_id"] == pizza["id"]

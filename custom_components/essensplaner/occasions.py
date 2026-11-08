@@ -40,6 +40,7 @@ from .ingredients import (
     to_base,
 )
 from .pricing import item_cost
+from .season import recipe_season
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
@@ -1495,6 +1496,8 @@ def suggest_course(
             reasons.append("⭐ Favorit")
         if hits:
             reasons.append(f"{info['emoji']} passt zu {info['title']}")
+        if ctx.get("season"):  # 1.5: "🍂 Saison: Kürbis", "🕯️ Adventszeit"
+            reasons.extend(recipe_season(manager, recipe, day)["hints"])
         if cost["on_offer"]:
             offers = ", ".join(o["ingredient"] for o in cost["on_offer"][:2])
             reasons.append(f"🏷️ Angebot: {offers}")

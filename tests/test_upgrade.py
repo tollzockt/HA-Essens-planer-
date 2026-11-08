@@ -140,7 +140,7 @@ async def test_upgrade_1_2_to_1_3(
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
 
-    assert manager.data_version == 4  # 1.4: drugstore branches (v4)
+    assert manager.data_version == 5  # 1.4: drugstore branches (v4), 1.5: aisle fixes (v5)
     assert manager.branches == []  # no legacy branches
     assert manager.main_branch is None
     assert manager.store_prices_user["lidl"]["butter"]["price"] == 1.79
@@ -162,7 +162,7 @@ async def test_upgrade_1_2_to_1_3(
     assert manager.best_price("Butter")[1].price == 1.79
     # migrated data was written right away
     stored = hass_storage[key]["data"]
-    assert stored["data_version"] == 4
+    assert stored["data_version"] == 5
     assert stored["store_prices_user"]["lidl"]["butter"]["price"] == 1.79
 
     # idempotent: a second run changes nothing, a reload neither
@@ -177,3 +177,123 @@ async def test_upgrade_1_2_to_1_3(
     assert "lidl" not in reloaded.store_prices_user  # not copied again
     assert reloaded.store_prices_user["aldi-sued"]["kaese"]["price"] == 2.49
     assert len(reloaded.offers) == 3
+
+
+async def test_upgrade_1_4_to_1_5(
+    hass: HomeAssistant, config_entry: MockConfigEntry, hass_storage, freezer
+) -> None:
+    """1.4 data (v4): open items and recipe lines with an aisle 1.4 guessed wrong get the
+    right one (Grillkohle is no vegetable, Apfelschorle no fruit, "Pizza Salami (TK)" no
+    cold cut); ticked off items, aisles not guessed by 1.4 and everything else stay; the
+    new keys start empty; idempotent."""
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    freezer.move_to(datetime.fromisoformat("2026-11-04T10:00:00+01:00"))
+    key = f"{STORAGE_KEY}.{config_entry.entry_id}"
+
+    def item(uid: str, name: str, category: str, status: str = "needs_action") -> dict:
+        return {
+            "uid": uid,
+            "summary": name,
+            "name": name,
+            "key": name.lower(),
+            "category": category,
+            "status": status,
+            "source": "manual",
+        }
+
+    shopping = [
+        item("i1", "Grillkohle", "Obst & Gemüse"),
+        item("i2", "Apfelschorle", "Obst & Gemüse"),
+        item("i3", "Maultaschen", "Sonstiges"),
+        item("i4", "Apfelschorle", "Obst & Gemüse", status="completed"),  # ticked off
+        item("i5", "Butter", "Milchprodukte & Eier"),
+        item("i6", "Servietten", "Partybedarf"),  # not 1.4's guess: kept
+    ]
+    recipe = {
+        "id": "own",
+        "name": "Grillabend bei Lena",
+        "servings": 4,
+        "updated": "2026-10-01T10:00:00+00:00",
+        "tags": ["Grillen"],
+        "steps": [],
+        "ingredients": [
+            {
+                "name": "Grillkohle",
+                "amount": 2.5,
+                "unit": "kg",
+                "note": "",
+                "category": "Obst & Gemüse",
+            },
+            {
+                "name": "Pizza Salami",
+                "amount": 2,
+                "unit": "Pck.",
+                "note": "TK, je 350 g",
+                "category": "Käse & Aufschnitt",
+            },
+            {
+                "name": "Butter",
+                "amount": 50,
+                "unit": "g",
+                "note": "",
+                "category": "Milchprodukte & Eier",
+            },
+        ],
+    }
+    hass_storage[key] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": key,
+        "data": {
+            "recipes": {"own": recipe},
+            "plan": {},
+            "shopping": shopping,
+            "starter_names": [p["name"] for p in PACK],
+            "prices": {},
+            "prices_learned": {},
+            "offers": [],
+            "offers_meta": {},
+            "data_version": 4,
+            "branches": [],
+            "main_branch": None,
+        },
+    }
+    assert await async_setup_component(hass, "homeassistant", {})
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    manager = config_entry.runtime_data
+
+    assert manager.data_version == 5
+    aisles = {i["uid"]: i["category"] for i in manager.shopping}
+    assert aisles == {
+        "i1": "Sonstiges",
+        "i2": "Getränke",
+        "i3": "Nudeln, Reis & Getreide",
+        "i4": "Obst & Gemüse",
+        "i5": "Milchprodukte & Eier",
+        "i6": "Partybedarf",
+    }
+    lines = manager.recipes["own"]["ingredients"]
+    assert [line["category"] for line in lines] == [
+        "Sonstiges",
+        "Tiefkühl",
+        "Milchprodukte & Eier",
+    ]
+    assert manager.recipes["own"]["updated"] != recipe["updated"]
+    assert manager.occasions == {}
+    # written right away, with the new keys
+    stored = hass_storage[key]["data"]
+    assert stored["data_version"] == 5 and stored["occasions"] == {}
+    assert next(i for i in stored["shopping"] if i["uid"] == "i1")["category"] == "Sonstiges"
+
+    # idempotent: a second run changes nothing, a reload neither
+    snapshot = json.dumps(manager._data_to_store(), sort_keys=True, default=str)
+    assert manager._migrate_v5() == 0
+    assert manager._migrate_v2() is False
+    assert json.dumps(manager._data_to_store(), sort_keys=True, default=str) == snapshot
+    await manager.async_save_now()
+    assert await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    reloaded = config_entry.runtime_data
+    assert {i["uid"]: i["category"] for i in reloaded.shopping} == aisles

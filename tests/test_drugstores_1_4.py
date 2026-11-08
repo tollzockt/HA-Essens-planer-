@@ -550,7 +550,7 @@ async def test_migrate_rossmann_saved_as_marktkauf(
     await hass.async_block_till_done()
     manager = config_entry.runtime_data
 
-    assert manager.data_version == 4
+    assert manager.data_version == 5  # 1.5: v5 (aisle fixes)
     migrated = manager.get_branch("man_2")
     assert migrated["retailer"] == "rossmann"
     assert migrated["retailer_guessed"] is False
@@ -588,7 +588,7 @@ async def test_migrate_rossmann_saved_as_marktkauf(
         "Rossmann",
     )
     stored = hass_storage[f"{STORAGE_KEY}.{config_entry.entry_id}"]["data"]
-    assert stored["data_version"] == 4
+    assert stored["data_version"] == 5
     assert next(b for b in stored["branches"] if b["id"] == "man_2")["retailer"] == "rossmann"
 
     # drugstore items go there now

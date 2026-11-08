@@ -45,6 +45,7 @@ const STRATEGY_LABELS = {
   cheap: ["💶 Günstig", "möglichst preiswert, passend zum Wochenbudget"],
   offers: ["🏷️ Angebote nutzen", "Rezepte mit aktuellen Angeboten bevorzugen"],
   variety: ["🌈 Abwechslung", "möglichst verschiedene Gerichte und Zutaten"],
+  seasonal: ["🍂 Saisonal", "was gerade Saison hat – Gemüse, Obst, Feste – und Angebote"],
 };
 
 /* Stores & prices (1.3). Helpers live here (not in common.js) so a cached old common.js
@@ -237,7 +238,7 @@ const SETTING_INFO = {
   show_panel: ["Panel in der Seitenleiste", "Ausgeschaltet verschwindet der Eintrag „Essensplaner“ (und damit diese Einstellungen) nach dem Speichern aus der Seitenleiste – wieder einschalten unter Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren."],
   weekly_budget: ["Wochenbudget", "Euro pro Woche fürs Essen, 0 = kein Budget.", "€"],
   plan_strategy: ["Planungsart", "Für die automatische Planung und Vorschläge."],
-  season_aware: ["Saison berücksichtigen", "Vorschläge und automatische Planung bevorzugen Gerichte mit Zutaten, die gerade Saison haben (z. B. Spargel im Mai, Kürbis im Herbst)."],
+  season_aware: ["Saison berücksichtigen", "Vorschläge und automatische Planung bevorzugen Gerichte mit Zutaten, die gerade Saison haben (z. B. Spargel im Mai, Kürbis im Herbst), und Gerichte zur Zeit des Jahres (Advent, Grillzeit, Ostern). Die Planungsart „Saisonal“ nutzt die Saison immer."],
   occasions_in_budget: ["Anlässe im Wochenbudget", "Die Kosten von Anlässen (Filmabend, Grillen, Weihnachtsessen …) zählen zum Wochenbudget."],
   drinks_alcohol: ["Getränkevorschläge mit Alkohol", "Auch Wein, Bier, Sekt & Co. vorschlagen. Alkoholfreie Getränke sind immer dabei."],
   offers_source: ["marktguru-Angebote (inoffiziell)", "Nur eine Ergänzung zu den direkten Quellen der Ketten (EDEKA-Angebote, ALDI SÜD, REWE-Onlinepreise) – für Läden ohne eigene Angebotsquelle (Lidl, REWE, Netto, Penny, Kaufland, NORMA, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden, außerdem Live-Suche in „Artikel hinzufügen“. Standardmäßig aus."],

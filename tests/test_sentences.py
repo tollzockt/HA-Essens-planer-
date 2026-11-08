@@ -331,6 +331,17 @@ def test_all_intents_exist(intents: Intents) -> None:
             "essensplaner_suggest_drinks",
             {"occasion": "Raclette-Abend"},
         ),
+        # season (1.5)
+        ("was hat gerade saison", "essensplaner_get_season", {}),
+        ("welches gemüse hat jetzt saison", "essensplaner_get_season", {}),
+        ("was hat im mai saison", "essensplaner_get_season", {"month": "mai"}),
+        ("welches obst hat im dezember saison", "essensplaner_get_season", {"month": "dezember"}),
+        ("welche rezepte passen zur saison", "essensplaner_get_season", {}),
+        (
+            "plane mir die woche saisonal",
+            "essensplaner_auto_plan",
+            {"strategy": "saisonal"},
+        ),
         # the meals of a day stay with get_meals / plan_meal
         (
             "plane lasagne für samstag",
@@ -377,3 +388,12 @@ def test_occasion_and_holiday_lists(intents: Intents) -> None:
     for value in intents.slot_lists["holiday"].values:
         day, _ = parse_date(value.value_out, date(2026, 11, 4))
         assert day >= date(2026, 11, 4), value.value_out
+
+
+def test_month_list(intents: Intents) -> None:
+    """Every month word is understood by the season intent (1.5)."""
+    from custom_components.essensplaner.season import resolve_month
+
+    values = [v.value_out for v in intents.slot_lists["month"].values]
+    assert len(values) == 12
+    assert [resolve_month(v) for v in values] == list(range(1, 13))

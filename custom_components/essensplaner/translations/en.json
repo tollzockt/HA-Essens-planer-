@@ -46,7 +46,8 @@
         "balanced": "Balanced",
         "cheap": "Cheap (budget)",
         "offers": "Use offers",
-        "variety": "Variety"
+        "variety": "Variety",
+        "seasonal": "Seasonal"
       }
     },
     "clear_mode": {
@@ -682,7 +683,7 @@
         },
         "strategy": {
           "name": "Strategy",
-          "description": "balanced, cheap (budget), offers (use current offers) or variety."
+          "description": "balanced, cheap (budget), offers (use current offers), variety or seasonal (what is in season)."
         }
       }
     },
@@ -720,7 +721,11 @@
         },
         "strategy": {
           "name": "Strategy",
-          "description": "balanced, cheap (budget), offers (use current offers) or variety."
+          "description": "balanced, cheap (budget), offers (use current offers), variety or seasonal (what is in season)."
+        },
+        "ai": {
+          "name": "With AI",
+          "description": "The AI from the settings (🤖 KI, feature \"Saisonplan\") orders the best fitting recipes by season, offers and variety; without an AI or when it does not answer, the rules plan alone."
         }
       }
     },

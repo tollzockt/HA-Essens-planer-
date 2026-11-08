@@ -144,6 +144,7 @@ from .receipts import (
 )
 from .recipe_import import async_fetch_recipe
 from .rewe import async_find_rewe_markets, async_refresh_rewe_prices, rewe_enabled, rewe_market
+from .season import async_auto_plan, season_weight, suggest_reasons
 
 if TYPE_CHECKING:
     from .manager import EssensplanerManager
@@ -230,6 +231,8 @@ AUTO_PLAN_SCHEMA = vol.Schema(
         vol.Optional(ATTR_SERVINGS): _POSITIVE,
         vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean,
         vol.Optional("strategy"): cv.string,
+        # 1.5: the AI orders the rules' best candidates (feature "season")
+        vol.Optional("ai", default=False): cv.boolean,
     }
 )
 SHOPPING_SCHEMA = vol.Schema(
@@ -499,6 +502,8 @@ STRATEGY_WORDS = {
     "angebot": "offers",
     "abwechslung": "variety",
     "vielfalt": "variety",
+    "saison": "seasonal",
+    "regional": "seasonal",
 }
 
 
@@ -785,17 +790,24 @@ def async_setup_services(hass: HomeAssistant) -> None:
         manager = get_manager(hass)
         around, hint = resolve_day(manager, call.data.get(ATTR_DATE))
         meal = resolve_meal(manager, call.data.get(ATTR_MEAL), hint, default=False)
+        strategy = resolve_strategy(call.data.get("strategy"))
         recipes = manager.suggest(
             call.data[ATTR_COUNT],
             tag=call.data.get(ATTR_TAG),
             max_time=call.data.get(ATTR_MAX_TIME),
             meal=meal,
             around=around,
-            strategy=resolve_strategy(call.data.get("strategy")),
+            strategy=strategy,
         )
+        # 1.5: why each recipe (favourite, season, offers)
+        season = season_weight(manager, strategy) > 0
         return {
             "recipes": [
-                {**manager.recipe_summary(r), "cost": manager.recipe_cost(r, None, around)["total"]}
+                {
+                    **manager.recipe_summary(r),
+                    "cost": manager.recipe_cost(r, None, around)["total"],
+                    "reasons": suggest_reasons(manager, r, around, season=season),
+                }
                 for r in recipes
             ]
         }
@@ -803,7 +815,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def auto_plan(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         start, _ = resolve_day(manager, call.data.get(ATTR_START_DATE))
-        planned = manager.auto_plan(
+        result = await async_auto_plan(
+            hass,
+            manager,
             start,
             call.data[ATTR_DAYS],
             meals=resolve_meals(manager, call.data.get("meals")),
@@ -812,8 +826,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
             overwrite=call.data[ATTR_OVERWRITE],
             servings=call.data.get(ATTR_SERVINGS),
             strategy=resolve_strategy(call.data.get("strategy")),
+            ai=call.data["ai"],
         )
-        return {"planned": planned, "week": manager.week_overview(start)}
+        return {
+            "planned": result["planned"],
+            "week": manager.week_overview(start),
+            "ai": result["ai"],
+        }
 
     async def shopping_list(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)

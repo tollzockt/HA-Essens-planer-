@@ -68,6 +68,7 @@ INTENT_PLAN_OCCASION = "essensplaner_plan_occasion"
 INTENT_GET_OCCASION = "essensplaner_get_occasion"
 INTENT_EDIT_OCCASION = "essensplaner_edit_occasion"
 INTENT_SUGGEST_DRINKS = "essensplaner_suggest_drinks"
+INTENT_GET_SEASON = "essensplaner_get_season"
 
 _DATE_DESC = (
     "Tag/day: 'heute', 'morgen', 'übermorgen', Wochentag wie 'Freitag', "
@@ -540,7 +541,7 @@ class AutoPlanIntent(_EssensplanerIntent):
         vol.Optional(
             "strategy",
             description="'günstig' (Budget), 'angebote' (aktuelle Angebote nutzen), "
-            "'abwechslung' oder 'ausgewogen' (Standard)",
+            "'abwechslung', 'saisonal' (was gerade Saison hat) oder 'ausgewogen' (Standard)",
         ): cv.string,
     }
 
@@ -1904,6 +1905,62 @@ class SuggestDrinksIntent(_EssensplanerIntent):
         return speech, result
 
 
+class GetSeasonIntent(_EssensplanerIntent):
+    """What is in season (now or in a month) and which recipes fit?"""
+
+    intent_type = INTENT_GET_SEASON
+    description = (
+        "Essensplaner: sagt, welches Obst und Gemüse gerade (oder in einem Monat) Saison hat, "
+        "welche Zeit des Jahres ist (Advent, Grillzeit …) und welche eigenen Rezepte dazu "
+        "passen ('Was hat gerade Saison?', 'Was hat im Mai Saison?'). Seasonal produce."
+    )
+    slot_schema = {
+        vol.Optional("month", description="Monat/month, z. B. 'Mai' oder 'Dezember'"): cv.string,
+        vol.Optional("date", description=_HOLIDAY_DATE_DESC): cv.string,
+    }
+
+    async def _async_handle(self, hass, manager, values):
+        from .season import MONTH_NAMES, resolve_month, season_view
+
+        today = manager.today()
+        day = today
+        when = "Gerade"
+        if values.get("month"):
+            month = resolve_month(values["month"])
+            if month is None:
+                raise _SpokenError(f"Den Monat „{values['month']}“ kenne ich nicht.")
+            if month != today.month:
+                year = today.year + (1 if month < today.month else 0)
+                day = date(year, month, 15)
+                when = f"Im {MONTH_NAMES[month - 1]}"
+        elif values.get("date"):
+            day, _ = resolve_day(manager, values["date"])
+            if day != today:
+                when = _cap(describe_date(day, today))
+        view = season_view(manager, day, 3)
+        produce = [p["label"] for p in view["produce"]]
+        speech = (
+            f"{when} hat Saison: {_join(produce[:6])}."
+            if produce
+            else f"{when} hat kaum etwas aus der Region Saison."
+        )
+        if view["windows"]:
+            speech += f" Es ist {_join([w['label'] for w in view['windows']])}."
+        elif view["upcoming"] and day == today:
+            speech += f" Bald beginnt: {_join([w['label'] for w in view['upcoming']])}."
+        recipes = [r["name"] for r in view["recipes"]]
+        if recipes:
+            speech += f" Dazu passt aus deinen Rezepten {_join(recipes, 'oder')}."
+        return speech, {
+            "date": view["date"],
+            "month": view["month_name"],
+            "season": view["season"]["label"],
+            "produce": produce,
+            "windows": [w["label"] for w in view["windows"]],
+            "recipes": view["recipes"],
+        }
+
+
 INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetMealsIntent,
     GetWeekPlanIntent,
@@ -1932,6 +1989,7 @@ INTENT_HANDLERS: list[type[_EssensplanerIntent]] = [
     GetOccasionIntent,
     EditOccasionIntent,
     SuggestDrinksIntent,
+    GetSeasonIntent,
 ]
 
 

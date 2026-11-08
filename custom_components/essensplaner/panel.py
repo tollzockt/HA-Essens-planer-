@@ -665,6 +665,43 @@ def ws_leaflets(
     )
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/season",
+        vol.Optional("date"): vol.Any(None, str),
+        vol.Optional("limit", default=12): vol.All(vol.Coerce(int), vol.Range(min=1, max=50)),
+    }
+)
+@callback
+def ws_season(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """What is in season (1.5, season.py) on a day (date: "morgen", "24.12." or ISO;
+    default today): {date, month, month_name, season {id, label, emoji}, windows [{id, label,
+    emoji, start, end}], upcoming [...], produce [{id, label, strict, new, ending}], coming
+    [labels], text, recipes [{id, name, image, score, items, windows, hints}] (the best
+    fitting, at most limit), out_of_season [{id, name, items}], season_aware}."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .dates import DateParseError, parse_date
+    from .season import season_view
+
+    day = manager.today()
+    if msg.get("date"):
+        try:
+            day, _ = parse_date(msg["date"], manager.today())
+        except DateParseError:
+            from .manager import ERROR_MESSAGES_DE
+
+            connection.send_error(
+                msg["id"],
+                "invalid_date",
+                ERROR_MESSAGES_DE["invalid_date"].format(date=msg["date"]),
+            )
+            return
+    connection.send_result(msg["id"], season_view(manager, day, msg["limit"]))
+
+
 def _receipt_signer(hass: HomeAssistant, connection: websocket_api.ActiveConnection) -> Any:
     """Signed image links for this connection (an <img> cannot send the token)."""
     from .receipts import image_link
@@ -1539,6 +1576,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_aldi_stores)
     websocket_api.async_register_command(hass, ws_store_offers)
     websocket_api.async_register_command(hass, ws_leaflets)
+    websocket_api.async_register_command(hass, ws_season)
     websocket_api.async_register_command(hass, ws_receipts)
     websocket_api.async_register_command(hass, ws_receipt_parse)
     websocket_api.async_register_command(hass, ws_receipt_save)

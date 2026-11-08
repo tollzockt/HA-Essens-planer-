@@ -24,6 +24,7 @@ from .const import (
     STRATEGY_BALANCED,
     STRATEGY_CHEAP,
     STRATEGY_OFFERS,
+    STRATEGY_SEASONAL,
     STRATEGY_VARIETY,
 )
 from .ingredients import (
@@ -76,6 +77,8 @@ VARIETY_TAGS = {
     "asiatisch",
     "italienisch",
     "mexikanisch",
+    # 1.5: no ready meal two days in a row
+    "fertiggericht",
 }
 
 # open items added by hand that are searched for offers (before the recipe ingredients)
@@ -97,13 +100,23 @@ _OFFER_CATEGORIES = {
 # the drinks aisle: searched only for drinks that are planned (1.5)
 DRINKS_CATEGORY = "Getränke"
 
-# strategy -> (offer factor, over-budget penalty, cheapness exponent, variety penalty)
+# strategy -> (offer factor, over-budget penalty, cheapness exponent, variety penalty,
+# season weight); the season weight counts while the option season_aware is on (always for
+# "seasonal", see season.season_weight())
 _STRATEGY_WEIGHTS = {
-    STRATEGY_BALANCED: (1.2, 2.0, 0.4, 0.35),
-    STRATEGY_CHEAP: (1.5, 4.0, 1.2, 0.6),
-    STRATEGY_OFFERS: (3.5, 2.0, 0.4, 0.6),
-    STRATEGY_VARIETY: (0.6, 1.0, 0.2, 0.12),
+    STRATEGY_BALANCED: (1.2, 2.0, 0.4, 0.35, 0.8),
+    STRATEGY_CHEAP: (1.5, 4.0, 1.2, 0.6, 0.4),
+    STRATEGY_OFFERS: (3.5, 2.0, 0.4, 0.6, 0.4),
+    STRATEGY_VARIETY: (0.6, 1.0, 0.2, 0.12, 0.6),
+    STRATEGY_SEASONAL: (1.5, 2.0, 0.4, 0.35, 2.5),
 }
+
+
+def strategy_weights(strategy: str | None) -> tuple[float, float, float, float, float]:
+    """The weights of a strategy (balanced for an unknown one)."""
+    return _STRATEGY_WEIGHTS.get(
+        strategy or STRATEGY_BALANCED, _STRATEGY_WEIGHTS[STRATEGY_BALANCED]
+    )
 
 
 def load_default_prices() -> list[dict[str, Any]]:
@@ -529,7 +542,7 @@ class EconomyMixin:
     ) -> float:
         """Multiplier for suggestion weights: offers, budget and variety."""
         strategy = strategy if strategy in _STRATEGY_WEIGHTS else self.strategy
-        offer_factor, budget_penalty, cheap_exp, variety_penalty = _STRATEGY_WEIGHTS[strategy]
+        offer_factor, budget_penalty, cheap_exp, variety_penalty, _ = _STRATEGY_WEIGHTS[strategy]
         weight = 1.0
         cost = self.recipe_cost(recipe, servings or self.default_servings, day)
         if cost["total"] > 0:

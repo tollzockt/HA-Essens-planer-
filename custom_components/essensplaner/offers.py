@@ -568,7 +568,8 @@ def _compound_part(modifier: str, parts: frozenset[str] = _OTHER_COMPOUND_PARTS)
 
 # kinds of products that a food word only flavours or fills: "Skyr Drink Erdbeere
 # Himbeere", "Almighurt Erdbeere", "Ingwer Shots", "Alioli Knoblauch Dip", "Mikado Milch
-# Schokolade", "Limonaden" + "Zitrone", "Petz Gefüllte Paprika" (a ready meal)
+# Schokolade", "Limonaden" + "Zitrone", "Petz Gefüllte Paprika" (a ready meal), "Pizza
+# Salami"
 _CARRIER_HEADS = (
     "drink",
     "shot",
@@ -600,8 +601,26 @@ _CARRIER_HEADS = (
     "sosse",
     "dressing",
     "tee",
+    # 1.5: "Wagner Steinofen Pizza Salami" is a pizza, no salami
+    "pizza",
 )
 _CARRIER_PREFIXES = ("gefuellt",)
+# what is bought for a pizza: "Pizza Käse", "Pizza-Mozzarella", "Pizza Tomaten" are no pizza
+_PIZZA_SUPPLIES = (
+    "kaese",
+    "mozzarella",
+    "gouda",
+    "teig",
+    "mehl",
+    "tomate",
+    "sosse",
+    "sauce",
+    "gewuerz",
+    "stein",
+    "blech",
+    "schneider",
+    "form",
+)
 # products that are still themselves when filled ("Gefüllte Kartoffel Gnocchi", "Oliven,
 # gefüllt mit Paprika"); "Gefüllte Paprika" is a ready meal
 _FILLED_PRODUCTS = (
@@ -648,6 +667,13 @@ def flavour_only(text: str, key: str) -> bool:
             or (token.startswith(_CARRIER_PREFIXES) and not filled_product)
             or any(f.endswith(_CARRIER_HEADS) for f in forms)
         )
+        if (
+            carrier
+            and token.endswith("pizza")
+            and position + 1 < len(tokens)
+            and tokens[position + 1].startswith(_PIZZA_SUPPLIES)
+        ):
+            carrier = False
         if not carrier or is_key(position):
             continue
         # an alternative to the key's product: "Mövenpick Joghurt oder Pudding"

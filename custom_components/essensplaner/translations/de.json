@@ -46,7 +46,8 @@
         "balanced": "Ausgewogen",
         "cheap": "Günstig (Budget)",
         "offers": "Angebote nutzen",
-        "variety": "Abwechslung"
+        "variety": "Abwechslung",
+        "seasonal": "Saisonal"
       }
     },
     "clear_mode": {
@@ -682,7 +683,7 @@
         },
         "strategy": {
           "name": "Strategie",
-          "description": "ausgewogen, günstig (Budget), Angebote nutzen oder Abwechslung."
+          "description": "ausgewogen, günstig (Budget), Angebote nutzen, Abwechslung oder saisonal (was gerade Saison hat)."
         }
       }
     },
@@ -720,7 +721,11 @@
         },
         "strategy": {
           "name": "Strategie",
-          "description": "ausgewogen, günstig (Budget), Angebote nutzen oder Abwechslung."
+          "description": "ausgewogen, günstig (Budget), Angebote nutzen, Abwechslung oder saisonal (was gerade Saison hat)."
+        },
+        "ai": {
+          "name": "Mit KI",
+          "description": "Die KI aus den Einstellungen (🤖 KI, Funktion „Saisonplan“) ordnet die passendsten Rezepte nach Saison, Angeboten und Abwechslung; ohne KI oder wenn sie nicht antwortet, wird nach Regeln geplant."
         }
       }
     },

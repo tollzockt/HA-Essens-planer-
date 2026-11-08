@@ -1469,7 +1469,8 @@
    "Weißweinessig",
    "Kräuteressig",
    "Apfelessig",
-   "Branntweinessig"
+   "Branntweinessig",
+   "Rotweinessig"
   ]
  },
  {
@@ -2370,5 +2371,667 @@
   "unit": "Stück",
   "price": 2.95,
   "aliases": []
+ },
+ {
+  "name": "Tiefkühlpizza",
+  "amount": 350,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Pizza Salami",
+   "Pizza Margherita",
+   "Pizza Speciale",
+   "Pizza Hawaii",
+   "Pizza Funghi",
+   "Pizza Tonno",
+   "Steinofenpizza",
+   "TK-Pizza",
+   "Tiefkühl-Pizza"
+  ]
+ },
+ {
+  "name": "Tiefkühl-Lasagne",
+  "amount": 400,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Lasagne Bolognese",
+   "TK-Lasagne"
+  ]
+ },
+ {
+  "name": "Maultaschen",
+  "amount": 360,
+  "unit": "g",
+  "price": 2.19,
+  "aliases": [
+   "Schwäbische Maultaschen"
+  ]
+ },
+ {
+  "name": "Ravioli in Tomatensauce",
+  "amount": 800,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Dosenravioli"
+  ]
+ },
+ {
+  "name": "Chicken Nuggets",
+  "amount": 450,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Hähnchen-Nuggets",
+   "Nuggets",
+   "Chicken-Nuggets"
+  ]
+ },
+ {
+  "name": "Frühlingsrollen",
+  "amount": 500,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Mini-Frühlingsrollen"
+  ]
+ },
+ {
+  "name": "Tiefkühl-Flammkuchen",
+  "amount": 520,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Flammkuchen Elsässer Art",
+   "TK-Flammkuchen"
+  ]
+ },
+ {
+  "name": "Kartoffelpuffer",
+  "amount": 400,
+  "unit": "g",
+  "price": 1.99,
+  "aliases": [
+   "Reibekuchen",
+   "Rösti"
+  ]
+ },
+ {
+  "name": "Bami Goreng",
+  "amount": 480,
+  "unit": "g",
+  "price": 2.79,
+  "aliases": [
+   "Nasi Goreng"
+  ]
+ },
+ {
+  "name": "Kaiserschmarrn",
+  "amount": 400,
+  "unit": "g",
+  "price": 2.99
+ },
+ {
+  "name": "Linseneintopf",
+  "amount": 800,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Erbseneintopf",
+   "Eintopf"
+  ]
+ },
+ {
+  "name": "Gulaschsuppe",
+  "amount": 800,
+  "unit": "ml",
+  "price": 1.99
+ },
+ {
+  "name": "Chili sin Carne",
+  "amount": 800,
+  "unit": "g",
+  "price": 2.29,
+  "aliases": [
+   "Chili con Carne (Dose)"
+  ]
+ },
+ {
+  "name": "Kartoffelpüree-Pulver",
+  "amount": 225,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Püreeflocken",
+   "Kartoffelpüree (Packung)"
+  ]
+ },
+ {
+  "name": "Kartoffelknödel",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Klöße",
+   "Kartoffelklöße",
+   "Knödel"
+  ]
+ },
+ {
+  "name": "Schupfnudeln",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Schlemmerfilet",
+  "amount": 380,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Schlemmerfilet Bordelaise",
+   "Schlemmerfilet à la Bordelaise"
+  ]
+ },
+ {
+  "name": "Gemüsepfanne",
+  "amount": 750,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Gemüse-Reis-Pfanne",
+   "Pfannengemüse",
+   "Asia-Gemüsepfanne"
+  ]
+ },
+ {
+  "name": "Ofenkäse",
+  "amount": 250,
+  "unit": "g",
+  "price": 2.79,
+  "aliases": [
+   "Back-Camembert",
+   "Ofen-Camembert"
+  ]
+ },
+ {
+  "name": "Hähnchenschnitzel (TK)",
+  "amount": 500,
+  "unit": "g",
+  "price": 3.99,
+  "aliases": [
+   "Hähnchenschnitzel paniert",
+   "Hähnchen-Schnitzel paniert"
+  ]
+ },
+ {
+  "name": "Erbsen und Möhren",
+  "amount": 750,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Erbsen-Möhren",
+   "Leipziger Allerlei"
+  ]
+ },
+ {
+  "name": "Fertig-Kartoffelsalat",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Kartoffelsalat"
+  ]
+ },
+ {
+  "name": "Gänsekeulen",
+  "amount": 600,
+  "unit": "g",
+  "price": 9.99,
+  "aliases": [
+   "Gänsekeule",
+   "Gänsebrust"
+  ]
+ },
+ {
+  "name": "Lammkeule",
+  "amount": 1500,
+  "unit": "g",
+  "price": 19.99
+ },
+ {
+  "name": "Geflügelfond",
+  "amount": 400,
+  "unit": "ml",
+  "price": 1.99,
+  "aliases": [
+   "Gänsefond",
+   "Entenfond",
+   "Wildfond",
+   "Kalbsfond"
+  ]
+ },
+ {
+  "name": "Raclettekäse",
+  "amount": 400,
+  "unit": "g",
+  "price": 3.99,
+  "aliases": [
+   "Raclette-Käse"
+  ]
+ },
+ {
+  "name": "Fondue-Fleisch",
+  "amount": 400,
+  "unit": "g",
+  "price": 7.99,
+  "aliases": [
+   "Fonduefleisch"
+  ]
+ },
+ {
+  "name": "Maiskolben",
+  "amount": 2,
+  "unit": "Stück",
+  "price": 1.99
+ },
+ {
+  "name": "Grillsauce",
+  "amount": 250,
+  "unit": "ml",
+  "price": 1.49,
+  "aliases": [
+   "Grillsoße",
+   "Barbecue-Sauce",
+   "BBQ-Sauce"
+  ]
+ },
+ {
+  "name": "Silberzwiebeln",
+  "amount": 190,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Berliner",
+  "amount": 4,
+  "unit": "Stück",
+  "price": 1.99,
+  "aliases": [
+   "Krapfen"
+  ]
+ },
+ {
+  "name": "Rosenkohl",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.99
+ },
+ {
+  "name": "Feldsalat",
+  "amount": 150,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Rhabarber",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.99
+ },
+ {
+  "name": "Bärlauch",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.49
+ },
+ {
+  "name": "Orangen",
+  "amount": 2000,
+  "unit": "g",
+  "price": 2.49,
+  "aliases": [
+   "Orange",
+   "Saftorangen"
+  ]
+ },
+ {
+  "name": "Pfirsiche",
+  "amount": 1000,
+  "unit": "g",
+  "price": 2.99,
+  "aliases": [
+   "Nektarinen"
+  ]
+ },
+ {
+  "name": "Preiselbeeren",
+  "amount": 220,
+  "unit": "g",
+  "price": 1.79
+ },
+ {
+  "name": "Marzipan",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.79,
+  "aliases": [
+   "Marzipanrohmasse"
+  ]
+ },
+ {
+  "name": "Löffelbiskuits",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.19
+ },
+ {
+  "name": "Puddingpulver",
+  "amount": 3,
+  "unit": "Pck.",
+  "price": 0.89,
+  "aliases": [
+   "Puddingpulver Vanille",
+   "Vanillepuddingpulver"
+  ]
+ },
+ {
+  "name": "Popcornmais",
+  "amount": 500,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Puffmais"
+  ]
+ },
+ {
+  "name": "Popcorn",
+  "amount": 100,
+  "unit": "g",
+  "price": 1.29,
+  "aliases": [
+   "Popcorn süß",
+   "Popcorn salzig"
+  ]
+ },
+ {
+  "name": "Chips",
+  "amount": 175,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Kartoffelchips",
+   "Paprika-Chips",
+   "Paprikachips"
+  ]
+ },
+ {
+  "name": "Tortilla-Chips",
+  "amount": 300,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Nachos",
+   "Tortillachips"
+  ]
+ },
+ {
+  "name": "Salzstangen",
+  "amount": 250,
+  "unit": "g",
+  "price": 0.89,
+  "aliases": [
+   "Salzbrezeln"
+  ]
+ },
+ {
+  "name": "Erdnussflips",
+  "amount": 200,
+  "unit": "g",
+  "price": 0.99,
+  "aliases": [
+   "Flips"
+  ]
+ },
+ {
+  "name": "Jalapeños",
+  "amount": 200,
+  "unit": "g",
+  "price": 1.49,
+  "aliases": [
+   "Jalapeño",
+   "Jalapenos"
+  ]
+ },
+ {
+  "name": "Sweet-Chili-Sauce",
+  "amount": 250,
+  "unit": "ml",
+  "price": 1.49,
+  "aliases": [
+   "Süß-sauer-Sauce",
+   "Süßsauer-Sauce",
+   "Asia-Sauce"
+  ]
+ },
+ {
+  "name": "Sternanis",
+  "amount": 20,
+  "unit": "g",
+  "price": 1.49,
+  "spice": true
+ },
+ {
+  "name": "Nelken",
+  "amount": 25,
+  "unit": "g",
+  "price": 1.49,
+  "spice": true,
+  "aliases": [
+   "Gewürznelken"
+  ]
+ },
+ {
+  "name": "Bier",
+  "amount": 500,
+  "unit": "ml",
+  "price": 0.89,
+  "aliases": [
+   "Pils",
+   "Pilsener",
+   "Helles",
+   "Weizenbier",
+   "Weißbier",
+   "Export"
+  ]
+ },
+ {
+  "name": "Alkoholfreies Bier",
+  "amount": 500,
+  "unit": "ml",
+  "price": 0.89,
+  "aliases": [
+   "Bier alkoholfrei",
+   "Radler",
+   "alkoholfreies Radler",
+   "Radler 0,0"
+  ]
+ },
+ {
+  "name": "Sekt",
+  "amount": 750,
+  "unit": "ml",
+  "price": 3.49,
+  "aliases": [
+   "Prosecco",
+   "Crémant",
+   "Schaumwein"
+  ]
+ },
+ {
+  "name": "Kindersekt",
+  "amount": 750,
+  "unit": "ml",
+  "price": 1.79,
+  "aliases": [
+   "alkoholfreier Secco",
+   "Traubensecco",
+   "alkoholfreier Sekt"
+  ]
+ },
+ {
+  "name": "Glühwein",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.99,
+  "aliases": [
+   "Winzerglühwein"
+  ]
+ },
+ {
+  "name": "Kinderpunsch",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.99
+ },
+ {
+  "name": "Limonade",
+  "amount": 1500,
+  "unit": "ml",
+  "price": 0.89,
+  "aliases": [
+   "Zitronenlimonade",
+   "Orangenlimonade",
+   "Ingwerlimonade",
+   "Fassbrause"
+  ]
+ },
+ {
+  "name": "Apfelschorle",
+  "amount": 1500,
+  "unit": "ml",
+  "price": 0.99,
+  "aliases": [
+   "Saftschorle",
+   "Johannisbeerschorle",
+   "Rhabarberschorle"
+  ]
+ },
+ {
+  "name": "Eistee",
+  "amount": 1500,
+  "unit": "ml",
+  "price": 0.99,
+  "aliases": [
+   "Pfirsich-Eistee",
+   "Zitronen-Eistee"
+  ]
+ },
+ {
+  "name": "Traubensaft",
+  "amount": 1000,
+  "unit": "ml",
+  "price": 1.59,
+  "aliases": [
+   "roter Traubensaft",
+   "weißer Traubensaft",
+   "Johannisbeersaft",
+   "Kirschsaft"
+  ]
+ },
+ {
+  "name": "Holunderblütensirup",
+  "amount": 500,
+  "unit": "ml",
+  "price": 2.49
+ },
+ {
+  "name": "Tee",
+  "amount": 20,
+  "unit": "Stück",
+  "price": 1.29,
+  "aliases": [
+   "Teebeutel",
+   "Schwarztee",
+   "Früchtetee",
+   "Pfefferminztee",
+   "Kräutertee",
+   "Grüner Tee"
+  ]
+ },
+ {
+  "name": "Eiswürfel",
+  "amount": 2000,
+  "unit": "g",
+  "price": 1.29
+ },
+ {
+  "name": "Servietten",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 0.99,
+  "aliases": [
+   "Papierservietten"
+  ]
+ },
+ {
+  "name": "Pappteller",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 1.29,
+  "aliases": [
+   "Partyteller",
+   "Pappbecher",
+   "Partybecher"
+  ]
+ },
+ {
+  "name": "Grillkohle",
+  "amount": 2500,
+  "unit": "g",
+  "price": 3.99,
+  "aliases": [
+   "Holzkohle",
+   "Grillbriketts"
+  ]
+ },
+ {
+  "name": "Grillanzünder",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 1.49,
+  "aliases": [
+   "Anzündwürfel",
+   "Kaminanzünder"
+  ]
+ },
+ {
+  "name": "Brennpaste",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 2.99
+ },
+ {
+  "name": "Kerzen",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 1.99,
+  "aliases": [
+   "Tafelkerzen",
+   "Stabkerzen"
+  ]
+ },
+ {
+  "name": "Geburtstagskerzen",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 0.99
+ },
+ {
+  "name": "Wunderkerzen",
+  "amount": 1,
+  "unit": "Pck.",
+  "price": 0.99
  }
 ]

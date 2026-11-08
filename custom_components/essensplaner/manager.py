@@ -86,6 +86,11 @@ SNACK_TAGS = {
 
 MAIN_TAGS = {"hauptgericht", "hauptspeise", "mittagessen", "abendessen", "dinner", "lunch"}
 
+# ready meals (the bundled "Fertiggericht" recipes, recipes made from a product) are
+# suggested half as often as cooked dishes – unless they are favourites (1.5)
+READY_MEAL_TAG = "fertiggericht"
+READY_MEAL_FACTOR = 0.5
+
 # bundled recipes of version 1.0/1.1 (used to find the new ones on upgrade)
 ORIGINAL_STARTER_NAMES = [
     "Spaghetti Bolognese",
@@ -1237,9 +1242,12 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         variety: bool = True,
     ) -> dict[str, Any]:
         """What the suggestion weights of one day depend on (computed once per day):
-        recipes planned nearby, the budget target, the median cost (strategy cheap) and the
-        dishes of the neighbouring days. budget / variety False: no budget target / no
-        variety penalty (occasions: a party menu is no everyday meal)."""
+        recipes planned nearby, the budget target, the median cost (strategy cheap), the
+        dishes of the neighbouring days and how much the season counts (1.5,
+        season.season_weight()). budget / variety False: no budget target / no variety
+        penalty (occasions: a party menu is no everyday meal)."""
+        from .season import season_weight
+
         recently_planned: set[str] = set()
         for offset in range(-6, 7):
             for entry in self.plan.get((around + timedelta(days=offset)).isoformat(), {}).values():
@@ -1255,12 +1263,16 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             "median": self.median_cost(around, servings) if strategy == STRATEGY_CHEAP else None,
             "servings": servings,
             "neighbours": self._neighbour_signatures(around) if variety else None,
+            "season": season_weight(self, strategy),
         }
 
     def _suggest_weight(self, recipe: dict[str, Any], ctx: dict[str, Any]) -> float:
         """Weight of a recipe for suggestions (shared by suggest() and the occasions):
-        favourites, rating, not cooked lately, not planned nearby, and offers, budget and
-        variety (economy_weight())."""
+        favourites, rating, not cooked lately, not planned nearby, ready meals less often,
+        offers, budget and variety (economy_weight()) and the season (1.5,
+        season.season_factor())."""
+        from .season import season_factor
+
         around: date = ctx["around"]
         weight = 1.0
         last = recipe.get("last_cooked")
@@ -1276,6 +1288,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                 pass
         if recipe.get("favorite"):
             weight += 2
+        elif READY_MEAL_TAG in self.recipe_tags_folded(recipe):
+            weight *= READY_MEAL_FACTOR  # 1.5: a ready meal now and then, not every week
         weight += (recipe.get("rating") or 0) * 0.4
         if recipe["id"] in ctx["recent"]:
             weight *= 0.1
@@ -1288,6 +1302,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             servings=ctx["servings"],
             neighbours=ctx["neighbours"],
         )
+        if ctx.get("season"):
+            weight *= season_factor(self, recipe, around, ctx["season"])
         return weight
 
     def suggest(
@@ -1306,8 +1322,8 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         """Suggest recipes.
 
         Prefers favourites, things not cooked lately, recipes with ingredients on offer,
-        recipes that fit the remaining budget and dishes that differ from the
-        neighbouring days.
+        recipes that fit the remaining budget, dishes that differ from the neighbouring
+        days and (1.5) dishes of the season. Why: season.suggest_reasons().
         """
         rng = rng or random.Random()
         exclude = exclude or set()
@@ -1348,8 +1364,13 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         overwrite: bool = False,
         servings: int | None = None,
         strategy: str | None = None,
+        order: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Fill empty slots of the plan with suggestions (budget, offers and variety aware)."""
+        """Fill empty slots of the plan with suggestions (budget, offers, variety and season
+        aware). order (1.5, the AI's order of the rules' best candidates, see
+        season.async_auto_plan()): each slot gets the first recipe of the order that fits
+        the meal and is not planned yet – one of another kind than the day before when
+        there is one –, else a suggestion."""
         meals = meals or [self.default_meal]
         planned: list[dict[str, Any]] = []
         used: set[str] = set()
@@ -1381,7 +1402,9 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
                     "target_cost": target,
                     "servings": servings or self.default_servings,
                 }
-                suggestion = self.suggest(1, exclude=used | nearby, **options)
+                suggestion = self._ordered_pick(order, day, meal, used | nearby) if order else []
+                if not suggestion:
+                    suggestion = self.suggest(1, exclude=used | nearby, **options)
                 if not suggestion and nearby:
                     suggestion = self.suggest(1, exclude=used, **options)  # few recipes
                 if not suggestion:
@@ -1401,6 +1424,30 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         if planned:
             self._changed("plan")
         return planned
+
+    def _ordered_pick(
+        self, order: list[str], day: date, meal: str, taken: set[str]
+    ) -> list[dict[str, Any]]:
+        """The first recipe of an order that fits the meal and is not taken (one of
+        another kind than the dishes of the day before, when the order has one)."""
+        fitting = [
+            recipe
+            for rid in order
+            if rid not in taken
+            and (recipe := self.recipes.get(rid)) is not None
+            and self._fits_meal(recipe, meal)
+            and not self.is_excluded(recipe)
+        ]
+        if not fitting:
+            return []
+        before: set[str] = set()
+        for entry in self.plan.get((day - timedelta(days=1)).isoformat(), {}).values():
+            if recipe := self.recipes.get(entry.get("recipe_id") or ""):
+                before |= self._variety_signature(recipe)
+        for recipe in fitting:
+            if not self._variety_signature(recipe) & before:
+                return [recipe]
+        return fitting[:1]
 
     # ------------------------------------------------------------------
     # Shopping list
@@ -2279,6 +2326,7 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
         """All data for the frontend panel."""
         from .drinks import alcohol_allowed
         from .occasions import occasion_meta, occasions_export
+        from .season import recipe_season_export, season_aware, season_info
 
         return {
             "recipes": sorted(self.recipes.values(), key=lambda r: fold(r["name"])),
@@ -2324,6 +2372,10 @@ class EssensplanerManager(ArticlesMixin, StoresMixin, EconomyMixin):
             # courses and whether drink suggestions may have alcohol
             "occasions": occasions_export(self),
             "occasion_meta": {**occasion_meta(), "alcohol": alcohol_allowed(self)},
+            # the season (1.5): what is in season today, the times of the year and the
+            # recipes that fit (🍂 badges; recipes without a season are left out)
+            "season": {**season_info(self.today()), "season_aware": season_aware(self)},
+            "recipe_season": recipe_season_export(self),
         }
 
 

@@ -86,6 +86,11 @@ intents:
         slots:
           strategy: "angebote"
       - sentences:
+          - "plane [mir|uns] die woche (saisonal|nach saison|mit saisongemüse)"
+          - "plane [mir|uns] eine saisonale woche"
+        slots:
+          strategy: "saisonal"
+      - sentences:
           - "plane [mir|uns] die nächste woche"
           - "(erstelle|mach|mache) [mir|uns] einen (essensplan|speiseplan|wochenplan) für nächste woche"
         slots:
@@ -281,6 +286,21 @@ intents:
           - "(welcher|welches|welche) {kind} passt (zum|zur) {occasion}"
           - "was (trinken|trinkt) (wir|man) (beim|zum|bei der|zur) {occasion}"
           - "welche getränke (passen|brauchen wir|brauche ich) (zum|zur|für den|für das|für die) {occasion}"
+  # season (1.5)
+  essensplaner_get_season:
+    data:
+      - sentences:
+          - "was hat (gerade|jetzt|im moment|zur zeit|aktuell) saison"
+          - "was hat saison"
+          - "welches (obst|gemüse|obst und gemüse) hat (gerade|jetzt|im moment|zur zeit|aktuell) saison"
+          - "welches (obst|gemüse|obst und gemüse) hat saison"
+          - "was ist (gerade|jetzt|im moment|zur zeit|aktuell) saisonal"
+          - "was (koche|kochen) (ich|wir) [jetzt|gerade] (saisonal|mit saisongemüse)"
+          - "welche rezepte passen zur (saison|jahreszeit)"
+      - sentences:
+          - "was hat im {month} saison"
+          - "welches (obst|gemüse|obst und gemüse) hat im {month} saison"
+          - "was ist im {month} saisonal"
 expansion_rules:
   # verbs incl. the forms speech recognition often writes ("setzt", "schreibt")
   ep_setzen: "(setz|setze|setzt|schreib|schreibe|schreibt|nimm|nehme|pack|packe)"
@@ -506,6 +526,20 @@ lists:
     range:
       from: 1
       to: 50
+  month:
+    values:
+      - "januar"
+      - "februar"
+      - "märz"
+      - "april"
+      - "mai"
+      - "juni"
+      - "juli"
+      - "august"
+      - "september"
+      - "oktober"
+      - "november"
+      - "dezember"
   store_name:
     wildcard: true
   item:

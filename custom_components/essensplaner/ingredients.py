@@ -218,8 +218,29 @@ def parse_ingredient(text: str) -> dict[str, Any]:
         "amount": round(amount, 4) if amount is not None else None,
         "unit": unit,
         "note": ", ".join(notes),
-        "category": guess_category(name),
+        "category": line_category(name, unit, notes),
     }
+
+
+_FROZEN_NOTE_RE = re.compile(r"(^| )(tk|tiefkuehl\w*|tiefgekuehlt\w*|gefroren\w*)( |$)")
+_CANNED_NOTE_RE = re.compile(r"(^| )(dose|dosen|konserve\w*)( |$)")
+
+
+def line_category(name: str, unit: str = "", notes: list[str] | None = None) -> str:
+    """The aisle of a recipe line: of its name, frozen when its note says so ("Pizza Salami
+    (TK, 350 g)", "Erbsen (TK)"), canned fruit, vegetables and ready meals from a can
+    ("1 Dose Mais", "Chili sin Carne (Dose)") in the canned food aisle (1.5)."""
+    category = guess_category(name)
+    if is_nonfood_category(category) or category == "Getränke":
+        return category
+    note = fold(" ".join(notes or []))
+    if note and _FROZEN_NOTE_RE.search(note):
+        return "Tiefkühl"
+    if category in ("Obst & Gemüse", "Sonstiges") and (
+        unit == "Dose" or (note and _CANNED_NOTE_RE.search(note))
+    ):
+        return "Konserven & Gläser"
+    return category
 
 
 def normalize_ingredient(data: Any) -> dict[str, Any]:
@@ -1136,6 +1157,140 @@ _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# 1.5: ready meals, snacks, drinks, festive and barbecue products (occasions, the bundled
+# convenience recipes): "Grillkohle" is no cabbage, "Apfelschorle" no fruit, "Pizza Salami"
+# no cold cut, "Flammkuchenteig" no lamb, "Studentenfutter" no duck. CATEGORY_FIXES_1_5:
+# every keyword added here – open shopping items and recipe lines naming one get their
+# aisle again when upgrading (stores._migrate_v5()).
+_KEYWORDS_1_5: dict[str, tuple[str, ...]] = {
+    "Brot & Backwaren": (
+        "pizzateig",
+        "flammkuchenteig",
+        "blaetterteig",
+        "muerbeteig",
+        "strudelteig",
+        "yufkateig",
+        "filoteig",
+        "berliner",
+        "krapfen",
+        "laugenbrezel",
+    ),
+    "Fleisch & Fisch": (
+        "gans",
+        "gaense",
+        "gaensekeule",
+        "gaensebrust",
+        "gulasch",
+        "reh",
+        "rehruecken",
+        "hirsch",
+        "wildschwein",
+        "fonduefleisch",
+        "fondue fleisch",
+    ),
+    "Käse & Aufschnitt": ("obatzda",),
+    "Milchprodukte & Eier": ("tzatziki", "aioli", "sour cream", "kraeuterbutter"),
+    "Nudeln, Reis & Getreide": (
+        "maultasche",
+        "maultaschen",
+        "kloss",
+        "kloesse",
+        "knoedel",
+    ),
+    "Konserven & Gläser": (
+        "fertiggericht",
+        "gulaschsuppe",
+        "pueree pulver",
+        "kartoffelpueree pulver",
+        "guacamole",
+        "salsa",
+    ),
+    "Gewürze, Öle & Saucen": (
+        "grillsosse",
+        "grillsauce",
+        "bbq sauce",
+        "barbecuesauce",
+        "barbecue sauce",
+        "sternanis",
+    ),
+    "Backen & Süßes": (
+        "chips",
+        "kartoffelchips",
+        "paprikachips",
+        "paprika chips",
+        "tortillachips",
+        "tortilla chips",
+        "nachos",
+        "nacho",
+        "popcorn",
+        "salzstange",
+        "salzstangen",
+        "flips",
+        "erdnussflips",
+        "cracker",
+        "gummibaerchen",
+        "fruchtgummi",
+        "lakritz",
+        "lebkuchen",
+        "spekulatius",
+        "stollen",
+        "plaetzchen",
+        "dominostein",
+        "printen",
+        "zimtstern",
+        "marshmallow",
+    ),
+    "Nüsse & Trockenobst": ("studentenfutter",),
+    "Tiefkühl": (
+        "pizza salami",
+        "pizza margherita",
+        "pizza speciale",
+        "pizza hawaii",
+        "pizza funghi",
+        "pizza tonno",
+        "flammkuchen",
+        "fruehlingsrolle",
+        "fruehlingsrollen",
+        "nugget",
+        "nuggets",
+        "kroketten",
+        "roesti",
+        "kartoffelpuffer",
+        "kartoffeltaschen",
+        "eiswuerfel",
+    ),
+    "Getränke": (
+        "schorle",
+        "punsch",
+        "secco",
+        "brause",
+        "radler",
+        "tonic",
+        "mango lassi",
+        "kohlensaeure",
+        "espresso",
+    ),
+    CATEGORY_HOUSEHOLD: (
+        "serviette",
+        "servietten",
+        "pappteller",
+        "pappbecher",
+        "partyteller",
+        "partybecher",
+        "strohhalm",
+        "strohhalme",
+        "brennpaste",
+    ),
+    # bought where food is bought (no drugstore): not cabbage
+    "Sonstiges": (
+        "grillkohle",
+        "holzkohle",
+        "grillbrikett",
+        "grillbriketts",
+        "grillanzuender",
+    ),
+}
+
 # drugstore and household products. No bare "creme" (Crème fraîche, Kokoscreme), "tuch",
 # "papier" (Reispapier), "spray" (Bratspray), "beutel" (Teebeutel), "watte" (Zuckerwatte),
 # "binde" (Saucenbinder) or "tab" (Tabasco): only words that name no food.
@@ -1327,6 +1482,15 @@ _BRAND_KEYWORDS = {
 _WHOLE_WORD_KEYWORDS = frozenset(kw for keywords in _BRAND_KEYWORDS.values() for kw in keywords)
 for _category, _brands in _BRAND_KEYWORDS.items():
     _CATEGORY_KEYWORDS[_category] = (*_CATEGORY_KEYWORDS[_category], *_brands)
+# the keywords of 1.4 (stores._migrate_v5() finds the aisles guessed by 1.4)
+_KEYWORDS_1_4: list[tuple[str, str]] = sorted(
+    ((kw, category) for category, keywords in _CATEGORY_KEYWORDS.items() for kw in keywords),
+    key=lambda item: len(item[0]),
+    reverse=True,
+)
+for _category, _added in _KEYWORDS_1_5.items():
+    _CATEGORY_KEYWORDS[_category] = (*_CATEGORY_KEYWORDS.get(_category, ()), *_added)
+CATEGORY_FIXES_1_5 = frozenset(kw for keywords in _KEYWORDS_1_5.values() for kw in keywords)
 
 # (keyword, category) sorted by keyword length, longest first
 _KEYWORDS: list[tuple[str, str]] = sorted(
@@ -1339,6 +1503,16 @@ _KEYWORDS: list[tuple[str, str]] = sorted(
 @functools.lru_cache(maxsize=8192)
 def guess_category(name: str) -> str:
     """Guess the supermarket aisle for an ingredient (cached: offers ask it often)."""
+    return _guess_category(name, _KEYWORDS)
+
+
+@functools.lru_cache(maxsize=1024)
+def guess_category_1_4(name: str) -> str:
+    """The aisle 1.4 guessed (without the 1.5 keywords; for the v5 migration)."""
+    return _guess_category(name, _KEYWORDS_1_4)
+
+
+def _guess_category(name: str, keywords: list[tuple[str, str]]) -> str:
     folded = fold(name)
     if not folded:
         return "Sonstiges"
@@ -1347,7 +1521,7 @@ def guess_category(name: str) -> str:
     singular = " ".join(_singular(w) for w in folded.split())
     candidates = (folded, singular)
     # 1. whole word / compound head (word ends with keyword)
-    for keyword, category in _KEYWORDS:
+    for keyword, category in keywords:
         for text in candidates:
             if text == keyword or text.endswith(keyword) or f"{keyword} " in f"{text} ":
                 if keyword in _WHOLE_WORD_KEYWORDS and f" {keyword} " not in f" {text} ":
@@ -1364,7 +1538,7 @@ def guess_category(name: str) -> str:
                     continue
                 return category
     # 2. keyword anywhere (e.g. "Hähnchenbrustfilet")
-    for keyword, category in _KEYWORDS:
+    for keyword, category in keywords:
         if len(keyword) < 4 or keyword in _WHOLE_WORD_KEYWORDS:
             continue
         for text in candidates:

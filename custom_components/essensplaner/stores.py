@@ -54,8 +54,10 @@ from .ingredients import (
     _singular,
     fold,
     guess_category,
+    guess_category_1_4,
     ingredient_key,
     is_nonfood_category,
+    line_category,
     normalize_spoken_quantity,
     parse_ingredient,
     to_base,
@@ -102,7 +104,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_VERSION = 4
+DATA_VERSION = 5
 # learned store prices older than this are ignored for lookups (kept in storage)
 STALE_DAYS = 180
 # learned store price sources, most trusted first (each online source only learns prices of
@@ -530,6 +532,10 @@ class StoresMixin:
           items of the new drugstore / household aisles get them ("Toilettenpapier" was
           "Sonstiges", "Zahnpasta" even pasta); recipe lines of the new units Rolle / WL
           are parsed again ("1 Rolle Blätterteig" was the product "Rolle Blätterteig").
+        - v5 (1.5): open shopping items and recipe lines whose name has a word of the 1.5
+          aisle fixes (ingredients.CATEGORY_FIXES_1_5: "Grillkohle" was a vegetable,
+          "Apfelschorle" fruit, "Pizza Salami" a cold cut) get their aisle again (see
+          _migrate_v5()); the new top-level keys (occasions) start empty.
         - every load: offers of a known retailer get a "retailer"; offer keys that name
           another product are corrected (canned tomato offers never price fresh ones);
           offers entered without an end (1.2 / 1.3.0) end with the current leaflet week.
@@ -566,6 +572,8 @@ class StoresMixin:
             self._migrate_drugstore_branches()
             self._migrate_nonfood_items()
             self._migrate_new_units()
+        if self.data_version < 5:
+            self._migrate_v5()
         if self.data_version < DATA_VERSION:
             self.data_version = DATA_VERSION
             changed = True
@@ -680,6 +688,42 @@ class StoresMixin:
             if is_nonfood_category(aisle) and item.get("category") != aisle:
                 item["category"] = aisle
                 count += 1
+        return count
+
+    def _migrate_v5(self: EssensplanerManager) -> int:
+        """v5 (1.5): the aisle 1.4 guessed for an open shopping item or a recipe line is
+        guessed again when the 1.5 aisle fixes change it ("Grillkohle": Obst & Gemüse ->
+        Sonstiges, "Apfelschorle" -> Getränke, "Maultaschen" -> Nudeln, Reis & Getreide;
+        recipe lines also by their note: "Pizza Salami (TK)" -> Tiefkühl). An aisle that was
+        not 1.4's guess (a product's, a drugstore aisle) and ticked off items stay as they
+        are; a second run changes nothing. Returns the count of changed items and lines."""
+        count = 0
+        for item in self.shopping:
+            if item.get("status") == "completed":
+                continue
+            name = self._item_name(item)
+            aisle = guess_category(name)
+            if item.get("category") == guess_category_1_4(name) and item["category"] != aisle:
+                item["category"] = aisle
+                count += 1
+        now = dt_util.utcnow().isoformat()
+        for recipe in self.recipes.values():
+            changed = False
+            for line in recipe.get("ingredients") or []:
+                if not isinstance(line, dict):
+                    continue
+                name = str(line.get("name") or "")
+                if not name or line.get("category") != guess_category_1_4(name):
+                    continue
+                aisle = line_category(
+                    name, str(line.get("unit") or ""), [str(line.get("note") or "")]
+                )
+                if aisle != line["category"]:
+                    line["category"] = aisle
+                    changed = True
+                    count += 1
+            if changed:
+                recipe["updated"] = now
         return count
 
     def _migrate_new_units(self: EssensplanerManager) -> int:

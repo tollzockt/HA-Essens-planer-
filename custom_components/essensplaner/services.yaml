@@ -214,6 +214,7 @@ suggest_recipes:
             - cheap
             - offers
             - variety
+            - seasonal
 
 auto_plan:
   fields:
@@ -237,6 +238,10 @@ auto_plan:
       selector:
         boolean:
     strategy: *strategy
+    ai:
+      default: false
+      selector:
+        boolean:
 
 generate_shopping_list:
   fields:
