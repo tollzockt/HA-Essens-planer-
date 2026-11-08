@@ -64,8 +64,9 @@ HACS installiert **GitHub-Releases**, nicht einfach den neuesten Stand des Repos
 
 Alle Einstellungen findest du im Panel **Essensplaner** über das **⚙️-Zahnrad oben rechts** – am Handy als ganze Seite, am PC als großes Fenster. Jedes Feld hat eine kurze Erklärung, Fehler stehen direkt am Feld (die Bereiche links zeigen, wo noch etwas fehlt). Gespeichert werden nur geänderte Werte; danach lädt der Essensplaner neu (ein paar Sekunden) und das Panel verbindet sich von selbst wieder. Ändern dürfen nur **Administratoren** – für andere Benutzer ist das Zahnrad ausgegraut.
 
-<!-- screenshot: einstellungen.png -->
-<!-- screenshot: handy-einstellungen.png -->
+| Einstellungen | Handy |
+|---|---|
+| ![Einstellungen](docs/images/einstellungen.png) | ![Einstellungen auf dem Handy](docs/images/handy-einstellungen.png) |
 
 | Bereich | Einstellungen (Standard) |
 |---|---|
@@ -257,12 +258,13 @@ Der Essensplaner hält **alle aktuellen und kommenden Angebote deiner gespeicher
 | Lidl, REWE, Penny, Netto, Kaufland, ALDI Nord, Rossmann, dm … | marktguru (nur eingeschaltet, eigenes Risiko) | der ganze Prospekt der Kette an der Postleitzahl deiner Filiale |
 | NORMA, EDEKA ohne Markt-Verknüpfung | marktguru | oft nur die Prospektseiten als Bilder (mit Link zum Prospekt) |
 
-<!-- screenshot: alle-angebote.png -->
-<!-- screenshot: handy-alle-angebote.png -->
+| Alle Angebote meiner Läden | Handy |
+|---|---|
+| ![Alle Angebote meiner Läden](docs/images/alle-angebote.png) | ![Alle Angebote meiner Läden auf dem Handy](docs/images/handy-alle-angebote.png) |
 
 Im Panel zeigt der Tab **💶 Angebote** zwei Ansichten: **„🍽️ Für meine Rezepte“** (die passenden Angebote wie bisher, mit Budget) und **„🏪 Alle Angebote meiner Läden“**: oben deine Läden als Chips (mehrere wählbar, die Auswahl wird gemerkt), dazu Aktuell / Ab nächster Woche / Alle, Lebensmittel / Drogerie & Haushalt / Alles, eine Suche und die Sortierung nach Ersparnis, Preis, Grundpreis, Name oder Laden. Jede Karte zeigt Bild, Marke, Packung, Preis mit Streich- bzw. Normalpreis, App-Preis, PAYBACK, „nur online“, Pfand, Grundpreis und Gültigkeit („ab Mo 09.11.“, „bis Sa“); **„➕ Auf die Einkaufsliste“** setzt den Artikel mit Angebotspreis in diesen Laden, **„📌 Merken“** übernimmt das Angebot als eigenes. Es gibt 60 Angebote je Seite („Mehr laden“). Läden, für die es nur Prospektbilder gibt (z. B. NORMA), erscheinen als Kachel mit vier Prospektseiten, „Prospekt öffnen ↗“ und „Angebot aus Prospekt eintragen“ – auch nachdem du dort schon Angebote eingetragen hast. Unter den Chips steht je Laden die Quelle (EDEKA direkt, ALDI SÜD direkt, marktguru inoffiziell) – ist für einen Laden keine eingeschaltet, sagt die Seite, welche.
 
-<!-- screenshot: prospekt-kachel.png -->
+![Prospektseiten als Kachel](docs/images/prospekt-kachel.png)
 
 Angebote, die zu deinen Rezepten, der Merkliste, der Einkaufsliste oder deinen eigenen Preisen passen, zählen für Planung, Budget und die Laden-Aufteilung der Einkaufsliste. Setzt du nach dem Abruf etwas Neues auf die Einkaufsliste, planst ein Rezept oder trägst einen Preis ein, gleicht der Essensplaner die gespeicherten Angebote etwa eine halbe Minute später lokal neu ab – ohne neue Anfrage (auch beim täglichen Check und mit „Angebote aktualisieren“, solange ein neuer Abruf noch gesperrt ist). Ein Produkt mit Sorten nach dem Komma („Buitoni Pizza, Salami oder Schinken“) ist ein Angebot des Produkts selbst (Pizza), nicht der Sorten. In der Preisliste steht in jeder Zelle zusätzlich das aktuelle Angebot dieses Ladens (nur zur Anzeige). App-Preise („mit Lidl Plus App 1,59 €“, Rossmann-Coupons), REWE-Bonus und „nur online“ werden als Hinweis erkannt; jedes Angebot hat eine Art (Lebensmittel, Getränk, Drogerie, Haushalt, Non-Food), damit Jacken und Akkuschrauber nicht zwischen den Lebensmitteln stehen.
 
@@ -281,8 +283,9 @@ Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deine
 3. **Prüfen:** Laden und Filiale werden aus dem Kopf des Kassenzettels erkannt (Kette und Postleitzahl, bei mehreren Filialen die Straße), dazu Datum und Summe (stimmt die Summe der Zeilen nicht, gibt es einen Hinweis). Abkürzungen wie `H-MILCH 1,5%`, `GOUDA JUNG SCHEIB`, `HACKFL.GEM.`, `EIER BOD.10ER M` oder `PASS.TOMATEN` werden den Artikeln der Preisliste zugeordnet (eine unbekannte Abkürzung davor macht daraus nur einen Vorschlag); die Packung kommt aus der Zeile (250G, 1L, 10ER), sonst aus dem Preis des Ladens oder dem Richtwert. Was nicht erkannt wird, bleibt „unbekannt“ – du ordnest es zu oder ignorierst es; deine Zuordnung merkt sich der Essensplaner für den nächsten Kassenzettel dieser Kette.
 4. **Speichern:** jeder zugeordnete Artikel wird **eigener Preis dieses Ladens** (in der Preisliste „🧾 Kassenzettel 07.11.“, mit Verlauf). Gespeichert wird der Normalpreis je Stück (ein Rabatt oder App-Preis zählt nicht), gewogene Ware je kg. Ein **neuerer** Kassenzettel ersetzt einen älteren Preis; einen Preis, den du **nach** dem Kassenzettel-Datum eingetippt hast, überschreibt er nicht. War der Artikel an diesem Tag im **Angebot** dieses Ladens (gleiche Zutat, auf den Cent derselbe Preis wie im Prospekt und – wenn Kassenzettel und Angebot eine Marke oder Sorte nennen – dieselbe, z. B. „KERRYGOLD IRISCHE BUTTER“ zum Angebot „Kerrygold Butter“), steht „Angebotspreis“ dabei und der Preis kommt nur in den Verlauf – der Normalpreis bleibt. Mit „trotzdem als Normalpreis“ (Feld `regular` der Zeile) wird er doch gespeichert. Wird ein schon gespeicherter Kassenzettel erneut gespeichert und ist eine Zeile inzwischen als Angebot bekannt, kommt der Preis von vor dem Kassenzettel zurück. Preise anderer Ketten werden daraus nie geschätzt.
 
-<!-- screenshot: kassenzettel.png -->
-<!-- screenshot: kassenzettel-pruefen.png -->
+| Kassenzettel erfassen | Prüfen |
+|---|---|
+| ![Kassenzettel erfassen](docs/images/kassenzettel.png) | ![Kassenzettel prüfen](docs/images/kassenzettel-pruefen.png) |
 
 Im Panel: **🏪 Läden & Preise → 🧾 Kassenzettel** (oder „🧾 Kassenzettel“ in der Einkaufsliste) → Foto aufnehmen bzw. Foto/PDF wählen und „🤖 Mit KI auslesen“ – oder den Text einfügen (am Handy z. B. mit „Text aus Foto kopieren“). Ist keine KI-Aufgabe gewählt oder sie gerade nicht verfügbar, sagt das Panel das und bietet das Einfügen an. In der Prüfansicht wählst du je Zeile den Artikel (oder „ignorieren“), korrigierst Packung und Preis, Laden und Datum; die Summe der Zeilen wird mit der Summe des Kassenzettels verglichen. „Preise übernehmen“ speichert. Darunter stehen die gespeicherten Kassenzettel (Datum, Laden, Summe, Anzahl Preise, Foto) zum Ansehen und Löschen – mit oder ohne ihre Preise.
 
