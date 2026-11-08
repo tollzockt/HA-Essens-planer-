@@ -88,6 +88,36 @@
   `.storage/essensplaner.receipts.<id>`, Fotos in `/media/essensplaner/receipts/`; beides
   wird mit der Integration gelöscht (andere Dateien im Medienordner nicht).
 
+### Panel
+- **Einstellungen im Panel:** ⚙️ oben rechts öffnet alle Einstellungen (am Handy als ganze
+  Seite) – Allgemein, Budget & Planung, Angebote & Preisquellen, Läden & Einkauf und
+  Kassenzettel, jedes Feld mit kurzer Erklärung. Es gelten dieselben Regeln wie im
+  Optionsdialog (Bereiche, mindestens eine Mahlzeit, marktguru braucht eine Postleitzahl oder
+  Läden mit Postleitzahl); Fehler stehen direkt am Feld. Nach dem Speichern lädt der
+  Essensplaner neu, das Panel verbindet sich danach von selbst wieder. Nur für
+  Administratoren; der Optionsdialog unter *Geräte & Dienste* funktioniert weiter. Neue
+  Websockets `essensplaner/get_settings` und `essensplaner/save_settings`.
+- **Angebote:** Umschalter „🍽️ Für meine Rezepte“ (wie bisher) und „🏪 Alle Angebote meiner
+  Läden“: Läden als Chips (mehrere wählbar, wird gemerkt), Aktuell / Ab nächster Woche / Alle,
+  Lebensmittel / Drogerie & Haushalt / Alles, Suche, Sortierung (Ersparnis, Preis, Grundpreis,
+  Name, Laden), Karten mit Bild, Marke, Packung, Streich- bzw. Normalpreis, App-Preis,
+  PAYBACK, „nur online“, Grundpreis und Gültigkeit („ab Mo 09.11.“, „bis Sa“), „➕ Auf die
+  Einkaufsliste“ (in diesen Laden) und „📌 Merken“, 60 Angebote je Seite. Läden mit nur
+  Prospektbildern (z. B. NORMA) zeigen vier Seiten, „Prospekt öffnen ↗“ und „Angebot aus
+  Prospekt eintragen“. Je Laden steht die Quelle (EDEKA direkt, ALDI SÜD direkt, marktguru
+  inoffiziell); ist keine eingeschaltet, sagt die Seite, welche.
+- **Läden & Preise:** „EDEKA-Markt suchen“ und „ALDI-Filiale verknüpfen“ an der Filiale,
+  Drogerien mit 🧴-Kennzeichen, Preisquellen REWE, ALDI SÜD, EDEKA und marktguru (mit dem
+  AGB-Hinweis) samt „Preise/Angebote aktualisieren“. Die Preisliste zeigt das aktuelle
+  Angebot unter dem Preis („🏷️ 1,19 € bis Sa“, ohne Normalpreis „kein Normalpreis bekannt“)
+  und lässt sich auf Lebensmittel bzw. Drogerie & Haushalt einschränken.
+- **Kassenzettel:** neuer Bereich in „Läden & Preise“ und Knopf „🧾 Kassenzettel“ in der
+  Einkaufsliste: Foto aufnehmen bzw. Foto/PDF wählen (große Fotos werden vor dem Hochladen
+  verkleinert), „🤖 Mit KI auslesen“ oder Text einfügen, Prüfen mit Artikel-Auswahl,
+  „ignorieren“, Packung, Preis, Laden, Datum und Summenprüfung, dann „Preise übernehmen“;
+  Liste der gespeicherten Kassenzettel mit Bild, Ansicht und Löschen (mit oder ohne Preise).
+- `essensplaner/store_offers` kennt die Art `nonfood` (Drogerie und Haushalt zusammen).
+
 ### Korrekturen
 - Alle Abfragen senden die ehrliche Kennung `HA-Essensplaner/1.4` (marktguru und der
   Rezept-Import gaben sich bisher als Browser aus).

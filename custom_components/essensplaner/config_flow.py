@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
@@ -23,7 +22,6 @@ from homeassistant.helpers.selector import (
 )
 import voluptuous as vol
 
-from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE
 from .const import (
     ALL_MEALS,
     CONF_ALDI_ONLINE,
@@ -74,16 +72,35 @@ from .const import (
     DEFAULT_SPLIT_TRIP_MIN,
     DOMAIN,
     NAME,
-    OFFERS_MARKTGURU,
     OFFERS_OFF,
     SPLIT_MODES,
     STRATEGIES,
     STRATEGY_BALANCED,
 )
 from .offers import DEFAULT_STORES, STORES
+from .options_schema import (
+    BUDGET_RANGE,
+    EUR_MAX,
+    OFFERS_SOURCES,
+    PERCENT_MAX,
+    RADIUS_KM,
+    ROUTE_RADIUS_M,
+    SERVINGS_RANGE,
+    TRIP_MAX,
+    meals_error,
+    normalize_time,
+    number,
+    whole,
+    zip_error,
+    zone_list,
+)
 
+# The settings can also be changed in the panel (⚙️, 1.4): ranges, defaults and checks of
+# both live in options_schema.py; this flow keeps Home Assistant's selectors.
 _SERVINGS_SELECTOR = NumberSelector(
-    NumberSelectorConfig(min=1, max=20, step=1, mode=NumberSelectorMode.BOX)
+    NumberSelectorConfig(
+        min=SERVINGS_RANGE[0], max=SERVINGS_RANGE[1], step=1, mode=NumberSelectorMode.BOX
+    )
 )
 _MEAL_SELECTOR = SelectSelector(
     SelectSelectorConfig(
@@ -100,38 +117,12 @@ _MEALS_SELECTOR = SelectSelector(
 )
 
 
-# ranges of the "Läden & Einkauf" step (the search ranges are the ones branches.py clamps to)
-_EUR_MAX = 20
-_TRIP_MAX = 50
-_PERCENT_MAX = 90
-_RADIUS_KM = RADIUS_KM_RANGE
-_ROUTE_RADIUS_M = ROUTE_RADIUS_RANGE
-
-
-def _normalize_time(value: Any) -> str:
-    text = str(value or "")
-    return text[:5] if len(text) >= 5 else text
-
-
 def _eur_selector(maximum: float, step: float) -> NumberSelector:
     return NumberSelector(
         NumberSelectorConfig(
             min=0, max=maximum, step=step, mode=NumberSelectorMode.BOX, unit_of_measurement="€"
         )
     )
-
-
-def _number(value: Any, default: float) -> float:
-    """An option as a number (the default for missing or broken values)."""
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return float(default)
-
-
-def _whole(value: float) -> float | int:
-    """3.0 -> 3 (nicer in the stored options), 2.5 stays 2.5."""
-    return int(value) if float(value).is_integer() else round(float(value), 2)
 
 
 class EssensplanerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -186,15 +177,15 @@ class EssensplanerOptionsFlow(OptionsFlow):
         """Manage the options."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            if not user_input.get(CONF_ENABLED_MEALS):
-                errors[CONF_ENABLED_MEALS] = "no_meals"
+            if error := meals_error(user_input.get(CONF_ENABLED_MEALS)):
+                errors[CONF_ENABLED_MEALS] = error
             else:
                 data = dict(user_input)
                 data[CONF_DEFAULT_SERVINGS] = int(data[CONF_DEFAULT_SERVINGS])
                 for meal in ALL_MEALS:
                     key = f"{CONF_MEAL_TIME_PREFIX}{meal}"
                     if key in data:
-                        data[key] = _normalize_time(data[key])
+                        data[key] = normalize_time(data[key])
                 self._general = data
                 return await self.async_step_economy()
 
@@ -272,11 +263,10 @@ class EssensplanerOptionsFlow(OptionsFlow):
         if user_input is not None:
             zip_code = str(user_input.get(CONF_ZIP) or "").strip()
             # marktguru needs a zip code or selected branches with a postcode (panel)
-            if user_input.get(CONF_OFFERS_SOURCE) == OFFERS_MARKTGURU and (
-                (zip_code and not re.fullmatch(r"\d{5}", zip_code))
-                or (not zip_code and not self._branch_postcodes())
+            if error := zip_error(
+                user_input.get(CONF_OFFERS_SOURCE), zip_code, self._branch_postcodes()
             ):
-                errors[CONF_ZIP] = "invalid_zip"
+                errors[CONF_ZIP] = error
             else:
                 data = dict(user_input)
                 data[CONF_ZIP] = zip_code
@@ -286,7 +276,11 @@ class EssensplanerOptionsFlow(OptionsFlow):
         schema = {
             vol.Required(CONF_BUDGET, default=float(options.get(CONF_BUDGET) or 0)): NumberSelector(
                 NumberSelectorConfig(
-                    min=0, max=2000, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="€"
+                    min=BUDGET_RANGE[0],
+                    max=BUDGET_RANGE[1],
+                    step=5,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="€",
                 )
             ),
             vol.Required(
@@ -300,7 +294,7 @@ class EssensplanerOptionsFlow(OptionsFlow):
                 CONF_OFFERS_SOURCE, default=options.get(CONF_OFFERS_SOURCE, OFFERS_OFF)
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=[OFFERS_OFF, OFFERS_MARKTGURU],
+                    options=OFFERS_SOURCES,
                     translation_key="offers_source",
                     mode=SelectSelectorMode.LIST,
                 )
@@ -337,35 +331,33 @@ class EssensplanerOptionsFlow(OptionsFlow):
                 data.pop(CONF_SYNC_TODO, None)
             if not user_input.get(CONF_RECEIPT_AI):
                 data.pop(CONF_RECEIPT_AI, None)  # receipts as pasted text only
-            data[CONF_SPLIT_MIN_SAVING] = _whole(user_input[CONF_SPLIT_MIN_SAVING])
+            data[CONF_SPLIT_MIN_SAVING] = whole(user_input[CONF_SPLIT_MIN_SAVING])
             data[CONF_SPLIT_MIN_PERCENT] = round(user_input[CONF_SPLIT_MIN_PERCENT])
-            data[CONF_SPLIT_OFFER_MIN] = _whole(user_input[CONF_SPLIT_OFFER_MIN])
-            data[CONF_SPLIT_TRIP_MIN] = _whole(user_input[CONF_SPLIT_TRIP_MIN])
+            data[CONF_SPLIT_OFFER_MIN] = whole(user_input[CONF_SPLIT_OFFER_MIN])
+            data[CONF_SPLIT_TRIP_MIN] = whole(user_input[CONF_SPLIT_TRIP_MIN])
             # empty = automatic (zone.home + "Arbeit"/"Work" zones)
             data[CONF_BRANCH_ZONES] = list(user_input.get(CONF_BRANCH_ZONES) or [])
-            data[CONF_BRANCH_RADIUS] = _whole(user_input[CONF_BRANCH_RADIUS])
+            data[CONF_BRANCH_RADIUS] = whole(user_input[CONF_BRANCH_RADIUS])
             data[CONF_BRANCH_ROUTE_RADIUS] = round(user_input[CONF_BRANCH_ROUTE_RADIUS])
             return self.async_create_entry(data=data)
 
         options = self.config_entry.options
         mode = options.get(CONF_SPLIT_MODE, DEFAULT_SPLIT_MODE)
-        zones = options.get(CONF_BRANCH_ZONES) or []
-        if isinstance(zones, str):
-            zones = [z.strip() for z in zones.split(",") if z.strip()]
+        zones = zone_list(options.get(CONF_BRANCH_ZONES))
         radius = min(
-            max(_number(options.get(CONF_BRANCH_RADIUS), DEFAULT_BRANCH_RADIUS), _RADIUS_KM[0]),
-            _RADIUS_KM[1],
+            max(number(options.get(CONF_BRANCH_RADIUS), DEFAULT_BRANCH_RADIUS), RADIUS_KM[0]),
+            RADIUS_KM[1],
         )
         route_radius = min(
             max(
-                _number(options.get(CONF_BRANCH_ROUTE_RADIUS), DEFAULT_BRANCH_ROUTE_RADIUS),
-                _ROUTE_RADIUS_M[0],
+                number(options.get(CONF_BRANCH_ROUTE_RADIUS), DEFAULT_BRANCH_ROUTE_RADIUS),
+                ROUTE_RADIUS_M[0],
             ),
-            _ROUTE_RADIUS_M[1],
+            ROUTE_RADIUS_M[1],
         )
 
         def clamp(key: str, default: float, maximum: float) -> float:
-            return min(max(_number(options.get(key), default), 0), maximum)
+            return min(max(number(options.get(key), default), 0), maximum)
 
         schema = {
             vol.Required(
@@ -377,15 +369,15 @@ class EssensplanerOptionsFlow(OptionsFlow):
             ),
             vol.Required(
                 CONF_SPLIT_MIN_SAVING,
-                default=clamp(CONF_SPLIT_MIN_SAVING, DEFAULT_SPLIT_MIN_SAVING, _EUR_MAX),
-            ): _eur_selector(_EUR_MAX, 0.1),
+                default=clamp(CONF_SPLIT_MIN_SAVING, DEFAULT_SPLIT_MIN_SAVING, EUR_MAX),
+            ): _eur_selector(EUR_MAX, 0.1),
             vol.Required(
                 CONF_SPLIT_MIN_PERCENT,
-                default=clamp(CONF_SPLIT_MIN_PERCENT, DEFAULT_SPLIT_MIN_PERCENT, _PERCENT_MAX),
+                default=clamp(CONF_SPLIT_MIN_PERCENT, DEFAULT_SPLIT_MIN_PERCENT, PERCENT_MAX),
             ): NumberSelector(
                 NumberSelectorConfig(
                     min=0,
-                    max=_PERCENT_MAX,
+                    max=PERCENT_MAX,
                     step=1,
                     mode=NumberSelectorMode.BOX,
                     unit_of_measurement="%",
@@ -393,19 +385,19 @@ class EssensplanerOptionsFlow(OptionsFlow):
             ),
             vol.Required(
                 CONF_SPLIT_OFFER_MIN,
-                default=clamp(CONF_SPLIT_OFFER_MIN, DEFAULT_SPLIT_OFFER_MIN, _EUR_MAX),
-            ): _eur_selector(_EUR_MAX, 0.05),
+                default=clamp(CONF_SPLIT_OFFER_MIN, DEFAULT_SPLIT_OFFER_MIN, EUR_MAX),
+            ): _eur_selector(EUR_MAX, 0.05),
             vol.Required(
                 CONF_SPLIT_TRIP_MIN,
-                default=clamp(CONF_SPLIT_TRIP_MIN, DEFAULT_SPLIT_TRIP_MIN, _TRIP_MAX),
-            ): _eur_selector(_TRIP_MAX, 0.5),
+                default=clamp(CONF_SPLIT_TRIP_MIN, DEFAULT_SPLIT_TRIP_MIN, TRIP_MAX),
+            ): _eur_selector(TRIP_MAX, 0.5),
             vol.Optional(
                 CONF_BRANCH_ZONES, description={"suggested_value": list(zones)}
             ): EntitySelector(EntitySelectorConfig(domain="zone", multiple=True)),
             vol.Required(CONF_BRANCH_RADIUS, default=radius): NumberSelector(
                 NumberSelectorConfig(
-                    min=_RADIUS_KM[0],
-                    max=_RADIUS_KM[1],
+                    min=RADIUS_KM[0],
+                    max=RADIUS_KM[1],
                     step=0.5,
                     mode=NumberSelectorMode.BOX,
                     unit_of_measurement="km",
@@ -417,8 +409,8 @@ class EssensplanerOptionsFlow(OptionsFlow):
             ): BooleanSelector(),
             vol.Required(CONF_BRANCH_ROUTE_RADIUS, default=route_radius): NumberSelector(
                 NumberSelectorConfig(
-                    min=_ROUTE_RADIUS_M[0],
-                    max=_ROUTE_RADIUS_M[1],
+                    min=ROUTE_RADIUS_M[0],
+                    max=ROUTE_RADIUS_M[1],
                     step=50,
                     mode=NumberSelectorMode.BOX,
                     unit_of_measurement="m",

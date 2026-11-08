@@ -123,7 +123,7 @@ Ein ganzes Beispiel-Dashboard steht in [`examples/dashboard.yaml`](examples/dash
 
 ## 💶 Preise, Budget & Angebote
 
-*Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren → (zweiter Schritt) Budget & Angebote*:
+Im Panel unter **⚙️ (oben rechts) → Budget & Planung / Angebote & Preisquellen** – oder wie bisher unter *Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren → (zweiter Schritt) Budget & Angebote*:
 
 <!-- screenshot: optionen-budget-angebote.png -->
 
@@ -195,6 +195,8 @@ Der Essensplaner hält alle aktuellen und kommenden Angebote deiner gespeicherte
 | Lidl, REWE, Penny, Netto, Kaufland, Rossmann, dm … | marktguru (nur eingeschaltet, eigenes Risiko) | der ganze Prospekt der Kette an der Postleitzahl deiner Filiale |
 | NORMA, EDEKA ohne Markt-Verknüpfung | marktguru | oft nur die Prospektseiten als Bilder (mit Link zum Prospekt) |
 
+Im Panel zeigt der Tab **💶 Angebote** zwei Ansichten: **„🍽️ Für meine Rezepte“** (die passenden Angebote wie bisher, mit Budget) und **„🏪 Alle Angebote meiner Läden“**: oben deine Läden als Chips (mehrere wählbar, die Auswahl wird gemerkt), dazu Aktuell / Ab nächster Woche / Alle, Lebensmittel / Drogerie & Haushalt / Alles, eine Suche und die Sortierung nach Ersparnis, Preis, Grundpreis, Name oder Laden. Jede Karte zeigt Bild, Marke, Packung, Preis mit Streich- bzw. Normalpreis, App-Preis, PAYBACK, „nur online“, Grundpreis und Gültigkeit („ab Mo 09.11.“, „bis Sa“); „➕ Auf die Einkaufsliste“ setzt den Artikel mit Angebotspreis in diesen Laden, „📌 Merken“ übernimmt das Angebot als eigenes. Läden, für die es nur Prospektbilder gibt (z. B. NORMA), erscheinen als Kachel mit vier Prospektseiten, „Prospekt öffnen ↗“ und „Angebot aus Prospekt eintragen“. Unter den Chips steht je Laden die Quelle (EDEKA direkt, ALDI SÜD direkt, marktguru inoffiziell) – ist für einen Laden keine eingeschaltet, sagt die Seite, welche.
+
 Angebote, die zu deinen Rezepten, der Merkliste, der Einkaufsliste oder deinen eigenen Preisen passen, zählen für Planung, Budget und die Laden-Aufteilung der Einkaufsliste. In der Preisliste steht in jeder Zelle zusätzlich das aktuelle Angebot dieses Ladens (nur zur Anzeige). App-Preise („mit Lidl Plus App 1,59 €“, Rossmann-Coupons), REWE-Bonus und „nur online“ werden als Hinweis erkannt; jedes Angebot hat eine Art (Lebensmittel, Getränk, Drogerie, Haushalt, Non-Food), damit Jacken und Akkuschrauber nicht zwischen den Lebensmitteln stehen. Gespeichert wird der Katalog in einer eigenen Datei (`/config/.storage/essensplaner.catalog.<entry_id>`); für das Panel gibt es den Websocket `essensplaner/store_offers` (Filter nach Laden, aktuell/kommend, Art, Suche, „nur meine Zutaten“, Sortierung, Seiten).
 
 ### REWE-Onlinepreise (experimentell)
@@ -219,6 +221,8 @@ Statt Preise zu schätzen, übernimmt der Essensplaner die **echten Preise deine
 2. **Foto oder PDF** (optional): mit einer **KI-Aufgabe** (AI Task, z. B. Ollama, OpenAI oder Google; Optionen → „Läden & Einkauf“ → „KI-Aufgabe für Kassenzettel-Fotos“). Das Foto wird im Medienordner gespeichert (`/media/essensplaner/receipts/`, höchstens 10 MB, JPG/PNG/WebP/PDF) und **nur das Bild** geht an die gewählte KI – keine Rezepte, Filialen oder Preise.
 3. **Prüfen:** Laden und Filiale werden aus dem Kopf des Kassenzettels erkannt (Kette und Postleitzahl, bei mehreren Filialen die Straße), dazu Datum und Summe (stimmt die Summe der Zeilen nicht, gibt es einen Hinweis). Abkürzungen wie `H-MILCH 1,5%`, `GOUDA JUNG SCHEIB`, `HACKFL.GEM.` oder `BIO EIER 10ER` werden den Artikeln der Preisliste zugeordnet; die Packung kommt aus der Zeile (250G, 1L, 10ER), sonst aus dem Preis des Ladens oder dem Richtwert. Was nicht erkannt wird, bleibt „unbekannt“ – du ordnest es zu oder ignorierst es; deine Zuordnung merkt sich der Essensplaner für den nächsten Kassenzettel dieser Kette.
 4. **Speichern:** jeder zugeordnete Artikel wird **eigener Preis dieses Ladens** (in der Preisliste „🧾 Kassenzettel 07.11.“, mit Verlauf). Gespeichert wird der Normalpreis je Stück (ein Rabatt oder App-Preis zählt nicht), gewogene Ware je kg. Ein **neuerer** Kassenzettel ersetzt einen älteren Preis; einen Preis, den du **nach** dem Kassenzettel-Datum eingetippt hast, überschreibt er nicht. Preise anderer Ketten werden daraus nie geschätzt.
+
+Im Panel: **🏪 Läden & Preise → 🧾 Kassenzettel** (oder „🧾 Kassenzettel“ in der Einkaufsliste) → Foto aufnehmen bzw. Foto/PDF wählen und „🤖 Mit KI auslesen“ – oder den Text einfügen (am Handy z. B. mit „Text aus Foto kopieren“). In der Prüfansicht wählst du je Zeile den Artikel (oder „ignorieren“), korrigierst Packung und Preis, Laden und Datum; die Summe der Zeilen wird mit der Summe des Kassenzettels verglichen. „Preise übernehmen“ speichert. Darunter stehen die gespeicherten Kassenzettel (Datum, Laden, Summe, Anzahl Preise, Foto) zum Ansehen und Löschen – mit oder ohne ihre Preise.
 
 Gespeichert werden höchstens 200 Kassenzettel (die ältesten gehen samt Foto) in `/config/.storage/essensplaner.receipts.<entry_id>`; nicht gespeicherte Fotos werden nach einem Tag gelöscht. Löschst du einen Kassenzettel, bleiben seine Preise (außer mit „Preise entfernen“). Aktionen: `receipt_parse_text`, `receipt_scan`, `receipt_save`, `get_receipts`, `delete_receipt`; für das Panel die Websockets `essensplaner/receipts`, `essensplaner/receipt_parse`, `essensplaner/receipt_save`, `essensplaner/receipt_delete` und der Upload `POST /api/essensplaner/receipt_upload` (nur Administratoren).
 
@@ -342,7 +346,7 @@ response_variable: einkauf   # einkauf.selection: Artikel, Zwischensumme, Erspar
 Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 
 ## Optionen
-*Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren*:
+**Im Panel: ⚙️ oben rechts** (nur für Administratoren; am Handy als ganze Seite) mit den Bereichen Allgemein, Budget & Planung, Angebote & Preisquellen, Läden & Einkauf und Kassenzettel – jedes Feld mit kurzer Erklärung, Fehler direkt am Feld. Nach dem Speichern lädt der Essensplaner neu (ein paar Sekunden), das Panel verbindet sich von selbst wieder. Es gelten dieselben Regeln wie im Optionsdialog, der weiterhin unter *Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren* zur Verfügung steht (z. B. wenn das Panel ausgeschaltet ist):
 - Standard-Portionen, verwendete Mahlzeiten und Uhrzeiten, Standard-Mahlzeit
 - Vorratsschrank: Zutaten, die nie auf die Einkaufsliste kommen
 - **Nie vorschlagen**: z. B. „Fisch, Pilze“
@@ -353,6 +357,8 @@ Weitere Beispiele: [`examples/automations.yaml`](examples/automations.yaml).
 <!-- screenshot: optionen-laeden.png -->
 - Einkaufsliste zusätzlich in eine andere To-do-Liste kopieren
 - Intents an/aus, Panel an/aus
+
+Für eigene Oberflächen: die Websockets `essensplaner/get_settings` (Werte, Standardwerte, Bereiche, Auswahllisten und Hinweise) und `essensplaner/save_settings` (`values`; prüft wie der Optionsdialog und antwortet mit `errors` je Feld oder `saved`/`reload`) – beide nur für Administratoren.
 
 ## Daten
 Alles wird lokal in `/config/.storage/essensplaner.<entry_id>` gespeichert (die Angebote deiner Läden in `essensplaner.catalog.<entry_id>`, die Kassenzettel in `essensplaner.receipts.<entry_id>` und ihre Fotos in `/media/essensplaner/receipts/`) und ist Teil der normalen Home-Assistant-Backups. Das Event `essensplaner_updated` wird bei jeder Änderung ausgelöst. Für die Fehlersuche gibt es Diagnose-Daten (Gerät → ⋮ → Diagnosedaten herunterladen) – ohne Koordinaten, Adressen (Straße, Postleitzahl, Ort), Namen und IDs deiner Filialen; auch die Postleitzahl aus den Optionen ist geschwärzt.

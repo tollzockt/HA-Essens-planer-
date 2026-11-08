@@ -140,7 +140,7 @@ KIND_NONFOOD = "nonfood"
 KIND_UNKNOWN = "unknown"
 OFFER_KINDS = (KIND_FOOD, KIND_DRINKS, KIND_DRUG, KIND_HOUSEHOLD, KIND_NONFOOD, KIND_UNKNOWN)
 # filters of the store_offers websocket
-FILTER_KINDS = ("food", "drugstore", "household", "all")
+FILTER_KINDS = ("food", "drugstore", "household", "nonfood", "all")
 WHEN_VALUES = ("current", "upcoming", "all")
 SORTS = ("saving", "price", "unit_price", "name", "store")
 
@@ -570,7 +570,8 @@ def classify_offer(
 
 def kind_matches(offer: dict[str, Any], kind: str) -> bool:
     """The panel filter: food = food, drinks or an unknown product of a grocery chain;
-    drugstore = drugstore products (and unknown ones of a drugstore); household."""
+    drugstore = drugstore products (and unknown ones of a drugstore); household; nonfood =
+    drugstore or household ("Drogerie & Haushalt", 1.4 panel)."""
     value = offer.get("kind") or KIND_UNKNOWN
     if kind == "all":
         return True
@@ -581,6 +582,8 @@ def kind_matches(offer: dict[str, Any], kind: str) -> bool:
         return value == KIND_DRUG or (value == KIND_UNKNOWN and drugstore_chain)
     if kind == "household":
         return value == KIND_HOUSEHOLD
+    if kind == "nonfood":
+        return kind_matches(offer, "drugstore") or value == KIND_HOUSEHOLD
     return False
 
 

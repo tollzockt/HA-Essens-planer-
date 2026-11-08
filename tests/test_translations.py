@@ -351,9 +351,16 @@ def _check_step(section: str, result: dict[str, Any]) -> None:
 
 
 def _flow_texts() -> tuple[set[str], set[str]]:
-    """Error and abort keys used in config_flow.py."""
+    """Error and abort keys used in config_flow.py (1.4: the checks shared with the
+    panel's settings live in options_schema.py and return the codes in FLOW_ERRORS)."""
+    from custom_components.essensplaner.options_schema import FLOW_ERRORS
+
     source = (PKG / "config_flow.py").read_text(encoding="utf-8")
+    shared = (PKG / "options_schema.py").read_text(encoding="utf-8")
     errors = set(re.findall(r'errors\[[^\]]+\]\s*=\s*"(\w+)"', source))
+    returned = set(re.findall(r'return (?:None if \w+ else )?"(\w+)"', shared))
+    assert returned == set(FLOW_ERRORS)
+    errors |= set(FLOW_ERRORS)
     aborts = set(re.findall(r'async_abort\(reason="(\w+)"\)', source))
     return errors, aborts
 

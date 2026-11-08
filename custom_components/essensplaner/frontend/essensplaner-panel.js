@@ -83,8 +83,8 @@ const SHOP_PROVIDERS = { rewe_online: "🛒 REWE online", aldi_online: "🛒 ALD
 // offers); the data-action names "rewe-…" come from 1.3, where only REWE had one
 const STORE_LINKS = {
   rewe: { field: "rewe_market_id", ws: "rewe_markets", list: "markets", source: "rewe", title: "🛒 REWE-Markt-ID", name: "REWE", placeholder: "z. B. 1940178", mode: "numeric", search: "🔎 Markt suchen", none: "Keine REWE-Märkte für PLZ", saved: "🛒 REWE-Markt", removed: "REWE-Markt-ID entfernt", unlink: "Dann gibt es dort keine REWE-Onlinepreise und keine Online-Suche mehr." },
-  edeka: { field: "edeka_market_id", ws: "edeka_markets", list: "markets", source: "edeka", title: "🏷️ EDEKA-Markt-ID", name: "EDEKA", placeholder: "z. B. 2644015", mode: "numeric", search: "🔎 Markt suchen", none: "Keine EDEKA-Märkte für PLZ", saved: "🏷️ EDEKA-Markt", removed: "EDEKA-Markt-ID entfernt", unlink: "Dann gibt es dort keine EDEKA-Angebote mehr." },
-  "aldi-sued": { field: "aldi_service_point", ws: "aldi_stores", list: "stores", source: "aldi", title: "🛒 ALDI-SÜD-Filiale", name: "ALDI SÜD", placeholder: "z. B. B402", mode: "text", search: "🔎 Filiale suchen", none: "Keine ALDI-SÜD-Filialen gefunden", saved: "🛒 ALDI-SÜD-Filiale", removed: "ALDI-SÜD-Filiale entfernt – die nächste wird automatisch bestimmt", unlink: "Dann wird beim nächsten Abruf die nächste Filiale automatisch bestimmt." },
+  edeka: { field: "edeka_market_id", ws: "edeka_markets", list: "markets", source: "edeka", title: "🏷️ EDEKA-Markt-ID", name: "EDEKA", placeholder: "z. B. 2644015", mode: "numeric", search: "🔎 EDEKA-Markt suchen", none: "Keine EDEKA-Märkte für PLZ", saved: "🏷️ EDEKA-Markt", removed: "EDEKA-Markt-ID entfernt", unlink: "Dann gibt es dort keine EDEKA-Angebote mehr." },
+  "aldi-sued": { field: "aldi_service_point", ws: "aldi_stores", list: "stores", source: "aldi", title: "🛒 ALDI-SÜD-Filiale", name: "ALDI SÜD", placeholder: "z. B. B402", mode: "text", search: "🔗 ALDI-Filiale verknüpfen", none: "Keine ALDI-SÜD-Filialen gefunden", saved: "🛒 ALDI-SÜD-Filiale", removed: "ALDI-SÜD-Filiale entfernt – die nächste wird automatisch bestimmt", unlink: "Dann wird beim nächsten Abruf die nächste Filiale automatisch bestimmt." },
 };
 const ARTICLE_SOURCE = {
   offer: "🏷️ Angebot",
@@ -105,6 +105,8 @@ const REASON_CHIP = {
   // store's items, the store card says it
 };
 const PRICE_UNITS = ["g", "ml", "Stück", "kg", "l", "Bund", "Pck.", "Dose", "Kopf", "Rolle", "WL"];
+// 1.4 aisles of a drugstore (a local copy: a cached old common.js must not break the panel)
+const NONFOOD_AISLES = ["Drogerie & Körperpflege", "Haushalt & Reinigung"];
 const RADIUS_CHOICES = [1, 2, 3, 5, 10, 15];
 const STALE_CHANGES = new Set(["prices", "offers", "branches", "price_sources"]);
 // leading amount of a typed article ("2 Liter Milch", "500 g Hack") – kept when a hit is added
@@ -165,6 +167,84 @@ const errText = (err) =>
   err?.code === "unknown_command"
     ? "Diese Funktion ist neu – bitte Home Assistant einmal neu starten, damit das Update vollständig geladen ist."
     : err?.message || err?.code || String(err);
+
+/* 1.4: all offers of the saved stores (Angebote tab), receipts, settings in the panel */
+const OFFER_SORTS = { saving: "Ersparnis", price: "Preis", unit_price: "Grundpreis", name: "Name", store: "Laden" };
+const OFFER_KINDS = [
+  ["food", "🍽️ Lebensmittel"],
+  ["nonfood", "🧴 Drogerie & Haushalt"],
+  ["all", "Alles"],
+];
+const OFFER_SOURCE_LABEL = { edeka: "EDEKA direkt", aldi_weekly: "ALDI SÜD direkt", aldi_online: "ALDI SÜD direkt", marktguru: "marktguru (inoffiziell)", manual: "selbst eingetragen" };
+const OFFER_PAGE = 60;
+// after saving the settings: wait, then retry loading the data (the entry reloads)
+const SETTINGS_RELOAD_DELAYS = [700, 500, 700, 1000, 1500, 2000, 2000, 3000, 3000, 4000, 5000, 5000];
+const MG_WARNING = "marktguru untersagt laut AGB das automatische Auslesen – Nutzung auf eigenes Risiko, nur privat.";
+const RECEIPT_UPLOAD_URL = "/api/essensplaner/receipt_upload";
+const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+const WD_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const pad2 = (n) => String(n).padStart(2, "0");
+/** "ab Mo 09.11." (not valid yet), "bis Sa" (this week) or "bis Sa 14.11.". */
+const validText = (o, today) => {
+  const day = (iso) => {
+    const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const from = o.valid_from && day(o.valid_from);
+  if (from && o.valid_from.slice(0, 10) > today) return `ab ${WD_SHORT[from.getDay()]} ${pad2(from.getDate())}.${pad2(from.getMonth() + 1)}.`;
+  const to = o.valid_to && day(o.valid_to);
+  if (!to) return "";
+  const days = Math.round((to - day(today)) / 86400000);
+  if (days < 0) return "abgelaufen";
+  if (days === 0) return "nur heute";
+  return days < 7 ? `bis ${WD_SHORT[to.getDay()]}` : `bis ${WD_SHORT[to.getDay()]} ${pad2(to.getDate())}.${pad2(to.getMonth() + 1)}.`;
+};
+const num = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+const parseNum = (v) => Number(String(v ?? "").trim().replace(/\s*€$/, "").replace(",", "."));
+
+/* settings view (1.4): sections and a short German help per field; ranges, defaults and
+ * the validation come from the backend (options_schema.py, the same as the options flow) */
+const SETTINGS_SECTIONS = [
+  ["general", "🏠 Allgemein"],
+  ["planning", "💶 Budget & Planung"],
+  ["offers", "🏷️ Angebote & Preisquellen"],
+  ["stores", "🏪 Läden & Einkauf"],
+  ["receipts", "🧾 Kassenzettel"],
+];
+const SETTING_INFO = {
+  default_servings: ["Portionen", "Wird beim Planen von Mahlzeiten verwendet."],
+  default_meal: ["Standard-Mahlzeit", "Wird genommen, wenn keine Mahlzeit genannt wird (z. B. „Plane Lasagne für Freitag“)."],
+  enabled_meals: ["Aktive Mahlzeiten", "Welche Mahlzeiten du planst (mindestens eine)."],
+  time_fruehstueck: ["Frühstück", "Uhrzeit für den Kalender und „Nächste Mahlzeit“."],
+  time_mittagessen: ["Mittagessen", ""],
+  time_snack: ["Snack", ""],
+  time_abendessen: ["Abendessen", ""],
+  pantry_staples: ["Vorratszutaten", "Kommagetrennt – diese Zutaten landen nie auf der Einkaufsliste, z. B. „Salz, Pfeffer, Öl“."],
+  excluded: ["Ausgeschlossene Zutaten", "Kommagetrennt – Vorschläge und automatische Planung meiden sie, z. B. „Fisch, Pilze“."],
+  auto_mark_cooked: ["Automatisch als gekocht markieren", "Nach Ablauf des Tages zählen geplante Rezepte als gekocht (bessere Vorschläge)."],
+  shopping_sync_entity: ["Einkaufsliste kopieren nach", "Optional: eine weitere To-do-Liste (z. B. Bring!), die die Einträge ebenfalls bekommt."],
+  register_intents: ["Sprachbefehle registrieren", "Damit Assist, Jarvis und andere Sprachassistenten den Planer nutzen können."],
+  show_panel: ["Panel in der Seitenleiste", "Ausgeschaltet verschwindet der Eintrag „Essensplaner“ nach dem Speichern aus der Seitenleiste – wieder einschalten unter Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren."],
+  weekly_budget: ["Wochenbudget", "Euro pro Woche fürs Essen, 0 = kein Budget.", "€"],
+  plan_strategy: ["Planungsart", "Für die automatische Planung und Vorschläge."],
+  offers_source: ["marktguru-Angebote (inoffiziell)", "Ergänzung für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Penny, Kaufland, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden, außerdem Live-Suche in „Artikel hinzufügen“."],
+  zip_code: ["Postleitzahl", "Für die Angebote in deiner Nähe. Kann leer bleiben, wenn deine Läden eine Postleitzahl haben."],
+  offer_stores: ["Läden (ohne gespeicherte Filialen)", "Nur Angebote dieser Ketten. Hast du Filialen gespeichert, zählen deren Ketten."],
+  offers_watchlist: ["Merkliste", "Zusätzliche Produkte, deren Angebote du sehen willst, kommagetrennt (z. B. „Kaffee, Butter“)."],
+  rewe_online_prices: ["REWE-Onlinepreise", "⚠️ Experimentell: Markt-ID und Suchbegriffe gehen höchstens einmal pro Woche an www.rewe.de. Lehnt REWE ab, wird 7 Tage pausiert. Braucht eine REWE-Filiale mit Markt-ID."],
+  aldi_online_prices: ["ALDI-SÜD-Preise", "⚠️ Experimentell: die Lage deiner ALDI-SÜD-Filiale und Suchbegriffe gehen höchstens einmal pro Woche an ALDI SÜD; reduzierte Artikel und Wochenangebote werden Angebote. Braucht eine ALDI-SÜD-Filiale."],
+  edeka_offers: ["EDEKA-Angebote", "Einmal am Tag die Prospekt-Angebote deines EDEKA-Markts von www.edeka.de (nur die Markt-ID wird gesendet). Inoffizielle Schnittstelle; lehnt EDEKA ab, wird 7 Tage pausiert. Braucht eine EDEKA-Filiale mit Markt-ID."],
+  store_split_mode: ["Aufteilungsmodus", "Wie die Einkaufsliste auf deine Läden verteilt wird. Wirkt, sobald du einen Hauptladen hast."],
+  store_split_min_saving: ["Woanders günstiger ab", "Ein Artikel wandert in einen anderen Laden, wenn er dort mindestens so viel günstiger ist.", "€"],
+  store_split_min_percent: ["… oder günstiger ab", "… oder mindestens so viel Prozent günstiger (eine Bedingung reicht).", "%"],
+  store_split_offer_min: ["Angebot lohnt sich ab", "Ein Angebot in einem anderen Laden zählt ab dieser Ersparnis.", "€"],
+  store_split_trip_min: ["Extra-Laden lohnt sich ab", "Spart ein zusätzlicher Laden insgesamt weniger, kommt alles zurück in den Hauptladen. 0 = aus.", "€"],
+  branch_zones: ["Zonen für die Filialsuche", "Um diese Zonen sucht „In der Nähe suchen“. Keine gewählt = automatisch: Zuhause und Zonen mit „Arbeit“/„Work“ im Namen."],
+  branch_radius_km: ["Umkreis", "Suchradius um jede Zone.", "km"],
+  branch_route: ["Arbeitsweg einbeziehen", "Auch Läden entlang der Strecke von Zuhause zu den anderen Zonen finden."],
+  branch_route_radius_m: ["Korridor am Arbeitsweg", "So weit darf ein Laden höchstens neben dem Arbeitsweg liegen.", "m"],
+  receipt_ai_task_entity: ["KI-Aufgabe für Kassenzettel-Fotos", "Optional: eine AI-Task-Entität (z. B. Ollama, OpenAI, Google) liest Fotos und PDFs. Sie bekommt nur das Bild des Kassenzettels. Ohne KI kannst du den Text einfügen – er wird lokal gelesen."],
+};
 
 const safeUrl = (url) => {
   const u = String(url || "").trim();
@@ -567,8 +647,155 @@ const STYLE = `
   /* the checkbox of a shopping item: 40 px tap area without changing the row layout */
   .item .chk { flex: none; width: 40px; height: 40px; margin: -9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
   .addwrap input { scroll-margin-top: 120px; }
+  /* 1.4: gear, settings view */
+  .toolbar .gear { width: 44px; height: 44px; font-size: 21px; color: inherit; flex: none; }
+  .toolbar .gear:hover { background: rgba(255,255,255,.16); }
+  .toolbar .gear.off { opacity: .45; cursor: not-allowed; }
+  .sview { position: fixed; inset: 0; z-index: 12; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade .12s ease-out; }
+  .spage { background: var(--primary-background-color, #fafafa); color: var(--primary-text-color); width: min(1040px, 100%); height: min(900px, calc(100vh - 32px)); border-radius: var(--ep-radius); box-shadow: 0 14px 48px rgba(0,0,0,.35); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; animation: pop .16s ease-out; }
+  .shead { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 18px; background: var(--ep-card); border-bottom: 1px solid var(--ep-divider); }
+  .shead h2 { margin: 0; font-size: 20px; font-weight: 500; flex: 1; min-width: 0; }
+  .smain { display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
+  .snav { display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; border-right: 1px solid var(--ep-divider); background: var(--ep-card); overflow-y: auto; }
+  .snav button { text-align: left; border: none; background: none; color: inherit; font: inherit; font-size: 14.5px; padding: 10px 12px; min-height: 42px; border-radius: 10px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+  .snav button:hover { background: var(--ep-accent-bg); }
+  .snav button.on { background: var(--ep-accent-bg); box-shadow: inset 3px 0 0 var(--ep-primary); font-weight: 600; }
+  .snav .nerr { margin-left: auto; background: var(--error-color, #db4437); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 7px; }
+  .sbody { overflow-y: auto; padding: 16px 20px 28px; scroll-behavior: smooth; min-width: 0; }
+  .ssec { margin-bottom: 18px; padding: 14px 16px; scroll-margin-top: 8px; }
+  .ssec > h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
+  .ssec > .hint { margin: 0 0 8px; }
+  .sfield { display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-top: 1px solid var(--ep-divider); min-width: 0; }
+  .ssec > h3 + .sfield, .ssec > .hint + .sfield { border-top: none; }
+  .sfield > .flabel { font-weight: 500; font-size: 14.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sfield .fhelp { font-size: 12.5px; color: var(--ep-secondary-text); line-height: 1.4; }
+  .sfield .ferr { font-size: 13px; color: var(--ep-red); font-weight: 500; }
+  .sfield.invalid input, .sfield.invalid select, .sfield.invalid textarea { outline: 2px solid var(--error-color, #db4437); outline-offset: -1px; }
+  .sfield.invalid .chips, .sfield.invalid .choice { outline: 2px solid var(--error-color, #db4437); outline-offset: 2px; border-radius: 10px; }
+  .sfield .fin { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sfield .fin input:not([type=checkbox]):not([type=radio]) { width: 140px; }
+  .sfield .fin .unit { color: var(--ep-secondary-text); font-size: 14px; }
+  .sfield input.wide, .sfield textarea, .sfield select.wide { width: 100%; max-width: 560px; }
+  .sfield textarea { min-height: 64px; }
+  .sfield .switch { font-size: 14.5px; font-weight: 500; }
+  .sfield .switch input { width: 20px; height: 20px; }
+  .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 14px; }
+  .sgrid .sfield { border-top: none; }
+  .choice { display: flex; flex-direction: column; gap: 6px; max-width: 620px; }
+  .choice label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; border: 1px solid var(--ep-divider); border-radius: 10px; cursor: pointer; min-height: 42px; font-size: 14px; }
+  .choice label:has(input:checked) { border-color: var(--ep-primary); background: var(--ep-accent-bg); }
+  .choice input { margin-top: 2px; accent-color: var(--ep-primary); }
+  label.chip.pick2 { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; padding: 7px 12px; min-height: 38px; cursor: pointer; }
+  label.chip.pick2 input { width: 16px; height: 16px; accent-color: var(--ep-primary); margin: 0; }
+  label.chip.pick2:has(input:checked) { background: var(--ep-primary); color: var(--ep-on-primary); }
+  .sfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; background: var(--ep-card); border-top: 1px solid var(--ep-divider); }
+  .sfoot .sstate { flex: 1; min-width: 160px; font-size: 13px; color: var(--ep-secondary-text); }
+  .sfoot .sstate.err { color: var(--ep-red); font-weight: 500; }
+  .sbanner { padding: 14px 16px; margin-bottom: 14px; display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 700px) {
+    .sview { padding: 0; }
+    .spage { width: 100%; height: 100%; border-radius: 0; }
+    .smain { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .snav { flex-direction: row; overflow-x: auto; padding: 8px; border-right: none; border-bottom: 1px solid var(--ep-divider); scrollbar-width: none; }
+    .snav button { flex: none; white-space: nowrap; padding: 8px 12px; }
+    .snav button.on { box-shadow: inset 0 -3px 0 var(--ep-primary); }
+    .sbody { padding: 10px 10px 24px; }
+    .ssec { padding: 12px; }
+    .sfield .fin input:not([type=checkbox]):not([type=radio]) { width: 120px; }
+    .sfoot .sstate { min-width: 100%; order: -1; }
+    .sfoot .btn { flex: 1; justify-content: center; }
+  }
+
+  /* 1.4: Angebote tab – all offers of the saved stores */
+  .somode { margin-bottom: 12px; display: flex; max-width: 100%; }
+  .somode button { flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; }
+  .narrow-only { display: none; }
+  @media (max-width: 600px) { .wide-only { display: none; } .narrow-only { display: inline; } }
+  .sochips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .sochips .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px 6px 7px; min-height: 38px; }
+  .sochips .chip.all { padding-left: 12px; }
+  .sochips .chip .n { font-size: 11px; opacity: .8; }
+  .sotools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .sotools input[type=search] { flex: 1 1 220px; min-width: 0; }
+  .srcline { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--ep-secondary-text); margin: 0 0 10px; }
+  .srcline > span { display: inline-flex; gap: 5px; align-items: center; }
+  .soffers { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .soffer { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .soffer .sotop { display: flex; gap: 10px; padding: 10px 12px 0; align-items: flex-start; }
+  .soffer .soimg { width: 76px; height: 76px; flex: none; border-radius: 10px; background: #fff; border: 1px solid var(--ep-divider); display: flex; align-items: center; justify-content: center; font-size: 30px; overflow: hidden; }
+  .soffer .soimg img { width: 100%; height: 100%; object-fit: contain; }
+  .soffer .sot { flex: 1; min-width: 0; }
+  .soffer .brand { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ep-secondary-text); overflow-wrap: anywhere; }
+  .soffer .pname { font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .soffer .pack { font-size: 12.5px; color: var(--ep-secondary-text); overflow-wrap: anywhere; }
+  .soffer .soprice { padding: 6px 12px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+  .soffer .pr { font-size: 20px; font-weight: 700; color: var(--ep-red); }
+  .soffer .old { text-decoration: line-through; color: var(--ep-secondary-text); font-size: 13px; }
+  .soffer .disc { background: #c62828; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
+  .soffer .up { font-size: 12px; color: var(--ep-secondary-text); }
+  .soffer .someta { padding: 4px 12px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .soffer .sostore { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; max-width: 100%; overflow-wrap: anywhere; }
+  .soffer .acts { display: flex; gap: 6px; padding: 8px 12px 12px; margin-top: auto; flex-wrap: wrap; }
+  .soffer .acts .btn { flex: 1 1 auto; justify-content: center; }
+  .soffer.later { opacity: .9; }
+  .leaflets { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .leaflet { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .leaflet .lfhead { display: flex; gap: 8px; align-items: center; font-weight: 600; overflow-wrap: anywhere; }
+  .leaflet .lfpages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .leaflet .lfpages a { display: block; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; border: 1px solid var(--ep-divider); background: var(--ep-accent-bg); }
+  .leaflet .lfpages img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .leaflet .lfacts { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* price list: offer under the price, offer-only cells, drugstore columns */
+  .cell .o { font-size: 11px; color: var(--ep-orange); white-space: nowrap; font-weight: 600; }
+  .cell.offeronly .p { color: var(--ep-orange); }
+  .cell.dim { opacity: .45; }
+  .pm th.drug { background: color-mix(in srgb, #8e24aa 7%, var(--ep-card)); }
+  /* receipts */
+  .rlist { display: flex; flex-direction: column; gap: 6px; }
+  .rrow { display: flex; gap: 10px; align-items: center; border: 1px solid var(--ep-divider); border-radius: 10px; padding: 6px 8px; min-width: 0; }
+  .rrow .rthumb { width: 46px; height: 46px; border-radius: 8px; flex: none; background: var(--ep-accent-bg) center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; }
+  .rrow .rthumb img { width: 100%; height: 100%; object-fit: cover; }
+  .rrow .rinfo { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .rrow .rsum { text-align: right; white-space: nowrap; }
+  .rpick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .rpreview { max-height: 220px; border-radius: 10px; border: 1px solid var(--ep-divider); max-width: 100%; object-fit: contain; background: #fff; }
+  .rhead { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .rtable { display: flex; flex-direction: column; border: 1px solid var(--ep-divider); border-radius: 10px; overflow: hidden; }
+  .rline { display: grid; grid-template-columns: minmax(120px, 1.1fr) minmax(150px, 1.4fr) 150px 92px; gap: 8px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--ep-divider); }
+  .rline:first-child { border-top: none; }
+  .rline.headrow { background: var(--ep-accent-bg); font-size: 12px; font-weight: 600; color: var(--ep-secondary-text); }
+  .rline .src { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; white-space: pre-line; }
+  .rline input { width: 100%; min-width: 0; padding: 7px 8px; }
+  .rline .art { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .rline .packin { display: flex; gap: 4px; }
+  .rline .packin input { width: 70px; }
+  .rline .packin select { padding: 7px 4px; min-width: 0; flex: 1; }
+  .rline.ignored > :not(.art) { opacity: .62; }
+  .rline.ignored .src { text-decoration: line-through; }
+  .rline.ignored .art input:not([type=checkbox]) { opacity: .62; }
+  .rline .ign { font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; min-height: 30px; align-self: flex-start; }
+  .rline .ign input { width: 18px; height: 18px; flex: none; margin: 0; accent-color: var(--ep-primary); }
+  .rline .rwarn { font-size: 11.5px; color: var(--ep-orange); }
+  .rtotal { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 14px; }
+  details.srcbox { margin: 0 0 10px; font-size: 12.5px; color: var(--ep-secondary-text); }
+  details.srcbox > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
+  details.srcbox .srcline { margin: 4px 0 0; flex-direction: column; }
+  .lfnote { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 10px; }
+  @media (max-width: 700px) {
+    .sochips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+    .sochips .chip { flex: none; }
+    .rhead { grid-template-columns: 1fr; }
+    .rline { grid-template-columns: 1fr 1fr; }
+    .rline .src { grid-column: 1 / -1; }
+    .rline .art { grid-column: 1 / -1; }
+    .rline.headrow { display: none; }
+    .soffers { grid-template-columns: 1fr; }
+    .leaflets { grid-template-columns: 1fr; }
+  }
   /* touch screens: every control at least 40 px high */
   @media (pointer: coarse) {
+    .rline .ign { min-height: 40px; }
+    .sochips .chip, label.chip.pick2 { min-height: 40px; }
     .btn, .btn.small, .add { min-height: 40px; }
     .btn.small { padding: 6px 12px; }
     .icon, .bacts .icon, .recipe .fav, .prefchip .icon { width: 40px; height: 40px; }
@@ -611,6 +838,35 @@ class EssensplanerPanel extends HTMLElement {
     this._reweInput = {};
     this._reweMarkets = {};
     this._refreshing = new Set();
+    // Angebote tab (1.4): "für meine Rezepte" or all offers of the saved stores
+    this._offersMode = this._pref("offers_mode", "recipes");
+    let soBranches = [];
+    try {
+      soBranches = JSON.parse(this._pref("offers_branches", "[]")) || [];
+    } catch (e) {
+      soBranches = [];
+    }
+    this._so = {
+      when: "current",
+      kind: this._pref("offers_kind", "all"),
+      sort: this._pref("offers_sort", "saving"),
+      query: "",
+      branches: new Set(Array.isArray(soBranches) ? soBranches : []),
+      result: null,
+      offers: [],
+      loading: false,
+      error: null,
+      stale: true,
+      seq: 0,
+    };
+    this._priceKind = "all"; // price list rows: all | food | nonfood
+    // receipts (1.4): list of the stores tab and the capture dialog
+    this._receipts = null;
+    this._receiptsLoading = false;
+    this._receiptsError = null;
+    this._receipt = null;
+    // settings view (1.4, ⚙️)
+    this._settings = null;
     try {
       this._secOpen = JSON.parse(this._pref("sections", "{}")) || {};
     } catch (e) {
@@ -640,6 +896,21 @@ class EssensplanerPanel extends HTMLElement {
     this._hass = hass;
     if (first) this._init();
     if (this._menuButton) this._menuButton.hass = hass;
+    this._updateGear();
+  }
+
+  /** Settings are for admins (the websockets refuse others): a hint instead. */
+  _isAdmin() {
+    return this._hass?.user?.is_admin !== false;
+  }
+
+  _updateGear() {
+    const gear = this._gear;
+    if (!gear) return;
+    const admin = this._isAdmin();
+    gear.classList.toggle("off", !admin);
+    gear.setAttribute("aria-disabled", admin ? "false" : "true");
+    gear.title = admin ? "Einstellungen" : "Einstellungen – nur für Administratoren";
   }
 
   get hass() {
@@ -705,7 +976,11 @@ class EssensplanerPanel extends HTMLElement {
       const data = await this._hass.callWS({ type: `${DOMAIN}/data` });
       const json = JSON.stringify(data);
       const pricesStale = !changes.size || [...changes].some((c) => STALE_CHANGES.has(c) || !c);
+      const offersStale = !changes.size || [...changes].some((c) => ["offers", "branches", "price_sources", ""].includes(c));
+      if (offersStale) this._so.stale = true;
+      if (changes.has("receipts") || changes.has("prices")) this._receiptsStale = true;
       if (json === this._dataJson && this._data) {
+        if (offersStale && this._tab === "offers" && this._offersMode === "stores" && !this._so.loading) this._fetchStoreOffers();
         // nothing changed: no re-render (keeps typing smooth) – but store prices are not part
         // of the data, so a changed price (e.g. set by voice) still refreshes the price list
         if (changes.size && pricesStale) {
@@ -820,7 +1095,7 @@ class EssensplanerPanel extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
       <header>
-        <div class="toolbar"><span class="menu"></span><div class="title">🍽️ Essensplaner</div></div>
+        <div class="toolbar"><span class="menu"></span><div class="title">🍽️ Essensplaner</div><button class="icon gear" data-gear title="Einstellungen" aria-label="Einstellungen">⚙️</button></div>
         <div class="tabs">
           <button class="tab" data-tab="plan">🗓️ Wochenplan</button>
           <button class="tab" data-tab="recipes">📖 Rezepte <span class="count" data-count="recipes"></span></button>
@@ -831,11 +1106,16 @@ class EssensplanerPanel extends HTMLElement {
       </header>
       <main><div class="loading">Lade …</div></main>
       <div class="modalroot"></div>
+      <div class="settingsroot"></div>
       <div class="cookroot"></div>
       <input type="file" accept=".json,application/json" class="fileinput" hidden>`;
     this._content = this.shadowRoot.querySelector("main");
     this._modalRoot = this.shadowRoot.querySelector(".modalroot");
     this._cookRoot = this.shadowRoot.querySelector(".cookroot");
+    this._settingsRoot = this.shadowRoot.querySelector(".settingsroot");
+    this._gear = this.shadowRoot.querySelector("[data-gear]");
+    this._gear.addEventListener("click", () => this._openSettings());
+    this._updateGear();
     const menu = document.createElement("ha-menu-button");
     menu.hass = this._hass;
     menu.narrow = this._narrow;
@@ -850,6 +1130,12 @@ class EssensplanerPanel extends HTMLElement {
     c.addEventListener("change", (ev) => this._onChange(ev));
     c.addEventListener("keydown", (ev) => {
       if (ev.target.dataset?.focuskey === "additem" && this._suggestKey(ev)) return;
+      if (ev.key === "Enter" && ev.target.dataset.input === "so-query") {
+        ev.preventDefault();
+        clearTimeout(this._soTimer);
+        this._fetchStoreOffers();
+        return;
+      }
       if (ev.key === "Enter" && ev.target.dataset.enter) {
         ev.preventDefault();
         this._run(ev.target.dataset.enter, ev.target);
@@ -1239,6 +1525,10 @@ class EssensplanerPanel extends HTMLElement {
     return (this._data?.economy?.retailers || []).find((r) => r.id === id)?.name || id || "";
   }
 
+  _retailerKind(id) {
+    return (this._data?.economy?.retailers || []).find((r) => r.id === id)?.kind || null;
+  }
+
   _catRank(cat) {
     const i = CATEGORY_ORDER.indexOf(cat || "Sonstiges");
     return i === -1 ? 99 : i;
@@ -1351,6 +1641,7 @@ class EssensplanerPanel extends HTMLElement {
         <button class="btn" data-action="shopping-next-week">🗓️ Aus Plan (7 Tage) erstellen</button>
         ${open.length ? `<button class="btn" data-action="share-list">📤 Teilen / Kopieren</button>` : ""}
         ${split && open.length ? `<button class="btn" data-action="assign-stores" title="Alle offenen Artikel neu auf die Läden verteilen">🔄 Läden neu zuordnen</button>` : ""}
+        ${this._isAdmin() ? `<button class="btn" data-action="receipt-new" title="Kassenzettel fotografieren oder Text einfügen – seine Preise werden die Preise des Ladens">🧾 Kassenzettel</button>` : ""}
         <span class="spacer"></span>
         ${done.length ? `<button class="btn ghost" data-action="clear-done">🧹 Erledigte entfernen (${done.length})</button>` : ""}
         ${total ? `<button class="btn danger" data-action="clear-all">🗑 Liste leeren</button>` : ""}
@@ -1616,6 +1907,13 @@ class EssensplanerPanel extends HTMLElement {
 
   /* ------------------------------------------------------------ events */
   _handleKey(ev) {
+    if (this._settings && !this._modal) {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        this._closeSettings();
+      }
+      return;
+    }
     if (this._cook) {
       if (ev.key === "Escape") this._closeCooking();
       else if (ev.key === "ArrowRight" || ev.key === " ") {
@@ -1648,6 +1946,10 @@ class EssensplanerPanel extends HTMLElement {
       this._priceTimer = setTimeout(() => this._fetchStorePrices(), 300);
     } else if (kind === "manual") {
       this._manual[t.dataset.field] = t.value;
+    } else if (kind === "so-query") {
+      this._so.query = t.value;
+      clearTimeout(this._soTimer);
+      this._soTimer = setTimeout(() => this._fetchStoreOffers(), 350);
     } else if (kind === "rewe-id") {
       this._reweInput[t.dataset.id] = t.value;
       const b = this._branch(t.dataset.id);
@@ -1685,6 +1987,10 @@ class EssensplanerPanel extends HTMLElement {
       } else if (kind === "price-store") {
         this._priceStore = t.value;
         this._renderPriceMatrix();
+      } else if (kind === "so-sort") {
+        this._so.sort = t.value;
+        this._setPref("offers_sort", t.value);
+        this._fetchStoreOffers();
       } else if (kind === "manual") {
         this._manual[t.dataset.field] = t.value;
       }
@@ -1948,15 +2254,82 @@ class EssensplanerPanel extends HTMLElement {
         el.textContent = "⏳ Lade Angebote …";
         try {
           const res = await this._service("refresh_offers", {}, true);
-          this._toast(res?.status === "ok" ? `🏷️ ${res.count} passende Angebote geladen` : `Fehler: ${(res?.errors || []).join("; ")}`);
+          const all = res?.catalog?.count;
+          if (res?.cooldown_until && res?.message) this._toast(`🏷️ ${res.message}`);
+          else this._toast(res?.status === "ok" ? `🏷️ ${res.count} passende Angebote geladen${all != null ? ` · ${all} Angebote deiner Läden` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
         } finally {
           this._refreshing.delete("offers-tab");
+          this._so.stale = true;
           if (this._tab === "offers") this._renderContent();
         }
         break;
       }
       case "add-offer":
-        this._openOfferForm();
+        this._openOfferForm({ store: d.store || "" });
+        break;
+      case "offers-mode":
+        this._offersMode = d.mode === "stores" ? "stores" : "recipes";
+        this._setPref("offers_mode", this._offersMode);
+        this._renderContent();
+        break;
+      case "so-store": {
+        const so = this._so;
+        let picked = this._soPicked(so.result?.stores);
+        if (d.only) picked = new Set([d.branch]);
+        else if (!d.branch) picked.clear();
+        else if (picked.has(d.branch)) picked.delete(d.branch);
+        else picked.add(d.branch);
+        // every store picked = all stores
+        if (picked.size && picked.size === (so.result?.stores || []).length) picked.clear();
+        so.branches = picked;
+        this._saveSoBranches();
+        this._renderStoreOfferParts();
+        this._fetchStoreOffers();
+        break;
+      }
+      case "so-when":
+        this._so.when = d.when;
+        this._renderContent();
+        this._fetchStoreOffers();
+        break;
+      case "so-kind":
+        this._so.kind = d.kind;
+        this._setPref("offers_kind", d.kind);
+        this._renderContent();
+        this._fetchStoreOffers();
+        break;
+      case "so-more":
+        if (!this._so.loading) await this._fetchStoreOffers(true);
+        break;
+      case "so-add":
+        await this._soAdd(el, d.id);
+        break;
+      case "so-pin":
+        await this._soPin(el, d.id);
+        break;
+      case "open-settings":
+        this._openSettings(d.sec || null);
+        break;
+      case "receipt-new":
+        this._openReceipt();
+        break;
+      case "receipt-show":
+        this._showReceipt(d.id);
+        break;
+      case "receipt-delete":
+        this._deleteReceipt(d.id);
+        break;
+      case "receipts-more":
+        this._receiptLimit = (this._receiptLimit || 10) + 20;
+        this._renderReceiptSection();
+        break;
+      case "price-kind":
+        this._priceKind = d.kind;
+        this._renderPriceMatrix();
+        this._content.querySelectorAll('[data-action="price-kind"]').forEach((b) => {
+          b.classList.toggle("on", b.dataset.kind === d.kind);
+          b.setAttribute("aria-pressed", String(b.dataset.kind === d.kind));
+        });
         break;
       case "remove-offer":
         await this._service("remove_offer", { id: d.id });
@@ -2024,6 +2397,8 @@ class EssensplanerPanel extends HTMLElement {
   _closeModal() {
     this._modalRoot.innerHTML = "";
     this._modal = null;
+    // a closed receipt dialog stays closed when its upload / reading finishes
+    this._receipt = null;
   }
 
   _mealOptions(selected) {
@@ -2421,6 +2796,16 @@ class EssensplanerPanel extends HTMLElement {
 
   /* ------------------------------------------------------------ offers & budget */
   _renderOffers() {
+    const stores = this._offersMode === "stores";
+    const recipeCount = (this._data.offers || []).filter((o) => o.current && o.recipe_count).length;
+    const seg = `<div class="seg somode" role="group" aria-label="Angebote anzeigen">
+        <button class="${stores ? "" : "on"}" data-action="offers-mode" data-mode="recipes" aria-pressed="${!stores}">🍽️ <span class="wide-only">Für meine Rezepte</span><span class="narrow-only">Meine Rezepte</span> (${recipeCount})</button>
+        <button class="${stores ? "on" : ""}" data-action="offers-mode" data-mode="stores" aria-pressed="${stores}">🏪 <span class="wide-only">Alle Angebote meiner Läden</span><span class="narrow-only">Meine Läden</span> (<span data-socount>${this._storeOfferCount()}</span>)</button>
+      </div>`;
+    return seg + (stores ? this._renderStoreOffers() : this._renderRecipeOffers());
+  }
+
+  _renderRecipeOffers() {
     const eco = this._data.economy || {};
     const week = eco.week || {};
     const next = eco.next_week || {};
@@ -2445,7 +2830,7 @@ class EssensplanerPanel extends HTMLElement {
         <div><div class="meta">Diese Woche (geschätzt)</div><div class="big">${eur(week.total || 0)}</div></div>
         <div>
           ${budget ? `<div class="meta">Budget ${eur(budget)} · ${week.remaining >= 0 ? `noch <b>${eur(week.remaining)}</b> frei` : `<b style="color:var(--ep-red)">${eur(-week.remaining)} drüber</b>`}</div>
-          <div class="progress" style="height:10px;max-width:none;margin-top:6px"><div style="width:${Math.min(100, Math.round(ratio * 100))}%;background:${ratio > 1 ? "#c62828" : ratio > 0.85 ? "#ef6c00" : "#2e7d32"}"></div></div>` : `<div class="hint">Kein Wochenbudget festgelegt – in den Optionen unter „Budget & Angebote“ einstellen.</div>`}
+          <div class="progress" style="height:10px;max-width:none;margin-top:6px"><div style="width:${Math.min(100, Math.round(ratio * 100))}%;background:${ratio > 1 ? "#c62828" : ratio > 0.85 ? "#ef6c00" : "#2e7d32"}"></div></div>` : `<div class="hint">Kein Wochenbudget festgelegt – einstellen unter ${this._settingsLink("planning", "⚙️ Budget & Planung")}.</div>`}
           <div class="meta" style="margin-top:6px">${week.savings ? `🏷️ ${eur(week.savings)} durch Angebote gespart · ` : ""}Nächste Woche bisher ≈ ${eur(next.total || 0)}</div>
         </div>
         <div class="bars" style="margin:6px 0 18px">${bars}</div>
@@ -2465,7 +2850,7 @@ class EssensplanerPanel extends HTMLElement {
         : "");
     const info = online
       ? `<div class="meta">Quelle: marktguru.de (inoffiziell) · ${zips} · ${meta.last_update ? `aktualisiert ${new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "noch nicht geladen"}${meta.status === "error" ? ` · ⚠️ ${esc((meta.errors || [])[0] || "Fehler")}` : ""}</div>${reweLine}`
-      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> Unter <i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren → Budget &amp; Angebote</i> kannst du sie einschalten – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“ (oder für eine Postleitzahl). Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${reweLine}`;
+      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${reweLine}`;
     const branchLabels = Object.fromEntries((this._data.branches || []).map((b) => [b.id, b]));
     const cards = offers
       .map((o) => {
@@ -2564,13 +2949,16 @@ class EssensplanerPanel extends HTMLElement {
     });
   }
 
-  _openOfferForm() {
-    const stores = ["Aldi Süd", "Aldi Nord", "Lidl", "REWE", "EDEKA", "Penny", "Netto", "Kaufland", "Norma"];
+  _openOfferForm(prefill = {}) {
+    // own branches first (an offer for one branch), then the chains
+    const branches = (this._data.branches || []).filter((b) => b.selected).map((b) => b.label);
+    const chains = ["Aldi Süd", "Aldi Nord", "Lidl", "REWE", "EDEKA", "Penny", "Netto", "Kaufland", "Norma", "Rossmann", "dm", "Müller", "Budni"];
+    const stores = [...new Set([...branches, ...chains])];
     const body = `
-      <div class="hint">Ein Angebot aus dem Prospekt eintragen – es wird bei Rezeptkosten, Planung und Einkaufsliste berücksichtigt.</div>
-      <label class="field">Produkt<input class="product" placeholder="z. B. Hähnchenbrustfilet"></label>
+      <div class="hint">Ein Angebot aus dem Prospekt eintragen – es wird bei Rezeptkosten, Planung und Einkaufsliste berücksichtigt.${prefill.store ? " Gilt für den gewählten Laden." : ""}</div>
+      <label class="field">Produkt<input class="product" placeholder="z. B. Hähnchenbrustfilet" value="${esc(prefill.product || "")}"></label>
       <div class="grid2">
-        <label class="field">Markt<input class="store" list="ep-stores" placeholder="z. B. Lidl"><datalist id="ep-stores">${stores.map((x) => `<option value="${x}">`).join("")}</datalist></label>
+        <label class="field">Markt<input class="store" list="ep-stores" placeholder="z. B. Lidl" value="${esc(prefill.store || "")}"><datalist id="ep-stores">${stores.map((x) => `<option value="${esc(x)}">`).join("")}</datalist></label>
         <label class="field">Packung<input class="pack" placeholder="z. B. 1 kg, 500 g"></label>
         <label class="field">Preis (€)<input class="price" type="number" step="0.01" min="0" placeholder="4,99"></label>
         <label class="field">Normalpreis (€, optional)<input class="old" type="number" step="0.01" min="0"></label>
@@ -2774,6 +3162,7 @@ class EssensplanerPanel extends HTMLElement {
       ${this._sec("near", "🔍 In der Nähe suchen", this._renderNearSearch(), "OpenStreetMap", !branches.length)}
       ${this._sec("manual", "＋ Laden manuell hinzufügen", this._renderManualForm(), "", false)}
       ${this._sec("prices", "💶 Preisliste je Laden", this._renderPriceSection())}
+      ${this._sec("receipts", "🧾 Kassenzettel", `<div class="rbox">${this._receiptSectionHtml()}</div>`, this._receiptMeta())}
       ${this._sec("sources", "🔄 Preisquellen", this._renderSources(), "", true)}
     </div>`;
   }
@@ -2796,7 +3185,7 @@ class EssensplanerPanel extends HTMLElement {
     let intro = main
       ? `<div class="hint">⭐ <b>Hauptladen ${esc(main.label)}:</b> ${esc(explain)} Ein anderer Laden lohnt sich ab ${eur(split.min_saving ?? 1)} oder ${esc(split.min_percent ?? 20)} % Ersparnis, Angebote ab ${eur(split.offer_min ?? 0.3)}.</div>`
       : `<div class="notice warn">Noch kein Hauptladen – tippe bei einem Laden auf „⭐ Als Hauptladen“.</div>`;
-    if (split.mode === "off") intro += `<div class="notice">ℹ️ Die Aufteilung der Einkaufsliste nach Läden ist ausgeschaltet. Einschalten: <i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren → Läden &amp; Einkauf</i>.</div>`;
+    if (split.mode === "off") intro += `<div class="notice">ℹ️ Die Aufteilung der Einkaufsliste nach Läden ist ausgeschaltet. Einschalten: ${this._settingsLink("stores", "⚙️ Läden & Einkauf")}</div>`;
     else if (split.mode === "main_only") intro += `<div class="notice">ℹ️ Modus „nur Hauptladen“: alles kommt in den Hauptladen, die anderen Läden dienen zum Preisvergleich.</div>`;
     const others = branches.filter((b) => !b.main);
     const cards = branches.map((b) => this._branchCard(b, others)).join("");
@@ -2869,6 +3258,7 @@ class EssensplanerPanel extends HTMLElement {
     const badges = [];
     if (b.main) badges.push('<span class="bdg star">⭐ Hauptladen</span>');
     if (!b.selected) badges.push('<span class="bdg">⏸ pausiert</span>');
+    if (this._retailerKind(b.retailer) === "drugstore") badges.push('<span class="bdg" title="Drogerie: Drogerie- und Haushaltsartikel kommen hierher">🧴 Drogerie</span>');
     badges.push(...this._distanceBadges(b.near, b.route));
     if (!b.postcode) badges.push('<span class="bdg warn" title="Ohne Postleitzahl werden für diesen Laden keine eigenen Angebote gesucht">PLZ fehlt</span>');
     else if (b.postcode_guessed) badges.push('<span class="bdg warn" title="Die PLZ stammt von einem Laden in der Nähe – bitte prüfen">PLZ geschätzt</span>');
@@ -2893,7 +3283,7 @@ class EssensplanerPanel extends HTMLElement {
           <button class="btn small primary" data-action="rewe-save" data-id="${esc(b.id)}" title="${esc(label)} speichern" ${value.trim() !== stored ? "" : "hidden"}>💾 Speichern</button>
           <button class="btn small" data-action="rewe-search" data-id="${esc(b.id)}" ${markets?.loading ? "disabled" : ""}>${markets?.loading ? "⏳ Suche …" : link.search}</button>
         </div>
-        ${off ? `<div class="hint">Wird genutzt, sobald du ${b.retailer === "edeka" ? "„EDEKA-Angebote deines Markts“" : "„ALDI-SÜD-Onlinepreise“"} in den Optionen einschaltest.</div>` : ""}
+        ${off ? `<div class="hint">Wird genutzt, sobald du ${b.retailer === "edeka" ? "„EDEKA-Angebote“" : "„ALDI-SÜD-Preise“"} einschaltest: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}</div>` : ""}
         ${markets?.error ? `<div class="notice err">${esc(markets.error)}</div>` : ""}
         ${markets?.markets && !markets.markets.length ? `<div class="hint">${esc(link.none)}${link.list === "markets" ? ` ${esc(markets.zip || "")}` : ""}.</div>` : ""}
         ${list}`;
@@ -3171,12 +3561,20 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   _renderPriceSection() {
+    const kinds = [
+      ["all", "Alles"],
+      ["food", "🍽️ Lebensmittel"],
+      ["nonfood", "🧴 Drogerie & Haushalt"],
+    ]
+      .map(([k, label]) => `<button class="${this._priceKind === k ? "on" : ""}" data-action="price-kind" data-kind="${k}" aria-pressed="${this._priceKind === k}">${label}</button>`)
+      .join("");
     return `
       <div class="pmtools">
         <input type="search" placeholder="🔍 Artikel suchen, z. B. „Butter“" value="${esc(this._priceQuery)}" data-input="price-filter" data-focuskey="price-filter" aria-label="Preisliste filtern">
+        <span class="seg" role="group" aria-label="Artikel">${kinds}</span>
         <button class="btn ghost" data-action="open-prices" title="Richtwerte und eigene allgemeine Preise">📋 Allgemeine Richtwerte</button>
       </div>
-      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. Ohne Ladenpreis gilt dein allgemeiner Preis bzw. der Richtwert. Fehlt ein Artikel (z. B. Kaffee)? Such ihn oben und lege ihn an.</div>
+      <div class="hint">Tippe auf einen Preis, um ihn für diesen Laden zu ändern. <span class="bdg ok">grün</span> = am günstigsten. <span class="bdg warn">🏷️</span> = aktuelles Angebot (zählt nicht als Normalpreis). Ohne Ladenpreis gilt dein allgemeiner Preis bzw. der Richtwert. Preise vom 🧾 Kassenzettel sind eigene Preise des Ladens. Fehlt ein Artikel (z. B. Kaffee)? Such ihn oben und lege ihn an.</div>
       <div class="pmbox">${this._priceMatrixHtml()}</div>`;
   }
 
@@ -3185,15 +3583,30 @@ class EssensplanerPanel extends HTMLElement {
     if (box) box.innerHTML = this._priceMatrixHtml();
   }
 
+  /** "🏷️ 1,19 € bis Sa" of the current offer of a price list cell (display only). */
+  _cellOfferText(offer) {
+    if (!offer || offer.price == null) return "";
+    const until = validText(offer, this._today());
+    return `🏷️ ${eur(offer.price)}${until ? ` ${until}` : ""}`;
+  }
+
   _priceCellHtml(row, retailer, cell, best) {
+    const offer = cell?.offer || row.offers?.[retailer] || null;
+    const offerTitle = offer ? `Angebot: ${offer.title || row.name} ${eur(offer.price)}${offer.app_price != null ? ` (mit App ${eur(offer.app_price)})` : offer.loyalty ? " (mit App/Karte)" : ""}${packText(offer.pack_amount, offer.pack_unit) ? ` · ${packText(offer.pack_amount, offer.pack_unit)}` : ""}` : "";
     if (!cell) {
-      return `<button class="cell none" data-action="price-cell" data-key="${esc(row.key)}" data-store="${esc(retailer)}" title="Preis eintragen"><span class="p">＋</span></button>`;
+      if (offer) {
+        // only an offer is known: never shown as a regular price
+        return `<button class="cell offeronly" data-action="price-cell" data-key="${esc(row.key)}" data-store="${esc(retailer)}" title="${esc(`${offerTitle} – Normalpreis eintragen`)}"><span class="p">${esc(this._cellOfferText(offer))}</span><span class="s">kein Normalpreis bekannt</span></button>`;
+      }
+      // a drugstore column: food is rarely sold there
+      const dim = this._retailerKind(retailer) === "drugstore" && !NONFOOD_AISLES.includes(row.category);
+      return `<button class="cell none ${dim ? "dim" : ""}" data-action="price-cell" data-key="${esc(row.key)}" data-store="${esc(retailer)}" title="Preis eintragen"><span class="p">＋</span></button>`;
     }
     const pack = packText(cell.amount, cell.unit);
     const hint = [PRICE_SOURCE[cell.source] || cell.source, cell.source === "user" ? "" : dayText(cell.updated)].filter(Boolean).join(" ");
-    const title = [cell.name && cell.name !== row.name ? cell.name : "", unitPriceText(cell.unit_price, cell.base), cell.stale ? "älter als ein halbes Jahr" : ""].filter(Boolean).join(" · ");
+    const title = [cell.name && cell.name !== row.name ? cell.name : "", unitPriceText(cell.unit_price, cell.base), cell.stale ? "älter als ein halbes Jahr" : "", offerTitle].filter(Boolean).join(" · ");
     return `<button class="cell ${best ? "best" : ""} ${cell.stale ? "stale" : ""}" data-action="price-cell" data-key="${esc(row.key)}" data-store="${esc(retailer)}" title="${esc(title)}">
-        <span class="p">${eur(cell.price)}${best ? " ✓" : ""}${cell.stale ? " ⏳" : ""}</span><span class="s">${esc(pack)}</span><span class="s">${esc(hint)}</span></button>`;
+        <span class="p">${eur(cell.price)}${best ? " ✓" : ""}${cell.stale ? " ⏳" : ""}</span><span class="s">${esc(pack)}</span><span class="s">${esc(hint)}</span>${offer ? `<span class="o">${esc(this._cellOfferText(offer))}</span>` : ""}</button>`;
   }
 
   _baseCellHtml(row) {
@@ -3211,7 +3624,9 @@ class EssensplanerPanel extends HTMLElement {
     if (!m) return `<div class="hint">⏳ Lade Preisliste …</div>`;
     if (this._priceError) return `<div class="notice err">${esc(this._priceError)}</div>`;
     const retailers = m.retailers || [];
-    const rows = (m.rows || []).slice(0, this._priceLimit);
+    // rows of the chosen aisles (Lebensmittel / Drogerie & Haushalt)
+    const kindRows = (m.rows || []).filter((r) => this._priceKind === "all" || (this._priceKind === "nonfood") === NONFOOD_AISLES.includes(r.category));
+    const rows = kindRows.slice(0, this._priceLimit);
     // an article that is not in the list yet (e.g. "Kaffee") can be added under the typed name
     const query = this._priceQuery.trim();
     const q = fold(query);
@@ -3224,7 +3639,7 @@ class EssensplanerPanel extends HTMLElement {
       return cell ? `<span class="meta">${row.general ? "✏️ allgemein" : "Richtwert"} ${eur(cell.price)}${packText(cell.amount, cell.unit) ? ` / ${esc(packText(cell.amount, cell.unit))}` : ""}</span>` : "";
     };
     const name = (row, withBase = false) => `<td class="pname">${esc(row.name)}${row.category ? `<span class="meta">${CATEGORY_ICONS[row.category] || ""} ${esc(row.category)}</span>` : ""}${withBase ? baseLine(row) : ""}</td>`;
-    const head = (r) => `${retailerDot(r.id, r.name).replace('class="rdot"', 'class="rdot sm"')}${esc(r.name)}${r.id === m.main_retailer ? " ⭐" : ""}`;
+    const head = (r) => `${retailerDot(r.id, r.name).replace('class="rdot"', 'class="rdot sm"')}${esc(r.name)}${r.id === m.main_retailer ? " ⭐" : ""}${r.kind === "drugstore" ? ' <span title="Drogerie">🧴</span>' : ""}`;
     let table;
     if (this._narrowQuery?.matches && retailers.length) {
       const store = retailers.some((r) => r.id === this._priceStore) ? this._priceStore : m.main_retailer || retailers[0].id;
@@ -3243,11 +3658,11 @@ class EssensplanerPanel extends HTMLElement {
       const body = rows
         .map((row) => `<tr>${name(row)}<td>${this._baseCellHtml(row)}</td>${retailers.map((r) => `<td>${this._priceCellHtml(row, r.id, row.stores[r.id], row.cheapest === r.id)}</td>`).join("")}</tr>`)
         .join("");
-      table = `<div class="pmwrap"><table class="pm"><thead><tr><th>Artikel</th><th>Richtwert</th>${retailers.map((r) => `<th>${head(r)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`;
+      table = `<div class="pmwrap"><table class="pm"><thead><tr><th>Artikel</th><th>Richtwert</th>${retailers.map((r) => `<th class="${r.kind === "drugstore" ? "drug" : ""}">${head(r)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`;
     }
-    const total = m.total ?? (m.rows || []).length;
+    const total = this._priceKind === "all" ? m.total ?? (m.rows || []).length : kindRows.length;
     const shown = Math.min(rows.length, total);
-    const more = (m.rows || []).length > this._priceLimit ? `<button class="btn small" data-action="price-more">Mehr anzeigen</button>` : "";
+    const more = kindRows.length > this._priceLimit ? `<button class="btn small" data-action="price-more">Mehr anzeigen</button>` : "";
     const empty = !retailers.length ? `<div class="notice">Noch keine Läden – speichere oben deine Läden, dann siehst du hier ihre Preise nebeneinander.</div>` : "";
     const addRow = add ? `<div class="row" style="margin:0 0 6px"><span class="meta">Nicht dabei?</span>${add}</div>` : "";
     return `${empty}${addRow}${table}<div class="row" style="margin:6px 0 0"><span class="meta">${shown} von ${total} Artikeln${this._storePricesLoading ? " · ⏳" : ""}</span><span class="spacer"></span>${more}</div>`;
@@ -3266,6 +3681,7 @@ class EssensplanerPanel extends HTMLElement {
       retailer = shown || (retailers.some((r) => r.id === main) ? main : retailers[0]?.id) || null;
     }
     const cell = draft ? null : retailer ? row.stores?.[retailer] : row.general;
+    const offer = !draft && retailer ? cell?.offer || row.offers?.[retailer] || null : null;
     const base = cell || row.default || { price: "", amount: 1, unit: "Stück" };
     const storeName = retailer ? this._retailerName(retailer) : "";
     const units = PRICE_UNITS.includes(base.unit) ? PRICE_UNITS : [base.unit, ...PRICE_UNITS];
@@ -3290,7 +3706,8 @@ class EssensplanerPanel extends HTMLElement {
         <label class="field">Preis (€)<input class="eprice" inputmode="decimal" autocomplete="off" placeholder="1,99" value="${esc(num(base.price))}"></label>
         <label class="field">Packung<span style="display:flex;gap:6px"><input class="eamount" inputmode="decimal" autocomplete="off" style="width:100px" value="${esc(num(base.amount ?? 1))}"><select class="eunit">${units.map((u) => `<option ${u === base.unit ? "selected" : ""}>${esc(u)}</option>`).join("")}</select></span></label>
       </div>
-      ${history.length > 1 ? `<div class="meta">Verlauf: ${history.map((h) => `${dayText(h.date)} ${eur(h.price)}`).join(" · ")}</div>` : ""}
+      ${history.length > 1 ? `<div class="meta">Verlauf: ${history.map((h) => `${dayText(h.date)} ${eur(h.price)}${h.source === "receipt" ? " 🧾" : ""}`).join(" · ")}</div>` : ""}
+      ${offer ? `<div class="notice warn">${esc(this._cellOfferText(offer))}${offer.title && offer.title !== row.name ? ` – ${esc(offer.title)}` : ""}: aktuelles Angebot, zählt nicht als Normalpreis.</div>` : ""}
       ${retailer && cell && !own ? `<div class="hint">Dieser Preis wurde automatisch gelernt. Ein eigener Preis hat Vorrang.</div>` : ""}`;
     const footer = `${own ? `<button class="btn reset">↩ Zurücksetzen</button>` : ""}<span class="spacer"></span><button class="btn" data-close>Abbrechen</button><button class="btn primary save">💾 Speichern</button>`;
     const title = draft ? "＋ Neuer Artikel" : `${row.name}${storeName ? ` · ${storeName}` : ""}`;
@@ -3342,26 +3759,10 @@ class EssensplanerPanel extends HTMLElement {
     const eco = this._data.economy || {};
     const meta = eco.offers_meta || {};
     const online = eco.offers_source === "marktguru";
+    const catalog = eco.catalog || {};
     const rewe = eco.price_sources?.rewe || {};
-    const where = `<i>Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren</i>`;
+    const enable = (label) => `<div class="hint">Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} <span class="meta">(auch unter Einstellungen → Geräte &amp; Dienste → Essensplaner → Konfigurieren)</span>${label ? ` ${esc(label)}` : ""}</div>`;
     const targets = (this._data.offer_targets || []).map((t) => `<span class="bdg">PLZ ${esc(t.zip_code)} · ${esc((t.stores || []).join(", "))}</span>`).join("");
-    const mgStatus = !online
-      ? '<span class="bdg">⏸ aus</span>'
-      : meta.status === "blocked"
-        ? '<span class="bdg bad">⛔ pausiert</span>'
-        : meta.status === "error"
-        ? '<span class="bdg bad">⚠️ Fehler</span>'
-        : meta.last_update
-          ? '<span class="bdg ok">✅ aktiv</span>'
-          : '<span class="bdg">⏳ noch nicht geladen</span>';
-    const mg = `<div class="section">
-        <h4>🏷️ Prospekt-Angebote ${mgStatus}</h4>
-        <div class="meta">marktguru.de (inoffiziell, auf eigenes Risiko – die AGB von marktguru untersagen das automatische Auslesen) · die Prospekte deiner Läden etwa 2–3× pro Woche · aus den Prospekten werden auch Normalpreise je Laden gelernt.</div>
-        ${online && meta.last_update ? `<div>Zuletzt ${esc(timeText(meta.last_update))}: <b>${esc(meta.count ?? 0)}</b> Angebote${meta.learned ? ` · ${esc(meta.learned)} Normalpreise gelernt` : ""}</div>` : ""}
-        ${online && ["error", "blocked"].includes(meta.status) && meta.errors?.length ? `<div class="notice err">${esc(meta.errors[0])}</div>` : ""}
-        ${online ? `<div class="badges">${targets || '<span class="hint">Keine Postleitzahl – trage bei deinen Läden eine PLZ ein.</span>'}</div>` : ""}
-        ${online ? `<div>${this._refreshButton("offers")}</div>` : `<div class="hint">Einschalten unter ${where} → Budget &amp; Angebote.</div>`}
-      </div>`;
     const chips = {
       ok: '<span class="bdg ok">✅ ok</span>',
       pending: '<span class="bdg">⏳ wartet</span>',
@@ -3369,46 +3770,62 @@ class EssensplanerPanel extends HTMLElement {
       blocked: '<span class="bdg bad">⛔ gesperrt</span>',
       off: '<span class="bdg">⏸ aus</span>',
     };
+    const mgStatus = !online
+      ? chips.off
+      : meta.status === "blocked" || catalog.status === "blocked"
+        ? '<span class="bdg bad">⛔ pausiert</span>'
+        : meta.status === "error"
+          ? chips.error
+          : meta.last_update || catalog.updated
+            ? '<span class="bdg ok">✅ aktiv</span>'
+            : '<span class="bdg">⏳ noch nicht geladen</span>';
+    const mgCount = catalog.sources?.marktguru;
+    const mg = `<div class="section">
+        <h4>🏷️ marktguru (inoffiziell) ${mgStatus}</h4>
+        <div class="notice warn">⚠️ ${esc(MG_WARNING)}</div>
+        <div class="meta">Optionale Ergänzung für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Penny, Kaufland, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden; aus den Prospekten werden auch Normalpreise je Laden gelernt.</div>
+        ${online && (meta.last_update || catalog.updated) ? `<div>Zuletzt ${esc(timeText(catalog.updated || meta.last_update))}: <b>${esc(mgCount ?? meta.count ?? 0)}</b> Angebote${meta.learned ? ` · ${esc(meta.learned)} Normalpreise gelernt` : ""}</div>` : ""}
+        ${online && ["error", "blocked"].includes(meta.status) && meta.errors?.length ? `<div class="notice err">${esc(meta.errors[0])}</div>` : ""}
+        ${online ? `<div class="badges">${targets || '<span class="hint">Keine Postleitzahl – trage bei deinen Läden eine PLZ ein.</span>'}</div>` : ""}
+        ${online ? `<div>${this._refreshButton("offers")}</div>` : enable("")}
+      </div>`;
     const reweChip = chips[rewe.status || "off"] || "";
     const canRefresh = rewe.enabled && rewe.market_id && !rewe.blocked_until;
     const rw = `<div class="section">
         <h4>🛒 REWE-Onlinepreise <span class="bdg warn">experimentell</span> ${reweChip}</h4>
-        <div class="meta">Normalpreise aus dem REWE-Onlineshop für deinen REWE-Markt (wöchentlich).</div>
+        <div class="meta">Normalpreise aus dem REWE-Onlineshop für deinen REWE-Markt (wöchentlich). REWE hat keine öffentliche Angebotsliste – REWE-Angebote gibt es nur über marktguru oder selbst eingetragen.</div>
         ${rewe.message ? `<div>${esc(rewe.message)}</div>` : ""}
         ${rewe.enabled ? `<div class="meta">${[rewe.prices ? `${rewe.prices} REWE-Preise gespeichert` : "", rewe.last_success ? `zuletzt erfolgreich ${timeText(rewe.last_success)}` : "", rewe.blocked_until ? `Pause bis ${timeText(rewe.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
-        ${canRefresh || this._refreshing.has("rewe") ? `<div>${this._refreshButton("rewe")} <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine Markt-ID an www.rewe.de gesendet.</div>`}
+        ${canRefresh || this._refreshing.has("rewe") ? `<div>${this._refreshButton("rewe")} <span class="hint">dauert ein paar Minuten</span></div>` : rewe.enabled ? (rewe.blocked_until ? "" : `<div class="hint">Trage bei deinem REWE-Laden oben die Markt-ID ein (🔎 Markt suchen).</div>`) : enable("Dabei werden Suchbegriffe und deine Markt-ID an www.rewe.de gesendet.")}
       </div>`;
     // 1.4: ALDI SÜD prices (experimental) and the offers of the EDEKA market
     const aldi = eco.price_sources?.aldi || {};
     const hasAldi = (this._data.branches || []).some((b) => b.retailer === "aldi-sued");
     const aldiRefresh = aldi.enabled && hasAldi && !aldi.blocked_until;
-    const al = aldi.enabled || hasAldi
-      ? `<div class="section">
-        <h4>🛒 ALDI-SÜD-Onlinepreise <span class="bdg warn">experimentell</span> ${chips[aldi.status || "off"] || ""}</h4>
-        <div class="meta">Normalpreise von der ALDI-SÜD-Website (wöchentlich); gerade reduzierte Artikel werden zum Angebot.</div>
+    const al = `<div class="section">
+        <h4>🛒 ALDI SÜD <span class="bdg warn">experimentell</span> ${chips[aldi.status || "off"] || ""}</h4>
+        <div class="meta">Normalpreise von der ALDI-SÜD-Website (wöchentlich); Wochenangebote und gerade reduzierte Artikel werden Angebote.</div>
         ${aldi.message ? `<div>${esc(aldi.message)}</div>` : ""}
-        ${aldi.enabled ? `<div class="meta">${[aldi.prices ? `${aldi.prices} ALDI-SÜD-Preise gespeichert` : "", aldi.store_label ? esc(aldi.store_label) : "", aldi.last_success ? `zuletzt erfolgreich ${timeText(aldi.last_success)}` : "", aldi.blocked_until ? `Pause bis ${timeText(aldi.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
-        ${aldiRefresh || this._refreshing.has("aldi") ? `<div>${this._refreshButton("aldi")} <span class="hint">dauert ein paar Minuten</span></div>` : aldi.enabled ? "" : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei werden Suchbegriffe und deine ALDI-SÜD-Filiale an ALDI SÜD gesendet.</div>`}
-      </div>`
-      : "";
+        ${aldi.enabled ? `<div class="meta">${[aldi.prices ? `${aldi.prices} ALDI-SÜD-Preise gespeichert` : "", catalog.sources?.aldi_weekly ? `${catalog.sources.aldi_weekly} Wochenangebote` : "", aldi.store_label || "", aldi.last_success ? `zuletzt erfolgreich ${timeText(aldi.last_success)}` : "", aldi.blocked_until ? `Pause bis ${timeText(aldi.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
+        ${aldiRefresh || this._refreshing.has("aldi") ? `<div>${this._refreshButton("aldi")} <span class="hint">dauert ein paar Minuten</span></div>` : aldi.enabled ? (hasAldi || aldi.blocked_until ? "" : `<div class="hint">Speichere oben eine ALDI-SÜD-Filiale.</div>`) : enable("Dabei werden Suchbegriffe und die Lage deiner ALDI-SÜD-Filiale an ALDI SÜD gesendet.")}
+      </div>`;
     const edeka = eco.price_sources?.edeka || {};
     const hasEdeka = (this._data.branches || []).some((b) => b.retailer === "edeka");
     const edekaRefresh = edeka.enabled && edeka.market_id && !edeka.blocked_until;
-    const ed = edeka.enabled || hasEdeka
-      ? `<div class="section">
+    const ed = `<div class="section">
         <h4>🏷️ EDEKA-Angebote ${chips[edeka.status || "off"] || ""}</h4>
-        <div class="meta">Die Prospekt-Angebote deines EDEKA-Markts von edeka.de (täglich).</div>
+        <div class="meta">Die Prospekt-Angebote deines EDEKA-Markts direkt von edeka.de (täglich).</div>
         ${edeka.message ? `<div>${esc(edeka.message)}</div>` : ""}
-        ${edeka.enabled ? `<div class="meta">${[edeka.prices ? `${edeka.prices} passende Angebote gespeichert` : "", edeka.last_success ? `zuletzt erfolgreich ${timeText(edeka.last_success)}` : "", edeka.blocked_until ? `Pause bis ${timeText(edeka.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
-        ${edekaRefresh || this._refreshing.has("edeka") ? `<div>${this._refreshButton("edeka")}</div>` : edeka.enabled ? "" : `<div class="hint">Einschalten unter ${where} → Läden &amp; Einkauf. Dabei wird die Markt-ID deines EDEKA-Markts an www.edeka.de gesendet.</div>`}
-      </div>`
-      : "";
-    return `<div class="srcgrid">${mg}${rw}${al}${ed}</div>`;
+        ${edeka.enabled ? `<div class="meta">${[catalog.sources?.edeka ? `${catalog.sources.edeka} Angebote` : "", edeka.prices ? `${edeka.prices} passend zu deinen Rezepten` : "", edeka.last_success ? `zuletzt erfolgreich ${timeText(edeka.last_success)}` : "", edeka.blocked_until ? `Pause bis ${timeText(edeka.blocked_until)}` : ""].filter(Boolean).map(esc).join(" · ")}</div>` : ""}
+        ${edekaRefresh || this._refreshing.has("edeka") ? `<div>${this._refreshButton("edeka")}</div>` : edeka.enabled ? (edeka.blocked_until ? "" : `<div class="hint">${hasEdeka ? "Verknüpfe oben deinen EDEKA-Laden mit seinem Markt (🔎 EDEKA-Markt suchen)." : "Speichere oben deinen EDEKA-Markt."}</div>`) : enable("Dabei wird die Markt-ID deines EDEKA-Markts an www.edeka.de gesendet.")}
+      </div>`;
+    return `<div class="srcgrid">${rw}${al}${ed}${mg}</div>`;
   }
 
   _refreshButton(source) {
     const busy = this._refreshing.has(source);
-    return `<button class="btn" data-action="refresh-source" data-source="${source}" ${busy ? "disabled" : ""}>${busy ? "⏳ Lädt …" : "🔄 Preise aktualisieren"}</button>`;
+    const label = source === "offers" || source === "edeka" ? "🔄 Angebote aktualisieren" : "🔄 Preise aktualisieren";
+    return `<button class="btn" data-action="refresh-source" data-source="${source}" ${busy ? "disabled" : ""}>${busy ? "⏳ Lädt …" : label}</button>`;
   }
 
   async _refreshSource(el, source) {
@@ -3425,8 +3842,1177 @@ class EssensplanerPanel extends HTMLElement {
       else this._toast(res?.status === "ok" ? `🏷️ ${res.count} Angebote geladen${res.learned ? `, ${res.learned} Normalpreise gelernt` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
     } finally {
       this._refreshing.delete(source);
+      this._so.stale = true;
       if (this._tab === "stores") this._renderContent();
     }
+  }
+
+  /** A button that opens the settings view at a section (admins), else the way to the
+   *  options of the integration. */
+  _settingsLink(section, label) {
+    if (this._isAdmin()) return `<button class="btn small" data-action="open-settings" data-sec="${esc(section)}">${esc(label)}</button>`;
+    return `<i>${esc(label.replace(/^⚙️\s*/, ""))}</i> (Einstellungen – nur für Administratoren)`;
+  }
+
+  /* ------------------------------------------------------------ all offers of the saved stores (1.4) */
+  /** Number shown in the mode switch: current offers of the shown stores (last answer),
+   *  before the first answer the catalog's count. */
+  _storeOfferCount() {
+    const res = this._so.result;
+    if (res?.stores?.length) {
+      const picked = this._soPicked(res.stores);
+      return res.stores.filter((st) => !picked.size || picked.has(st.branch_id)).reduce((n, st) => n + (st.count_current || 0), 0);
+    }
+    if (res) return res.total || 0;
+    return this._data?.economy?.catalog?.count ?? 0;
+  }
+
+  /** The remembered store chips that still exist. */
+  _soPicked(stores) {
+    const known = new Set((stores || []).map((st) => st.branch_id));
+    return new Set([...this._so.branches].filter((id) => known.has(id)));
+  }
+
+  _saveSoBranches() {
+    this._setPref("offers_branches", JSON.stringify([...this._so.branches]));
+  }
+
+  _renderStoreOffers() {
+    const so = this._so;
+    if ((so.stale || !so.result) && !so.loading) this._fetchStoreOffers();
+    const when = so.when;
+    const kinds = OFFER_KINDS.map(([k, label]) => `<button class="${so.kind === k ? "on" : ""}" data-action="so-kind" data-kind="${k}" aria-pressed="${so.kind === k}">${label}</button>`).join("");
+    const whens = [
+      ["current", "Aktuell"],
+      ["upcoming", "Ab nächster Woche"],
+      ["all", "Alle"],
+    ]
+      .map(([k, label]) => `<button class="chip ${when === k ? "active" : ""}" data-action="so-when" data-when="${k}" aria-pressed="${when === k}">${label}</button>`)
+      .join("");
+    const busy = this._refreshing.has("offers-tab");
+    return `
+      <div class="sochips" role="group" aria-label="Läden">${this._soChipsHtml()}</div>
+      <div class="sotools">
+        ${whens}
+        <span class="seg" role="group" aria-label="Art">${kinds}</span>
+      </div>
+      <div class="sotools">
+        <input type="search" placeholder="🔍 In den Angeboten suchen, z. B. „Kaffee“" value="${esc(so.query)}" data-input="so-query" data-focuskey="so-query" aria-label="In den Angeboten suchen">
+        <label class="switch">Sortieren <select data-change="so-sort" aria-label="Sortieren">${Object.entries(OFFER_SORTS).map(([k, v]) => `<option value="${k}" ${k === so.sort ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <button class="btn" data-action="refresh-offers" ${busy ? "disabled" : ""}>${busy ? "⏳ Lade Angebote …" : "🔄 Aktualisieren"}</button>
+        <button class="btn" data-action="add-offer">＋ Angebot eintragen</button>
+      </div>
+      <div class="sobody">${this._soBodyHtml()}</div>`;
+  }
+
+  _soChipsHtml() {
+    const res = this._so.result;
+    const stores = res?.stores || [];
+    if (!stores.length) return "";
+    const picked = this._soPicked(stores);
+    const when = this._so.when;
+    const count = (st) => (when === "upcoming" ? st.count_upcoming : when === "all" ? st.count_current + st.count_upcoming : st.count_current) || 0;
+    const total = stores.reduce((n, st) => n + count(st), 0);
+    return `<button class="chip all ${picked.size ? "" : "active"}" data-action="so-store" data-branch="" aria-pressed="${!picked.size}">Alle meine Läden <span class="n">${total}</span></button>${stores
+      .map((st) => {
+        const on = picked.has(st.branch_id);
+        const label = `${st.label}${st.main ? " ⭐" : ""}`;
+        return `<button class="chip ${on ? "active" : ""}" data-action="so-store" data-branch="${esc(st.branch_id)}" aria-pressed="${on}" title="${esc(this._soSourceText(st))}">${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot xs"')}${esc(label)} <span class="n">${st.leaflet_only ? "📰" : count(st)}</span></button>`;
+      })
+      .join("")}`;
+  }
+
+  _soSourceText(st) {
+    const names = (st.sources || []).map((src) => OFFER_SOURCE_LABEL[src] || src);
+    return names.length ? names.join(" + ") : "keine Angebotsquelle";
+  }
+
+  /** Why a store has no offers: which source (option) brings them. */
+  _soHowTo(st) {
+    const r = st.retailer;
+    if (r === "edeka") return this._data.economy?.price_sources?.edeka?.enabled ? "EDEKA: bitte im Laden den EDEKA-Markt verknüpfen (🏪 Läden & Preise → „EDEKA-Markt suchen“)." : "EDEKA: „EDEKA-Angebote“ einschalten (kommt direkt von edeka.de).";
+    if (r === "aldi-sued") return "ALDI SÜD: „ALDI-SÜD-Preise“ einschalten (Wochenangebote direkt von ALDI SÜD).";
+    if (r === "rewe") return "REWE: keine öffentliche Angebotsliste – nur über marktguru (inoffiziell, eigenes Risiko).";
+    return `${st.store}: über marktguru (inoffiziell, eigenes Risiko).`;
+  }
+
+  _soBodyHtml() {
+    const so = this._so;
+    const res = so.result;
+    if (!res) return so.error ? `<div class="notice err">${esc(so.error)}</div>` : `<div class="hint">⏳ Lade Angebote …</div>`;
+    const stores = res.stores || [];
+    const picked = this._soPicked(stores);
+    const shown = stores.filter((st) => !picked.size || picked.has(st.branch_id));
+    const meta = res.meta || {};
+    const today = this._today();
+    // source line per store (EDEKA direkt / ALDI SÜD direkt / marktguru (inoffiziell))
+    const status = { ok: "", pending: " · ⏳ noch nicht geladen", error: " · ⚠️ Fehler", blocked: " · ⛔ pausiert", off: " · ⏸ keine Quelle" };
+    const lines = shown
+      .map((st) => `<span>${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot xs"')}${esc(st.label)}: ${esc(this._soSourceText(st))}${status[st.status] ?? ""}${st.error ? ` – ${esc(st.error)}` : ""}</span>`)
+      .join("");
+    const updated = meta.updated ? `<span>🕘 aktualisiert ${esc(timeText(meta.updated))}</span>` : "";
+    let srcline = "";
+    if (lines || updated) {
+      // phones: folded (one line per store would push the offers down)
+      srcline = this._narrowQuery?.matches
+        ? `<details class="srcbox"><summary>ℹ️ Quellen der Angebote${meta.updated ? ` · ${esc(timeText(meta.updated))}` : ""}</summary><div class="srcline">${lines}</div></details>`
+        : `<div class="srcline">${lines}${updated}</div>`;
+    }
+    const notes = [];
+    if (so.error) notes.push(`<div class="notice err">${esc(so.error)}</div>`);
+    if (meta.status === "blocked" && meta.errors?.length) notes.push(`<div class="notice err">⛔ ${esc(meta.errors[0])}</div>`);
+    if (!stores.length && !(this._data.branches || []).length) {
+      notes.push(`<div class="notice">🏪 Speichere zuerst deine Läden im Tab ${`<button class="btn small" data-action="go-tab" data-tab="stores" data-sec="mine">🏪 Läden & Preise</button>`} – dann siehst du hier alle Angebote dieser Läden.</div>`);
+    }
+    const off = shown.filter((st) => st.status === "off" && !st.leaflet_only);
+    if (off.length) {
+      notes.push(`<div class="notice warn"><b>Für ${off.length === 1 ? "diesen Laden" : "diese Läden"} ist keine Angebotsquelle eingeschaltet:</b><br>${[...new Set(off.map((st) => this._soHowTo(st)))].map(esc).join("<br>")}<br>${this._settingsLink("offers", "⚙️ Angebotsquellen einschalten")}</div>`);
+    }
+    const pending = shown.filter((st) => st.status === "pending");
+    if (pending.length && !res.total) notes.push(`<div class="notice">⏳ Die Angebote von ${esc(pending.map((st) => st.label).join(", "))} sind noch nicht geladen – tippe auf „🔄 Aktualisieren“.</div>`);
+    // leaflet-only stores (NORMA, EDEKA without market): page images + manual entry, for the
+    // chosen time ("Aktuell" = the leaflet of this week)
+    const when = so.when;
+    const fits = (lf) => when === "all" || (when === "current") === !(lf.valid_from && lf.valid_from > today);
+    const leafletStores = shown.filter((st) => st.leaflet_only && (st.leaflets || []).some(fits));
+    const tiles = leafletStores.flatMap((st) => st.leaflets.filter(fits).map((lf) => this._leafletHtml(st, lf, today))).join("");
+    const onlyLeaflets = leafletStores.length && leafletStores.length === shown.length;
+    // with other stores the tiles come after the offers; a note on top says where
+    if (tiles && !onlyLeaflets) {
+      notes.push(`<div class="lfnote hint">📰 ${leafletStores.map((st) => `${esc(st.label)}: nur Prospektbilder`).join(" · ")} <button class="btn small" data-action="so-store" data-branch="${esc(leafletStores[0].branch_id)}" data-only="1">📰 Prospekt ansehen</button></div>`);
+    }
+    const leaflets = tiles ? `<div class="leaflets">${tiles}</div>` : "";
+    const cards = so.offers.map((o) => this._soCardHtml(o, today)).join("");
+    let empty = "";
+    if (!so.offers.length && !so.loading && !onlyLeaflets) {
+      const filtered = so.query.trim() || so.kind !== "all" || so.when !== "all";
+      const what = so.query.trim() ? `für „${esc(so.query.trim())}“` : "für diese Auswahl";
+      empty = `<div class="empty"><div class="big">🏷️</div>${filtered && stores.some((st) => st.count_current || st.count_upcoming) ? `Keine Angebote ${what}.` : "Noch keine Angebote deiner Läden."}</div>`;
+    }
+    const more = so.offers.length < (res.total || 0) ? `<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-action="so-more" ${so.loading ? "disabled" : ""}>${so.loading ? "⏳ Lade …" : `Mehr laden (${so.offers.length} von ${res.total})`}</button></div>` : "";
+    const count = res.total ? `<div class="meta" style="margin-bottom:8px">${res.total} Angebote${so.loading ? " · ⏳" : ""}</div>` : "";
+    const list = `${count}${cards ? `<div class="soffers">${cards}</div>` : empty}${more}`;
+    return onlyLeaflets ? `${srcline}${notes.join("")}${leaflets}${list}` : `${srcline}${notes.join("")}${list}${leaflets ? `<div style="margin-top:14px">${leaflets}</div>` : ""}`;
+  }
+
+  _leafletHtml(st, lf, today) {
+    const until = validText({ valid_from: lf.valid_from, valid_to: lf.valid_to }, today);
+    const pages = (lf.pages || [])
+      .slice(0, 4)
+      .map((url, i) => (safeUrl(url) ? `<a href="${esc(httpLink(lf.url) || safeUrl(url))}" target="_blank" rel="noreferrer" aria-label="Prospektseite ${i + 1}"><img loading="lazy" src="${esc(safeUrl(url))}" alt=""></a>` : ""))
+      .join("");
+    const head = `📰 Prospekt ${esc(st.label)}${lf.page_count ? ` · ${lf.page_count} Seiten` : ""}${until ? ` · gültig ${esc(until)}` : ""}`;
+    return `<div class="card leaflet">
+        <div class="lfhead">${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot sm"')}<span>${head}</span></div>
+        ${pages ? `<div class="lfpages">${pages}</div>` : ""}
+        <div class="hint">Für diesen Markt liefert marktguru nur Prospektbilder, keine einzelnen Angebote. Ein Angebot, das du nutzen willst, kannst du selbst eintragen.</div>
+        <div class="lfacts">
+          ${httpLink(lf.url) ? `<a class="btn small" href="${esc(httpLink(lf.url))}" target="_blank" rel="noreferrer">Prospekt öffnen ↗</a>` : ""}
+          <button class="btn small" data-action="add-offer" data-store="${esc(st.label)}">＋ Angebot aus Prospekt eintragen</button>
+        </div>
+      </div>`;
+  }
+
+  _soCardHtml(o, today) {
+    const img = safeUrl(o.image);
+    const ref = o.old_price || o.regular_price;
+    const pack = packText(o.pack_amount, o.pack_unit);
+    const desc = [pack, o.description && o.description !== pack ? o.description : ""].filter(Boolean).join(" · ");
+    const badges = [];
+    if (o.app_price != null) badges.push(`<span class="bdg warn" title="Preis mit der App des Händlers">mit App ${eur(o.app_price)}</span>`);
+    else if (o.loyalty && !/payback/i.test(o.loyalty_note || "")) badges.push(`<span class="bdg warn" title="${esc(o.loyalty_note || "nur mit App/Kundenkarte")}">mit App/Karte</span>`);
+    if (/payback/i.test(`${o.loyalty_note || ""} ${o.highlight || ""}`)) badges.push('<span class="bdg">PAYBACK</span>');
+    if (o.online_only) badges.push('<span class="bdg bad">nur online</span>');
+    if (o.deposit) badges.push(`<span class="bdg">+${eur(o.deposit)} Pfand</span>`);
+    const until = validText(o, today);
+    if (until) badges.push(`<span class="bdg ${o.current ? "" : "ok"}">${esc(until)}</span>`);
+    const unit = o.unit_price != null && o.base_unit && o.base_unit !== "Stück" ? unitPriceText(o.unit_price, o.base_unit) : "";
+    const ids = o.branch_ids || [];
+    const branch = ids.length === 1 ? this._branch(ids[0]) : null;
+    const where = branch ? branch.label : ids.length > 1 ? `${o.store} (${ids.length} Läden)` : o.store;
+    return `<div class="card soffer ${o.current ? "" : "later"}">
+        <div class="sotop">
+          <div class="soimg">${img ? `<img loading="lazy" src="${esc(img)}" alt="">` : "🏷️"}</div>
+          <div class="sot">${o.brand ? `<div class="brand">${esc(o.brand)}</div>` : ""}<div class="pname">${esc(o.product || o.title)}</div>${desc ? `<div class="pack">${esc(desc)}</div>` : ""}</div>
+        </div>
+        <div class="soprice"><span class="pr">${eur(o.price)}</span>${ref && ref > o.price ? `<span class="old" title="${o.old_price ? "Streichpreis" : "Normalpreis"}">${eur(ref)}</span>` : ""}${o.discount ? `<span class="disc">−${o.discount}%</span>` : ""}${unit ? `<span class="up">${esc(unit)}</span>` : ""}</div>
+        <div class="someta"><span class="sostore">${retailerDot(o.retailer, o.store).replace('class="rdot"', 'class="rdot xs"')}${esc(where)}</span>${badges.join("")}</div>
+        <div class="acts">
+          <button class="btn small" data-action="so-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>
+          <button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌 Merken</button>
+        </div>
+      </div>`;
+  }
+
+  async _fetchStoreOffers(append = false) {
+    const so = this._so;
+    const seq = ++so.seq;
+    so.loading = true;
+    so.stale = false;
+    so.error = null;
+    if (!append) this._renderStoreOfferParts();
+    const ids = [...so.branches];
+    const msg = { type: `${DOMAIN}/store_offers`, when: so.when, kind: so.kind, sort: so.sort, offset: append ? so.offers.length : 0, limit: OFFER_PAGE };
+    if (ids.length) msg.branch_ids = ids;
+    if (so.query.trim()) msg.query = so.query.trim();
+    try {
+      const res = await this._hass.callWS(msg);
+      if (seq !== so.seq) return;
+      // a remembered store that was removed: forget it and ask again
+      const known = new Set((res.stores || []).map((st) => st.branch_id));
+      const gone = ids.filter((id) => !known.has(id));
+      if (gone.length && (res.stores || []).length) {
+        gone.forEach((id) => so.branches.delete(id));
+        this._saveSoBranches();
+        so.loading = false;
+        return this._fetchStoreOffers();
+      }
+      so.result = res;
+      so.offers = append ? [...so.offers, ...(res.offers || []).filter((o) => !so.offers.some((x) => x.id === o.id))] : res.offers || [];
+    } catch (err) {
+      if (seq !== so.seq) return;
+      so.error = errText(err);
+    }
+    so.loading = false;
+    this._renderStoreOfferParts();
+  }
+
+  /** Update chips, results and the count of the mode switch (the search field keeps its
+   *  focus and caret). */
+  _renderStoreOfferParts() {
+    if (this._tab !== "offers" || this._offersMode !== "stores") return;
+    const chips = this._content.querySelector(".sochips");
+    if (chips) chips.innerHTML = this._soChipsHtml();
+    const body = this._content.querySelector(".sobody");
+    if (body) body.innerHTML = this._soBodyHtml();
+    const count = this._content.querySelector("[data-socount]");
+    if (count) count.textContent = this._storeOfferCount();
+  }
+
+  _soOffer(id) {
+    return this._so.offers.find((o) => String(o.id) === String(id));
+  }
+
+  async _soAdd(el, id) {
+    const o = this._soOffer(id);
+    if (!o) return;
+    const data = { item: o.product || o.title, offer_id: o.id };
+    const picked = this._soPicked(this._so.result?.stores);
+    const ids = o.branch_ids || [];
+    const branch = ids.find((b) => picked.has(b)) || ids[0];
+    if (branch) data.store = branch;
+    el.disabled = true;
+    try {
+      const res = await this._service("add_shopping_item", data, true);
+      const item = res?.item || {};
+      const cost = item.price;
+      const price = cost != null ? ` für ${cost === o.price ? "" : "≈ "}${eur(cost)}` : "";
+      const label = item.store_label || this._branch(branch)?.label || o.store;
+      this._toast(`🛒 ${item.summary || data.item}${price}${label ? ` bei ${label}` : ""} auf die Einkaufsliste gesetzt`);
+    } finally {
+      el.disabled = false;
+    }
+  }
+
+  async _soPin(el, id) {
+    const o = this._soOffer(id);
+    if (!o) return;
+    const ids = o.branch_ids || [];
+    const branch = ids.length === 1 ? this._branch(ids[0]) : null;
+    const store = branch?.label || o.store;
+    const title = o.brand && !String(o.title || "").toLowerCase().includes(o.brand.toLowerCase()) ? `${o.brand} ${o.product || o.title}` : o.title || o.product;
+    const known = (this._data.offers || []).some((x) => x.source === "manual" && fold(x.title) === fold(title) && x.price === o.price && (x.valid_to || "") === (o.valid_to || ""));
+    if (known) return this._toast("📌 Dieses Angebot hast du schon gemerkt.");
+    const data = { product: title, store, price: o.price };
+    const ref = o.old_price || o.regular_price;
+    if (ref && ref > o.price) data.old_price = ref;
+    const pack = packText(o.pack_amount, o.pack_unit);
+    if (pack) data.pack = pack;
+    if (o.valid_from) data.valid_from = o.valid_from;
+    if (o.valid_to) data.valid_to = o.valid_to;
+    el.disabled = true;
+    try {
+      await this._service("add_offer", data, true);
+      this._toast(`📌 ${title} gemerkt – zählt jetzt für Planung, Budget und Einkaufsliste`);
+    } finally {
+      el.disabled = false;
+    }
+  }
+
+  /* ------------------------------------------------------------ settings view (⚙️, 1.4) */
+  async _openSettings(section = null) {
+    if (!this._isAdmin()) return this._toast("⚙️ Die Einstellungen können nur Administratoren ändern.");
+    if (this._settings) return this._settingsGo(section);
+    this._settings = { loading: true, data: null, values: null, original: null, errors: {}, saving: false, phase: "edit", message: null, section: section || "general", jump: section };
+    this._renderSettings();
+    try {
+      const data = await this._hass.callWS({ type: `${DOMAIN}/get_settings` });
+      if (!this._settings) return;
+      Object.assign(this._settings, { loading: false, data, values: JSON.parse(JSON.stringify(data.values)), original: JSON.parse(JSON.stringify(data.values)) });
+    } catch (err) {
+      if (!this._settings) return;
+      Object.assign(this._settings, { loading: false, message: errText(err) });
+    }
+    this._renderSettings();
+    if (this._settings?.jump) this._settingsGo(this._settings.jump, false);
+    this._settingsRoot.querySelector("[data-sclose]")?.focus();
+  }
+
+  _settingsField(key) {
+    return this._settings?.data?.fields?.[key] || {};
+  }
+
+  /** Values that differ from the stored ones (numbers compared as numbers). */
+  _settingsChanges() {
+    const st = this._settings;
+    if (!st?.values) return {};
+    const changes = {};
+    for (const [key, value] of Object.entries(st.values)) {
+      const type = this._settingsField(key).type;
+      const before = st.original[key];
+      const same = type === "int" || type === "float" ? parseNum(value) === parseNum(before) || (String(value).trim() === "" && before == null) : JSON.stringify(value ?? null) === JSON.stringify(before ?? null);
+      if (!same) changes[key] = value;
+    }
+    return changes;
+  }
+
+  _renderSettings() {
+    const st = this._settings;
+    const root = this._settingsRoot;
+    if (!st) {
+      root.innerHTML = "";
+      return;
+    }
+    const scroll = root.querySelector(".sbody")?.scrollTop;
+    const errCount = Object.keys(st.errors).length;
+    const changes = Object.keys(this._settingsChanges()).length;
+    const bySection = {};
+    for (const key of Object.keys(st.errors)) {
+      const sec = this._settingsField(key).section;
+      bySection[sec] = (bySection[sec] || 0) + 1;
+    }
+    const nav = SETTINGS_SECTIONS.map(([id, label]) => `<button class="${st.section === id ? "on" : ""}" data-snav="${id}">${label}${bySection[id] ? `<span class="nerr">${bySection[id]}</span>` : ""}</button>`).join("");
+    let body;
+    if (st.loading) body = `<div class="loading">Lade Einstellungen …</div>`;
+    else if (!st.data) body = `<div class="notice err">${esc(st.message || "Die Einstellungen konnten nicht geladen werden.")}</div>`;
+    else body = SETTINGS_SECTIONS.map(([id, label]) => this._settingsSectionHtml(id, label)).join("");
+    let banner = "";
+    if (st.phase === "reloading") banner = `<div class="card sbanner notice">⏳ <span><b>Gespeichert – Essensplaner lädt neu …</b><br><span class="hint">Die Einstellungen werden übernommen; das dauert ein paar Sekunden.</span></span></div>`;
+    else if (st.phase === "failed") banner = `<div class="card sbanner notice err">⚠️ <span><b>Gespeichert, aber der Essensplaner antwortet noch nicht.</b><br>${esc(st.message || "")} <button class="btn small" data-sreload>Seite neu laden</button></span></div>`;
+    const state = st.saving
+      ? "⏳ Speichere …"
+      : st.phase === "reloading"
+        ? "Gespeichert – Essensplaner lädt neu …"
+        : errCount
+          ? `${errCount} ${errCount === 1 ? "Feld" : "Felder"} bitte prüfen`
+          : changes
+            ? `${changes} ungespeicherte Änderung${changes === 1 ? "" : "en"}`
+            : "Keine Änderungen";
+    const busy = st.saving || st.phase === "reloading";
+    root.innerHTML = `
+      <div class="sview" role="dialog" aria-modal="true" aria-label="Einstellungen">
+        <div class="spage">
+          <div class="shead"><h2>⚙️ Einstellungen</h2><button class="icon" data-sclose title="Schließen" aria-label="Schließen">✕</button></div>
+          <div class="smain">
+            <nav class="snav" aria-label="Bereiche">${nav}</nav>
+            <div class="sbody">${banner}${body}</div>
+          </div>
+          <div class="sfoot">
+            <span class="sstate ${errCount ? "err" : ""}" aria-live="polite">${esc(state)}</span>
+            <button class="btn" data-sclose ${busy ? "disabled" : ""}>${changes ? "Abbrechen" : "Schließen"}</button>
+            <button class="btn primary" data-ssave ${busy || !st.data || !changes ? "disabled" : ""}>💾 Speichern</button>
+          </div>
+        </div>
+      </div>`;
+    const sbody = root.querySelector(".sbody");
+    if (scroll != null) sbody.scrollTop = scroll;
+    const view = root.querySelector(".sview");
+    view.addEventListener("click", (ev) => {
+      if (ev.target === view || ev.target.closest("[data-sclose]")) return this._closeSettings();
+      if (ev.target.closest("[data-ssave]")) return this._saveSettings();
+      if (ev.target.closest("[data-sreload]")) return location.reload();
+      const navBtn = ev.target.closest("[data-snav]");
+      if (navBtn) return this._settingsGo(navBtn.dataset.snav);
+      const go = ev.target.closest("[data-sgo]");
+      if (go) {
+        this._closeSettings(true);
+        this._goTab(go.dataset.sgo, go.dataset.sec);
+      }
+    });
+    view.addEventListener("input", (ev) => this._onSettingsInput(ev));
+    view.addEventListener("change", (ev) => this._onSettingsInput(ev));
+    sbody.addEventListener("scroll", () => this._settingsSpy(), { passive: true });
+  }
+
+  /** Highlight the section shown at the top of the scroll area. */
+  _settingsSpy() {
+    const st = this._settings;
+    const body = this._settingsRoot.querySelector(".sbody");
+    if (!st || !body || this._settingsJumping) return;
+    let current = SETTINGS_SECTIONS[0][0];
+    for (const [id] of SETTINGS_SECTIONS) {
+      const sec = body.querySelector(`[data-ssec="${id}"]`);
+      if (sec && sec.offsetTop - body.offsetTop <= body.scrollTop + 40) current = id;
+    }
+    if (current !== st.section) {
+      st.section = current;
+      this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === current));
+    }
+  }
+
+  _settingsGo(section, smooth = true) {
+    const st = this._settings;
+    if (!st || !section) return;
+    st.section = section;
+    this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === section));
+    const body = this._settingsRoot.querySelector(".sbody");
+    const sec = body?.querySelector(`[data-ssec="${section}"]`);
+    if (!sec) return;
+    this._settingsJumping = true;
+    body.scrollTo({ top: sec.offsetTop - body.offsetTop - 4, behavior: smooth ? "smooth" : "auto" });
+    clearTimeout(this._settingsJumpTimer);
+    this._settingsJumpTimer = setTimeout(() => (this._settingsJumping = false), smooth ? 600 : 50);
+  }
+
+  _settingsSectionHtml(id, label) {
+    const st = this._settings;
+    const d = st.data;
+    const f = (key, extra) => this._settingsFieldHtml(key, extra);
+    let inner = "";
+    if (id === "general") {
+      const times = ["fruehstueck", "mittagessen", "snack", "abendessen"].map((m) => f(`time_${m}`)).join("");
+      inner = `${f("default_servings")}${f("default_meal")}${f("enabled_meals")}
+        <div class="sfield"><div class="flabel">Uhrzeiten</div><div class="fhelp">Für den Kalender und „Nächste Mahlzeit“.</div><div class="sgrid">${times}</div></div>
+        ${f("pantry_staples")}${f("excluded")}${f("auto_mark_cooked")}${f("shopping_sync_entity")}${f("register_intents")}${f("show_panel")}`;
+    } else if (id === "planning") {
+      inner = `${f("weekly_budget")}${f("plan_strategy")}`;
+    } else if (id === "offers") {
+      inner = `<div class="hint">Angebote und Preise kommen direkt von den Ketten, wo es eine öffentliche Quelle gibt (EDEKA, ALDI SÜD, REWE-Preise). marktguru ist eine optionale Ergänzung auf eigenes Risiko. Alle Quellen sind aus, bis du sie einschaltest.</div>
+        ${f("offers_source")}${f("zip_code")}${f("offer_stores")}${f("offers_watchlist")}${f("edeka_offers")}${f("aldi_online_prices")}${f("rewe_online_prices")}
+        <div class="hint">Filialen verknüpfen (EDEKA-Markt, ALDI-SÜD-Filiale, REWE-Markt-ID): <button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button></div>`;
+    } else if (id === "stores") {
+      inner = `${f("store_split_mode")}
+        <div class="sfield"><div class="flabel">Schwellen</div><div class="fhelp">Wann ein Artikel in einen anderen Laden als den Hauptladen kommt (nur echte Ladenpreise, keine Richtwerte; unter 0,20 € Ersparnis wird nie verschoben).</div><div class="sgrid">${f("store_split_min_saving")}${f("store_split_min_percent")}${f("store_split_offer_min")}${f("store_split_trip_min")}</div></div>
+        ${f("branch_zones")}${f("branch_radius_km")}${f("branch_route")}${f("branch_route_radius_m")}
+        <div class="hint">${d.branches ? `${d.branches} Läden gespeichert${d.main_branch ? ` · Hauptladen: ${esc(d.main_branch)}` : ""}` : "Noch keine Läden gespeichert"} – <button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button></div>`;
+    } else if (id === "receipts") {
+      inner = `${f("receipt_ai_task_entity")}<div class="hint">Kassenzettel erfasst du im Tab „🏪 Läden & Preise“ oder über „🧾 Kassenzettel“ in der Einkaufsliste.</div>`;
+    }
+    return `<section class="card ssec" data-ssec="${id}" aria-label="${esc(label)}"><h3>${label}</h3>${inner}</section>`;
+  }
+
+  _settingsFieldHtml(key) {
+    const st = this._settings;
+    const d = st.data;
+    const field = d.fields?.[key];
+    if (!field) return "";
+    const [label, help, unit] = SETTING_INFO[key] || [key, ""];
+    const value = st.values[key];
+    const error = st.errors[key];
+    const id = `s-${key}`;
+    const warnings = (d.warnings || []).filter((w) => w.key === key && key !== "offers_source").map((w) => `<div class="notice warn">${esc(w.message)}</div>`).join("");
+    const errHtml = error ? `<div class="ferr" id="${id}-err">⚠️ ${esc(error)}</div>` : "";
+    const aria = `data-skey="${esc(key)}" id="${id}" ${error ? `aria-invalid="true" aria-describedby="${id}-err"` : ""}`;
+    const range = field.min != null && field.max != null ? `${num(field.min)}–${num(field.max)}${unit ? ` ${unit}` : ""}` : "";
+    const wrap = (control, opts = {}) => `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}">${opts.noLabel ? "" : `<label class="flabel" for="${id}">${esc(label)}${opts.badge || ""}</label>`}${control}${help && !opts.noHelp ? `<div class="fhelp">${esc(help)}${range && opts.range !== false ? ` (${esc(range)})` : ""}</div>` : range ? `<div class="fhelp">${esc(range)}</div>` : ""}${opts.after || ""}${warnings}${errHtml}</div>`;
+    const choice = (list) => list || [];
+    switch (field.type) {
+      case "int":
+      case "float":
+        return wrap(`<div class="fin"><input ${aria} inputmode="decimal" autocomplete="off" value="${esc(num(value))}">${unit ? `<span class="unit">${esc(unit)}</span>` : ""}</div>`);
+      case "bool":
+        return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}"><label class="switch"><input type="checkbox" ${aria} ${value ? "checked" : ""}> ${esc(label)}${["rewe_online_prices", "aldi_online_prices"].includes(key) ? ' <span class="bdg warn">experimentell</span>' : ""}</label>${help ? `<div class="fhelp">${esc(help)}</div>` : ""}${warnings}${errHtml}</div>`;
+      case "time":
+        return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}"><label class="flabel" for="${id}">${esc(label)}</label><input type="time" ${aria} value="${esc(value || "")}">${errHtml}</div>`;
+      case "text":
+      case "textarea": {
+        if (key === "zip_code") {
+          const postcodes = d.branch_postcodes || [];
+          const extra = postcodes.length ? `<div class="fhelp">Postleitzahlen deiner Läden: ${esc(postcodes.join(", "))}</div>` : "";
+          return wrap(`<input ${aria} class="" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="z. B. 80331" value="${esc(value || "")}" style="width:140px">`, { after: extra });
+        }
+        if (field.type === "textarea") return wrap(`<textarea ${aria} rows="2">${esc(value || "")}</textarea>`, { range: false });
+        return wrap(`<input ${aria} class="wide" autocomplete="off" value="${esc(value || "")}">`, { range: false });
+      }
+      case "select": {
+        if (key === "offers_source") {
+          const on = value === "marktguru";
+          return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}"><label class="switch"><input type="checkbox" ${aria} ${on ? "checked" : ""}> ${esc(label)}</label><div class="notice warn">⚠️ ${esc(MG_WARNING)}</div><div class="fhelp">${esc(help)}</div>${errHtml}</div>`;
+        }
+        if (key === "plan_strategy") {
+          const opts = choice(d.choices?.strategies)
+            .map((c) => {
+              const [title, desc] = STRATEGY_LABELS[c.value] || [c.label, ""];
+              return `<label><input type="radio" name="s-strategy" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span><b>${esc(title)}</b>${desc ? `<br><span class="meta">${esc(desc)}</span>` : ""}</span></label>`;
+            })
+            .join("");
+          return wrap(`<div class="choice" role="radiogroup" aria-label="${esc(label)}">${opts}</div>`, { noLabel: false });
+        }
+        if (key === "store_split_mode") {
+          const desc = { off: "Eine Liste wie bisher, ohne Läden.", main_only: "Alles kommt in den Hauptladen; die anderen Läden dienen zum Preisvergleich.", main_exceptions: "Alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden; Drogerieartikel in deine Drogerie." };
+          const opts = choice(d.choices?.split_modes)
+            .map((c) => `<label><input type="radio" name="s-split" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span><b>${esc(c.label)}</b><br><span class="meta">${esc(desc[c.value] || "")}</span></span></label>`)
+            .join("");
+          return wrap(`<div class="choice" role="radiogroup" aria-label="${esc(label)}">${opts}</div>`);
+        }
+        const list = key === "default_meal" ? d.choices?.meals : [];
+        return wrap(`<select ${aria}>${choice(list).map((c) => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select>`);
+      }
+      case "multi": {
+        const selected = new Set(value || []);
+        const chip = (c) => `<label class="chip pick2"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}>${c.kind ? retailerDot(c.value, c.label).replace('class="rdot"', 'class="rdot xs"') : ""}${esc(c.label)}</label>`;
+        if (key === "offer_stores") {
+          const all = choice(d.choices?.stores);
+          const food = all.filter((c) => c.kind !== "drugstore");
+          const drug = all.filter((c) => c.kind === "drugstore");
+          return wrap(`<div class="meta">Supermärkte</div><div class="chips">${food.map(chip).join("")}</div><div class="meta">Drogerien</div><div class="chips">${drug.map(chip).join("")}</div>`);
+        }
+        return wrap(`<div class="chips" role="group" aria-label="${esc(label)}">${choice(d.choices?.meals).map(chip).join("")}</div>`);
+      }
+      case "entity": {
+        const list = key === "shopping_sync_entity" ? d.choices?.todo_entities : d.choices?.ai_task_entities;
+        const opts = choice(list)
+          .map((c) => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}${c.label !== c.value ? ` (${esc(c.value)})` : ""}${c.missing ? " – nicht gefunden" : c.available === false ? " – nicht erreichbar" : ""}</option>`)
+          .join("");
+        const none = key === "shopping_sync_entity" ? "– keine –" : "– keine (nur Text einfügen) –";
+        const empty = !choice(list).length ? `<div class="fhelp">${key === "receipt_ai_task_entity" ? "Keine AI-Task-Entität gefunden – richte z. B. Ollama, OpenAI oder Google Gemini in Home Assistant ein." : "Keine weitere To-do-Liste gefunden."}</div>` : "";
+        return wrap(`<select ${aria} class="wide"><option value="">${none}</option>${opts}</select>`, { after: empty });
+      }
+      case "entities": {
+        const selected = new Set(value || []);
+        const zones = choice(d.choices?.zones);
+        const chips = zones.map((c) => `<label class="chip pick2"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}>${c.value === "zone.home" ? "🏠" : /arbeit|work/i.test(c.value + c.label) ? "💼" : "📍"} ${esc(c.label)}${c.missing ? " (nicht gefunden)" : ""}</label>`).join("");
+        return wrap(zones.length ? `<div class="chips" role="group" aria-label="${esc(label)}">${chips}</div>` : `<div class="hint">Keine Zonen gefunden – lege in Home Assistant Zonen an (Einstellungen → Bereiche &amp; Zonen).</div>`);
+      }
+      default:
+        return "";
+    }
+  }
+
+  _onSettingsInput(ev) {
+    const st = this._settings;
+    const t = ev.target;
+    const key = t.dataset?.skey;
+    if (!st?.values || !key) return;
+    const field = this._settingsField(key);
+    // text inputs: "input" while typing; checkboxes / selects / radios: "change"
+    if (ev.type === "input" && ["checkbox", "radio"].includes(t.type)) return;
+    if (ev.type === "change" && !["checkbox", "radio", "select-one", "time"].includes(t.type) && t.tagName !== "SELECT") return;
+    let value;
+    if (field.type === "multi" || field.type === "entities") {
+      const boxes = [...this._settingsRoot.querySelectorAll(`input[type=checkbox][data-skey="${CSS.escape(key)}"]`)];
+      value = boxes.filter((b) => b.checked).map((b) => b.value);
+    } else if (key === "offers_source") value = t.checked ? "marktguru" : "off";
+    else if (field.type === "bool") value = t.checked;
+    else if (field.type === "entity") value = t.value || null;
+    else value = t.value;
+    st.values[key] = value;
+    const hadError = key in st.errors || (key === "offers_source" && "zip_code" in st.errors);
+    delete st.errors[key];
+    if (key === "offers_source") delete st.errors.zip_code;
+    if (key === "enabled_meals" && !value.length) st.errors[key] = "Bitte mindestens eine Mahlzeit auswählen.";
+    if (hadError || key === "enabled_meals") {
+      const sec = this._settingsRoot.querySelector(`.sfield[data-field="${CSS.escape(key)}"]`);
+      sec?.classList.toggle("invalid", key in st.errors);
+      sec?.querySelector(".ferr")?.remove();
+      if (key in st.errors && sec) sec.insertAdjacentHTML("beforeend", `<div class="ferr">⚠️ ${esc(st.errors[key])}</div>`);
+      if (key === "offers_source") {
+        const zip = this._settingsRoot.querySelector('.sfield[data-field="zip_code"]');
+        zip?.classList.remove("invalid");
+        zip?.querySelector(".ferr")?.remove();
+      }
+    }
+    this._settingsFooter();
+  }
+
+  /** Footer text and the save button without re-rendering the fields (focus, caret). */
+  _settingsFooter() {
+    const st = this._settings;
+    const root = this._settingsRoot;
+    const changes = Object.keys(this._settingsChanges()).length;
+    const errCount = Object.keys(st.errors).length;
+    const state = root.querySelector(".sstate");
+    if (state) {
+      state.textContent = errCount ? `${errCount} ${errCount === 1 ? "Feld" : "Felder"} bitte prüfen` : changes ? `${changes} ungespeicherte Änderung${changes === 1 ? "" : "en"}` : "Keine Änderungen";
+      state.classList.toggle("err", Boolean(errCount));
+    }
+    const save = root.querySelector("[data-ssave]");
+    if (save) save.disabled = !changes || st.saving || st.phase === "reloading";
+    const close = root.querySelector(".sfoot [data-sclose]");
+    if (close) close.textContent = changes ? "Abbrechen" : "Schließen";
+  }
+
+  _closeSettings(force = false) {
+    const st = this._settings;
+    if (!st) return;
+    if (st.saving || st.phase === "reloading") return;
+    if (!force && Object.keys(this._settingsChanges()).length && !confirm("Ungespeicherte Änderungen verwerfen?")) return;
+    this._settings = null;
+    this._renderSettings();
+  }
+
+  async _saveSettings() {
+    const st = this._settings;
+    if (!st?.data || st.saving) return;
+    const changes = this._settingsChanges();
+    if (!Object.keys(changes).length) return this._closeSettings(true);
+    if (st.errors.enabled_meals) return this._settingsFocusError();
+    st.saving = true;
+    this._renderSettings();
+    let res;
+    try {
+      res = await this._hass.callWS({ type: `${DOMAIN}/save_settings`, values: changes });
+    } catch (err) {
+      st.saving = false;
+      this._renderSettings();
+      return this._toast(errText(err));
+    }
+    st.saving = false;
+    if (!res?.saved) {
+      st.errors = { ...(res?.errors || {}) };
+      this._renderSettings();
+      return this._settingsFocusError();
+    }
+    st.errors = {};
+    if (!res.reload) {
+      this._settings = null;
+      this._renderSettings();
+      return this._toast("⚙️ Einstellungen gespeichert");
+    }
+    st.phase = "reloading";
+    st.original = JSON.parse(JSON.stringify(st.values));
+    this._renderSettings();
+    this._settingsRoot.querySelector(".sbody").scrollTop = 0;
+    await this._reloadAfterSettings();
+  }
+
+  _settingsFocusError() {
+    const st = this._settings;
+    const first = Object.keys(st?.data?.fields || {}).find((k) => k in st.errors) || Object.keys(st.errors)[0];
+    if (!first) return;
+    const sec = this._settingsField(first).section;
+    if (sec) {
+      st.section = sec;
+      this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === sec));
+    }
+    const field = this._settingsRoot.querySelector(`.sfield[data-field="${CSS.escape(first)}"]`);
+    this._settingsJumping = true;
+    field?.scrollIntoView({ block: "center", behavior: "auto" });
+    clearTimeout(this._settingsJumpTimer);
+    this._settingsJumpTimer = setTimeout(() => (this._settingsJumping = false), 50);
+    const input = field?.querySelector("input, select, textarea");
+    if (input) {
+      input.focus({ preventScroll: true });
+      if (input.select && input.type !== "checkbox" && input.type !== "radio") input.select();
+    }
+  }
+
+  /** The integration reloads with the new options: its websocket commands answer
+   *  "not_loaded" for a moment – subscribe again and load the data with retries. */
+  async _reloadAfterSettings() {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    await sleep(SETTINGS_RELOAD_DELAYS[0]);
+    let ok = false;
+    let last = null;
+    for (const delay of SETTINGS_RELOAD_DELAYS.slice(1)) {
+      try {
+        await this._hass.callWS({ type: `${DOMAIN}/data` });
+        ok = true;
+        break;
+      } catch (err) {
+        last = err;
+        await sleep(delay);
+      }
+    }
+    const st = this._settings;
+    if (!ok) {
+      if (st) {
+        st.phase = "failed";
+        st.message = errText(last);
+        this._renderSettings();
+      }
+      return;
+    }
+    if (this._unsub) {
+      const unsub = this._unsub;
+      this._unsub = null;
+      try {
+        const fn = await unsub;
+        if (typeof fn === "function") await fn();
+      } catch (e) {
+        /* already gone */
+      }
+    }
+    await this._subscribe();
+    // everything may have changed (sources, stores, meals …): fetch it all again
+    this._dataJson = null;
+    this._costs = {};
+    this._priceList = null;
+    this._storePricesStale = true;
+    this._receiptsStale = true;
+    this._so.stale = true;
+    this._branchSearch = undefined;
+    await this._load();
+    if (this._settings === st) {
+      this._settings = null;
+      this._renderSettings();
+    }
+    this._toast("⚙️ Einstellungen gespeichert – der Essensplaner wurde neu geladen");
+  }
+
+  /* ------------------------------------------------------------ receipts (Kassenzettel, 1.4) */
+  _receiptMeta() {
+    const r = this._data.economy?.receipts;
+    if (!r?.total_receipts) return "";
+    return `${r.total_receipts} gespeichert${r.receipt_prices ? ` · ${r.receipt_prices} Preise` : ""}`;
+  }
+
+  _aiState() {
+    const r = this._data.economy?.receipts || {};
+    return { entity: r.ai_entity || null, available: Boolean(r.ai_entity && r.ai_available) };
+  }
+
+  _receiptSectionHtml() {
+    if (!this._isAdmin()) return `<div class="hint">🧾 Kassenzettel erfassen und ihre Preise übernehmen können nur Administratoren.</div>`;
+    // after an error (e.g. a backend not restarted after the update) only the next data
+    // change asks again – never in a loop
+    const need = (this._receipts === null && !this._receiptsError) || this._receiptsStale;
+    if (need && !this._receiptsLoading) this._fetchReceipts();
+    const ai = this._aiState();
+    const intro = `<div class="hint">Fotografiere einen Kassenzettel oder füge seinen Text ein: nach deiner Prüfung werden seine Preise die eigenen Preise des Ladens (mit Datum, 🧾 in der Preisliste).${ai.entity ? (ai.available ? ` Fotos liest die KI-Aufgabe ${esc(ai.entity)}.` : ` Die KI-Aufgabe ${esc(ai.entity)} ist gerade nicht erreichbar – Text einfügen geht immer.`) : " Für Fotos braucht es eine KI-Aufgabe – ohne sie fügst du den Text ein (Handy: „Text aus Foto kopieren“)."}</div>`;
+    const actions = `<div class="row" style="margin:0"><button class="btn primary" data-action="receipt-new">🧾 Kassenzettel erfassen</button>${ai.entity ? "" : this._settingsLink("receipts", "⚙️ KI-Aufgabe wählen")}</div>`;
+    let list = "";
+    if (this._receiptsError) list = `<div class="notice err">${esc(this._receiptsError)}</div>`;
+    else if (!this._receipts) list = `<div class="hint">⏳ Lade Kassenzettel …</div>`;
+    else if (!this._receipts.receipts?.length) list = `<div class="hint">Noch keine Kassenzettel gespeichert.</div>`;
+    else {
+      const limit = this._receiptLimit || 10;
+      const items = this._receipts.receipts.slice(0, limit);
+      list = `<div class="rlist">${items
+        .map((r) => {
+          const thumb = r.image_url ? `<span class="rthumb"><img loading="lazy" src="${esc(r.image_url)}" alt=""></span>` : `<span class="rthumb">🧾</span>`;
+          const total = r.total ?? r.sum;
+          return `<div class="rrow">
+            <button class="icon" data-action="receipt-show" data-id="${esc(r.id)}" title="Ansehen" aria-label="Kassenzettel ansehen" style="width:auto;height:auto;border-radius:8px;padding:0">${thumb}</button>
+            <div class="rinfo"><b>${esc(r.store_label || r.retailer_name || "")}</b><div class="meta">${esc(dayText(r.date))}${r.date ? esc(String(r.date).slice(0, 4)) : ""} · ${r.prices || 0} Preise übernommen${r.source === "photo" ? " · 📷 Foto" : ""}</div></div>
+            <div class="rsum"><b>${eur(total)}</b></div>
+            <button class="icon" data-action="receipt-delete" data-id="${esc(r.id)}" title="Löschen" aria-label="Kassenzettel löschen">🗑</button>
+          </div>`;
+        })
+        .join("")}</div>${this._receipts.receipts.length > limit ? `<button class="btn small" data-action="receipts-more">Mehr anzeigen</button>` : ""}`;
+    }
+    return `${intro}${actions}${list}`;
+  }
+
+  _renderReceiptSection() {
+    const box = this._content.querySelector(".rbox");
+    if (box) box.innerHTML = this._receiptSectionHtml();
+  }
+
+  async _fetchReceipts() {
+    this._receiptsLoading = true;
+    this._receiptsStale = false;
+    try {
+      this._receipts = await this._hass.callWS({ type: `${DOMAIN}/receipts`, limit: 50 });
+      this._receiptsError = null;
+    } catch (err) {
+      this._receiptsError = errText(err);
+    } finally {
+      this._receiptsLoading = false;
+    }
+    if (this._tab === "stores") this._renderReceiptSection();
+  }
+
+  /** Big phone photos are made smaller (JPEG, at most 2400 px) before the upload. */
+  async _shrinkImage(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size <= 8 * 1024 * 1024 || typeof createImageBitmap !== "function") return file;
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.88));
+      return blob ? new File([blob], "kassenzettel.jpg", { type: "image/jpeg" }) : file;
+    } catch (e) {
+      return file;
+    }
+  }
+
+  /** POST the photo / PDF with the user's token (HA's fetchWithAuth when there). */
+  async _uploadReceiptFile(file) {
+    const form = new FormData();
+    form.append("file", file, file.name || "kassenzettel.jpg");
+    const init = { method: "POST", body: form };
+    let resp;
+    if (typeof this._hass.fetchWithAuth === "function") resp = await this._hass.fetchWithAuth(RECEIPT_UPLOAD_URL, init);
+    else {
+      const token = this._hass.auth?.data?.access_token;
+      resp = await fetch(RECEIPT_UPLOAD_URL, { ...init, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    }
+    let json = {};
+    try {
+      json = await resp.json();
+    } catch (e) {
+      /* not JSON */
+    }
+    if (!resp.ok) throw new Error(json.message || (resp.status === 401 || resp.status === 403 ? "Nur Administratoren können Kassenzettel hochladen." : `Hochladen fehlgeschlagen (HTTP ${resp.status}).`));
+    return json;
+  }
+
+  _branchChoices(selectedBranch, selectedRetailer) {
+    const branches = this._orderedBranches().filter((b) => b.retailer);
+    const retailers = this._data.economy?.retailers || [];
+    const opts = branches.map((b) => `<option value="b:${esc(b.id)}" ${b.id === selectedBranch ? "selected" : ""}>${esc(b.label)}${b.main ? " ⭐" : ""}</option>`).join("");
+    const chains = retailers.map((r) => `<option value="r:${esc(r.id)}" ${!selectedBranch && r.id === selectedRetailer ? "selected" : ""}>${esc(r.name)}</option>`).join("");
+    return `${opts ? `<optgroup label="Meine Läden">${opts}</optgroup>` : ""}<optgroup label="Andere Kette">${chains}</optgroup>`;
+  }
+
+  /** The capture dialog: photo / PDF (read by the AI Task) or pasted text, then review. */
+  _openReceipt() {
+    if (!this._isAdmin()) return this._toast("🧾 Kassenzettel können nur Administratoren speichern.");
+    this._receipt = { step: "input", upload: null, text: "", busy: null, error: null, proposal: null, store: "" };
+    this._renderReceiptInput();
+  }
+
+  _renderReceiptInput() {
+    const st = this._receipt;
+    if (!st) return;
+    const ai = this._aiState();
+    const touch = window.matchMedia?.("(pointer: coarse)")?.matches;
+    const up = st.upload;
+    const preview = up ? (String(up.content_type || "").includes("pdf") ? `<div class="notice">📄 PDF hochgeladen (${Math.round((up.size || 0) / 1024)} KB)</div>` : up.url ? `<img class="rpreview" src="${esc(up.url)}" alt="Kassenzettel">` : `<div class="notice">📷 Foto hochgeladen</div>`) : "";
+    const aiPart = up
+      ? ai.available
+        ? `<div class="row" style="margin:0"><button class="btn primary rai" ${st.busy ? "disabled" : ""}>${st.busy === "ai" ? "⏳ KI liest den Kassenzettel … (bis zu ein paar Minuten)" : "🤖 Mit KI auslesen"}</button></div>`
+        : `<div class="notice warn">${ai.entity ? `Die KI-Aufgabe ${esc(ai.entity)} ist gerade nicht erreichbar.` : "Für Fotos braucht es eine KI-Aufgabe (⚙️ Einstellungen → Kassenzettel)."} Füge unten den Text ein – das Foto wird mit dem Kassenzettel gespeichert.</div>`
+      : "";
+    const body = `
+      <div class="hint">Die geprüften Preise werden die eigenen Preise des Ladens. Der KI-Aufgabe wird nur das Bild geschickt; eingefügter Text wird lokal gelesen.</div>
+      <label class="field">Laden (optional – wird sonst erkannt)<select class="rstore"><option value="">Automatisch erkennen</option>${this._branchChoices(st.store.startsWith("b:") ? st.store.slice(2) : null, st.store.startsWith("r:") ? st.store.slice(2) : null)}</select></label>
+      <div class="section">
+        <h4>📷 Foto oder PDF</h4>
+        <div class="rpick">
+          ${touch ? `<button class="btn ${up ? "" : "primary"} rcam" ${st.busy ? "disabled" : ""}>📷 Foto aufnehmen</button>` : ""}
+          <button class="btn ${touch || up ? "" : "primary"} rfile" ${st.busy ? "disabled" : ""}>${st.busy === "upload" ? "⏳ Lade hoch …" : "📁 Foto oder PDF wählen"}</button>
+          <input type="file" accept="image/*" capture="environment" class="rcamin" hidden>
+          <input type="file" accept="image/*,application/pdf" class="rfilein" hidden>
+        </div>
+        ${preview}${aiPart}
+      </div>
+      <div class="section">
+        <h4>📋 Text einfügen</h4>
+        <div class="hint">Tipp: Mit der Handy-Funktion „Text aus Foto kopieren“ (iPhone: Livetext, Android: Google Lens) den Kassenzettel abfotografieren, den Text kopieren und hier einfügen.</div>
+        <textarea class="rtext" placeholder="Lidl&#10;Milbona H-Milch 1,5%   0,99 A&#10;…&#10;zu zahlen   8,87" aria-label="Text des Kassenzettels">${esc(st.text)}</textarea>
+        <div><button class="btn ${up && ai.available ? "" : "primary"} rparse" ${st.busy ? "disabled" : ""}>${st.busy === "text" ? "⏳ Lese …" : "📄 Text auslesen"}</button></div>
+      </div>
+      ${st.error ? `<div class="notice err">${esc(st.error)}</div>` : ""}`;
+    this._showModal("🧾 Kassenzettel erfassen", body, `<button class="btn" data-close>Abbrechen</button>`, (root) => {
+      root.querySelector(".modal").style.width = "min(760px, 100%)";
+      const camIn = root.querySelector(".rcamin");
+      const fileIn = root.querySelector(".rfilein");
+      root.querySelector(".rcam")?.addEventListener("click", () => camIn.click());
+      root.querySelector(".rfile").addEventListener("click", () => fileIn.click());
+      const onFile = (ev) => {
+        const file = ev.target.files?.[0];
+        ev.target.value = "";
+        if (file) this._receiptUpload(file);
+      };
+      camIn.addEventListener("change", onFile);
+      fileIn.addEventListener("change", onFile);
+      const text = root.querySelector(".rtext");
+      text.addEventListener("input", () => (st.text = text.value));
+      root.querySelector(".rstore").addEventListener("change", (ev) => (st.store = ev.target.value));
+      root.querySelector(".rparse").addEventListener("click", () => this._receiptParse("text"));
+      root.querySelector(".rai")?.addEventListener("click", () => this._receiptParse("ai"));
+    });
+  }
+
+  async _receiptUpload(file) {
+    const st = this._receipt;
+    if (!st) return;
+    if (!/^(image\/|application\/pdf)/.test(file.type || "") && !/\.(jpe?g|png|webp|pdf)$/i.test(file.name || "")) {
+      st.error = "Bitte ein Foto (JPG, PNG, WebP) oder eine PDF-Datei wählen.";
+      return this._renderReceiptInput();
+    }
+    st.busy = "upload";
+    st.error = null;
+    this._renderReceiptInput();
+    try {
+      const small = await this._shrinkImage(file);
+      if (small.size > RECEIPT_MAX_BYTES) throw new Error("Die Datei ist zu groß (höchstens 10 MB).");
+      st.upload = await this._uploadReceiptFile(small);
+    } catch (err) {
+      st.error = errText(err);
+    } finally {
+      st.busy = null;
+    }
+    if (this._receipt === st) this._renderReceiptInput();
+  }
+
+  _receiptBranch(st) {
+    const v = st.store || "";
+    return v.startsWith("b:") ? v.slice(2) : v.startsWith("r:") ? v.slice(2) : null;
+  }
+
+  async _receiptParse(how) {
+    const st = this._receipt;
+    if (!st || st.busy) return;
+    const msg = { type: `${DOMAIN}/receipt_parse` };
+    if (how === "text") {
+      if (!st.text.trim()) {
+        st.error = "Bitte zuerst den Text des Kassenzettels einfügen.";
+        return this._renderReceiptInput();
+      }
+      msg.text = st.text;
+    } else {
+      if (!st.upload?.upload_id) return;
+      msg.upload_id = st.upload.upload_id;
+      msg.ai = true;
+    }
+    const branch = this._receiptBranch(st);
+    if (branch) msg.branch = branch;
+    st.busy = how;
+    st.error = null;
+    this._renderReceiptInput();
+    try {
+      const proposal = await this._hass.callWS(msg);
+      if (this._receipt !== st) return;
+      st.proposal = proposal;
+      st.step = "review";
+      st.busy = null;
+      // the photo goes with the receipt also when its text was pasted
+      if (how === "text" && st.upload?.upload_id && !proposal.upload_id) proposal.upload_id = st.upload.upload_id;
+      await this._renderReceiptReview();
+    } catch (err) {
+      st.busy = null;
+      st.error = errText(err);
+      if (this._receipt === st) this._renderReceiptInput();
+    }
+  }
+
+  /** Article names for the article field of the review (estimates, own and store prices). */
+  async _articleNames() {
+    const names = new Set();
+    for (const p of await this._prices()) if (p.name) names.add(p.name);
+    for (const r of this._storePrices?.rows || []) if (r.name) names.add(r.name);
+    return [...names].sort((a, b) => a.localeCompare(b, "de"));
+  }
+
+  async _renderReceiptReview() {
+    const st = this._receipt;
+    const p = st?.proposal;
+    if (!p) return;
+    const names = await this._articleNames();
+    if (this._receipt !== st) return;
+    const items = p.items || [];
+    for (const it of items) {
+      it._article ??= it.product || "";
+      it._ignored ??= Boolean(it.ignored) || it.status === "ignored";
+    }
+    const unitOptions = (unit) => (PRICE_UNITS.includes(unit) || !unit ? PRICE_UNITS : [unit, ...PRICE_UNITS]).map((u) => `<option ${u === (unit || "Stück") ? "selected" : ""}>${esc(u)}</option>`).join("");
+    const rows = items
+      .map((it, i) => {
+        const current = it.current ? `bisher ${eur(it.current.price)}${packText(it.current.amount, it.current.unit) ? ` / ${packText(it.current.amount, it.current.unit)}` : ""}` : "";
+        const sub = [it.status === "unknown" && it.suggestion ? `Vorschlag: ${it.suggestion}` : "", current, it.kind && it.kind !== "article" ? { deposit: "Pfand", discount: "Rabatt", storno: "Storno" }[it.kind] || "" : ""].filter(Boolean).join(" · ");
+        return `<div class="rline ${it._ignored ? "ignored" : ""}" data-i="${i}">
+          <div class="src">${esc(it.line || it.name || "")}</div>
+          <div class="art">
+            <input list="ep-articles" class="rart" value="${esc(it._article)}" placeholder="${esc(it.suggestion || "Artikel wählen …")}" aria-label="Erkannter Artikel" ${it._ignored ? "disabled" : ""}>
+            <label class="ign"><input type="checkbox" class="rign" ${it._ignored ? "checked" : ""}> ignorieren</label>
+            ${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${it.warning ? `<span class="rwarn">⚠️ ${esc(it.warning)}</span>` : ""}
+          </div>
+          <div class="packin"><input class="ramount" inputmode="decimal" value="${esc(num(it.amount))}" aria-label="Menge / Packung" placeholder="Menge"><select class="runit" aria-label="Einheit">${unitOptions(it.unit)}</select></div>
+          <div><input class="rprice" inputmode="decimal" value="${esc(num(it.price))}" aria-label="Preis"></div>
+        </div>`;
+      })
+      .join("");
+    const warn = (p.warnings || []).map((w) => `<div class="notice warn">${esc(w)}</div>`).join("");
+    const body = `
+      <div class="rhead">
+        <label class="field">Laden<select class="rbranch">${this._branchChoices(p.branch_id, p.retailer)}</select></label>
+        <label class="field">Datum<input type="date" class="rdate" value="${esc(p.date || this._today())}" max="${esc(this._today())}"></label>
+      </div>
+      ${warn}
+      <div class="rtable">
+        <div class="rline headrow"><span>Zeile</span><span>Erkannter Artikel</span><span>Menge / Packung</span><span>Preis</span></div>
+        ${rows || '<div class="hint" style="padding:10px">Keine Zeilen erkannt.</div>'}
+      </div>
+      <datalist id="ep-articles">${names.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+      <div class="rtotal"><label class="switch">Summe laut Kassenzettel <input class="rtot" inputmode="decimal" style="width:100px" value="${esc(num(p.total))}" aria-label="Summe laut Kassenzettel"> €</label><span class="rcheck"></span></div>
+      <div class="hint">Ohne Artikel oder mit „ignorieren“ wird eine Zeile nicht als Preis übernommen (z. B. Pfand, Rabatte, Tüten). Zugeordnete Namen merkt sich der Essensplaner für den nächsten Kassenzettel.</div>`;
+    const footer = `<button class="btn rback">← Zurück</button><span class="spacer"></span><button class="btn" data-close>Abbrechen</button><button class="btn primary rsave">💾 Preise übernehmen</button>`;
+    this._showModal(`🧾 Prüfen – ${p.branch_label || p.retailer_name || "Kassenzettel"}`, body, footer, (root) => {
+      root.querySelector(".modal").style.width = "min(980px, 100%)";
+      const update = () => this._receiptTotals(root);
+      root.querySelector(".rtable").addEventListener("input", (ev) => {
+        const line = ev.target.closest(".rline[data-i]");
+        if (!line) return;
+        const it = items[Number(line.dataset.i)];
+        if (ev.target.classList.contains("rart")) it._article = ev.target.value;
+        if (ev.target.classList.contains("ramount")) it._amount = ev.target.value;
+        if (ev.target.classList.contains("rprice")) it._price = ev.target.value;
+        update();
+      });
+      root.querySelector(".rtable").addEventListener("change", (ev) => {
+        const line = ev.target.closest(".rline[data-i]");
+        if (!line) return;
+        const it = items[Number(line.dataset.i)];
+        if (ev.target.classList.contains("runit")) it._unit = ev.target.value;
+        if (ev.target.classList.contains("rign")) {
+          it._ignored = ev.target.checked;
+          line.classList.toggle("ignored", it._ignored);
+          line.querySelector(".rart").disabled = it._ignored;
+        }
+        update();
+      });
+      root.querySelector(".rtot").addEventListener("input", update);
+      root.querySelector(".rback").addEventListener("click", () => {
+        st.step = "input";
+        this._renderReceiptInput();
+      });
+      root.querySelector(".rsave").addEventListener("click", () => this._receiptSave(root));
+      update();
+    });
+  }
+
+  _receiptLineValues(it) {
+    const price = it._price != null ? parseNum(it._price) : it.price;
+    const amount = it._amount != null ? parseNum(it._amount) : it.amount;
+    return { price, amount, unit: it._unit || it.unit || "Stück" };
+  }
+
+  _receiptTotals(root) {
+    const items = this._receipt?.proposal?.items || [];
+    let sum = 0;
+    let bad = 0;
+    let n = 0;
+    for (const it of items) {
+      const v = this._receiptLineValues(it);
+      if (!Number.isFinite(v.price)) bad += 1;
+      else sum += v.price;
+      if (!it._ignored && String(it._article || "").trim() && Number.isFinite(v.price)) n += 1;
+    }
+    sum = Math.round(sum * 100) / 100;
+    const total = parseNum(root.querySelector(".rtot")?.value);
+    const check = root.querySelector(".rcheck");
+    if (check) {
+      const ok = Number.isFinite(total) && Math.abs(total - sum) < 0.015;
+      check.innerHTML = `Summe der Zeilen <b>${eur(sum)}</b> ${Number.isFinite(total) ? (ok ? '<span class="bdg ok">✓ stimmt</span>' : `<span class="bdg warn">⚠️ ${eur(Math.abs(total - sum))} Unterschied – bitte Zeilen prüfen</span>`) : ""}${bad ? ` <span class="bdg bad">${bad} Preis${bad > 1 ? "e" : ""} ungültig</span>` : ""}`;
+    }
+    const save = root.querySelector(".rsave");
+    if (save) {
+      save.textContent = `💾 ${n} Preis${n === 1 ? "" : "e"} übernehmen`;
+      save.disabled = Boolean(bad) || !items.length;
+    }
+    return { sum, n, bad };
+  }
+
+  async _receiptSave(root) {
+    const st = this._receipt;
+    const p = st?.proposal;
+    if (!p || st.busy) return;
+    const { bad } = this._receiptTotals(root);
+    if (bad) return this._toast("Bitte die Preise prüfen (z. B. 1,99).");
+    const choice = root.querySelector(".rbranch").value;
+    const receipt = {
+      date: root.querySelector(".rdate").value || p.date || this._today(),
+      source: p.source,
+      items: (p.items || []).map((it) => {
+        const v = this._receiptLineValues(it);
+        const article = String(it._article || "").trim();
+        const changed = article !== (it.product || "");
+        const item = { line: it.line, name: it.name, price: v.price, quantity: it.quantity, weight: it.weight, unit_price: it.unit_price, discount: it.discount, ignored: Boolean(it._ignored) };
+        if (!it._ignored && article) {
+          item.key = changed ? article : it.key || article;
+          item.product = changed ? null : it.product;
+        }
+        if (Number.isFinite(v.amount) && v.amount > 0) {
+          item.amount = v.amount;
+          item.unit = v.unit;
+        }
+        return item;
+      }),
+    };
+    if (choice.startsWith("b:")) receipt.branch_id = choice.slice(2);
+    else if (choice.startsWith("r:")) receipt.store = choice.slice(2);
+    const total = parseNum(root.querySelector(".rtot").value);
+    if (Number.isFinite(total)) receipt.total = total;
+    if (p.upload_id) receipt.upload_id = p.upload_id;
+    if (p.id) receipt.id = p.id;
+    st.busy = "save";
+    const btn = root.querySelector(".rsave");
+    btn.disabled = true;
+    btn.textContent = "⏳ Speichere …";
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/receipt_save`, receipt });
+      const label = res?.receipt?.store_label || this._branch(receipt.branch_id)?.label || this._retailerName(receipt.store) || "den Laden";
+      this._receipt = null;
+      this._closeModal();
+      const kept = res?.kept ? ` · ${res.kept} neuere eigene Preise behalten` : "";
+      this._toast(`🧾 ${res?.saved ?? 0} Preis${res?.saved === 1 ? "" : "e"} für ${label} übernommen${kept}`);
+      this._receiptsStale = true;
+      this._storePricesStale = true;
+      if (this._tab === "stores") {
+        this._renderReceiptSection();
+        this._fetchStorePrices();
+      }
+    } catch (err) {
+      st.busy = null;
+      btn.disabled = false;
+      this._receiptTotals(root);
+      this._toast(errText(err));
+    }
+  }
+
+  _receiptById(id) {
+    return (this._receipts?.receipts || []).find((r) => r.id === id);
+  }
+
+  _showReceipt(id) {
+    const r = this._receiptById(id);
+    if (!r) return;
+    const icon = { saved: "✓", kept: "↺", ignored: "–", unknown: "?", skipped: "–" };
+    const rows = (r.items || [])
+      .map((it) => `<div class="pricerow"><span>${esc(it.product || it.name)}${it.product && it.name !== it.product ? ` <span class="meta">${esc(it.name)}</span>` : ""}</span><span class="meta" title="${esc({ saved: "als Preis übernommen", kept: "neuerer eigener Preis behalten", ignored: "ignoriert", unknown: "ohne Artikel", skipped: "ohne Preis" }[it.status] || "")}">${icon[it.status] || ""}</span><b>${eur(it.price)}</b></div>`)
+      .join("");
+    const body = `
+      ${r.image_url ? `<a href="${esc(r.image_url)}" target="_blank" rel="noreferrer"><img class="rpreview" src="${esc(r.image_url)}" alt="Kassenzettel"></a>` : ""}
+      <div class="meta">${esc(dayText(r.date))}${esc(String(r.date || "").slice(0, 4))} · Summe ${eur(r.total ?? r.sum)} · ${r.prices || 0} Preise übernommen</div>
+      <div>${rows}</div>
+      <div class="hint">✓ = als Preis übernommen · ↺ = ein neuerer eigener Preis bleibt · – = ignoriert</div>`;
+    const footer = `<button class="btn danger rdel">🗑 Löschen</button><span class="spacer"></span><button class="btn" data-close>Schließen</button>`;
+    this._showModal(`🧾 ${r.store_label || r.retailer_name}`, body, footer, (root) => {
+      root.querySelector(".rdel").addEventListener("click", () => this._deleteReceipt(id));
+    });
+  }
+
+  _deleteReceipt(id) {
+    const r = this._receiptById(id);
+    if (!r) return;
+    const body = `<div>Kassenzettel von <b>${esc(r.store_label || r.retailer_name)}</b> vom ${esc(dayText(r.date))} löschen?</div>${r.prices ? `<div class="hint">Die ${r.prices} Preise daraus kannst du behalten (sie bleiben eigene Preise des Ladens) oder mit entfernen.</div>` : ""}`;
+    const footer = `<button class="btn" data-close>Abbrechen</button>${r.prices ? `<button class="btn danger rdelall">🗑 Mit Preisen löschen</button>` : ""}<button class="btn primary rdelone">🗑 ${r.prices ? "Preise behalten" : "Löschen"}</button>`;
+    this._showModal("Kassenzettel löschen", body, footer, (root) => {
+      const run = async (removePrices) => {
+        try {
+          const res = await this._hass.callWS({ type: `${DOMAIN}/receipt_delete`, receipt_id: id, remove_prices: removePrices });
+          this._closeModal();
+          this._toast(`🗑 Kassenzettel gelöscht${res?.prices_removed ? ` · ${res.prices_removed} Preise entfernt` : ""}`);
+          if (this._receipts) this._receipts.receipts = this._receipts.receipts.filter((x) => x.id !== id);
+          this._receiptsStale = true;
+          if (removePrices) this._storePricesStale = true;
+          if (this._tab === "stores") {
+            this._renderReceiptSection();
+            if (removePrices) this._fetchStorePrices();
+          }
+        } catch (err) {
+          this._toast(errText(err));
+        }
+      };
+      root.querySelector(".rdelone").addEventListener("click", () => run(false));
+      root.querySelector(".rdelall")?.addEventListener("click", () => run(true));
+    });
   }
 
   /* ------------------------------------------------------------ store picker (shopping list) */

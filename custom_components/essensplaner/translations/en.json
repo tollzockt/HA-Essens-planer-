@@ -22,6 +22,7 @@
     "step": {
       "init": {
         "title": "Essensplaner options",
+        "description": "Tip: all settings are now also available directly in the Essensplaner panel – use the gear ⚙️ at the top right (administrators only). They can still be changed here as well.",
         "data": {
           "default_servings": "Default servings",
           "enabled_meals": "Meals",

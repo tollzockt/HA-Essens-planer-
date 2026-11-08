@@ -503,7 +503,9 @@ async def ws_aldi_stores(
         vol.Required("type"): f"{DOMAIN}/store_offers",
         vol.Optional("branch_ids"): vol.Any(None, [str]),
         vol.Optional("when", default="current"): vol.In(["current", "upcoming", "all"]),
-        vol.Optional("kind", default="all"): vol.In(["food", "drugstore", "household", "all"]),
+        vol.Optional("kind", default="all"): vol.In(
+            ["food", "drugstore", "household", "nonfood", "all"]
+        ),
         vol.Optional("query"): vol.Any(None, str),
         vol.Optional("mine", default=False): bool,
         vol.Optional("sort", default="saving"): vol.In(
@@ -521,7 +523,7 @@ def ws_store_offers(
     """All current offers of the saved stores (offer catalog), per store selectable.
 
     branch_ids: only these branches (default all selected ones); when: current | upcoming |
-    all; kind: food | drugstore | household | all; query: text or ingredient; mine: only
+    all; kind: food | drugstore | household | nonfood (drugstore + household) | all; query: text or ingredient; mine: only
     offers of planned / favourite / listed ingredients; sort: saving | price | unit_price |
     name | store; offset / limit (≤ 100) page the offers. Result {total, offset, limit,
     offers: [{id, title, brand, description, price, old_price, regular_price, app_price,
@@ -698,6 +700,224 @@ async def ws_receipt_delete(
     connection.send_result(msg["id"], result)
 
 
+def _settings_entry(hass: HomeAssistant) -> Any:
+    """The config entry the settings belong to (loaded first; also a not loaded one, so
+    broken settings can be fixed)."""
+    loaded = hass.config_entries.async_loaded_entries(DOMAIN)
+    if loaded:
+        return loaded[0]
+    entries = hass.config_entries.async_entries(DOMAIN)
+    return entries[0] if entries else None
+
+
+def _entity_choices(
+    hass: HomeAssistant, domain: str, current: Any, exclude: set[str] | None = None
+) -> list[dict[str, Any]]:
+    """[{value, label, available}] of the entities of a domain (current values that do not
+    exist any more are listed too, so they can be seen and removed)."""
+    from homeassistant.const import STATE_UNAVAILABLE
+
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for state in hass.states.async_all(domain):
+        if exclude and state.entity_id in exclude:
+            continue
+        seen.add(state.entity_id)
+        result.append(
+            {
+                "value": state.entity_id,
+                "label": str(state.attributes.get("friendly_name") or state.entity_id),
+                "available": state.state != STATE_UNAVAILABLE,
+            }
+        )
+    result.sort(key=lambda c: c["label"].casefold())
+    for value in current if isinstance(current, list) else [current]:
+        if value and value not in seen:
+            result.append({"value": value, "label": value, "available": False, "missing": True})
+    return result
+
+
+def _settings_warnings(
+    hass: HomeAssistant, manager: Any, values: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Hints for the current settings: the marktguru AGB, an unavailable AI Task, chain
+    sources that are on but have no linked branch yet."""
+    from .const import (
+        CONF_ALDI_ONLINE,
+        CONF_EDEKA_OFFERS,
+        CONF_OFFERS_SOURCE,
+        CONF_RECEIPT_AI,
+        CONF_REWE_ONLINE,
+        CONF_SPLIT_MODE,
+        OFFERS_MARKTGURU,
+        SPLIT_OFF,
+    )
+    from .options_schema import MARKTGURU_WARNING_DE
+
+    warnings: list[dict[str, str]] = []
+    if values.get(CONF_OFFERS_SOURCE) == OFFERS_MARKTGURU:
+        warnings.append({"key": CONF_OFFERS_SOURCE, "message": MARKTGURU_WARNING_DE})
+    entity = values.get(CONF_RECEIPT_AI)
+    if entity:
+        state = hass.states.get(entity)
+        if state is None or state.state == "unavailable":
+            warnings.append(
+                {
+                    "key": CONF_RECEIPT_AI,
+                    "message": f"Die KI-Aufgabe {entity} ist gerade nicht erreichbar – Fotos "
+                    "werden erst gelesen, wenn sie wieder verfügbar ist. Text einfügen geht "
+                    "immer.",
+                }
+            )
+    branches = list(getattr(manager, "branches", None) or [])
+
+    def linked(retailer: str, field: str | None = None) -> bool:
+        return any(
+            b.get("retailer") == retailer
+            and b.get("selected", True)
+            and (not field or b.get(field))
+            for b in branches
+        )
+
+    if manager is not None:
+        if values.get(CONF_REWE_ONLINE) and not linked("rewe", "rewe_market_id"):
+            warnings.append(
+                {
+                    "key": CONF_REWE_ONLINE,
+                    "message": "REWE-Onlinepreise brauchen eine REWE-Filiale mit Markt-ID "
+                    "(🏪 Läden & Preise → „Markt suchen“).",
+                }
+            )
+        if values.get(CONF_ALDI_ONLINE) and not linked("aldi-sued"):
+            warnings.append(
+                {
+                    "key": CONF_ALDI_ONLINE,
+                    "message": "ALDI-SÜD-Preise brauchen eine gespeicherte ALDI-SÜD-Filiale "
+                    "(🏪 Läden & Preise).",
+                }
+            )
+        if values.get(CONF_EDEKA_OFFERS) and not linked("edeka", "edeka_market_id"):
+            warnings.append(
+                {
+                    "key": CONF_EDEKA_OFFERS,
+                    "message": "EDEKA-Angebote brauchen eine EDEKA-Filiale mit Markt-ID "
+                    "(🏪 Läden & Preise → „EDEKA-Markt suchen“).",
+                }
+            )
+        if values.get(CONF_SPLIT_MODE) != SPLIT_OFF and manager.get_main_branch() is None:
+            warnings.append(
+                {
+                    "key": CONF_SPLIT_MODE,
+                    "message": "Die Aufteilung nach Läden wirkt, sobald du in „🏪 Läden & "
+                    "Preise“ einen Hauptladen gewählt hast.",
+                }
+            )
+    return warnings
+
+
+def settings_view(hass: HomeAssistant, entry: Any) -> dict[str, Any]:
+    """Everything the panel's settings view needs (websocket essensplaner/get_settings)."""
+    from .const import (
+        ALL_MEALS,
+        CONF_BRANCH_ZONES,
+        CONF_RECEIPT_AI,
+        CONF_SYNC_TODO,
+        SPLIT_MODES,
+        STRATEGIES,
+    )
+    from .options_schema import (
+        OFFERS_SOURCES,
+        SECTIONS,
+        choice_list,
+        current_values,
+        default_values,
+        describe_fields,
+        store_choices,
+    )
+
+    manager = getattr(entry, "runtime_data", None)
+    if not hasattr(manager, "branch_postcodes"):
+        manager = None
+    values = current_values({**entry.data, **entry.options})
+    own_list = _entity_ids(hass, entry.entry_id)["shopping_list"]
+    main = manager.get_main_branch() if manager is not None else None
+    return {
+        "values": values,
+        "defaults": default_values(),
+        "fields": describe_fields(),
+        "sections": SECTIONS,
+        "choices": {
+            "meals": choice_list("meal", ALL_MEALS),
+            "strategies": choice_list("strategy", STRATEGIES),
+            "split_modes": choice_list("split_mode", SPLIT_MODES),
+            "offers_sources": choice_list("offers_source", OFFERS_SOURCES),
+            "stores": store_choices(),
+            "zones": _entity_choices(hass, "zone", values[CONF_BRANCH_ZONES]),
+            "todo_entities": _entity_choices(
+                hass, "todo", values[CONF_SYNC_TODO], {own_list} if own_list else None
+            ),
+            "ai_task_entities": _entity_choices(hass, "ai_task", values[CONF_RECEIPT_AI]),
+        },
+        "warnings": _settings_warnings(hass, manager, values),
+        "branch_postcodes": manager.branch_postcodes() if manager is not None else [],
+        "branches": len(manager.branches) if manager is not None else 0,
+        "main_branch": manager.branch_label(main) if main else None,
+        "loaded": manager is not None,
+    }
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/get_settings"})
+@websocket_api.require_admin
+@callback
+def ws_get_settings(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The settings of the panel's ⚙️ view (admins): {values, defaults, fields, sections,
+    choices: {meals, strategies, split_modes, offers_sources, stores, zones, todo_entities,
+    ai_task_entities}, warnings: [{key, message}], branch_postcodes, branches, main_branch,
+    loaded}."""
+    entry = _settings_entry(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
+        return
+    connection.send_result(msg["id"], settings_view(hass, entry))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/save_settings", vol.Required("values"): dict}
+)
+@websocket_api.require_admin
+@callback
+def ws_save_settings(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Check and store settings of the panel (admins), with the rules of the options flow.
+
+    values: some or all settings (missing ones keep their value; unknown keys are ignored).
+    Invalid: {saved: false, errors: {key: German message}} and nothing is stored. Valid: the
+    entry's options are updated (other option keys are kept) and the update listener reloads
+    the integration: {saved: true, reload: true} – {saved: true, reload: false} when nothing
+    changed.
+    """
+    from .options_schema import current_values, error_messages, merge_options, validate
+
+    entry = _settings_entry(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
+        return
+    manager = getattr(entry, "runtime_data", None)
+    postcodes = manager.branch_postcodes() if hasattr(manager, "branch_postcodes") else []
+    options = {**entry.data, **entry.options}
+    merged = {**current_values(options), **msg["values"]}
+    cleaned, errors = validate(merged, postcodes)
+    if errors:
+        connection.send_result(msg["id"], {"saved": False, "errors": error_messages(errors)})
+        return
+    new_options = merge_options(entry.options, cleaned)
+    changed = hass.config_entries.async_update_entry(entry, options=new_options)
+    connection.send_result(msg["id"], {"saved": True, "reload": bool(changed)})
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -719,3 +939,5 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_receipt_parse)
     websocket_api.async_register_command(hass, ws_receipt_save)
     websocket_api.async_register_command(hass, ws_receipt_delete)
+    websocket_api.async_register_command(hass, ws_get_settings)
+    websocket_api.async_register_command(hass, ws_save_settings)

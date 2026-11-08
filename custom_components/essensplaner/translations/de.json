@@ -22,6 +22,7 @@
     "step": {
       "init": {
         "title": "Essensplaner Optionen",
+        "description": "Tipp: Alle Einstellungen findest du jetzt auch direkt im Essensplaner-Panel – über das Zahnrad ⚙️ oben rechts (nur für Administratoren). Hier bleiben sie weiterhin änderbar.",
         "data": {
           "default_servings": "Standard-Portionen",
           "enabled_meals": "Mahlzeiten",
