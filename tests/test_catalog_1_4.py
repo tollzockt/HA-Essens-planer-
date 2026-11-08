@@ -440,7 +440,7 @@ async def test_refresh_six_stores(
     assert meta["requests"] == len(calls)
     # every marktguru request is an honest one
     for call in aioclient_mock.mock_calls:
-        assert "HA-Essensplaner/1.4" in (call[3] or {}).get("User-Agent", "")
+        assert "HA-Essensplaner/1.5" in (call[3] or {}).get("User-Agent", "")
 
     store = manager.catalog
     today = manager.today()

@@ -81,6 +81,8 @@ async def async_get_config_entry_diagnostics(
         "offer_catalog": _catalog_counts(manager),
         # receipts: counts only (no articles, prices, stores or images)
         "receipts": _receipt_counts(manager),
+        # AI via Home Assistant (1.5): mode and state only (never prompts or answers)
+        "ai": _ai_info(hass, manager),
         "branch_search": async_redact_data(
             {k: v for k, v in manager.branch_search.items() if k not in ("results", "key")},
             BRANCH_REDACT,
@@ -111,6 +113,27 @@ def _receipt_counts(manager: EssensplanerManager) -> dict[str, Any]:
         ),
         "ai_configured": ai_entity(manager) is not None,
         "ai_available": ai_available(manager.hass, ai_entity(manager)),
+    }
+
+
+def _ai_info(hass: HomeAssistant, manager: EssensplanerManager) -> dict[str, Any]:
+    """Which AI kind is configured, whether it is available, the switched-on features and
+    the result of the last request (ok, seconds, code) – no entity names, prompts or
+    answers."""
+    from .ai import ai_status
+
+    status = ai_status(hass, manager)
+    last = status["last"] or {}
+    return {
+        "configured": status["configured"],
+        "mode": status["mode"],
+        "available": status["available"],
+        "features": status["features"],
+        "receipts_configured": status["receipts_entity"] is not None,
+        "busy": status["busy"],
+        "last": {k: last.get(k) for k in ("ok", "seconds", "mode", "feature", "code")}
+        if last
+        else None,
     }
 
 

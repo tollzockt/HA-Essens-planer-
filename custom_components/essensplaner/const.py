@@ -98,8 +98,44 @@ DEFAULT_EDEKA_OFFERS: Final = False
 # pasted receipt text, parsed locally)
 CONF_RECEIPT_AI: Final = "receipt_ai_task_entity"
 DEFAULT_RECEIPT_AI: Final = None
+# AI via Home Assistant (1.5): an AI Task entity (ai_task.*) or a conversation agent
+# (conversation.*) for menus, drinks, the seasonal plan and product matching – no API keys
+# in the Essensplaner; receipt photos keep their own AI Task option (CONF_RECEIPT_AI) and
+# fall back to this entity when it is an AI Task
+CONF_AI_ENTITY: Final = "ai_entity"
+DEFAULT_AI_ENTITY: Final = None
+CONF_AI_FEATURES: Final = "ai_features"
+AI_FEATURE_OCCASIONS: Final = "occasions"
+AI_FEATURE_DRINKS: Final = "drinks"
+AI_FEATURE_SEASON: Final = "season"
+AI_FEATURE_PRODUCTS: Final = "products"
+AI_FEATURE_RECEIPTS: Final = "receipts"
+AI_FEATURES: Final = [
+    AI_FEATURE_OCCASIONS,
+    AI_FEATURE_DRINKS,
+    AI_FEATURE_SEASON,
+    AI_FEATURE_PRODUCTS,
+    AI_FEATURE_RECEIPTS,
+]
+DEFAULT_AI_FEATURES: Final = [
+    AI_FEATURE_OCCASIONS,
+    AI_FEATURE_DRINKS,
+    AI_FEATURE_SEASON,
+    AI_FEATURE_RECEIPTS,
+]
+# planning (1.5): season in suggestions and the auto plan, occasions in the weekly budget,
+# drink suggestions with alcohol (alcohol-free ones are always included)
+CONF_SEASON_AWARE: Final = "season_aware"
+DEFAULT_SEASON_AWARE: Final = True
+CONF_OCCASIONS_IN_BUDGET: Final = "occasions_in_budget"
+DEFAULT_OCCASIONS_IN_BUDGET: Final = True
+CONF_DRINKS_ALCOHOL: Final = "drinks_alcohol"
+DEFAULT_DRINKS_ALCOHOL: Final = True
+# leaflets of all saved branches (1.5, only with marktguru)
+CONF_ALL_LEAFLETS: Final = "all_leaflets"
+DEFAULT_ALL_LEAFLETS: Final = True
 # honest User-Agent of all HTTP clients (OpenStreetMap, REWE, ALDI SÜD, EDEKA, marktguru)
-HTTP_USER_AGENT: Final = "HA-Essensplaner/1.4 (+https://github.com/tollzockt/HA-Essens-planer-)"
+HTTP_USER_AGENT: Final = "HA-Essensplaner/1.5 (+https://github.com/tollzockt/HA-Essens-planer-)"
 
 STRATEGY_BALANCED: Final = "balanced"
 STRATEGY_CHEAP: Final = "cheap"

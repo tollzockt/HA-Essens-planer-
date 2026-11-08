@@ -301,7 +301,7 @@
       "message": "I found no articles with a price on the receipt."
     },
     "receipt_ai_not_configured": {
-      "message": "Receipt photos need an AI task: choose one under Essensplaner panel → settings → receipts – or paste the text of the receipt."
+      "message": "Receipt photos need an AI task: choose one under Essensplaner panel → settings → 🤖 AI or → receipts – or paste the text of the receipt."
     },
     "receipt_ai_unavailable": {
       "message": "The AI task {entity} is not available right now – please try again later or paste the text of the receipt."
@@ -314,6 +314,24 @@
     },
     "receipt_media_invalid": {
       "message": "{media} is no receipt image of the media folder (JPG, PNG, WebP or PDF)."
+    },
+    "ai_not_configured": {
+      "message": "This needs an AI: choose an AI task or a conversation agent of Home Assistant (e.g. Claude, OpenAI or Ollama) under Essensplaner panel → settings → 🤖 AI. Without AI the rule-based suggestions work."
+    },
+    "ai_unavailable": {
+      "message": "The AI {entity} is not reachable right now – please try again later. The rule-based suggestions keep working."
+    },
+    "ai_failed": {
+      "message": "The request to the AI {entity} failed ({error})."
+    },
+    "ai_invalid": {
+      "message": "The AI {entity} returned no usable answer (JSON) – please try again."
+    },
+    "ai_feature_off": {
+      "message": "The AI is switched off for “{feature}” (Essensplaner panel → settings → 🤖 AI)."
+    },
+    "ai_busy": {
+      "message": "The AI is busy with another Essensplaner request – please try again in a moment."
     }
   },
   "services": {

@@ -791,9 +791,11 @@ def _entity_choices(
 def _settings_warnings(
     hass: HomeAssistant, manager: Any, values: dict[str, Any]
 ) -> list[dict[str, str]]:
-    """Hints for the current settings: the marktguru AGB, an unavailable AI Task, chain
-    sources that are on but have no linked branch yet."""
+    """Hints for the current settings: the marktguru AGB, an unavailable AI Task or AI
+    entity, chain sources that are on but have no linked branch yet."""
+    from .ai import ai_available
     from .const import (
+        CONF_AI_ENTITY,
         CONF_ALDI_ONLINE,
         CONF_EDEKA_OFFERS,
         CONF_OFFERS_SOURCE,
@@ -820,6 +822,16 @@ def _settings_warnings(
                     "immer.",
                 }
             )
+    ai_entity = values.get(CONF_AI_ENTITY)
+    if ai_entity and not ai_available(hass, ai_entity):
+        warnings.append(
+            {
+                "key": CONF_AI_ENTITY,
+                "message": f"Die KI {ai_entity} ist gerade nicht erreichbar – die "
+                "KI-Funktionen warten, bis sie wieder verfügbar ist; alles andere funktioniert "
+                "ohne KI.",
+            }
+        )
     branches = list(getattr(manager, "branches", None) or [])
 
     def linked(retailer: str, field: str | None = None) -> bool:
@@ -868,8 +880,11 @@ def _settings_warnings(
 
 def settings_view(hass: HomeAssistant, entry: Any) -> dict[str, Any]:
     """Everything the panel's settings view needs (websocket essensplaner/get_settings)."""
+    from .ai import entity_choices
     from .const import (
+        AI_FEATURES,
         ALL_MEALS,
+        CONF_AI_ENTITY,
         CONF_BRANCH_ZONES,
         CONF_RECEIPT_AI,
         CONF_SYNC_TODO,
@@ -908,6 +923,8 @@ def settings_view(hass: HomeAssistant, entry: Any) -> dict[str, Any]:
                 hass, "todo", values[CONF_SYNC_TODO], {own_list} if own_list else None
             ),
             "ai_task_entities": _entity_choices(hass, "ai_task", values[CONF_RECEIPT_AI]),
+            "ai_entities": entity_choices(hass, values[CONF_AI_ENTITY]),
+            "ai_features": choice_list("ai_feature", AI_FEATURES),
         },
         "warnings": _settings_warnings(hass, manager, values),
         "branch_postcodes": manager.branch_postcodes() if manager is not None else [],
@@ -925,8 +942,9 @@ def ws_get_settings(
 ) -> None:
     """The settings of the panel's ⚙️ view (admins): {values, defaults, fields, sections,
     choices: {meals, strategies, split_modes, offers_sources, stores, zones, todo_entities,
-    ai_task_entities}, warnings: [{key, message}], branch_postcodes, branches, main_branch,
-    loaded}."""
+    ai_task_entities, ai_entities: [{value, label, available, kind (ai_task |
+    conversation), missing?}], ai_features: [{value, label}]}, warnings: [{key, message}],
+    branch_postcodes, branches, main_branch, loaded}."""
     entry = _settings_entry(hass)
     if entry is None:
         connection.send_error(msg["id"], "not_loaded", "Essensplaner ist nicht eingerichtet")
@@ -969,6 +987,43 @@ def ws_save_settings(
     connection.send_result(msg["id"], {"saved": True, "reload": bool(changed)})
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/ai_status"})
+@websocket_api.require_admin
+@callback
+def ws_ai_status(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The AI via Home Assistant (admins, 1.5): {entity, mode (ai_task | conversation),
+    label, configured, available, features: [feature], ready: {feature: bool},
+    receipts_entity, receipts_available, busy, last: {ok, seconds, mode, feature, code, at}}."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .ai import ai_status
+
+    connection.send_result(msg["id"], ai_status(hass, manager))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/ai_test", vol.Optional("entity_id"): vol.Any(None, str)}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_ai_test(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """ "Verbindung testen" (admins, 1.5): a tiny request to the given AI entity (also one
+    not saved yet) or the configured one. {ok, entity, mode, seconds, code, error} – code
+    and German error when it failed (ai_not_configured, ai_unavailable, ai_busy,
+    ai_failed, ai_invalid); never a websocket error for a failing AI."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .ai import async_ai_test
+
+    connection.send_result(
+        msg["id"], await async_ai_test(hass, manager, msg.get("entity_id") or None)
+    )
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -992,3 +1047,5 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_receipt_delete)
     websocket_api.async_register_command(hass, ws_get_settings)
     websocket_api.async_register_command(hass, ws_save_settings)
+    websocket_api.async_register_command(hass, ws_ai_status)
+    websocket_api.async_register_command(hass, ws_ai_test)

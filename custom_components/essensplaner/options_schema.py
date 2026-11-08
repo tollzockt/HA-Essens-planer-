@@ -1,11 +1,12 @@
-"""Option keys, defaults, ranges and validation of the Essensplaner settings (1.4).
+"""Option keys, defaults, ranges and validation of the Essensplaner settings (1.4, 1.5).
 
 The settings are changed in the panel's own settings view (⚙️, websockets
 essensplaner/get_settings and essensplaner/save_settings). This module holds their rules:
 what a value may be, how it is stored and which German message an invalid value gets.
 Home Assistant's options flow (Einstellungen → Geräte & Dienste → Essensplaner →
 Konfigurieren) only toggles the sidebar panel (show_panel) since 1.4; the setup flow takes
-the servings range from here.
+the servings range from here. 1.5 adds the section "ai" (AI entity and features via Home
+Assistant) and the planning / offers switches of season, occasions, drinks and leaflets.
 """
 
 from __future__ import annotations
@@ -17,8 +18,12 @@ from typing import Any
 
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE
 from .const import (
+    AI_FEATURES,
     ALL_MEALS,
+    CONF_AI_ENTITY,
+    CONF_AI_FEATURES,
     CONF_ALDI_ONLINE,
+    CONF_ALL_LEAFLETS,
     CONF_AUTO_COOKED,
     CONF_BRANCH_RADIUS,
     CONF_BRANCH_ROUTE,
@@ -27,15 +32,18 @@ from .const import (
     CONF_BUDGET,
     CONF_DEFAULT_MEAL,
     CONF_DEFAULT_SERVINGS,
+    CONF_DRINKS_ALCOHOL,
     CONF_EDEKA_OFFERS,
     CONF_ENABLED_MEALS,
     CONF_EXCLUDED,
     CONF_MEAL_TIME_PREFIX,
+    CONF_OCCASIONS_IN_BUDGET,
     CONF_OFFERS_SOURCE,
     CONF_PANTRY,
     CONF_RECEIPT_AI,
     CONF_REGISTER_INTENTS,
     CONF_REWE_ONLINE,
+    CONF_SEASON_AWARE,
     CONF_SHOW_PANEL,
     CONF_SPLIT_MIN_PERCENT,
     CONF_SPLIT_MIN_SAVING,
@@ -47,16 +55,21 @@ from .const import (
     CONF_SYNC_TODO,
     CONF_WATCHLIST,
     CONF_ZIP,
+    DEFAULT_AI_FEATURES,
     DEFAULT_ALDI_ONLINE,
+    DEFAULT_ALL_LEAFLETS,
     DEFAULT_BRANCH_RADIUS,
     DEFAULT_BRANCH_ROUTE,
     DEFAULT_BRANCH_ROUTE_RADIUS,
+    DEFAULT_DRINKS_ALCOHOL,
     DEFAULT_EDEKA_OFFERS,
     DEFAULT_ENABLED_MEALS,
     DEFAULT_MEAL,
     DEFAULT_MEAL_TIMES,
+    DEFAULT_OCCASIONS_IN_BUDGET,
     DEFAULT_PANTRY,
     DEFAULT_REWE_ONLINE,
+    DEFAULT_SEASON_AWARE,
     DEFAULT_SERVINGS,
     DEFAULT_SPLIT_MIN_PERCENT,
     DEFAULT_SPLIT_MIN_SAVING,
@@ -92,7 +105,18 @@ SECTION_PLANNING = "planning"
 SECTION_OFFERS = "offers"
 SECTION_STORES = "stores"
 SECTION_RECEIPTS = "receipts"
-SECTIONS = [SECTION_GENERAL, SECTION_PLANNING, SECTION_OFFERS, SECTION_STORES, SECTION_RECEIPTS]
+SECTION_AI = "ai"
+SECTIONS = [
+    SECTION_GENERAL,
+    SECTION_PLANNING,
+    SECTION_OFFERS,
+    SECTION_STORES,
+    SECTION_RECEIPTS,
+    SECTION_AI,
+]
+
+# entity domains of the AI picker (an AI Task or a conversation agent, 1.5)
+AI_DOMAINS = ("ai_task", "conversation")
 
 # value kinds
 INT = "int"
@@ -119,17 +143,28 @@ class Field:
     maximum: float | None = None
     step: float | None = None
     choices: tuple[str, ...] | None = None
-    domain: str | None = None  # entity / entities
+    domain: str | None = None  # entity / entities: one domain (1.4 style)
     optional: bool = False  # removed from the options when empty (entity pickers)
+    domains: tuple[str, ...] | None = None  # entity / entities: several domains (1.5)
+    empty_ok: bool = False  # multi: an empty selection is a value (not "the default")
+
+    @property
+    def entity_domains(self) -> tuple[str, ...]:
+        """The domains an entity of this field may have (domains, else domain)."""
+        if self.domains:
+            return tuple(self.domains)
+        return (self.domain,) if self.domain else ()
 
     def describe(self) -> dict[str, Any]:
-        """The field for the panel (type, limits, section)."""
+        """The field for the panel (type, limits, section; entity fields: domain = the first
+        allowed domain as in 1.4, domains = all of them)."""
         info: dict[str, Any] = {"section": self.section, "type": self.kind}
         for name, value in (("min", self.minimum), ("max", self.maximum), ("step", self.step)):
             if value is not None:
                 info[name] = value
-        if self.domain:
-            info["domain"] = self.domain
+        if domains := self.entity_domains:
+            info["domain"] = domains[0]
+            info["domains"] = list(domains)
         if self.optional:
             info["optional"] = True
         return info
@@ -163,6 +198,9 @@ FIELDS: tuple[Field, ...] = (
     # Budget & Planung
     Field(CONF_BUDGET, SECTION_PLANNING, FLOAT, 0.0, *BUDGET_RANGE, 5),
     Field(CONF_STRATEGY, SECTION_PLANNING, SELECT, STRATEGY_BALANCED, choices=tuple(STRATEGIES)),
+    Field(CONF_SEASON_AWARE, SECTION_PLANNING, BOOL, DEFAULT_SEASON_AWARE),
+    Field(CONF_OCCASIONS_IN_BUDGET, SECTION_PLANNING, BOOL, DEFAULT_OCCASIONS_IN_BUDGET),
+    Field(CONF_DRINKS_ALCOHOL, SECTION_PLANNING, BOOL, DEFAULT_DRINKS_ALCOHOL),
     # Angebote & Preisquellen
     Field(CONF_OFFERS_SOURCE, SECTION_OFFERS, SELECT, OFFERS_OFF, choices=tuple(OFFERS_SOURCES)),
     Field(CONF_ZIP, SECTION_OFFERS, TEXT, ""),
@@ -171,6 +209,7 @@ FIELDS: tuple[Field, ...] = (
     Field(CONF_REWE_ONLINE, SECTION_OFFERS, BOOL, DEFAULT_REWE_ONLINE),
     Field(CONF_ALDI_ONLINE, SECTION_OFFERS, BOOL, DEFAULT_ALDI_ONLINE),
     Field(CONF_EDEKA_OFFERS, SECTION_OFFERS, BOOL, DEFAULT_EDEKA_OFFERS),
+    Field(CONF_ALL_LEAFLETS, SECTION_OFFERS, BOOL, DEFAULT_ALL_LEAFLETS),
     # Läden & Einkauf
     Field(CONF_SPLIT_MODE, SECTION_STORES, SELECT, DEFAULT_SPLIT_MODE, choices=tuple(SPLIT_MODES)),
     Field(CONF_SPLIT_MIN_SAVING, SECTION_STORES, FLOAT, DEFAULT_SPLIT_MIN_SAVING, 0, EUR_MAX, 0.1),
@@ -190,8 +229,18 @@ FIELDS: tuple[Field, ...] = (
         *ROUTE_RADIUS_M,
         50,
     ),
-    # Kassenzettel
+    # Kassenzettel (photos: an AI Task; empty = the AI entity of "KI" if it is an AI Task)
     Field(CONF_RECEIPT_AI, SECTION_RECEIPTS, ENTITY, None, domain="ai_task", optional=True),
+    # KI (1.5): an AI Task or a conversation agent of Home Assistant, and what it is used for
+    Field(CONF_AI_ENTITY, SECTION_AI, ENTITY, None, domains=AI_DOMAINS, optional=True),
+    Field(
+        CONF_AI_FEATURES,
+        SECTION_AI,
+        MULTI,
+        list(DEFAULT_AI_FEATURES),
+        choices=tuple(AI_FEATURES),
+        empty_ok=True,
+    ),
 )
 FIELD_MAP: dict[str, Field] = {f.key: f for f in FIELDS}
 
@@ -214,6 +263,13 @@ CHOICE_LABELS_DE: dict[str, dict[str, str]] = {
         "off": "Aus (nur eigene Angebote)",
         "marktguru": "marktguru.de (inoffiziell, eigenes Risiko)",
     },
+    "ai_feature": {
+        "occasions": "Anlässe (Menü-Vorschläge)",
+        "drinks": "Getränke",
+        "season": "Saisonplan (Auto-Plan „mit KI“)",
+        "products": "Produktzuordnung",
+        "receipts": "Kassenzettel-Fotos",
+    },
 }
 
 # The marktguru warning (user decision 2026-11-07: shown wherever it can be switched on)
@@ -235,6 +291,7 @@ ERROR_TEXTS_DE: dict[str, str] = {
     "invalid_choice": "Bitte einen der angebotenen Werte wählen.",
     "invalid_time": "Bitte eine Uhrzeit wie 18:30 eingeben.",
     "invalid_entity": "Bitte eine Entität der Art „{domain}“ wählen.",
+    "invalid_ai_entity": "Bitte eine KI-Aufgabe (ai_task) oder einen Gesprächsagenten wählen.",
     "too_long": "Höchstens {max} Zeichen.",
     "invalid_type": "Ungültiger Wert.",
 }
@@ -308,7 +365,7 @@ def error_text(code: str, field: Field | None = None) -> str:
     return text.format(
         min=_fmt(field.minimum),
         max=_fmt(field.maximum),
-        domain=field.domain or "",
+        domain=" / ".join(field.entity_domains),
     )
 
 
@@ -349,8 +406,10 @@ def current_values(options: Mapping[str, Any]) -> dict[str, Any]:
         elif f.kind == SELECT:
             value = raw if raw in (f.choices or ()) else f.default
         elif f.kind == MULTI:
-            # unknown ids (an old chain) are left out, so they never block saving
-            value = [v for v in (raw or f.default) if v in (f.choices or ())]
+            # unknown ids (an old chain) are left out, so they never block saving; an empty
+            # list is the default unless the field allows an empty selection (ai_features)
+            chosen = raw if f.empty_ok and isinstance(raw, (list, tuple)) else (raw or f.default)
+            value = [v for v in chosen if v in (f.choices or ())]
         elif f.kind == TIME:
             value = normalize_time(raw) or f.default
         elif f.kind == ENTITIES:
@@ -385,7 +444,9 @@ def _clean_entity(f: Field, raw: Any) -> tuple[Any, str | None]:
     if raw in (None, ""):
         return None, None
     match = _ENTITY_RE.match(str(raw))
-    if not isinstance(raw, str) or match is None or match["domain"] != f.domain:
+    if not isinstance(raw, str) or match is None or match["domain"] not in f.entity_domains:
+        if f.entity_domains == AI_DOMAINS:
+            return None, "invalid_ai_entity"
         return None, "invalid_entity"
     return raw, None
 
@@ -490,7 +551,7 @@ def merge_options(options: Mapping[str, Any], cleaned: Mapping[str, Any]) -> dic
 
 
 def describe_fields() -> dict[str, dict[str, Any]]:
-    """{key: {section, type, min, max, step, domain, optional}} for the panel."""
+    """{key: {section, type, min, max, step, domain, domains, optional}} for the panel."""
     return {f.key: f.describe() for f in FIELDS}
 
 
@@ -509,12 +570,14 @@ def store_choices() -> list[dict[str, Any]]:
 
 
 __all__ = [
+    "AI_DOMAINS",
     "CHOICE_LABELS_DE",
     "ERROR_TEXTS_DE",
     "FIELDS",
     "FIELD_MAP",
     "MARKTGURU_WARNING_DE",
     "SECTIONS",
+    "SECTION_AI",
     "Field",
     "choice_list",
     "clamp",

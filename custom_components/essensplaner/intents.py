@@ -19,6 +19,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, intent
 import voluptuous as vol
 
+from .ai import AI_ACTIVE, AI_REFUSED_DE
 from .const import DOMAIN, MEAL_LABELS, MEAL_SNACK, SPLIT_OFF
 from .dates import describe_date
 from .ingredients import fold, strip_article
@@ -147,6 +148,11 @@ class _EssensplanerIntent(intent.IntentHandler):
         """Handle the intent."""
         hass = intent_obj.hass
         response = intent_obj.create_response()
+        if AI_ACTIVE.get():
+            # a conversation agent answering an Essensplaner AI request calls a tool: it
+            # would ask the Essensplaner (and so itself) again – refuse (1.5)
+            response.async_set_error(intent.IntentResponseErrorCode.FAILED_TO_HANDLE, AI_REFUSED_DE)
+            return response
         manager = _get_manager(hass)
         if manager is None:
             response.async_set_error(

@@ -67,6 +67,60 @@ def test_every_option_has_a_field() -> None:
     for key in ("rewe_online_prices", "aldi_online_prices", "edeka_offers"):
         assert defaults[key] is False, key
     assert defaults["receipt_ai_task_entity"] is None
+    # 1.5: no AI until one is chosen; all features except the product matching; the new
+    # planning / leaflet switches are on
+    assert defaults["ai_entity"] is None
+    assert defaults["ai_features"] == ["occasions", "drinks", "season", "receipts"]
+    for key in ("season_aware", "occasions_in_budget", "drinks_alcohol", "all_leaflets"):
+        assert defaults[key] is True, key
+    assert schema.FIELD_MAP["ai_entity"].section == "ai"
+    assert schema.FIELD_MAP["ai_features"].section == "ai"
+    assert schema.FIELD_MAP["all_leaflets"].section == "offers"
+    for key in ("season_aware", "occasions_in_budget", "drinks_alcohol"):
+        assert schema.FIELD_MAP[key].section == "planning", key
+
+
+def test_entity_fields_with_several_domains() -> None:
+    """1.5: an entity field takes one domain (1.4) or several (the AI picker: AI Tasks and
+    conversation agents); the panel gets domain (the first) and domains."""
+    ai_field = schema.FIELD_MAP["ai_entity"]
+    assert ai_field.entity_domains == ("ai_task", "conversation")
+    assert ai_field.describe() == {
+        "section": "ai",
+        "type": "entity",
+        "domain": "ai_task",
+        "domains": ["ai_task", "conversation"],
+        "optional": True,
+    }
+    todo = schema.FIELD_MAP["shopping_sync_entity"]
+    assert todo.entity_domains == ("todo",)
+    assert todo.describe()["domain"] == "todo" and todo.describe()["domains"] == ["todo"]
+    assert schema.clean_value(ai_field, "ai_task.ollama") == ("ai_task.ollama", None)
+    assert schema.clean_value(ai_field, "conversation.jarvis") == ("conversation.jarvis", None)
+    assert schema.clean_value(ai_field, "") == (None, None)
+    assert schema.clean_value(ai_field, "light.kueche") == (None, "invalid_ai_entity")
+    assert schema.clean_value(todo, "ai_task.ollama") == (None, "invalid_entity")
+    # the receipt photo picker stays AI Task only
+    receipt = schema.FIELD_MAP["receipt_ai_task_entity"]
+    assert schema.clean_value(receipt, "conversation.jarvis") == (None, "invalid_entity")
+    assert schema.error_messages({"receipt_ai_task_entity": "invalid_entity"}) == {
+        "receipt_ai_task_entity": "Bitte eine Entität der Art „ai_task“ wählen."
+    }
+    assert (
+        "Gesprächsagent" in schema.error_messages({"ai_entity": "invalid_ai_entity"})["ai_entity"]
+    )
+    # ai_features: an empty selection is a value (all AI features off), unknown ones are
+    # dropped when read and refused when saved
+    assert schema.current_values({"ai_features": []})["ai_features"] == []
+    assert schema.current_values({"ai_features": ["drinks", "alt"]})["ai_features"] == ["drinks"]
+    assert schema.current_values({})["ai_features"] == ["occasions", "drinks", "season", "receipts"]
+    assert schema.validate({"ai_features": []}) == ({"ai_features": []}, {})
+    assert schema.validate({"ai_features": ["telepathie"]})[1] == {"ai_features": "invalid_choice"}
+    # offer_stores keeps its 1.4 meaning: nothing chosen = the default chains
+    assert schema.current_values({"offer_stores": []})["offer_stores"] == list(
+        schema.FIELD_MAP["offer_stores"].default
+    )
+    assert set(schema.CHOICE_LABELS_DE["ai_feature"]) == set(const.AI_FEATURES)
 
 
 def test_validate_rules() -> None:
@@ -162,6 +216,8 @@ async def test_get_settings(
     hass.states.async_set("zone.arbeit", "0", {"friendly_name": "Arbeit", "latitude": 48.2})
     hass.states.async_set("todo.bring", "3", {"friendly_name": "Bring!"})
     hass.states.async_set("ai_task.ollama", "unavailable", {"friendly_name": "Ollama"})
+    hass.states.async_set("conversation.jarvis", "unknown", {"friendly_name": "Jarvis"})
+    hass.states.async_set("conversation.home_assistant", "unknown", {"friendly_name": "HA"})
     hass.config_entries.async_update_entry(
         entry,
         options={
@@ -194,7 +250,12 @@ async def test_get_settings(
         "step": 1,
     }
     assert res["fields"]["receipt_ai_task_entity"]["optional"] is True
-    assert res["sections"] == ["general", "planning", "offers", "stores", "receipts"]
+    assert res["fields"]["ai_entity"]["domains"] == ["ai_task", "conversation"]
+    assert res["fields"]["ai_features"] == {"section": "ai", "type": "multi"}
+    assert res["sections"] == ["general", "planning", "offers", "stores", "receipts", "ai"]
+    assert values["ai_entity"] is None
+    assert values["ai_features"] == ["occasions", "drinks", "season", "receipts"]
+    assert values["season_aware"] is True and values["all_leaflets"] is True
     choices = res["choices"]
     assert [c["value"] for c in choices["meals"]] == [
         "fruehstueck",
@@ -211,6 +272,19 @@ async def test_get_settings(
     assert choices["ai_task_entities"] == [
         {"value": "ai_task.ollama", "label": "Ollama", "available": False}
     ]
+    # 1.5: the AI picker lists AI Tasks and conversation agents (not Home Assistant's own
+    # agent, it cannot answer in JSON) with their kind
+    assert choices["ai_entities"] == [
+        {"value": "ai_task.ollama", "label": "Ollama", "available": False, "kind": "ai_task"},
+        {
+            "value": "conversation.jarvis",
+            "label": "Jarvis",
+            "available": True,
+            "kind": "conversation",
+        },
+    ]
+    assert choices["ai_features"][0] == {"value": "occasions", "label": "Anlässe (Menü-Vorschläge)"}
+    assert [c["value"] for c in choices["ai_features"]] == list(const.AI_FEATURES)
     keys = [w["key"] for w in res["warnings"]]
     assert keys == [
         "offers_source",
@@ -376,3 +450,48 @@ def test_offer_filter_nonfood() -> None:
     assert not kind_matches(offer("unknown"), "nonfood")
     assert not kind_matches(offer("food"), "nonfood")
     assert not kind_matches(offer("nonfood"), "nonfood")  # clothes, garden … only under "Alles"
+
+
+PANEL_JS = Path(__file__).parent.parent / "custom_components" / DOMAIN / "frontend"
+
+
+async def test_panel_knows_every_setting(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client
+) -> None:
+    """1.5: every setting has a label and help in the panel and is shown in its section; the
+    panel's ENTITY_CHOICES / SELECT_CHOICES / MULTI_CHOICES maps name a choice list of
+    get_settings for every entity, select and multi field (no hard-coded key checks)."""
+    panel = (PANEL_JS / "essensplaner-panel.js").read_text(encoding="utf-8")
+    info = re.search(r"^const SETTING_INFO = \{\n(.*?)^\};", panel, re.M | re.S)
+    assert info
+    labelled = set(re.findall(r"^  (\w+): \[", info.group(1), re.M))
+    shown = set(re.findall(r'f\("(\w+)"\)', panel))
+    shown |= {f"time_{meal}" for meal in const.ALL_MEALS}  # f(`time_${m}`)
+    block = re.search(r"^const SETTINGS_SECTIONS = \[\n(.*?)^\];", panel, re.M | re.S)
+    assert block
+    assert re.findall(r'^  \["(\w+)", "', block.group(1), re.M) == schema.SECTIONS
+
+    def choice_map(name: str) -> dict[str, str]:
+        found = re.search(rf"^const {name} = \{{(.*?)\}};$", panel, re.M | re.S)
+        assert found, name
+        body = found.group(1)
+        if name == "ENTITY_CHOICES":
+            return dict(re.findall(r'(\w+): \{ list: "(\w+)"', body))
+        return dict(re.findall(r'(\w+): "(\w+)"', body))
+
+    maps = {
+        "entity": choice_map("ENTITY_CHOICES"),
+        "select": choice_map("SELECT_CHOICES"),
+        "multi": choice_map("MULTI_CHOICES"),
+    }
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/get_settings"})
+    choices = (await client.receive_json())["result"]["choices"]
+    for field in schema.FIELDS:
+        assert field.key in labelled, field.key
+        assert field.key in shown, field.key
+        if field.kind in maps:
+            assert maps[field.kind].get(field.key) in choices, field.key
+    assert maps["entity"]["ai_entity"] == "ai_entities"
+    assert maps["multi"]["ai_features"] == "ai_features"
+    assert maps["select"]["default_meal"] == "meals"

@@ -218,6 +218,7 @@ const SETTINGS_SECTIONS = [
   ["offers", "🏷️ Angebote & Preisquellen"],
   ["stores", "🏪 Läden & Einkauf"],
   ["receipts", "🧾 Kassenzettel"],
+  ["ai", "🤖 KI"],
 ];
 const SETTING_INFO = {
   default_servings: ["Portionen", "Wird beim Planen von Mahlzeiten verwendet."],
@@ -235,12 +236,16 @@ const SETTING_INFO = {
   show_panel: ["Panel in der Seitenleiste", "Ausgeschaltet verschwindet der Eintrag „Essensplaner“ (und damit diese Einstellungen) nach dem Speichern aus der Seitenleiste – wieder einschalten unter Einstellungen → Geräte & Dienste → Essensplaner → Konfigurieren."],
   weekly_budget: ["Wochenbudget", "Euro pro Woche fürs Essen, 0 = kein Budget.", "€"],
   plan_strategy: ["Planungsart", "Für die automatische Planung und Vorschläge."],
+  season_aware: ["Saison berücksichtigen", "Vorschläge und automatische Planung bevorzugen Gerichte mit Zutaten, die gerade Saison haben (z. B. Spargel im Mai, Kürbis im Herbst)."],
+  occasions_in_budget: ["Anlässe im Wochenbudget", "Die Kosten von Anlässen (Filmabend, Grillen, Weihnachtsessen …) zählen zum Wochenbudget."],
+  drinks_alcohol: ["Getränkevorschläge mit Alkohol", "Auch Wein, Bier, Sekt & Co. vorschlagen. Alkoholfreie Getränke sind immer dabei."],
   offers_source: ["marktguru-Angebote (inoffiziell)", "Nur eine Ergänzung zu den direkten Quellen der Ketten (EDEKA-Angebote, ALDI SÜD, REWE-Onlinepreise) – für Läden ohne eigene Angebotsquelle (Lidl, REWE, Netto, Penny, Kaufland, NORMA, Rossmann, dm …): etwa 2–3× pro Woche alle Angebote deiner Läden, außerdem Live-Suche in „Artikel hinzufügen“. Standardmäßig aus."],
   zip_code: ["Postleitzahl", "Für die Angebote in deiner Nähe. Kann leer bleiben, wenn deine Läden eine Postleitzahl haben."],
   offer_stores: ["Läden (ohne gespeicherte Filialen)", "Nur Angebote dieser Ketten. Hast du Filialen gespeichert, zählen deren Ketten."],
   offers_watchlist: ["Merkliste", "Zusätzliche Produkte, deren Angebote du sehen willst, kommagetrennt (z. B. „Kaffee, Butter“)."],
   rewe_online_prices: ["REWE-Onlinepreise", "⚠️ Experimentell: Markt-ID und Suchbegriffe gehen höchstens einmal pro Woche an www.rewe.de. Lehnt REWE ab, wird 7 Tage pausiert. Braucht eine REWE-Filiale mit Markt-ID."],
   aldi_online_prices: ["ALDI-SÜD-Preise", "⚠️ Experimentell: die Lage deiner ALDI-SÜD-Filiale und Suchbegriffe gehen höchstens einmal pro Woche an ALDI SÜD; reduzierte Artikel und Wochenangebote werden Angebote. Braucht eine ALDI-SÜD-Filiale."],
+  all_leaflets: ["Prospekte aller Filialen", "Mit marktguru: die Prospekte (als Bilder) aller gespeicherten Filialen im Tab „Angebote“ – etwa einmal pro Woche je Kette und Postleitzahl."],
   edeka_offers: ["EDEKA-Angebote", "Einmal am Tag die Prospekt-Angebote deines EDEKA-Markts von www.edeka.de (nur die Markt-ID wird gesendet). Inoffizielle Schnittstelle; lehnt EDEKA ab, wird 7 Tage pausiert. Braucht eine EDEKA-Filiale mit Markt-ID."],
   store_split_mode: ["Aufteilungsmodus", "Wie die Einkaufsliste auf deine Läden verteilt wird. Wirkt, sobald du einen Hauptladen hast."],
   store_split_min_saving: ["Woanders günstiger ab", "Ein Artikel wandert in einen anderen Laden, wenn er dort mindestens so viel günstiger ist.", "€"],
@@ -251,8 +256,20 @@ const SETTING_INFO = {
   branch_radius_km: ["Umkreis", "Suchradius um jede Zone.", "km"],
   branch_route: ["Arbeitsweg einbeziehen", "Auch Läden entlang der Strecke von Zuhause zu den anderen Zonen finden."],
   branch_route_radius_m: ["Korridor am Arbeitsweg", "So weit darf ein Laden höchstens neben dem Arbeitsweg liegen.", "m"],
-  receipt_ai_task_entity: ["KI-Aufgabe für Kassenzettel-Fotos", "Optional: eine AI-Task-Entität (z. B. Ollama, OpenAI, Google) liest Fotos und PDFs. Sie bekommt nur das Bild des Kassenzettels. Ohne KI kannst du den Text einfügen – er wird lokal gelesen."],
+  receipt_ai_task_entity: ["KI-Aufgabe für Kassenzettel-Fotos", "Optional: eine KI-Aufgabe (z. B. Claude, OpenAI, Google Gemini oder Ollama mit Bildverarbeitung) liest Fotos und PDFs. Sie bekommt nur das Bild des Kassenzettels. Leer: die KI aus „🤖 KI“, wenn sie eine KI-Aufgabe ist. Ohne KI kannst du den Text einfügen – er wird lokal gelesen."],
+  ai_entity: ["KI (über Home Assistant)", "Eine KI-Aufgabe (ai_task) oder ein Gesprächsagent (conversation, z. B. Jarvis). Die KI ordnet und ergänzt nur die Vorschläge der Regeln und wird nur auf Knopfdruck gefragt."],
+  ai_features: ["KI nutzen für", "Ohne Haken arbeitet die Funktion nur nach Regeln."],
 };
+/* where the choices of entity / select / multi fields come from (keys of get_settings'
+ * choices) – the field type and limits come from the backend (options_schema.py) */
+const ENTITY_CHOICES = {
+  shopping_sync_entity: { list: "todo_entities", none: "– keine –", empty: "Keine weitere To-do-Liste gefunden." },
+  receipt_ai_task_entity: { list: "ai_task_entities", none: "– keine (nur Text einfügen) –", empty: "Keine KI-Aufgabe gefunden – richte z. B. Anthropic (Claude), OpenAI, Google Gemini oder Ollama in Home Assistant ein." },
+  ai_entity: { list: "ai_entities", none: "– keine KI –", empty: "Keine KI gefunden – richte z. B. Anthropic (Claude), OpenAI, Google Gemini oder Ollama in Home Assistant ein (Einstellungen → Geräte & Dienste).", groups: { ai_task: "🧠 KI-Aufgaben", conversation: "💬 Gesprächsagenten" } },
+};
+const SELECT_CHOICES = { default_meal: "meals", plan_strategy: "strategies", store_split_mode: "split_modes", offers_source: "offers_sources" };
+const MULTI_CHOICES = { enabled_meals: "meals", offer_stores: "stores", ai_features: "ai_features" };
+const AI_KIND_LABELS = { ai_task: "KI-Aufgabe", conversation: "Gesprächsagent" };
 
 const safeUrl = (url) => {
   const u = String(url || "").trim();
@@ -677,6 +694,9 @@ const STYLE = `
   .ssec > h3 + .sfield, .ssec > .hint + .sfield { border-top: none; }
   .sfield > .flabel { font-weight: 500; font-size: 14.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .sfield .fhelp { font-size: 12.5px; color: var(--ep-secondary-text); line-height: 1.4; }
+  .aitestrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .aitestrow .aitest { flex: 1 1 220px; min-width: 0; }
+  .aitestrow .aitest:empty { display: none; }
   .sfield .ferr { font-size: 13px; color: var(--ep-red); font-weight: 500; }
   .sfield.invalid input, .sfield.invalid select, .sfield.invalid textarea { outline: 2px solid var(--error-color, #db4437); outline-offset: -1px; }
   .sfield.invalid .chips, .sfield.invalid .choice { outline: 2px solid var(--error-color, #db4437); outline-offset: 2px; border-radius: 10px; }
@@ -4336,6 +4356,9 @@ class EssensplanerPanel extends HTMLElement {
       if (ev.target === view || ev.target.closest("[data-sclose]")) return this._closeSettings();
       if (ev.target.closest("[data-ssave]")) return this._saveSettings();
       if (ev.target.closest("[data-sreload]")) return location.reload();
+      if (ev.target.closest("[data-saitest]")) return this._settingsAiTest();
+      const jump = ev.target.closest("[data-sjump]");
+      if (jump) return this._settingsGo(jump.dataset.sjump);
       const navBtn = ev.target.closest("[data-snav]");
       if (navBtn) return this._settingsGo(navBtn.dataset.snav);
       const go = ev.target.closest("[data-sgo]");
@@ -4353,12 +4376,28 @@ class EssensplanerPanel extends HTMLElement {
   _settingsSpy() {
     const st = this._settings;
     const body = this._settingsRoot.querySelector(".sbody");
-    if (!st || !body || this._settingsJumping) return;
+    if (!st || !body) return;
+    if (this._settingsJumping) {
+      // a jump from the navigation is still scrolling (long jumps take longer than the
+      // first timer): the clicked section stays chosen until the scrolling stops
+      clearTimeout(this._settingsJumpTimer);
+      this._settingsJumpTimer = setTimeout(() => (this._settingsJumping = false), 150);
+      return;
+    }
     let current = SETTINGS_SECTIONS[0][0];
     for (const [id] of SETTINGS_SECTIONS) {
       const sec = body.querySelector(`[data-ssec="${id}"]`);
       if (sec && sec.offsetTop - body.offsetTop <= body.scrollTop + 40) current = id;
     }
+    if (body.scrollTop + body.clientHeight >= body.scrollHeight - 4) {
+      // scrolled to the end: the last sections never reach the top – a section picked in
+      // the navigation stays chosen while it is in view, else the last one is
+      const order = SETTINGS_SECTIONS.map(([id]) => id);
+      const picked = this._settingsPicked;
+      const sec = picked && body.querySelector(`[data-ssec="${picked}"]`);
+      const inView = sec && sec.offsetTop - body.offsetTop < body.scrollTop + body.clientHeight;
+      current = inView && order.indexOf(picked) >= order.indexOf(current) ? picked : order[order.length - 1];
+    } else this._settingsPicked = null;
     if (current !== st.section) {
       st.section = current;
       this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === current));
@@ -4369,6 +4408,7 @@ class EssensplanerPanel extends HTMLElement {
     const st = this._settings;
     if (!st || !section) return;
     st.section = section;
+    this._settingsPicked = section;
     this._settingsRoot.querySelectorAll("[data-snav]").forEach((b) => b.classList.toggle("on", b.dataset.snav === section));
     const body = this._settingsRoot.querySelector(".sbody");
     const sec = body?.querySelector(`[data-ssec="${section}"]`);
@@ -4390,10 +4430,10 @@ class EssensplanerPanel extends HTMLElement {
         <div class="sfield"><div class="flabel">Uhrzeiten</div><div class="fhelp">Für den Kalender und „Nächste Mahlzeit“.</div><div class="sgrid">${times}</div></div>
         ${f("pantry_staples")}${f("excluded")}${f("auto_mark_cooked")}${f("shopping_sync_entity")}${f("register_intents")}${f("show_panel")}`;
     } else if (id === "planning") {
-      inner = `${f("weekly_budget")}${f("plan_strategy")}`;
+      inner = `${f("weekly_budget")}${f("plan_strategy")}${f("season_aware")}${f("occasions_in_budget")}${f("drinks_alcohol")}`;
     } else if (id === "offers") {
       inner = `<div class="hint">Angebote und Preise kommen direkt von den Ketten, wo es eine öffentliche Quelle gibt (EDEKA, ALDI SÜD, REWE-Preise). marktguru ist eine optionale Ergänzung auf eigenes Risiko. Alle Quellen sind aus, bis du sie einschaltest.</div>
-        ${f("offers_source")}${f("zip_code")}${f("offer_stores")}${f("offers_watchlist")}${f("edeka_offers")}${f("aldi_online_prices")}${f("rewe_online_prices")}
+        ${f("offers_source")}${f("all_leaflets")}${f("zip_code")}${f("offer_stores")}${f("offers_watchlist")}${f("edeka_offers")}${f("aldi_online_prices")}${f("rewe_online_prices")}
         <div class="hint">Filialen verknüpfen (EDEKA-Markt, ALDI-SÜD-Filiale, REWE-Markt-ID): <button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button></div>`;
     } else if (id === "stores") {
       inner = `${f("store_split_mode")}
@@ -4402,6 +4442,13 @@ class EssensplanerPanel extends HTMLElement {
         <div class="hint">${d.branches ? `${d.branches} Läden gespeichert${d.main_branch ? ` · Hauptladen: ${esc(d.main_branch)}` : ""}` : "Noch keine Läden gespeichert"} – <button class="btn small" data-sgo="stores" data-sec="mine">🏪 Läden & Preise</button></div>`;
     } else if (id === "receipts") {
       inner = `${f("receipt_ai_task_entity")}<div class="hint">Kassenzettel erfasst du im Tab „🏪 Läden & Preise“ oder über „🧾 Kassenzettel“ in der Einkaufsliste.</div>`;
+    } else if (id === "ai") {
+      inner = `<div class="hint">Optional – der Essensplaner funktioniert komplett ohne KI. Die KI läuft über Home Assistant, hier werden keine Schlüssel gespeichert: richte dort z. B. <b>Anthropic</b> (Claude), <b>OpenAI</b>, <b>Google Gemini</b> oder <b>Ollama</b> (lokal oder mit Cloud-Modellen) ein – sie bringen eine KI-Aufgabe und/oder einen Gesprächsagenten mit.</div>
+        ${f("ai_entity")}
+        <div class="sfield"><div class="aitestrow"><button class="btn" data-saitest ${st.aiTest?.running ? "disabled" : ""}>🔌 Verbindung testen</button><div class="aitest" data-aitest aria-live="polite">${this._aiTestHtml()}</div></div></div>
+        ${f("ai_features")}
+        <div class="hint">📷 Kassenzettel-Fotos brauchen eine <b>KI-Aufgabe</b>, die Bilder lesen kann – ein Gesprächsagent bekommt keine Bilder. Eine eigene KI-Aufgabe dafür wählst du unter <button class="btn small" data-sjump="receipts">🧾 Kassenzettel</button></div>
+        <div class="hint">🔒 Die KI bekommt nur Rezeptnamen, Tags und Zutaten, Kettennamen, Angebotspreise, Monat und Gästezahl – keine Adressen, Postleitzahlen, Notizen oder Kassenzettel-Texte. Antworten werden gegen deine Rezepte geprüft und nie ungefragt übernommen; während einer Anfrage sind die Essensplaner-Sprachbefehle für die KI gesperrt (keine Schleifen).</div>`;
     }
     return `<section class="card ssec" data-ssec="${id}" aria-label="${esc(label)}"><h3>${label}</h3>${inner}</section>`;
   }
@@ -4445,7 +4492,7 @@ class EssensplanerPanel extends HTMLElement {
           return `<div class="sfield ${error ? "invalid" : ""}" data-field="${esc(key)}"><label class="switch"><input type="checkbox" ${aria} ${on ? "checked" : ""}> ${esc(label)}</label><div class="notice warn">⚠️ ${esc(MG_WARNING)}</div><div class="fhelp">${esc(help)}</div>${errHtml}</div>`;
         }
         if (key === "plan_strategy") {
-          const opts = choice(d.choices?.strategies)
+          const opts = choice(d.choices?.[SELECT_CHOICES[key]])
             .map((c) => {
               const [title, desc] = STRATEGY_LABELS[c.value] || [c.label, ""];
               return `<label><input type="radio" name="s-strategy" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span><b>${esc(title)}</b>${desc ? `<br><span class="meta">${esc(desc)}</span>` : ""}</span></label>`;
@@ -4455,33 +4502,37 @@ class EssensplanerPanel extends HTMLElement {
         }
         if (key === "store_split_mode") {
           const desc = { off: "Eine Liste wie bisher, ohne Läden.", main_only: "Alles kommt in den Hauptladen; die anderen Läden dienen zum Preisvergleich.", main_exceptions: "Alles in den Hauptladen, nur Angebote und deutlich günstigere Artikel in andere Läden; Drogerieartikel in deine Drogerie." };
-          const opts = choice(d.choices?.split_modes)
+          const opts = choice(d.choices?.[SELECT_CHOICES[key]])
             .map((c) => `<label><input type="radio" name="s-split" data-skey="${esc(key)}" value="${esc(c.value)}" ${c.value === value ? "checked" : ""}><span><b>${esc(c.label)}</b><br><span class="meta">${esc(desc[c.value] || "")}</span></span></label>`)
             .join("");
           return wrap(`<div class="choice" role="radiogroup" aria-label="${esc(label)}">${opts}</div>`);
         }
-        const list = key === "default_meal" ? d.choices?.meals : [];
+        const list = d.choices?.[SELECT_CHOICES[key]];
         return wrap(`<select ${aria}>${choice(list).map((c) => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select>`);
       }
       case "multi": {
         const selected = new Set(value || []);
         const chip = (c) => `<label class="chip pick2"><input type="checkbox" data-skey="${esc(key)}" value="${esc(c.value)}" ${selected.has(c.value) ? "checked" : ""}>${c.kind ? retailerDot(c.value, c.label).replace('class="rdot"', 'class="rdot xs"') : ""}${esc(c.label)}</label>`;
+        const all = choice(d.choices?.[MULTI_CHOICES[key]]);
         if (key === "offer_stores") {
-          const all = choice(d.choices?.stores);
           const food = all.filter((c) => c.kind !== "drugstore");
           const drug = all.filter((c) => c.kind === "drugstore");
           return wrap(`<div class="meta">Supermärkte</div><div class="chips">${food.map(chip).join("")}</div><div class="meta">Drogerien</div><div class="chips">${drug.map(chip).join("")}</div>`);
         }
-        return wrap(`<div class="chips" role="group" aria-label="${esc(label)}">${choice(d.choices?.meals).map(chip).join("")}</div>`);
+        return wrap(`<div class="chips" role="group" aria-label="${esc(label)}">${all.map(chip).join("")}</div>`);
       }
       case "entity": {
-        const list = key === "shopping_sync_entity" ? d.choices?.todo_entities : d.choices?.ai_task_entities;
-        const opts = choice(list)
-          .map((c) => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}${c.label !== c.value ? ` (${esc(c.value)})` : ""}${c.missing ? " – nicht gefunden" : c.available === false ? " – nicht erreichbar" : ""}</option>`)
-          .join("");
-        const none = key === "shopping_sync_entity" ? "– keine –" : "– keine (nur Text einfügen) –";
-        const empty = !choice(list).length ? `<div class="fhelp">${key === "receipt_ai_task_entity" ? "Keine AI-Task-Entität gefunden – richte z. B. Ollama, OpenAI oder Google Gemini in Home Assistant ein." : "Keine weitere To-do-Liste gefunden."}</div>` : "";
-        return wrap(`<select ${aria} class="wide"><option value="">${none}</option>${opts}</select>`, { after: empty });
+        const spec = ENTITY_CHOICES[key] || { list: "", none: "– keine –", empty: "" };
+        const list = choice(d.choices?.[spec.list]);
+        const option = (c) => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}${c.label !== c.value ? ` (${esc(c.value)})` : ""}${c.missing ? " – nicht gefunden" : c.available === false ? " – nicht erreichbar" : ""}</option>`;
+        let opts = list.map(option).join("");
+        if (spec.groups) {
+          // AI Tasks and conversation agents in their own groups (a missing value last)
+          const kinds = Object.keys(spec.groups);
+          opts = kinds.map((k) => list.filter((c) => c.kind === k && !c.missing)).map((items, i) => (items.length ? `<optgroup label="${esc(spec.groups[kinds[i]])}">${items.map(option).join("")}</optgroup>` : "")).join("") + list.filter((c) => c.missing || !kinds.includes(c.kind)).map(option).join("");
+        }
+        const empty = !list.length && spec.empty ? `<div class="fhelp">${esc(spec.empty)}</div>` : "";
+        return wrap(`<select ${aria} class="wide"><option value="">${esc(this._settingsNone(key, spec))}</option>${opts}</select>`, { after: empty });
       }
       case "entities": {
         const selected = new Set(value || []);
@@ -4492,6 +4543,57 @@ class EssensplanerPanel extends HTMLElement {
       default:
         return "";
     }
+  }
+
+  /** The "none" entry of an entity picker; the receipt picker names the AI it falls back to. */
+  _settingsNone(key, spec) {
+    const st = this._settings;
+    if (key === "receipt_ai_task_entity") {
+      const general = st?.values?.ai_entity;
+      if (general && String(general).startsWith("ai_task.")) {
+        const c = (st.data?.choices?.ai_entities || []).find((x) => x.value === general);
+        return `– wie 🤖 KI: ${c?.label || general} –`;
+      }
+    }
+    return spec.none;
+  }
+
+  /** The result of "Verbindung testen" (running, ok with seconds, or the German error). */
+  _aiTestHtml() {
+    const t = this._settings?.aiTest;
+    if (!t) return "";
+    if (t.running) return `<span class="meta">⏳ Teste … (eine lokale KI braucht bis zu einer Minute)</span>`;
+    if (t.ok) {
+      const c = (this._settings.data?.choices?.ai_entities || []).find((x) => x.value === t.entity);
+      return `<span class="bdg ok">✅ Verbunden</span> <span class="meta">${esc(c?.label || t.entity || "")} (${esc(AI_KIND_LABELS[t.mode] || t.mode || "")}) hat in ${esc(num(t.seconds ?? 0))} s mit JSON geantwortet.</span>`;
+    }
+    return `<div class="notice ${t.code === "ai_busy" ? "warn" : "err"}">⚠️ ${esc(t.error || "Die KI hat nicht geantwortet.")}</div>`;
+  }
+
+  _settingsAiTestRender() {
+    const root = this._settingsRoot;
+    const box = root?.querySelector("[data-aitest]");
+    if (box) box.innerHTML = this._aiTestHtml();
+    const btn = root?.querySelector("[data-saitest]");
+    if (btn) btn.disabled = Boolean(this._settings?.aiTest?.running);
+  }
+
+  /** "Verbindung testen": a tiny request to the AI chosen in the form (also before saving). */
+  async _settingsAiTest() {
+    const st = this._settings;
+    if (!st?.data || st.aiTest?.running) return;
+    const entity = st.values?.ai_entity || null;
+    st.aiTest = { running: true, entity };
+    this._settingsAiTestRender();
+    let res;
+    try {
+      res = await this._hass.callWS({ type: `${DOMAIN}/ai_test`, ...(entity ? { entity_id: entity } : {}) });
+    } catch (err) {
+      res = { ok: false, error: errText(err) };
+    }
+    if (this._settings !== st) return;
+    st.aiTest = { ...res, entity: res?.entity || entity, running: false };
+    this._settingsAiTestRender();
   }
 
   _onSettingsInput(ev) {
@@ -4512,6 +4614,14 @@ class EssensplanerPanel extends HTMLElement {
     else if (field.type === "entity") value = t.value || null;
     else value = t.value;
     st.values[key] = value;
+    if (key === "ai_entity") {
+      // another AI: the last test result is not about it; the receipt picker's "none"
+      // names the AI it falls back to
+      if (!st.aiTest?.running) st.aiTest = null;
+      this._settingsAiTestRender();
+      const none = this._settingsRoot.querySelector('select[data-skey="receipt_ai_task_entity"] option[value=""]');
+      if (none) none.textContent = this._settingsNone("receipt_ai_task_entity", ENTITY_CHOICES.receipt_ai_task_entity);
+    }
     const hadError = key in st.errors || (key === "offers_source" && "zip_code" in st.errors);
     delete st.errors[key];
     if (key === "offers_source") delete st.errors.zip_code;

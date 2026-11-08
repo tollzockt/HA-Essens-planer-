@@ -20,7 +20,6 @@ from __future__ import annotations
 import asyncio
 from datetime import date, timedelta
 from http import HTTPStatus
-import json
 import logging
 from pathlib import Path
 import re
@@ -32,7 +31,6 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView, require_admin
 from homeassistant.components.http.const import KEY_HASS_REFRESH_TOKEN_ID
-from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.http import KEY_HASS
@@ -40,8 +38,10 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
+from . import ai
+from .ai import extract_json  # moved to ai.py in 1.5
 from .catalog import KeyMatcher
-from .const import CONF_RECEIPT_AI, DOMAIN, STORAGE_KEY
+from .const import AI_FEATURE_RECEIPTS, DOMAIN, STORAGE_KEY
 from .ingredients import _singular, fold, guess_category, ingredient_key
 from .offers import names_other_compound, offer_matches, parse_pack_text, short_key
 from .pricing import lookup_keys, make_entry, pack_text, unit_price
@@ -860,51 +860,6 @@ def parse_receipt_text(text: str, today: date | None = None) -> dict[str, Any]:
 # ----------------------------------------------------------------------------------
 
 
-def extract_json(text: str) -> Any:
-    """The JSON value of an AI answer: code fences, text before/after and trailing commas
-    are tolerated. Raises ValueError when there is none."""
-    raw = str(text or "").strip()
-    if fence := re.search(r"```(?:json|JSON)?\s*(.*?)```", raw, re.DOTALL):
-        raw = fence.group(1).strip()
-    raw = raw.replace("“", '"').replace("”", '"').replace("„", '"')
-    start = min((i for i in (raw.find("{"), raw.find("[")) if i >= 0), default=-1)
-    if start < 0:
-        raise ValueError("no JSON")
-    candidate = _balanced(raw, start)
-    for attempt in (candidate, re.sub(r",\s*([}\]])", r"\1", candidate)):
-        try:
-            return json.loads(attempt)
-        except ValueError:
-            continue
-    raise ValueError("invalid JSON")
-
-
-def _balanced(text: str, start: int) -> str:
-    """The text from start to its matching closing bracket (strings respected)."""
-    depth = 0
-    in_string = False
-    escape = False
-    for position in range(start, len(text)):
-        char = text[position]
-        if in_string:
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == '"':
-                in_string = False
-            continue
-        if char == '"':
-            in_string = True
-        elif char in "{[":
-            depth += 1
-        elif char in "}]":
-            depth -= 1
-            if depth == 0:
-                return text[start : position + 1]
-    return text[start:]
-
-
 def parse_ai_receipt(data: Any, today: date | None = None) -> dict[str, Any]:
     """The answer of the AI Task entity ({"data": text | object}) as a parsed receipt (the
     format of parse_receipt_text, source "photo"). Raises ValueError for garbage."""
@@ -1669,16 +1624,22 @@ def _proposal_item(
 
 
 def ai_entity(manager: EssensplanerManager, entity_id: str | None = None) -> str | None:
-    """The AI Task entity for receipt photos (the given one, else the option)."""
-    return entity_id or manager.options.get(CONF_RECEIPT_AI) or None
+    """The AI Task entity for receipt photos: the given one, else the receipt option, else
+    (1.5) the AI entity of the settings' "KI" section when it is an AI Task. None when
+    "Kassenzettel-Fotos" is switched off in the AI features (a given entity still counts)."""
+    if entity_id:
+        return entity_id
+    if not ai.ai_enabled(manager, AI_FEATURE_RECEIPTS):
+        return None
+    return ai.ai_entity(manager, AI_FEATURE_RECEIPTS)
 
 
 def ai_available(hass: HomeAssistant, entity_id: str | None) -> bool:
-    """True if the entity exists, is available and ai_task.generate_data is registered."""
-    if not entity_id or not hass.services.has_service("ai_task", "generate_data"):
+    """True if the entity is an AI Task that exists, is available and
+    ai_task.generate_data is registered."""
+    if ai.ai_mode(entity_id) != ai.MODE_AI_TASK:
         return False
-    state = hass.states.get(entity_id)
-    return state is not None and state.state != STATE_UNAVAILABLE
+    return ai.ai_available(hass, entity_id)
 
 
 async def async_scan_receipt(
@@ -1711,9 +1672,12 @@ async def async_scan_receipt(
             raise _error("receipt_media_invalid", media=media_content_id or "")
     entity = ai_entity(manager, entity_id)
     if not entity:
+        if ai.ai_entity(manager, AI_FEATURE_RECEIPTS) is not None:
+            raise _error("ai_feature_off", feature=ai.FEATURE_LABELS_DE[AI_FEATURE_RECEIPTS])
         raise _error("receipt_ai_not_configured")
     if not ai_available(hass, entity):
         raise _error("receipt_ai_unavailable", entity=entity)
+    token = ai.AI_ACTIVE.set(True)  # no Essensplaner tools meanwhile (1.5)
     try:
         async with asyncio.timeout(AI_TIMEOUT):
             response = await hass.services.async_call(
@@ -1734,6 +1698,8 @@ async def async_scan_receipt(
         raise _error("receipt_ai_failed", error="keine Antwort") from err
     except (HomeAssistantError, vol.Invalid) as err:
         raise _error("receipt_ai_failed", error=str(err) or type(err).__name__) from err
+    finally:
+        ai.AI_ACTIVE.reset(token)
     try:
         parsed = parse_ai_receipt(response, manager.today())
     except (ValueError, TypeError) as err:

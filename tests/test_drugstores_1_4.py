@@ -637,7 +637,7 @@ async def test_marktguru_honest_user_agent(
     aioclient_mock.get(f"{MARKTGURU_API}/offers/search", json={"results": [NO_BRAND_OFFER]})
     results = await MarktguruClient(hass).async_search("Kürbis", "56501")
     assert len(results) == 1
-    assert HTTP_USER_AGENT.startswith("HA-Essensplaner/1.4 (+https://github.com/")
+    assert HTTP_USER_AGENT.startswith("HA-Essensplaner/1.5 (+https://github.com/")
     assert len(aioclient_mock.mock_calls) == 2
     for call in aioclient_mock.mock_calls:
         assert call[3]["User-Agent"] == HTTP_USER_AGENT

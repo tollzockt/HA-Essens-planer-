@@ -228,8 +228,8 @@ ERROR_MESSAGES_DE = {
     "receipt_no_items": "Auf dem Kassenzettel habe ich keine Artikel mit Preis gefunden.",
     "receipt_ai_not_configured": (
         "Für Fotos von Kassenzetteln brauche ich eine KI-Aufgabe (AI Task): wähle sie unter "
-        "Essensplaner-Panel → Einstellungen → Kassenzettel – oder füge den Text des "
-        "Kassenzettels ein."
+        "Essensplaner-Panel → Einstellungen → 🤖 KI oder → Kassenzettel – oder füge den "
+        "Text des Kassenzettels ein."
     ),
     "receipt_ai_unavailable": (
         "Die KI-Aufgabe {entity} ist gerade nicht verfügbar – bitte später erneut versuchen "
@@ -242,6 +242,27 @@ ERROR_MESSAGES_DE = {
     ),
     "receipt_media_invalid": (
         "„{media}“ ist kein Kassenzettel-Bild aus dem Medienordner (JPG, PNG, WebP oder PDF)."
+    ),
+    # AI via Home Assistant (1.5, ai.py)
+    "ai_not_configured": (
+        "Dafür brauche ich eine KI: wähle unter Essensplaner-Panel → Einstellungen → 🤖 KI "
+        "eine KI-Aufgabe oder einen Gesprächsagenten aus Home Assistant (z. B. Claude, "
+        "OpenAI oder Ollama). Ohne KI funktionieren die Vorschläge nach Regeln."
+    ),
+    "ai_unavailable": (
+        "Die KI {entity} ist gerade nicht erreichbar – bitte später erneut versuchen. Die "
+        "Vorschläge nach Regeln funktionieren weiter."
+    ),
+    "ai_failed": "Die Anfrage an die KI {entity} ist fehlgeschlagen ({error}).",
+    "ai_invalid": (
+        "Die KI {entity} hat keine verwertbare Antwort (JSON) geliefert – bitte erneut versuchen."
+    ),
+    "ai_feature_off": (
+        "Die KI ist für „{feature}“ ausgeschaltet (Essensplaner-Panel → Einstellungen → 🤖 KI)."
+    ),
+    "ai_busy": (
+        "Die KI arbeitet gerade an einer anderen Essensplaner-Anfrage – bitte gleich noch "
+        "einmal versuchen."
     ),
 }
 
