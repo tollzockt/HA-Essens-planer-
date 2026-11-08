@@ -178,6 +178,11 @@ const OFFER_KINDS = [
 const OFFER_SOURCE_LABEL = { edeka: "EDEKA direkt", aldi_weekly: "ALDI SÜD direkt", aldi_online: "ALDI SÜD direkt", marktguru: "marktguru (inoffiziell)", manual: "selbst eingetragen" };
 const OFFER_PAGE = 60;
 // after saving the settings: wait, then retry loading the data (the entry reloads)
+// receipts loaded per request ("Mehr anzeigen" loads more) and the most the backend keeps
+const RECEIPT_FETCH_STEP = 50;
+const RECEIPT_FETCH_MAX = 200;
+/** A receipt saved from a PDF (no <img> for it). */
+const isPdfReceipt = (r) => /pdf/i.test(r?.content_type || "") || /\.pdf$/i.test(r?.image || "");
 const SETTINGS_RELOAD_DELAYS = [700, 500, 700, 1000, 1500, 2000, 2000, 3000, 3000, 4000, 5000, 5000];
 const MG_WARNING = "marktguru untersagt laut AGB das automatische Auslesen – Nutzung auf eigenes Risiko, nur privat.";
 const RECEIPT_UPLOAD_URL = "/api/essensplaner/receipt_upload";
@@ -777,6 +782,11 @@ const STYLE = `
   .rline .ign { font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; min-height: 30px; align-self: flex-start; }
   .rline .ign input { width: 18px; height: 18px; flex: none; margin: 0; accent-color: var(--ep-primary); }
   .rline .rwarn { font-size: 11.5px; color: var(--ep-orange); }
+  .rline .rown { grid-column: 2 / -1; text-align: right; }
+  .rline .rown:empty { display: none; }
+  .rline .packin :disabled { opacity: .62; }
+  .rhead .rneed { font-size: 13px; color: var(--ep-red); font-weight: 500; }
+  .rhead select.invalid { outline: 2px solid var(--error-color, #db4437); outline-offset: -1px; }
   .rtotal { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 14px; }
   details.srcbox { margin: 0 0 10px; font-size: 12.5px; color: var(--ep-secondary-text); }
   details.srcbox > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
@@ -789,6 +799,7 @@ const STYLE = `
     .rline { grid-template-columns: 1fr 1fr; }
     .rline .src { grid-column: 1 / -1; }
     .rline .art { grid-column: 1 / -1; }
+    .rline .rown { grid-column: 1 / -1; text-align: left; }
     .rline.headrow { display: none; }
     .soffers { grid-template-columns: 1fr; }
     .leaflets { grid-template-columns: 1fr; }
@@ -933,6 +944,12 @@ class EssensplanerPanel extends HTMLElement {
     this._narrowQuery?.addEventListener?.("change", this._onNarrow);
     window.visualViewport?.addEventListener("resize", this._onViewport);
     if (this._hass && !this._unsub && this._data) this._subscribe();
+    // removed while the integration reloaded after saving the settings: fetch everything again
+    if (this._hass && this._data && this._reloadOnConnect) {
+      this._reloadOnConnect = false;
+      this._forgetLoaded();
+      this._load();
+    }
   }
 
   disconnectedCallback() {
@@ -1007,14 +1024,21 @@ class EssensplanerPanel extends HTMLElement {
     }
   }
 
+  /** Change events of the integration – only while the panel is on the page (a removed
+   *  panel would otherwise keep loading all data on every change). */
   async _subscribe() {
-    if (this._unsub) return;
+    if (this._unsub || this._subscribing || !this.isConnected) return;
+    this._subscribing = true;
     try {
-      this._unsub = await this._hass.connection.subscribeMessage((ev) => this._scheduleReload(ev?.change), {
+      const unsub = await this._hass.connection.subscribeMessage((ev) => this._scheduleReload(ev?.change), {
         type: `${DOMAIN}/subscribe`,
       });
+      if (this.isConnected) this._unsub = unsub;
+      else if (typeof unsub === "function") unsub(); // removed meanwhile
     } catch (err) {
       /* integration not loaded – ignore */
+    } finally {
+      this._subscribing = false;
     }
   }
 
@@ -1923,7 +1947,7 @@ class EssensplanerPanel extends HTMLElement {
       } else if (ev.key === "ArrowLeft") this._cookGo(-1);
       return;
     }
-    if (ev.key === "Escape" && this._modal) this._closeModal();
+    if (ev.key === "Escape" && this._modal) this._requestCloseModal();
   }
 
   _onInput(ev) {
@@ -2320,10 +2344,17 @@ class EssensplanerPanel extends HTMLElement {
       case "receipt-delete":
         this._deleteReceipt(d.id);
         break;
-      case "receipts-more":
+      case "receipts-more": {
         this._receiptLimit = (this._receiptLimit || 10) + 20;
+        const loaded = this._receipts?.receipts?.length || 0;
+        if (this._receiptLimit > loaded && loaded < (this._receipts?.count || 0) && !this._receiptsLoading) {
+          // older receipts than the loaded ones: fetch more (the backend keeps up to 200)
+          this._receiptFetchLimit = Math.min(RECEIPT_FETCH_MAX, Math.max(this._receiptLimit, loaded + RECEIPT_FETCH_STEP));
+          this._fetchReceipts();
+        }
         this._renderReceiptSection();
         break;
+      }
       case "price-kind":
         this._priceKind = d.kind;
         this._renderPriceMatrix();
@@ -2378,7 +2409,10 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   /* ------------------------------------------------------------ modals */
-  _showModal(title, body, footer, onMount) {
+  /** opts.sticky (or a function returning it): a tap beside the dialog does not close it;
+   *  opts.guard(): false keeps it open when it is closed with ✕, a [data-close] button or
+   *  Escape. */
+  _showModal(title, body, footer, onMount, opts = {}) {
     this._modalRoot.innerHTML = `
       <div class="overlay">
         <div class="modal" role="dialog" aria-label="${esc(title)}">
@@ -2389,10 +2423,17 @@ class EssensplanerPanel extends HTMLElement {
       </div>`;
     const overlay = this._modalRoot.querySelector(".overlay");
     overlay.addEventListener("click", (ev) => {
-      if (ev.target === overlay || ev.target.closest("[data-close]")) this._closeModal();
+      const sticky = typeof opts.sticky === "function" ? opts.sticky() : opts.sticky;
+      if (ev.target.closest("[data-close]") || (ev.target === overlay && !sticky)) this._requestCloseModal();
     });
-    this._modal = { root: overlay };
+    this._modal = { root: overlay, guard: opts.guard || null };
     if (onMount) onMount(overlay);
+  }
+
+  _requestCloseModal() {
+    const guard = this._modal?.guard;
+    if (guard && !guard()) return;
+    this._closeModal();
   }
 
   _closeModal() {
@@ -2812,7 +2853,10 @@ class EssensplanerPanel extends HTMLElement {
     const next = eco.next_week || {};
     const budget = eco.budget;
     const meta = eco.offers_meta || {};
-    const online = eco.offers_source === "marktguru";
+    const sources = eco.price_sources || {};
+    const marktguru = eco.offers_source === "marktguru";
+    // offers come from the chains directly (EDEKA, ALDI SÜD) and/or from marktguru (optional)
+    const online = marktguru || Boolean(sources.edeka?.enabled) || Boolean(sources.aldi?.enabled);
     const when = this._offersWhen || "current";
     const offers = (this._data.offers || []).filter((o) => {
       if (when === "current" && !o.current) return false;
@@ -2840,18 +2884,27 @@ class EssensplanerPanel extends HTMLElement {
     const zips = targets.length
       ? targets.map((t) => `PLZ ${esc(t.zip_code)}${targets.length > 1 || (t.stores || []).length ? ` (${esc((t.stores || []).join(", "))})` : ""}`).join(" · ")
       : `PLZ ${esc(eco.zip_code || "–")}`;
-    const rewe = eco.price_sources?.rewe;
-    const edekaSource = eco.price_sources?.edeka;
-    const reweLine =
-      (rewe?.enabled
-        ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
+    const rewe = sources.rewe;
+    const edekaSource = sources.edeka;
+    const aldiSource = sources.aldi;
+    const aldiWeekly = eco.catalog?.sources?.aldi_weekly;
+    // one line per active source
+    const sourceLines =
+      (marktguru
+        ? `<div class="meta">Quelle: marktguru.de (inoffiziell) · ${zips} · ${meta.last_update ? `aktualisiert ${new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "noch nicht geladen"}${meta.status === "error" ? ` · ⚠️ ${esc((meta.errors || [])[0] || "Fehler")}` : ""}</div>`
         : "") +
       (edekaSource?.enabled
-        ? `<div class="meta">🏷️ EDEKA-Angebote (edeka.de): ${esc(edekaSource.message || edekaSource.status)}</div>`
+        ? `<div class="meta">🏷️ EDEKA direkt (edeka.de): ${esc(edekaSource.message || edekaSource.status)}</div>`
+        : "") +
+      (aldiSource?.enabled
+        ? `<div class="meta">🏷️ ALDI SÜD direkt (experimentell): ${aldiWeekly ? `${esc(aldiWeekly)} Wochenangebote · ` : ""}${esc(aldiSource.message || aldiSource.status)}</div>`
+        : "") +
+      (rewe?.enabled
+        ? `<div class="meta">🛒 REWE-Onlinepreise (experimentell): ${esc(rewe.message || rewe.status)}</div>`
         : "");
     const info = online
-      ? `<div class="meta">Quelle: marktguru.de (inoffiziell) · ${zips} · ${meta.last_update ? `aktualisiert ${new Date(meta.last_update).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "noch nicht geladen"}${meta.status === "error" ? ` · ⚠️ ${esc((meta.errors || [])[0] || "Fehler")}` : ""}</div>${reweLine}`
-      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${reweLine}`;
+      ? `${sourceLines}${marktguru ? "" : `<div class="meta">Für Ketten ohne eigene Quelle (Lidl, REWE, Netto, Rossmann …) gibt es optional marktguru (inoffiziell, eigenes Risiko): ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}</div>`}`
+      : `<div class="card infobox"><b>Online-Angebote sind aus.</b> EDEKA- und ALDI-SÜD-Angebote kommen direkt von den Ketten, für andere Ketten gibt es marktguru (inoffiziell, eigenes Risiko). Einschalten: ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")} – gesucht wird bei deinen Läden aus dem Tab „🏪 Läden & Preise“. Angebote aus dem Prospekt kannst du jederzeit selbst eintragen – oder Jarvis sagen: „Bei Lidl gibt es Hähnchenbrust für 4,99 Euro bis Samstag“.</div>${sourceLines}`;
     const branchLabels = Object.fromEntries((this._data.branches || []).map((b) => [b.id, b]));
     const cards = offers
       .map((o) => {
@@ -4512,10 +4565,22 @@ class EssensplanerPanel extends HTMLElement {
    *  "not_loaded" for a moment – subscribe again and load the data with retries. */
   async _reloadAfterSettings() {
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    // the panel was removed meanwhile (Home Assistant left the page, e.g. the panel was
+    // switched off): stop – connectedCallback loads everything again if it comes back
+    const gone = () => {
+      if (this.isConnected) return false;
+      if (this._settings?.phase === "reloading") {
+        this._settings = null;
+        this._renderSettings();
+      }
+      this._reloadOnConnect = true;
+      return true;
+    };
     await sleep(SETTINGS_RELOAD_DELAYS[0]);
     let ok = false;
     let last = null;
     for (const delay of SETTINGS_RELOAD_DELAYS.slice(1)) {
+      if (gone()) return;
       try {
         await this._hass.callWS({ type: `${DOMAIN}/data` });
         ok = true;
@@ -4525,6 +4590,7 @@ class EssensplanerPanel extends HTMLElement {
         await sleep(delay);
       }
     }
+    if (gone()) return;
     const st = this._settings;
     if (!ok) {
       if (st) {
@@ -4545,7 +4611,18 @@ class EssensplanerPanel extends HTMLElement {
       }
     }
     await this._subscribe();
-    // everything may have changed (sources, stores, meals …): fetch it all again
+    if (gone()) return;
+    this._forgetLoaded();
+    await this._load();
+    if (this._settings === st) {
+      this._settings = null;
+      this._renderSettings();
+    }
+    this._toast("⚙️ Einstellungen gespeichert – der Essensplaner wurde neu geladen");
+  }
+
+  /** Everything may have changed (sources, stores, meals …): the next _load fetches it all. */
+  _forgetLoaded() {
     this._dataJson = null;
     this._costs = {};
     this._priceList = null;
@@ -4553,12 +4630,6 @@ class EssensplanerPanel extends HTMLElement {
     this._receiptsStale = true;
     this._so.stale = true;
     this._branchSearch = undefined;
-    await this._load();
-    if (this._settings === st) {
-      this._settings = null;
-      this._renderSettings();
-    }
-    this._toast("⚙️ Einstellungen gespeichert – der Essensplaner wurde neu geladen");
   }
 
   /* ------------------------------------------------------------ receipts (Kassenzettel, 1.4) */
@@ -4588,19 +4659,23 @@ class EssensplanerPanel extends HTMLElement {
     else if (!this._receipts.receipts?.length) list = `<div class="hint">Noch keine Kassenzettel gespeichert.</div>`;
     else {
       const limit = this._receiptLimit || 10;
-      const items = this._receipts.receipts.slice(0, limit);
+      const loaded = this._receipts.receipts;
+      // the backend keeps up to 200 receipts; older ones are fetched with "Mehr anzeigen"
+      const count = Math.max(this._receipts.count || 0, loaded.length);
+      const items = loaded.slice(0, limit);
       list = `<div class="rlist">${items
         .map((r) => {
-          const thumb = r.image_url ? `<span class="rthumb"><img loading="lazy" src="${esc(r.image_url)}" alt=""></span>` : `<span class="rthumb">🧾</span>`;
+          const pdf = isPdfReceipt(r);
+          const thumb = pdf ? `<span class="rthumb" title="PDF">📄</span>` : r.image_url ? `<span class="rthumb"><img loading="lazy" src="${esc(r.image_url)}" alt=""></span>` : `<span class="rthumb">🧾</span>`;
           const total = r.total ?? r.sum;
           return `<div class="rrow">
             <button class="icon" data-action="receipt-show" data-id="${esc(r.id)}" title="Ansehen" aria-label="Kassenzettel ansehen" style="width:auto;height:auto;border-radius:8px;padding:0">${thumb}</button>
-            <div class="rinfo"><b>${esc(r.store_label || r.retailer_name || "")}</b><div class="meta">${esc(dayText(r.date))}${r.date ? esc(String(r.date).slice(0, 4)) : ""} · ${r.prices || 0} Preise übernommen${r.source === "photo" ? " · 📷 Foto" : ""}</div></div>
+            <div class="rinfo"><b>${esc(r.store_label || r.retailer_name || "")}</b><div class="meta">${esc(dayText(r.date))}${r.date ? esc(String(r.date).slice(0, 4)) : ""} · ${r.prices || 0} Preise übernommen${pdf ? " · 📄 PDF" : r.source === "photo" ? " · 📷 Foto" : ""}</div></div>
             <div class="rsum"><b>${eur(total)}</b></div>
             <button class="icon" data-action="receipt-delete" data-id="${esc(r.id)}" title="Löschen" aria-label="Kassenzettel löschen">🗑</button>
           </div>`;
         })
-        .join("")}</div>${this._receipts.receipts.length > limit ? `<button class="btn small" data-action="receipts-more">Mehr anzeigen</button>` : ""}`;
+        .join("")}</div>${count > items.length ? `<div class="row" style="margin:6px 0 0;align-items:center"><span class="meta">${items.length} von ${count}</span><button class="btn small" data-action="receipts-more" ${this._receiptsLoading ? "disabled" : ""}>${this._receiptsLoading ? "⏳ Lade …" : "Mehr anzeigen"}</button></div>` : ""}`;
     }
     return `${intro}${actions}${list}`;
   }
@@ -4614,7 +4689,7 @@ class EssensplanerPanel extends HTMLElement {
     this._receiptsLoading = true;
     this._receiptsStale = false;
     try {
-      this._receipts = await this._hass.callWS({ type: `${DOMAIN}/receipts`, limit: 50 });
+      this._receipts = await this._hass.callWS({ type: `${DOMAIN}/receipts`, limit: this._receiptFetchLimit || RECEIPT_FETCH_STEP });
       this._receiptsError = null;
     } catch (err) {
       this._receiptsError = errText(err);
@@ -4662,12 +4737,15 @@ class EssensplanerPanel extends HTMLElement {
     return json;
   }
 
-  _branchChoices(selectedBranch, selectedRetailer) {
+  /** Options "Meine Läden" / "Andere Kette"; with a placeholder nothing is preselected
+   *  (a receipt whose store was not recognized must not go to the first store). */
+  _branchChoices(selectedBranch, selectedRetailer, placeholder = "") {
     const branches = this._orderedBranches().filter((b) => b.retailer);
     const retailers = this._data.economy?.retailers || [];
     const opts = branches.map((b) => `<option value="b:${esc(b.id)}" ${b.id === selectedBranch ? "selected" : ""}>${esc(b.label)}${b.main ? " ⭐" : ""}</option>`).join("");
     const chains = retailers.map((r) => `<option value="r:${esc(r.id)}" ${!selectedBranch && r.id === selectedRetailer ? "selected" : ""}>${esc(r.name)}</option>`).join("");
-    return `${opts ? `<optgroup label="Meine Läden">${opts}</optgroup>` : ""}<optgroup label="Andere Kette">${chains}</optgroup>`;
+    const none = placeholder ? `<option value="" disabled selected>${esc(placeholder)}</option>` : "";
+    return `${none}${opts ? `<optgroup label="Meine Läden">${opts}</optgroup>` : ""}<optgroup label="Andere Kette">${chains}</optgroup>`;
   }
 
   /** The capture dialog: photo / PDF (read by the AI Task) or pasted text, then review. */
@@ -4727,6 +4805,10 @@ class EssensplanerPanel extends HTMLElement {
       root.querySelector(".rstore").addEventListener("change", (ev) => (st.store = ev.target.value));
       root.querySelector(".rparse").addEventListener("click", () => this._receiptParse("text"));
       root.querySelector(".rai")?.addEventListener("click", () => this._receiptParse("ai"));
+    }, {
+      // a pasted text or an upload is not lost by a tap beside the dialog
+      sticky: () => Boolean(st.text.trim() || st.upload || st.busy),
+      guard: () => this._receipt !== st || st.busy !== "ai" || confirm("Die KI liest den Kassenzettel noch. Trotzdem abbrechen?"),
     });
   }
 
@@ -4824,29 +4906,38 @@ class EssensplanerPanel extends HTMLElement {
             <label class="ign"><input type="checkbox" class="rign" ${it._ignored ? "checked" : ""}> ignorieren</label>
             ${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${it.warning ? `<span class="rwarn">⚠️ ${esc(it.warning)}</span>` : ""}
           </div>
-          <div class="packin"><input class="ramount" inputmode="decimal" value="${esc(num(it.amount))}" aria-label="Menge / Packung" placeholder="Menge"><select class="runit" aria-label="Einheit">${unitOptions(it.unit)}</select></div>
-          <div><input class="rprice" inputmode="decimal" value="${esc(num(it.price))}" aria-label="Preis"></div>
+          <div class="packin" ${it.weight ? 'title="Gewogen: gespeichert wird der Preis je kg"' : ""}><input class="ramount" inputmode="decimal" value="${esc(num(it.amount))}" aria-label="Menge / Packung" placeholder="Menge" ${it.weight ? "disabled" : ""}><select class="runit" aria-label="Einheit" ${it.weight ? "disabled" : ""}>${unitOptions(it.unit)}</select></div>
+          <div><input class="rprice" inputmode="decimal" value="${esc(num(it.price))}" aria-label="Zeilensumme (Preis der Zeile auf dem Kassenzettel)"></div>
+          <div class="rown meta" aria-live="polite">${esc(this._receiptOwnText(it))}</div>
         </div>`;
       })
       .join("");
     const warn = (p.warnings || []).map((w) => `<div class="notice warn">${esc(w)}</div>`).join("");
+    const unknownStore = !p.branch_id && !p.retailer;
     const body = `
       <div class="rhead">
-        <label class="field">Laden<select class="rbranch">${this._branchChoices(p.branch_id, p.retailer)}</select></label>
+        <label class="field">Laden<select class="rbranch">${this._branchChoices(p.branch_id, p.retailer, unknownStore ? "– bitte Laden wählen –" : "")}</select><span class="rneed" hidden>Bitte den Laden wählen – seine Preise werden gespeichert.</span></label>
         <label class="field">Datum<input type="date" class="rdate" value="${esc(p.date || this._today())}" max="${esc(this._today())}"></label>
       </div>
       ${warn}
       <div class="rtable">
-        <div class="rline headrow"><span>Zeile</span><span>Erkannter Artikel</span><span>Menge / Packung</span><span>Preis</span></div>
+        <div class="rline headrow"><span>Zeile</span><span>Erkannter Artikel</span><span>Menge / Packung</span><span>Zeilensumme</span></div>
         ${rows || '<div class="hint" style="padding:10px">Keine Zeilen erkannt.</div>'}
       </div>
       <datalist id="ep-articles">${names.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
       <div class="rtotal"><label class="switch">Summe laut Kassenzettel <input class="rtot" inputmode="decimal" style="width:100px" value="${esc(num(p.total))}" aria-label="Summe laut Kassenzettel"> €</label><span class="rcheck"></span></div>
-      <div class="hint">Ohne Artikel oder mit „ignorieren“ wird eine Zeile nicht als Preis übernommen (z. B. Pfand, Rabatte, Tüten). Zugeordnete Namen merkt sich der Essensplaner für den nächsten Kassenzettel.</div>`;
+      <div class="hint">Der Preis einer Zeile ist ihre Summe auf dem Kassenzettel; gespeichert wird der Normalpreis einer Packung (bei „2 x 0,49“ also 0,49 €, ein Rabatt der Zeile zählt nicht) bzw. bei gewogenen Artikeln der Preis je kg – siehe „→ gespeichert“. Ohne Artikel oder mit „ignorieren“ wird eine Zeile nicht als Preis übernommen (z. B. Pfand, Rabatte, Tüten). Zugeordnete Namen merkt sich der Essensplaner für den nächsten Kassenzettel.</div>`;
     const footer = `<button class="btn rback">← Zurück</button><span class="spacer"></span><button class="btn" data-close>Abbrechen</button><button class="btn primary rsave">💾 Preise übernehmen</button>`;
+    // the review (maybe minutes of AI Task work and the articles chosen) is not dropped by a
+    // tap beside the dialog, and closing it asks first
+    const guard = () => this._receipt !== st || st.busy === "save" || confirm("Prüfung verwerfen? Der ausgelesene Kassenzettel und deine Änderungen gehen verloren.");
     this._showModal(`🧾 Prüfen – ${p.branch_label || p.retailer_name || "Kassenzettel"}`, body, footer, (root) => {
       root.querySelector(".modal").style.width = "min(980px, 100%)";
       const update = () => this._receiptTotals(root);
+      const own = (line, it) => {
+        const out = line.querySelector(".rown");
+        if (out) out.textContent = this._receiptOwnText(it);
+      };
       root.querySelector(".rtable").addEventListener("input", (ev) => {
         const line = ev.target.closest(".rline[data-i]");
         if (!line) return;
@@ -4854,6 +4945,7 @@ class EssensplanerPanel extends HTMLElement {
         if (ev.target.classList.contains("rart")) it._article = ev.target.value;
         if (ev.target.classList.contains("ramount")) it._amount = ev.target.value;
         if (ev.target.classList.contains("rprice")) it._price = ev.target.value;
+        own(line, it);
         update();
       });
       root.querySelector(".rtable").addEventListener("change", (ev) => {
@@ -4866,22 +4958,54 @@ class EssensplanerPanel extends HTMLElement {
           line.classList.toggle("ignored", it._ignored);
           line.querySelector(".rart").disabled = it._ignored;
         }
+        own(line, it);
         update();
       });
       root.querySelector(".rtot").addEventListener("input", update);
+      root.querySelector(".rbranch").addEventListener("change", update);
       root.querySelector(".rback").addEventListener("click", () => {
         st.step = "input";
         this._renderReceiptInput();
       });
       root.querySelector(".rsave").addEventListener("click", () => this._receiptSave(root));
       update();
-    });
+    }, { sticky: true, guard });
   }
 
   _receiptLineValues(it) {
     const price = it._price != null ? parseNum(it._price) : it.price;
     const amount = it._amount != null ? parseNum(it._amount) : it.amount;
     return { price, amount, unit: it._unit || it.unit || "Stück" };
+  }
+
+  /** What saving a line stores (like receipts.own_price in the backend): the regular price
+   *  of one piece – line total plus the line's discount, divided by the quantity – or, for
+   *  a weighed article, the price per kg (its pack fields do not count). */
+  _receiptOwnPrice(it) {
+    const v = this._receiptLineValues(it);
+    const discount = Number(it.discount) || 0;
+    const qty = Number(it.quantity) || 1;
+    const price = v.price + discount;
+    if (!Number.isFinite(price) || price <= 0 || qty <= 0) return null;
+    const weight = Number(it.weight) || 0;
+    if (weight > 0) {
+      let perKg = Math.round((price / weight) * 100) / 100;
+      const given = Number(it.unit_price);
+      if (given && Math.abs(given - perKg) <= 0.05) perKg = Math.round(given * 100) / 100;
+      return { price: perKg, weight, discount, qty: 1 };
+    }
+    const amount = Number.isFinite(v.amount) && v.amount > 0 ? v.amount : null;
+    return { price: Math.round((price / qty) * 100) / 100, amount, unit: v.unit, discount, qty };
+  }
+
+  _receiptOwnText(it) {
+    if (it._ignored || !String(it._article || "").trim()) return "";
+    const o = this._receiptOwnPrice(it);
+    if (!o) return "";
+    const why = [o.discount > 0 ? `Normalpreis vor Rabatt −${eur(o.discount)}` : "", o.qty !== 1 ? `Zeilensumme ÷ ${num(o.qty)}` : ""].filter(Boolean);
+    if (o.weight) return `→ gespeichert: ${eur(o.price)}/kg (gewogen ${num(o.weight)} kg${why.length ? `, ${why.join(", ")}` : ""})`;
+    const pack = o.amount ? packText(o.amount, o.unit) : "";
+    return `→ gespeichert: ${eur(o.price)}${pack ? ` / ${pack}` : " je Packung (Größe wird ergänzt)"}${why.length ? ` (${why.join(", ")})` : ""}`;
   }
 
   _receiptTotals(root) {
@@ -4902,21 +5026,31 @@ class EssensplanerPanel extends HTMLElement {
       const ok = Number.isFinite(total) && Math.abs(total - sum) < 0.015;
       check.innerHTML = `Summe der Zeilen <b>${eur(sum)}</b> ${Number.isFinite(total) ? (ok ? '<span class="bdg ok">✓ stimmt</span>' : `<span class="bdg warn">⚠️ ${eur(Math.abs(total - sum))} Unterschied – bitte Zeilen prüfen</span>`) : ""}${bad ? ` <span class="bdg bad">${bad} Preis${bad > 1 ? "e" : ""} ungültig</span>` : ""}`;
     }
+    const branch = root.querySelector(".rbranch");
+    const noStore = Boolean(branch) && !branch.value;
+    branch?.classList.toggle("invalid", noStore);
+    branch?.setAttribute("aria-invalid", noStore ? "true" : "false");
+    const need = root.querySelector(".rneed");
+    if (need) need.hidden = !noStore;
     const save = root.querySelector(".rsave");
     if (save) {
-      save.textContent = `💾 ${n} Preis${n === 1 ? "" : "e"} übernehmen`;
-      save.disabled = Boolean(bad) || !items.length;
+      save.textContent = noStore ? "💾 Erst den Laden wählen" : `💾 ${n} Preis${n === 1 ? "" : "e"} übernehmen`;
+      save.disabled = Boolean(bad) || !items.length || noStore;
     }
-    return { sum, n, bad };
+    return { sum, n, bad, noStore };
   }
 
   async _receiptSave(root) {
     const st = this._receipt;
     const p = st?.proposal;
     if (!p || st.busy) return;
-    const { bad } = this._receiptTotals(root);
+    const { bad, noStore } = this._receiptTotals(root);
     if (bad) return this._toast("Bitte die Preise prüfen (z. B. 1,99).");
     const choice = root.querySelector(".rbranch").value;
+    if (noStore || !choice) {
+      root.querySelector(".rbranch").focus();
+      return this._toast("Bitte zuerst den Laden wählen.");
+    }
     const receipt = {
       date: root.querySelector(".rdate").value || p.date || this._today(),
       source: p.source,
@@ -4978,8 +5112,13 @@ class EssensplanerPanel extends HTMLElement {
     const rows = (r.items || [])
       .map((it) => `<div class="pricerow"><span>${esc(it.product || it.name)}${it.product && it.name !== it.product ? ` <span class="meta">${esc(it.name)}</span>` : ""}</span><span class="meta" title="${esc({ saved: "als Preis übernommen", kept: "neuerer eigener Preis behalten", ignored: "ignoriert", unknown: "ohne Artikel", skipped: "ohne Preis" }[it.status] || "")}">${icon[it.status] || ""}</span><b>${eur(it.price)}</b></div>`)
       .join("");
+    const file = !r.image_url
+      ? ""
+      : isPdfReceipt(r)
+        ? `<a class="btn" href="${esc(r.image_url)}" target="_blank" rel="noreferrer">📄 PDF öffnen ↗</a>`
+        : `<a href="${esc(r.image_url)}" target="_blank" rel="noreferrer"><img class="rpreview" src="${esc(r.image_url)}" alt="Kassenzettel"></a>`;
     const body = `
-      ${r.image_url ? `<a href="${esc(r.image_url)}" target="_blank" rel="noreferrer"><img class="rpreview" src="${esc(r.image_url)}" alt="Kassenzettel"></a>` : ""}
+      ${file}
       <div class="meta">${esc(dayText(r.date))}${esc(String(r.date || "").slice(0, 4))} · Summe ${eur(r.total ?? r.sum)} · ${r.prices || 0} Preise übernommen</div>
       <div>${rows}</div>
       <div class="hint">✓ = als Preis übernommen · ↺ = ein neuerer eigener Preis bleibt · – = ignoriert</div>`;

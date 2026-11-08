@@ -28,6 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 _STATIC_REGISTERED = f"{DOMAIN}_static_registered"
 _CARD_REGISTERED = f"{DOMAIN}_card_registered"
+# {"module_url": registered module, "removal": task removing the panel after a reload}
+_PANEL_STATE = f"{DOMAIN}_panel"
 
 
 def _version() -> str:
@@ -66,31 +68,80 @@ async def async_register_card(hass: HomeAssistant) -> None:
 
 
 async def async_register_panel(hass: HomeAssistant) -> bool:
-    """Register the sidebar panel. Returns False if the frontend is unavailable."""
+    """Register the sidebar panel. Returns False if the frontend is unavailable.
+
+    A panel still registered from before a reload of the entry stays as it is (see
+    async_remove_panel): registering it again would tell the frontend twice that the
+    panel list changed."""
     if not await _async_register_static(hass):
         return False
-    from homeassistant.components import panel_custom
+    from homeassistant.components import frontend, panel_custom
 
+    state = hass.data.setdefault(_PANEL_STATE, {})
+    if (removal := state.pop("removal", None)) is not None:
+        removal.cancel()  # set up again (reload): the panel stays
     version = await hass.async_add_executor_job(_version)
+    module_url = f"{PANEL_STATIC_URL}/essensplaner-panel.js?v={version}"
+    registered = PANEL_URL_PATH in hass.data.get(frontend.DATA_PANELS, {})
+    if registered and state.get("module_url") == module_url:
+        return True
+    if registered:  # new files without a restart: the new module needs a new registration
+        frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name=PANEL_COMPONENT,
         sidebar_title=NAME,
         sidebar_icon="mdi:silverware-fork-knife",
-        module_url=f"{PANEL_STATIC_URL}/essensplaner-panel.js?v={version}",
+        module_url=module_url,
         require_admin=False,
         config={},
     )
+    state["module_url"] = module_url
     return True
 
 
 @callback
 def async_remove_panel(hass: HomeAssistant) -> None:
-    """Remove the sidebar panel."""
+    """Remove the sidebar panel when the entry is unloaded – during a reload (e.g. after
+    saving the settings in the panel) only once the reload is over and only if it did not
+    register the panel again (panel switched off, entry disabled or deleted).
+
+    The frontend asks for the panel list as soon as it changes; a list without the open
+    panel sends the user to the default dashboard, and the panel would be gone."""
     from homeassistant.components import frontend
 
-    frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
+    state = hass.data.setdefault(_PANEL_STATE, {})
+    if (old := state.pop("removal", None)) is not None:
+        old.cancel()
+    # a reload, a removal or a disabling holds the entry's setup lock until it is over
+    locks = [
+        lock
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if (lock := getattr(entry, "setup_lock", None)) is not None and lock.locked()
+    ]
+
+    @callback
+    def _remove() -> None:
+        frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
+        state.pop("module_url", None)
+
+    if not locks:
+        _remove()
+        return
+
+    async def _remove_after_reload() -> None:
+        for lock in locks:
+            async with lock:
+                pass
+        if state.get("removal") is task:
+            state.pop("removal")
+            _remove()
+
+    task = hass.async_create_background_task(
+        _remove_after_reload(), f"{DOMAIN}_panel_removal", eager_start=False
+    )
+    state["removal"] = task
 
 
 def _entity_ids(hass: HomeAssistant, entry_id: str) -> dict[str, str | None]:
