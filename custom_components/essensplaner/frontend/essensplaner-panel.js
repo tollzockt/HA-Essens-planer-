@@ -2280,8 +2280,11 @@ class EssensplanerPanel extends HTMLElement {
         try {
           const res = await this._service("refresh_offers", {}, true);
           const all = res?.catalog?.count;
+          // without marktguru (only EDEKA / ALDI SÜD direct) the result has no count of its
+          // own: the catalog's matched offers are the ones for the recipes
+          const n = res?.count ?? res?.catalog?.matched;
           if (res?.cooldown_until && res?.message) this._toast(`🏷️ ${res.message}`);
-          else this._toast(res?.status === "ok" ? `🏷️ ${res.count} passende Angebote geladen${all != null ? ` · ${all} Angebote deiner Läden` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
+          else this._toast(res?.status === "ok" ? `🏷️ ${n != null ? `${n} passende Angebote geladen` : "Angebote aktualisiert"}${all != null ? ` · ${all} Angebote deiner Läden` : ""}` : `Fehler: ${(res?.errors || []).join("; ") || res?.message || "unbekannt"}`);
         } finally {
           this._refreshing.delete("offers-tab");
           this._so.stale = true;
@@ -2332,6 +2335,15 @@ class EssensplanerPanel extends HTMLElement {
       case "so-pin":
         await this._soPin(el, d.id);
         break;
+      case "so-edeka-search": {
+        // Läden & Preise: the EDEKA market search of this store (its link box)
+        this._goTab("stores", "mine");
+        await this._searchReweMarkets(d.id);
+        this._pendingScroll = null;
+        const box = [...this._content.querySelectorAll('[data-action="rewe-search"]')].find((x) => x.dataset.id === d.id);
+        box?.closest(".branch")?.scrollIntoView({ block: "start" });
+        break;
+      }
       case "open-settings":
         this._openSettings(d.sec || null);
         break;
@@ -3971,7 +3983,10 @@ class EssensplanerPanel extends HTMLElement {
       .map((st) => {
         const on = picked.has(st.branch_id);
         const label = `${st.label}${st.main ? " ⭐" : ""}`;
-        return `<button class="chip ${on ? "active" : ""}" data-action="so-store" data-branch="${esc(st.branch_id)}" aria-pressed="${on}" title="${esc(this._soSourceText(st))}">${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot xs"')}${esc(label)} <span class="n">${st.leaflet_only ? "📰" : count(st)}</span></button>`;
+        // "Aktuell" on a weekend: a store whose new week has not started yet shows when
+        const later = when === "current" && !st.leaflet_only && !st.count_current && st.count_upcoming ? ` · 📅 ${st.count_upcoming}` : "";
+        const title = `${this._soSourceText(st)}${later ? ` · ab nächster Woche ${st.count_upcoming} Angebot${st.count_upcoming === 1 ? "" : "e"}` : ""}`;
+        return `<button class="chip ${on ? "active" : ""}" data-action="so-store" data-branch="${esc(st.branch_id)}" aria-pressed="${on}" title="${esc(title)}">${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot xs"')}${esc(label)} <span class="n">${st.leaflet_only ? "📰" : `${count(st)}${later}`}</span></button>`;
       })
       .join("")}`;
   }
@@ -4029,7 +4044,7 @@ class EssensplanerPanel extends HTMLElement {
     const when = so.when;
     const fits = (lf) => when === "all" || (when === "current") === !(lf.valid_from && lf.valid_from > today);
     const leafletStores = shown.filter((st) => st.leaflet_only && (st.leaflets || []).some(fits));
-    const tiles = leafletStores.flatMap((st) => st.leaflets.filter(fits).map((lf) => this._leafletHtml(st, lf, today))).join("");
+    const tiles = leafletStores.flatMap((st) => st.leaflets.filter(fits).map((lf, i) => this._leafletHtml(st, lf, today, i === 0))).join("");
     const onlyLeaflets = leafletStores.length && leafletStores.length === shown.length;
     // with other stores the tiles come after the offers; a note on top says where
     if (tiles && !onlyLeaflets) {
@@ -4041,7 +4056,13 @@ class EssensplanerPanel extends HTMLElement {
     if (!so.offers.length && !so.loading && !onlyLeaflets) {
       const filtered = so.query.trim() || so.kind !== "all" || so.when !== "all";
       const what = so.query.trim() ? `für „${esc(so.query.trim())}“` : "für diese Auswahl";
-      empty = `<div class="empty"><div class="big">🏷️</div>${filtered && stores.some((st) => st.count_current || st.count_upcoming) ? `Keine Angebote ${what}.` : "Noch keine Angebote deiner Läden."}</div>`;
+      // nothing now, but next week's leaflet is there (the store counts follow kind / query)
+      const upcoming = so.when === "current" ? shown.reduce((n, st) => n + (st.count_upcoming || 0), 0) : 0;
+      if (upcoming) {
+        empty = `<div class="empty"><div class="big">📅</div>Gerade keine Angebote ${what} – ab nächster Woche ${upcoming === 1 ? "gibt es 1 Angebot" : `gibt es ${upcoming} Angebote`}.<div class="row" style="justify-content:center;margin:12px 0 0"><button class="btn primary" data-action="so-when" data-when="upcoming">📅 Ab nächster Woche zeigen</button></div></div>`;
+      } else {
+        empty = `<div class="empty"><div class="big">🏷️</div>${filtered && stores.some((st) => st.count_current || st.count_upcoming) ? `Keine Angebote ${what}.` : "Noch keine Angebote deiner Läden."}</div>`;
+      }
     }
     const more = so.offers.length < (res.total || 0) ? `<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-action="so-more" ${so.loading ? "disabled" : ""}>${so.loading ? "⏳ Lade …" : `Mehr laden (${so.offers.length} von ${res.total})`}</button></div>` : "";
     const count = res.total ? `<div class="meta" style="margin-bottom:8px">${res.total} Angebote${so.loading ? " · ⏳" : ""}</div>` : "";
@@ -4049,7 +4070,21 @@ class EssensplanerPanel extends HTMLElement {
     return onlyLeaflets ? `${srcline}${notes.join("")}${leaflets}${list}` : `${srcline}${notes.join("")}${list}${leaflets ? `<div style="margin-top:14px">${leaflets}</div>` : ""}`;
   }
 
-  _leafletHtml(st, lf, today) {
+  /** EDEKA with leaflet images only (marktguru): all single offers of the market come
+   *  directly from edeka.de – the switch, or the market link that is still missing. */
+  _edekaDirectHint(st) {
+    if (st.retailer !== "edeka") return "";
+    const b = this._branch(st.branch_id);
+    if (!this._data.economy?.price_sources?.edeka?.enabled) {
+      return `<div class="notice">💡 Alle Einzelangebote deines EDEKA-Markts kommen direkt von edeka.de, wenn du „EDEKA-Angebote“ einschaltest. ${this._settingsLink("offers", "⚙️ EDEKA-Angebote einschalten")}</div>`;
+    }
+    if (b && !b.edeka_market_id) {
+      return `<div class="notice">💡 Alle Einzelangebote deines EDEKA-Markts kommen direkt von edeka.de, sobald der Laden mit seinem EDEKA-Markt verknüpft ist. <button class="btn small" data-action="so-edeka-search" data-id="${esc(b.id)}">🔎 EDEKA-Markt suchen</button></div>`;
+    }
+    return "";
+  }
+
+  _leafletHtml(st, lf, today, first = true) {
     const until = validText({ valid_from: lf.valid_from, valid_to: lf.valid_to }, today);
     const pages = (lf.pages || [])
       .slice(0, 4)
@@ -4060,6 +4095,7 @@ class EssensplanerPanel extends HTMLElement {
         <div class="lfhead">${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot sm"')}<span>${head}</span></div>
         ${pages ? `<div class="lfpages">${pages}</div>` : ""}
         <div class="hint">Für diesen Markt liefert marktguru nur Prospektbilder, keine einzelnen Angebote. Ein Angebot, das du nutzen willst, kannst du selbst eintragen.</div>
+        ${first ? this._edekaDirectHint(st) : ""}
         <div class="lfacts">
           ${httpLink(lf.url) ? `<a class="btn small" href="${esc(httpLink(lf.url))}" target="_blank" rel="noreferrer">Prospekt öffnen ↗</a>` : ""}
           <button class="btn small" data-action="add-offer" data-store="${esc(st.label)}">＋ Angebot aus Prospekt eintragen</button>
@@ -4084,6 +4120,8 @@ class EssensplanerPanel extends HTMLElement {
     const ids = o.branch_ids || [];
     const branch = ids.length === 1 ? this._branch(ids[0]) : null;
     const where = branch ? branch.label : ids.length > 1 ? `${o.store} (${ids.length} Läden)` : o.store;
+    // one of the planning offers already (📌 would only add a second copy)
+    const counts = (this._data.offers || []).some((x) => String(x.id) === String(o.id));
     return `<div class="card soffer ${o.current ? "" : "later"}">
         <div class="sotop">
           <div class="soimg">${img ? `<img loading="lazy" src="${esc(img)}" alt="">` : "🏷️"}</div>
@@ -4093,7 +4131,7 @@ class EssensplanerPanel extends HTMLElement {
         <div class="someta"><span class="sostore">${retailerDot(o.retailer, o.store).replace('class="rdot"', 'class="rdot xs"')}${esc(where)}</span>${badges.join("")}</div>
         <div class="acts">
           <button class="btn small" data-action="so-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>
-          <button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌 Merken</button>
+          ${counts ? `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Passt zu deinen Rezepten oder der Einkaufsliste – zählt schon für Planung, Budget und Einkaufsliste">✓ Zählt schon</button>` : `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌 Merken</button>`}
         </div>
       </div>`;
   }
@@ -4174,6 +4212,9 @@ class EssensplanerPanel extends HTMLElement {
     const ids = o.branch_ids || [];
     const branch = ids.length === 1 ? this._branch(ids[0]) : null;
     const store = branch?.label || o.store;
+    // the catalog offer itself is one of the planning offers (same id): a manual copy would
+    // count it twice (offers list, Jarvis)
+    if ((this._data.offers || []).some((x) => String(x.id) === String(o.id))) return this._toast("📌 Dieses Angebot zählt schon für Planung, Budget und Einkaufsliste.");
     const title = o.brand && !String(o.title || "").toLowerCase().includes(o.brand.toLowerCase()) ? `${o.brand} ${o.product || o.title}` : o.title || o.product;
     const known = (this._data.offers || []).some((x) => x.source === "manual" && fold(x.title) === fold(title) && x.price === o.price && (x.valid_to || "") === (o.valid_to || ""));
     if (known) return this._toast("📌 Dieses Angebot hast du schon gemerkt.");
@@ -4670,7 +4711,7 @@ class EssensplanerPanel extends HTMLElement {
           const total = r.total ?? r.sum;
           return `<div class="rrow">
             <button class="icon" data-action="receipt-show" data-id="${esc(r.id)}" title="Ansehen" aria-label="Kassenzettel ansehen" style="width:auto;height:auto;border-radius:8px;padding:0">${thumb}</button>
-            <div class="rinfo"><b>${esc(r.store_label || r.retailer_name || "")}</b><div class="meta">${esc(dayText(r.date))}${r.date ? esc(String(r.date).slice(0, 4)) : ""} · ${r.prices || 0} Preise übernommen${pdf ? " · 📄 PDF" : r.source === "photo" ? " · 📷 Foto" : ""}</div></div>
+            <div class="rinfo"><b>${esc(r.store_label || r.retailer_name || "")}</b><div class="meta">${esc(dayText(r.date))}${r.date ? esc(String(r.date).slice(0, 4)) : ""} · ${esc(this._receiptCountText(r))}${pdf ? " · 📄 PDF" : r.source === "photo" ? " · 📷 Foto" : ""}</div></div>
             <div class="rsum"><b>${eur(total)}</b></div>
             <button class="icon" data-action="receipt-delete" data-id="${esc(r.id)}" title="Löschen" aria-label="Kassenzettel löschen">🗑</button>
           </div>`;
@@ -4904,7 +4945,7 @@ class EssensplanerPanel extends HTMLElement {
           <div class="art">
             <input list="ep-articles" class="rart" value="${esc(it._article)}" placeholder="${esc(it.suggestion || "Artikel wählen …")}" aria-label="Erkannter Artikel" ${it._ignored ? "disabled" : ""}>
             <label class="ign"><input type="checkbox" class="rign" ${it._ignored ? "checked" : ""}> ignorieren</label>
-            ${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${it.warning ? `<span class="rwarn">⚠️ ${esc(it.warning)}</span>` : ""}
+            ${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${it.warning ? `<span class="rwarn" ${it.offer && !this._receiptOffer(it) ? "hidden" : ""}>⚠️ ${esc(it.warning)}</span>` : ""}
           </div>
           <div class="packin" ${it.weight ? 'title="Gewogen: gespeichert wird der Preis je kg"' : ""}><input class="ramount" inputmode="decimal" value="${esc(num(it.amount))}" aria-label="Menge / Packung" placeholder="Menge" ${it.weight ? "disabled" : ""}><select class="runit" aria-label="Einheit" ${it.weight ? "disabled" : ""}>${unitOptions(it.unit)}</select></div>
           <div><input class="rprice" inputmode="decimal" value="${esc(num(it.price))}" aria-label="Zeilensumme (Preis der Zeile auf dem Kassenzettel)"></div>
@@ -4937,6 +4978,9 @@ class EssensplanerPanel extends HTMLElement {
       const own = (line, it) => {
         const out = line.querySelector(".rown");
         if (out) out.textContent = this._receiptOwnText(it);
+        // the offer warning only while the line still is at the offer price
+        const warn = line.querySelector(".rwarn");
+        if (warn && it.offer) warn.hidden = !this._receiptOffer(it);
       };
       root.querySelector(".rtable").addEventListener("input", (ev) => {
         const line = ev.target.closest(".rline[data-i]");
@@ -4998,10 +5042,24 @@ class EssensplanerPanel extends HTMLElement {
     return { price: Math.round((price / qty) * 100) / 100, amount, unit: v.unit, discount, qty };
   }
 
+  /** The leaflet offer the backend found for the line (receipts.receipt_offer), while the
+   *  line keeps its article and is still at the offer price: saving it only adds the price
+   *  history (status "offer"), the store's regular price stays. */
+  _receiptOffer(it) {
+    const offer = it.offer;
+    if (!offer || it._ignored || it.weight) return null;
+    if (String(it._article || "").trim() !== (it.product || "")) return null;
+    const o = this._receiptOwnPrice(it);
+    const price = Number(offer.price);
+    return o && Number.isFinite(price) && Math.abs(o.price - price) <= 0.05 + 1e-9 ? offer : null;
+  }
+
   _receiptOwnText(it) {
     if (it._ignored || !String(it._article || "").trim()) return "";
     const o = this._receiptOwnPrice(it);
     if (!o) return "";
+    const offer = this._receiptOffer(it);
+    if (offer) return `→ nur im Preisverlauf (Angebot${offer.valid_to ? ` bis ${dayText(offer.valid_to)}` : ""})`;
     const why = [o.discount > 0 ? `Normalpreis vor Rabatt −${eur(o.discount)}` : "", o.qty !== 1 ? `Zeilensumme ÷ ${num(o.qty)}` : ""].filter(Boolean);
     if (o.weight) return `→ gespeichert: ${eur(o.price)}/kg (gewogen ${num(o.weight)} kg${why.length ? `, ${why.join(", ")}` : ""})`;
     const pack = o.amount ? packText(o.amount, o.unit) : "";
@@ -5086,7 +5144,8 @@ class EssensplanerPanel extends HTMLElement {
       this._receipt = null;
       this._closeModal();
       const kept = res?.kept ? ` · ${res.kept} neuere eigene Preise behalten` : "";
-      this._toast(`🧾 ${res?.saved ?? 0} Preis${res?.saved === 1 ? "" : "e"} für ${label} übernommen${kept}`);
+      const offers = res?.offer ? ` · ${res.offer} Angebotspreis${res.offer === 1 ? "" : "e"} nur im Preisverlauf` : "";
+      this._toast(`🧾 ${res?.saved ?? 0} Preis${res?.saved === 1 ? "" : "e"} für ${label} übernommen${kept}${offers}`);
       this._receiptsStale = true;
       this._storePricesStale = true;
       if (this._tab === "stores") {
@@ -5101,6 +5160,13 @@ class EssensplanerPanel extends HTMLElement {
     }
   }
 
+  /** "3 Preise übernommen · 1 Angebotspreis nur im Preisverlauf" of a stored receipt (the
+   *  backend's prices count only the saved lines). */
+  _receiptCountText(r) {
+    const offers = (r.items || []).filter((it) => it.status === "offer").length;
+    return `${r.prices || 0} Preis${r.prices === 1 ? "" : "e"} übernommen${offers ? ` · ${offers} Angebotspreis${offers === 1 ? "" : "e"} nur im Preisverlauf` : ""}`;
+  }
+
   _receiptById(id) {
     return (this._receipts?.receipts || []).find((r) => r.id === id);
   }
@@ -5108,10 +5174,12 @@ class EssensplanerPanel extends HTMLElement {
   _showReceipt(id) {
     const r = this._receiptById(id);
     if (!r) return;
-    const icon = { saved: "✓", kept: "↺", ignored: "–", unknown: "?", skipped: "–" };
+    const icon = { saved: "✓", kept: "↺", offer: "🏷️", ignored: "–", unknown: "?", skipped: "–" };
+    const title = { saved: "als Preis übernommen", kept: "neuerer eigener Preis behalten", offer: "Angebotspreis – nur im Preisverlauf", ignored: "ignoriert", unknown: "ohne Artikel", skipped: "ohne Preis" };
     const rows = (r.items || [])
-      .map((it) => `<div class="pricerow"><span>${esc(it.product || it.name)}${it.product && it.name !== it.product ? ` <span class="meta">${esc(it.name)}</span>` : ""}</span><span class="meta" title="${esc({ saved: "als Preis übernommen", kept: "neuerer eigener Preis behalten", ignored: "ignoriert", unknown: "ohne Artikel", skipped: "ohne Preis" }[it.status] || "")}">${icon[it.status] || ""}</span><b>${eur(it.price)}</b></div>`)
+      .map((it) => `<div class="pricerow"><span>${esc(it.product || it.name)}${it.product && it.name !== it.product ? ` <span class="meta">${esc(it.name)}</span>` : ""}</span><span class="meta" title="${esc(title[it.status] || "")}">${icon[it.status] || ""}</span><b>${eur(it.price)}</b></div>`)
       .join("");
+    const hasOffer = (r.items || []).some((it) => it.status === "offer");
     const file = !r.image_url
       ? ""
       : isPdfReceipt(r)
@@ -5119,9 +5187,9 @@ class EssensplanerPanel extends HTMLElement {
         : `<a href="${esc(r.image_url)}" target="_blank" rel="noreferrer"><img class="rpreview" src="${esc(r.image_url)}" alt="Kassenzettel"></a>`;
     const body = `
       ${file}
-      <div class="meta">${esc(dayText(r.date))}${esc(String(r.date || "").slice(0, 4))} · Summe ${eur(r.total ?? r.sum)} · ${r.prices || 0} Preise übernommen</div>
+      <div class="meta">${esc(dayText(r.date))}${esc(String(r.date || "").slice(0, 4))} · Summe ${eur(r.total ?? r.sum)} · ${esc(this._receiptCountText(r))}</div>
       <div>${rows}</div>
-      <div class="hint">✓ = als Preis übernommen · ↺ = ein neuerer eigener Preis bleibt · – = ignoriert</div>`;
+      <div class="hint">✓ = als Preis übernommen · ↺ = ein neuerer eigener Preis bleibt${hasOffer ? " · 🏷️ = Angebotspreis, nur im Preisverlauf" : ""} · – = ignoriert</div>`;
     const footer = `<button class="btn danger rdel">🗑 Löschen</button><span class="spacer"></span><button class="btn" data-close>Schließen</button>`;
     this._showModal(`🧾 ${r.store_label || r.retailer_name}`, body, footer, (root) => {
       root.querySelector(".rdel").addEventListener("click", () => this._deleteReceipt(id));
@@ -5162,7 +5230,12 @@ class EssensplanerPanel extends HTMLElement {
     const branches = this._orderedBranches().filter((b) => b.selected);
     const prices = {};
     for (const a of item.alternatives || []) prices[a.branch_id] = { price: a.price, offer: a.offer, real: a.real };
-    if (item.branch_id) prices[item.branch_id] = { price: item.price, offer: item.offer, real: true };
+    // whether the item's own price is the store's or an estimate only compare_prices tells
+    if (item.branch_id) prices[item.branch_id] = { price: item.price, offer: item.offer };
+    // true: the store's own price (or an offer), false: an estimate (Richtwert), null: unknown
+    const realOf = (x) => (!x ? null : x.offer ? true : x.real == null ? null : Boolean(x.real));
+    // food at a drugstore only with its own price or an offer (like compare_prices)
+    const drugFood = (b) => this._retailerKind(b.retailer) === "drugstore" && !NONFOOD_AISLES.includes(item.category);
     let compare = null;
     // "immer hier kaufen" is stored per product and retailer (also while a manual choice wins)
     const prefs = this._data.store_preferences || {};
@@ -5190,16 +5263,20 @@ class EssensplanerPanel extends HTMLElement {
       const c = compare?.results?.find((r) => same(r) && (!a || r.branch_id === a.branch_id)) || null;
       if (!a && !c) return null;
       const from = a?.label || c?.label || this._branch((a || c).branch_id)?.label || "";
-      return { c, price: a?.price ?? c.price, offer: a?.offer || c?.offer || null, from };
+      return { c, price: a?.price ?? c.price, offer: a?.offer || c?.offer || null, real: c ? realOf(c) : realOf(a), from };
     };
     const rowsHtml = () => {
       const entries = branches.map((b) => {
         const c = compare?.results?.find((r) => r.branch_id === b.id);
         const p = prices[b.id];
-        if (!p && !c) return { b, c: null, price: null, offer: null, ...chainPrice(b) };
-        return { b, c, price: p?.price ?? c?.price ?? null, offer: p?.offer || c?.offer || null };
+        let e = !p && !c ? { b, c: null, price: null, offer: null, real: null, ...chainPrice(b) } : { b, c, price: p?.price ?? c?.price ?? null, offer: p?.offer || c?.offer || null, real: c ? realOf(c) : realOf(p) ?? realOf(compare?.results?.find((r) => r.retailer === b.retailer)) };
+        // no estimate of food at a drugstore (compare_prices leaves it out as well)
+        if (e.price != null && e.real !== true && drugFood(b)) e = { b, c: null, price: null, offer: null, real: null, dropped: true };
+        return e;
       });
-      const priced = entries.filter((e) => e.price != null);
+      // "günstigster" only among the stores' own prices – never because of an estimate; a
+      // price not known as own or estimate yet (compare still loading) holds it back
+      const priced = entries.filter((e) => e.price != null && e.real !== false);
       const min = priced.length ? Math.min(...priced.map((e) => e.price)) : null;
       const unique = priced.filter((e) => e.price === min).length < priced.length;
       const auto = `<button class="pick ${selected === "auto" ? "sel" : ""}" data-store="auto"><span style="font-size:22px">🤖</span>
@@ -5207,17 +5284,19 @@ class EssensplanerPanel extends HTMLElement {
       return (
         auto +
         entries
-          .map(({ b, c, price, offer, from }) => {
+          .map(({ b, c, price, offer, real, from, dropped }) => {
             const tags = [
               b.id === item.branch_id ? '<span class="bdg">aktuell</span>' : "",
               b.main ? '<span class="bdg star">⭐</span>' : "",
               rememberedBranch && b.id === rememberedBranch.id ? '<span class="bdg" title="Für diesen Artikel gemerkt">immer hier</span>' : "",
-              unique && price === min ? '<span class="bdg ok">günstigster</span>' : "",
+              unique && real === true && price === min ? '<span class="bdg ok">günstigster</span>' : "",
             ].join(" ");
-            const sub = [offer ? `🏷️ Angebot${offer.valid_to ? ` bis ${shortDate(offer.valid_to)}` : ""}` : c ? PRICE_SOURCE[c.source] || "" : "", c?.pack ? c.pack : "", c?.unit_price && c.base !== "Stück" ? unitPriceText(c.unit_price, c.base) : "", from !== undefined ? `Preis der Kette${from ? ` (wie ${from})` : ""}` : ""].filter(Boolean).join(" · ");
+            const estimate = price != null && real === false;
+            const sub = [offer ? `🏷️ Angebot${offer.valid_to ? ` bis ${shortDate(offer.valid_to)}` : ""}` : estimate ? "Richtwert, kein Preis des Ladens" : c ? PRICE_SOURCE[c.source] || "" : "", c?.pack ? c.pack : "", c?.unit_price && c.base !== "Stück" ? unitPriceText(c.unit_price, c.base) : "", from !== undefined && !estimate ? `Preis der Kette${from ? ` (wie ${from})` : ""}` : ""].filter(Boolean).join(" · ");
+            const pp = price == null ? '<span class="meta">–</span>' : estimate ? `<span class="meta" title="Richtwert – kein Preis des Ladens">≈ ${eur(price)}</span>` : `<b>${eur(price)}</b>`;
             return `<button class="pick ${selected === b.id ? "sel" : ""}" data-store="${esc(b.id)}">${retailerDot(b.retailer, b.retailer_name)}
-              <span class="pi"><b>${esc(b.label)}</b> ${tags}<div class="sub">${esc(sub || (compare ? "kein Preis bekannt" : ""))}</div></span>
-              <span class="pp">${price != null ? `<b>${eur(price)}</b>` : '<span class="meta">–</span>'}</span></button>`;
+              <span class="pi"><b>${esc(b.label)}</b> ${tags}<div class="sub">${esc(sub || (compare || dropped ? "kein Preis bekannt" : ""))}</div></span>
+              <span class="pp">${pp}</span></button>`;
           })
           .join("")
       );
