@@ -88,6 +88,7 @@ const STORE_LINKS = {
   "aldi-sued": { field: "aldi_service_point", ws: "aldi_stores", list: "stores", source: "aldi", title: "🛒 ALDI-SÜD-Filiale", name: "ALDI SÜD", placeholder: "z. B. B402", mode: "text", search: "🔗 ALDI-Filiale verknüpfen", none: "Keine ALDI-SÜD-Filialen gefunden", saved: "🛒 ALDI-SÜD-Filiale", removed: "ALDI-SÜD-Filiale entfernt – die nächste wird automatisch bestimmt", unlink: "Dann wird beim nächsten Abruf die nächste Filiale automatisch bestimmt." },
 };
 const ARTICLE_SOURCE = {
+  product: "📦 Artikel",
   offer: "🏷️ Angebot",
   store: "✏️ eigener Preis",
   learned: "📰 gelernter Preis",
@@ -210,6 +211,32 @@ const validText = (o, today) => {
 };
 const num = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
 const parseNum = (v) => Number(String(v ?? "").trim().replace(/\s*€$/, "").replace(",", "."));
+
+/* 1.5: product database ("📦 Artikel"), "Produkt wechseln", leaflets of all branches */
+const PRODUCT_SORTS = { price: "Preis", unit_price: "Grundpreis", saving: "Ersparnis", name: "Name", recent: "Zuletzt gesehen" };
+const PRODUCT_ONLY = [
+  ["favorites", "⭐ Favoriten"],
+  ["offers", "🏷️ Angebote"],
+  ["bought", "🧾 Gekauft"],
+  ["manual", "✍️ Eigene"],
+];
+const PRODUCT_PAGE = 60;
+const PRODUCT_REASON = {
+  manual: "von dir gewählt",
+  favorite: "⭐ Lieblingsprodukt",
+  picked: "schon mal gewählt",
+  bought: "🧾 schon gekauft",
+  offer: "",
+  cheapest: "💶 günstigstes",
+};
+const LEAFLET_WHEN = [
+  ["current", "Diese Woche"],
+  ["upcoming", "Nächste Woche"],
+  ["all", "Alle"],
+];
+const OFFERS_MODES = ["recipes", "stores", "leaflets"];
+/** A page of a leaflet ("{page}" counted from page_base). */
+const leafletPage = (template, index, base) => (template ? String(template).replace("{page}", String((Number(base) || 0) + index)) : "");
 
 /* settings view (1.4): sections and a short German help per field; ranges, defaults and
  * the validation come from the backend (options_schema.py). Home Assistant's own options
@@ -828,6 +855,129 @@ const STYLE = `
     .soffers { grid-template-columns: 1fr; }
     .leaflets { grid-template-columns: 1fr; }
   }
+  /* 1.5: pictures with placeholders, "📦 Artikel", "Produkt wechseln", leaflets */
+  .imgph { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; line-height: 1; }
+  .products { max-width: 1440px; margin: 0 auto; }
+  .prfilter .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; padding: 7px 12px; min-height: 38px; }
+  .prfilter .chip .n, .prcats .chip .n { font-size: 11px; opacity: .8; }
+  .prfilter .seg { margin-left: auto; }
+  .prcats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; margin-bottom: 10px; }
+  .prcats:empty { display: none; }
+  .prcats .chip { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 6px 11px; min-height: 36px; }
+  .prcount { margin-bottom: 8px; }
+  .prcard { position: relative; }
+  .prcard .sotop { cursor: pointer; padding-right: 46px; border-radius: var(--ep-radius) var(--ep-radius) 0 0; }
+  .prcard .sotop:hover .pname { text-decoration: underline; }
+  .prcard .sotop:focus-visible { outline: 2px solid var(--ep-primary); outline-offset: -2px; }
+  .soffer .soimg .imgph { font-size: 30px; }
+  .sofav { position: absolute; top: 4px; right: 4px; width: 40px; height: 40px; font-size: 21px; color: var(--ep-secondary-text); }
+  .sofav.on { color: #f4b400; }
+  /* shopping list: picture and product */
+  .ithumb { flex: none; width: 40px; height: 40px; padding: 0; border-radius: 9px; border: 1px solid var(--ep-divider); background: #fff; color: #212121; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; font-size: 21px; font-family: inherit; cursor: pointer; }
+  .ithumb:has(.imgph) { background: var(--ep-accent-bg); color: var(--primary-text-color); }
+  span.ithumb { cursor: default; }
+  .ithumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .ithumb:hover { border-color: var(--ep-primary); }
+  .item.done .ithumb { opacity: .5; }
+  .pline { font-size: 12.5px; color: var(--ep-secondary-text); overflow-wrap: anywhere; line-height: 1.35; }
+  .pline[data-swap] { cursor: pointer; }
+  .pline[data-swap]:hover { color: var(--primary-text-color); text-decoration: underline; }
+  .pline b { color: var(--primary-text-color); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+  .pline .pwhy { white-space: nowrap; }
+  /* suggestions and product rows: picture, store chip */
+  .sthumb { flex: none; width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--ep-divider); background: #fff; color: #212121; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; font-size: 20px; }
+  .sthumb:has(.imgph) { background: var(--ep-accent-bg); color: var(--primary-text-color); }
+  .sthumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .schip { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; color: var(--primary-text-color); vertical-align: middle; }
+  .schip.est { font-weight: 400; color: var(--ep-secondary-text); }
+  .swaprow .pi b { font-weight: 600; }
+  .pbrand { font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--ep-secondary-text); }
+  .swaprow .pp .meta, .pick .pp .meta { display: block; font-size: 11.5px; }
+  .favbox:empty { display: none; }
+  /* product details and form */
+  .prhero { display: flex; gap: 14px; align-items: flex-start; }
+  .prbig { width: 128px; height: 128px; flex: none; border-radius: 12px; background: #fff; color: #212121; border: 1px solid var(--ep-divider); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 52px; }
+  .prbig:has(.imgph) { background: var(--ep-accent-bg); }
+  .prbig img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .prinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .prinfo .brand { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ep-secondary-text); }
+  .prinfo .pname { font-size: 18px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .prprice { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+  .prprice .pr { font-size: 24px; font-weight: 700; color: var(--ep-red); }
+  .prprice .old { text-decoration: line-through; color: var(--ep-secondary-text); }
+  .prprice .disc { background: #c62828; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
+  .prprice .up { font-size: 12.5px; color: var(--ep-secondary-text); }
+  .favkeys { display: flex; flex-wrap: wrap; gap: 6px; }
+  .favkeys .chip { font-size: 13.5px; padding: 7px 12px; min-height: 40px; display: inline-flex; align-items: center; gap: 4px; }
+  .spark { width: 100%; max-width: 460px; height: auto; display: block; }
+  .spark .ln { fill: none; stroke: var(--ep-primary); stroke-width: 2; stroke-linejoin: round; }
+  .spark circle.r { fill: var(--ep-primary); }
+  .spark circle.o { fill: #ef6c00; }
+  .sparklegend { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .sparklegend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ep-primary); vertical-align: 0; }
+  .sparklegend .dot.o { background: #ef6c00; margin-left: 6px; }
+  .pfhead { display: flex; gap: 12px; align-items: flex-start; }
+  .pfhead .prbig { width: 96px; height: 96px; font-size: 40px; }
+  .pfmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .pfmain input, .modal .grid2 input, .modal .grid2 select { width: 100%; min-width: 0; }
+  .modal .ferr { font-size: 13px; color: var(--ep-red); font-weight: 500; }
+  /* leaflets */
+  .lftools .chip { font-size: 13px; padding: 6px 12px; min-height: 36px; }
+  .lftiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .lfstore { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+  .lfname { font-size: 13px; overflow-wrap: anywhere; }
+  .lftile.link .lfcover { aspect-ratio: auto; height: 96px; flex-direction: row; gap: 10px; font-size: 34px; }
+  .lftile.link .lfcover .rdot { width: 44px; height: 44px; border-radius: 12px; font-size: 16px; }
+  .lflinks { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 14px; }
+  .lflinks .btn { gap: 5px; }
+  .lftile { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 0; text-align: left; border: var(--ha-card-border-width, 0) solid var(--ep-divider); background: var(--ep-card); color: var(--primary-text-color); font: inherit; border-radius: var(--ep-radius); box-shadow: var(--ep-shadow); overflow: hidden; cursor: pointer; text-decoration: none; transition: box-shadow .15s, transform .15s; }
+  .lftile:hover { box-shadow: 0 6px 18px rgba(0,0,0,.18); transform: translateY(-1px); }
+  .lfcover { aspect-ratio: 3 / 4; background: var(--ep-accent-bg); display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
+  .lfcover img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .lfcover .meta { font-size: 13px; }
+  .lfinfo { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .lfinfo b { font-size: 14px; overflow-wrap: anywhere; min-width: 0; }
+  .lftile .lfnext { position: absolute; top: 8px; left: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.2); background: color-mix(in srgb, #2e7d32 22%, var(--ep-card)); }
+  .lftile .lfext { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 13px; }
+  .lfoverlay { position: fixed; inset: 0; z-index: 10; background: #121212; color: #fff; display: flex; flex-direction: column; animation: fade .12s ease-out; }
+  .lfvhead { display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 14px; padding-top: calc(6px + env(safe-area-inset-top)); background: #000; min-width: 0; }
+  .lfvtitle { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: center; }
+  .lfvtitle span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .lfvpos { font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; padding: 0 4px; }
+  .lfvhead .icon { color: #fff; width: 44px; height: 44px; flex: none; }
+  .lfvhead .icon:hover, .lfvhead .icon[aria-pressed="true"] { background: rgba(255,255,255,.18); }
+  .lfvhead .btn { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.35); flex: none; min-height: 40px; }
+  .lfvpages { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior: contain; outline: none; touch-action: manipulation; }
+  .lfvpages::-webkit-scrollbar { display: none; }
+  .lfpage { flex: 0 0 100%; width: 100%; height: 100%; scroll-snap-align: center; scroll-snap-stop: always; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 8px; }
+  .lfpage img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.5); user-select: none; -webkit-user-drag: none; cursor: zoom-in; }
+  .lfpage img:not([src]) { width: 60%; height: 80%; background: #222; box-shadow: none; }
+  .lfpage .imgph { font-size: 56px; color: #aaa; }
+  .lfpage.zoom { overflow: auto; align-items: flex-start; justify-content: flex-start; }
+  .lfpage.zoom img { max-width: none; max-height: none; width: 200%; height: auto; cursor: zoom-out; }
+  .lfvpages.zooming { overflow-x: hidden; scroll-snap-type: none; }
+  .lfnav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 72px; border: none; border-radius: 12px; background: rgba(0,0,0,.5); color: #fff; font-size: 36px; line-height: 1; cursor: pointer; z-index: 1; }
+  .lfnav:hover { background: rgba(0,0,0,.75); }
+  .lfnav.prev { left: 8px; }
+  .lfnav.next { right: 8px; }
+  .lfvfoot { display: flex; gap: 12px; align-items: center; padding: 4px 14px; padding-bottom: calc(4px + env(safe-area-inset-bottom)); background: #000; min-width: 0; }
+  .lfvfoot .lfslider { flex: 1 1 auto; min-width: 0; min-height: 40px; accent-color: #fff; background: transparent; border: none; padding: 0; }
+  .lfvfoot .meta { color: #bbb; flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+  @media (max-width: 600px) {
+    .ithumb { width: 40px; height: 40px; font-size: 19px; }
+    .prfilter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+    .prfilter > * { flex: none; }
+    .prfilter .seg { margin-left: 0; }
+    .somode button { padding-left: 6px; padding-right: 6px; font-size: 13px; }
+    .lftiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .prbig { width: 96px; height: 96px; font-size: 40px; }
+    .lfvfoot .meta { display: none; }
+    .lfvtitle .rdot { display: none; }
+  }
+  @media (pointer: coarse) {
+    .lfnav { display: none; }
+    .prcats .chip, .prfilter .chip, .lftools .chip { min-height: 40px; }
+  }
   /* touch screens: every control at least 40 px high */
   @media (pointer: coarse) {
     .rline .ign { min-height: 40px; }
@@ -896,6 +1046,31 @@ class EssensplanerPanel extends HTMLElement {
       seq: 0,
     };
     this._priceKind = "all"; // price list rows: all | food | nonfood
+    // 1.5: "📦 Artikel" tab (the product database, loaded page by page)
+    let prStores = [];
+    try {
+      prStores = JSON.parse(this._pref("products_stores", "[]")) || [];
+    } catch (e) {
+      prStores = [];
+    }
+    this._pr = {
+      query: "",
+      stores: new Set(Array.isArray(prStores) ? prStores : []), // "b:<branch id>" | "r:<retailer>"
+      category: "",
+      only: "",
+      kind: this._pref("products_kind", "all"),
+      sort: this._pref("products_sort", "price"),
+      result: null,
+      products: [],
+      loading: false,
+      error: null,
+      stale: true,
+      seq: 0,
+    };
+    // 1.5: "📰 Prospekte" (Angebote tab)
+    this._lf = { when: "current", result: null, loading: false, error: null, stale: true, seq: 0 };
+    this._lfView = null; // the open leaflet viewer
+    this._badImages = new Set(); // image URLs that failed: shown as placeholder at once
     // receipts (1.4): list of the stores tab and the capture dialog
     this._receipts = null;
     this._receiptsLoading = false;
@@ -1020,9 +1195,15 @@ class EssensplanerPanel extends HTMLElement {
       const pricesStale = !changes.size || [...changes].some((c) => STALE_CHANGES.has(c) || !c);
       const offersStale = !changes.size || [...changes].some((c) => ["offers", "branches", "price_sources", ""].includes(c));
       if (offersStale) this._so.stale = true;
+      // 1.5: the product database follows offers, prices, receipts, ⭐ and the list (picks)
+      const productsStale = !changes.size || [...changes].some((c) => ["products", "offers", "branches", "price_sources", "prices", "receipts", "shopping", ""].includes(c));
+      if (productsStale) this._pr.stale = true;
+      if (offersStale) this._lf.stale = true;
       if (changes.has("receipts") || changes.has("prices")) this._receiptsStale = true;
       if (json === this._dataJson && this._data) {
         if (offersStale && this._tab === "offers" && this._offersMode === "stores" && !this._so.loading) this._fetchStoreOffers();
+        if (offersStale && this._tab === "offers" && this._offersMode === "leaflets" && !this._lf.loading) this._fetchLeaflets();
+        if (productsStale && this._tab === "products" && !this._pr.loading) this._fetchProducts(false, true);
         // nothing changed: no re-render (keeps typing smooth) – but store prices are not part
         // of the data, so a changed price (e.g. set by voice) still refreshes the price list
         if (changes.size && pricesStale) {
@@ -1149,6 +1330,7 @@ class EssensplanerPanel extends HTMLElement {
           <button class="tab" data-tab="plan">🗓️ Wochenplan</button>
           <button class="tab" data-tab="recipes">📖 Rezepte <span class="count" data-count="recipes"></span></button>
           <button class="tab" data-tab="shopping">🛒 Einkaufsliste <span class="count" data-count="shopping"></span></button>
+          <button class="tab" data-tab="products">📦 Artikel</button>
           <button class="tab" data-tab="offers">💶 Angebote<span class="long"> & Budget</span> <span class="count" data-count="offers"></span></button>
           <button class="tab" data-tab="stores">🏪 Läden<span class="long"> & Preise</span></button>
         </div>
@@ -1165,6 +1347,8 @@ class EssensplanerPanel extends HTMLElement {
     this._gear = this.shadowRoot.querySelector("[data-gear]");
     this._gear.addEventListener("click", () => this._openSettings());
     this._updateGear();
+    // 1.5: a product / leaflet image that cannot be loaded becomes its placeholder (emoji)
+    this.shadowRoot.addEventListener("error", (ev) => this._brokenImage(ev.target), true);
     const menu = document.createElement("ha-menu-button");
     menu.hass = this._hass;
     menu.narrow = this._narrow;
@@ -1183,6 +1367,12 @@ class EssensplanerPanel extends HTMLElement {
         ev.preventDefault();
         clearTimeout(this._soTimer);
         this._fetchStoreOffers();
+        return;
+      }
+      if (ev.key === "Enter" && ev.target.dataset.input === "pr-query") {
+        ev.preventDefault();
+        clearTimeout(this._prTimer);
+        this._fetchProducts();
         return;
       }
       if (ev.key === "Enter" && ev.target.dataset.enter) {
@@ -1284,6 +1474,7 @@ class EssensplanerPanel extends HTMLElement {
     if (this._tab !== "shopping") this._suggest.open = false;
     if (this._tab === "recipes") this._content.innerHTML = this._renderRecipes();
     else if (this._tab === "shopping") this._content.innerHTML = this._renderShopping();
+    else if (this._tab === "products") this._content.innerHTML = this._renderProducts();
     else if (this._tab === "offers") this._content.innerHTML = this._renderOffers();
     else if (this._tab === "stores") this._content.innerHTML = this._renderStores();
     else this._content.innerHTML = this._renderPlan();
@@ -1618,8 +1809,28 @@ class EssensplanerPanel extends HTMLElement {
       const parts = (item.description || "")
         .split(" · ")
         .map((p) => p.trim())
-        .filter((p) => p && !p.startsWith("≈ ") && !p.startsWith("🏷️ ") && !(byStore && p.startsWith("🏪 ")));
+        .filter((p) => p && !p.startsWith("≈ ") && !p.startsWith("🏷️ ") && !(byStore && p.startsWith("🏪 ")) && !(item.product && p.startsWith("📦 ")));
       return parts.filter((p) => !(item.status !== "completed" && p === item.category)).join(" · ");
+    };
+    // 1.5: picture in front (the product's or the aisle's emoji), brand and product below
+    // the name; both open "Produkt wechseln"
+    const thumbOf = (item, isOpen) => {
+      const p = item.product || null;
+      const pic = this._img(p?.image || item.chosen?.offer?.image, CATEGORY_ICONS[item.category || "Sonstiges"] || "🛒");
+      return isOpen
+        ? `<button class="ithumb" data-action="swap-product" data-uid="${esc(item.uid)}" title="Produkt wählen" aria-label="Produkt wählen: ${esc(item.summary)}">${pic}</button>`
+        : `<span class="ithumb">${pic}</span>`;
+    };
+    const productLine = (item, isOpen) => {
+      const p = item.product;
+      if (!p) return "";
+      const full = p.name || p.title || "";
+      const name = full && fold(item.summary).includes(fold(full)) ? "" : full;
+      const pack = packText(p.pack_amount, p.pack_unit);
+      const why = isOpen ? PRODUCT_REASON[item.product_reason] : "";
+      const parts = [`${p.brand ? `<b>${esc(p.brand)}</b>${name ? " " : ""}` : ""}${esc(name)}`, pack && !fold(full).includes(fold(pack)) ? esc(pack) : "", why ? `<span class="pwhy">${esc(why)}</span>` : ""].filter(Boolean);
+      const inner = parts.join(" · ");
+      return `<div class="pline" ${isOpen ? `data-swap="${esc(item.uid)}" title="Produkt wechseln"` : ""}>${inner}</div>`;
     };
     const renderItem = (item) => {
       const isOpen = item.status !== "completed";
@@ -1629,7 +1840,8 @@ class EssensplanerPanel extends HTMLElement {
       return `
       <div class="item ${isOpen ? "" : "done"}">
         <label class="chk"><input type="checkbox" data-change="toggle-item" data-uid="${esc(item.uid)}" ${isOpen ? "" : "checked"} aria-label="${esc(item.summary)} erledigt"></label>
-        <div class="txt"><div class="sum">${esc(item.summary)}${reason && item.store_reason !== "offer" ? `<span class="reason ${reason[1]}" title="${esc(reason[2])}">${reason[0]}</span>` : ""}</div>${describe(item) ? `<div class="desc">${esc(describe(item))}</div>` : ""}</div>
+        ${thumbOf(item, isOpen)}
+        <div class="txt"><div class="sum">${esc(item.summary)}${reason && item.store_reason !== "offer" ? `<span class="reason ${reason[1]}" title="${esc(reason[2])}">${reason[0]}</span>` : ""}</div>${productLine(item, isOpen)}${describe(item) ? `<div class="desc">${esc(describe(item))}</div>` : ""}</div>
         ${item.price != null ? `<div class="price">≈ ${eur(item.price)}${offer}${saving}</div>` : ""}
         ${split && isOpen ? `<button class="icon swap" data-action="pick-store" data-uid="${esc(item.uid)}" title="Laden wählen" aria-label="Laden wählen">⇄</button>` : ""}
         <button class="icon" data-action="delete-item" data-uid="${esc(item.uid)}" title="Entfernen" aria-label="Entfernen">✕</button>
@@ -1723,12 +1935,15 @@ class EssensplanerPanel extends HTMLElement {
     return this._content.querySelector('[data-focuskey="additem"]');
   }
 
+  /** 1.5: the search covers every saved store – online sources of each chain with a branch. */
   _expectLive() {
     const eco = this._data?.economy || {};
+    const chains = new Set((this._data?.branches || []).filter((b) => b.selected).map((b) => b.retailer));
+    if (eco.main_retailer) chains.add(eco.main_retailer);
     return (
       eco.offers_source === "marktguru" ||
-      (eco.price_sources?.rewe?.enabled && eco.main_retailer === "rewe") ||
-      (eco.price_sources?.aldi?.enabled && eco.main_retailer === "aldi-sued")
+      (eco.price_sources?.rewe?.enabled && chains.has("rewe")) ||
+      (eco.price_sources?.aldi?.enabled && chains.has("aldi-sued"))
     );
   }
 
@@ -1754,12 +1969,12 @@ class EssensplanerPanel extends HTMLElement {
     if (opening) this._fitSuggest(undefined, undefined, true);
     let localDone = false;
     try {
-      const local = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: false });
+      const local = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: false, scope: "all" });
       if (seq !== this._suggestSeq) return;
       localDone = true;
       this._setSuggestResults(local, query, live);
       if (!live) return;
-      const online = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: true });
+      const online = await this._hass.callWS({ type: `${DOMAIN}/article_search`, query, live: true, scope: "all" });
       if (seq !== this._suggestSeq) return;
       if (online.superseded) {
         s.loading = false;
@@ -1776,10 +1991,11 @@ class EssensplanerPanel extends HTMLElement {
 
   _setSuggestResults(res, query, stillLoading) {
     const s = this._suggest;
-    const ident = (r) => r && `${r.title}|${r.pack}|${r.source}|${r.offer?.id || ""}`;
+    const ident = (r) => r && `${r.title}|${r.pack}|${r.source}|${r.offer?.id || ""}|${r.product_id || ""}|${r.branch_id || ""}`;
     const current = ident(s.results[s.index]);
     s.results = res?.results || [];
     s.store = res?.store || null;
+    s.scope = res?.scope || "main";
     s.loading = stillLoading;
     s.lastQuery = query;
     s.index = current ? s.results.findIndex((r) => ident(r) === current) : -1;
@@ -1828,9 +2044,9 @@ class EssensplanerPanel extends HTMLElement {
   _suggestHtml() {
     const s = this._suggest;
     const store = s.store;
-    const head = store
-      ? `<div class="shint top">${retailerDot(store.retailer, store.retailer_name).replace('class="rdot"', 'class="rdot sm"')}<span>Artikel bei <b>${esc(store.label)}</b>${store.main ? " (Hauptladen)" : ""}</span></div>`
-      : "";
+    let head = "";
+    if (store) head = `<div class="shint top">${retailerDot(store.retailer, store.retailer_name).replace('class="rdot"', 'class="rdot sm"')}<span>Artikel bei <b>${esc(store.label)}</b>${store.main ? " (Hauptladen)" : ""}</span></div>`;
+    else if (s.scope === "all" && s.results.length) head = `<div class="shint top"><span>🔎 Aus allen deinen Läden – günstigste zuerst</span></div>`;
     const rows = s.results
       .map((r, i) => {
         const shop = SHOP_PROVIDERS[r.provider];
@@ -1840,12 +2056,18 @@ class EssensplanerPanel extends HTMLElement {
             ? shop
               ? shop
               : "🏷️ Prospekt (online)"
-            : ARTICLE_SOURCE[r.source] || "";
-        const until = offer && r.offer?.valid_to ? ` bis ${shortDate(r.offer.valid_to)}` : "";
-        const where = r.retailer ? this._retailerName(r.retailer) : "Allgemein";
-        const sub = [where, sourceHint + until, r.count > 1 ? `${r.count}× gekauft` : ""].filter(Boolean).join(" · ");
+            : r.source === "product" && offer
+              ? ""
+              : ARTICLE_SOURCE[r.source] || "";
+        const until = offer && r.offer?.valid_to ? `${sourceHint ? " " : "🏷️ "}bis ${shortDate(r.offer.valid_to)}` : "";
+        const where = r.retailer
+          ? `<span class="schip">${retailerDot(r.retailer, this._retailerName(r.retailer)).replace('class="rdot"', 'class="rdot xs"')}${esc(r.store_label || this._retailerName(r.retailer))}</span>`
+          : '<span class="schip est">Allgemein</span>';
+        const sub = [sourceHint + until, r.count > 1 ? `${r.count}× gekauft` : ""].filter(Boolean).join(" · ");
+        const ph = r.source === "default" ? "≈" : r.source === "product" ? "📦" : offer ? "🏷️" : "🛒";
         return `<button class="sugg ${i === s.index ? "sel" : ""}" data-sugg="${i}" role="option" aria-selected="${i === s.index}" tabindex="-1">
-          <span class="st"><div class="t">${esc(r.title)}${r.pack ? ` <span class="meta">${esc(r.pack)}</span>` : ""}${offer ? ' <span class="tagoffer">🏷️ Angebot</span>' : ""}</div><div class="sub">${esc(sub)}</div></span>
+          <span class="sthumb">${this._img(r.image, ph)}</span>
+          <span class="st"><div class="t">${esc(r.title)}${r.pack ? ` <span class="meta">${esc(r.pack)}</span>` : ""}${offer ? ' <span class="tagoffer">🏷️ Angebot</span>' : ""}</div><div class="sub">${where}${sub ? ` ${esc(sub)}` : ""}</div></span>
           <span class="sp">${r.price != null ? `<b>${eur(r.price)}</b>` : '<span class="meta">kein Preis</span>'}${r.unit_price != null && r.base && r.base !== "Stück" ? `<span class="meta">${esc(unitPriceText(r.unit_price, r.base))}</span>` : ""}</span>
         </button>`;
       })
@@ -1899,20 +2121,28 @@ class EssensplanerPanel extends HTMLElement {
     const { prefix } = splitQuantity(this._addText);
     // typed amount wins over the amount of a remembered article ("3 Milch" + "2 Liter Milch")
     const data = { item: (prefix ? `${prefix}${splitQuantity(r.title).query || r.title}` : r.title).trim() };
-    // A hit of the searched store (the main store) is no store choice: the item stays in the
-    // automatic assignment ("Hauptladen + Ausnahmen") and still moves to a better offer
-    // elsewhere. Only a hit of another store (or of a retailer without branches) names it.
-    let store = null;
-    if (r.branch_id) store = r.branch_id !== (s.store?.branch_id || null) ? r.branch_id : null;
-    else if (!this._splitActive()) store = r.retailer || null;
-    if (store) data.store = store;
-    if (STORE_PRICE_HITS.has(r.source)) {
-      if (r.price != null) data.price = r.price;
-      if (r.pack) data.pack = r.pack;
+    // 1.5: a product of the database (also a shop hit of REWE / ALDI SÜD online): the item
+    // is that product, bought at its chain for its offer or regular price (the backend
+    // decides the branch like for a picked offer)
+    const productId = r.product_id && (r.source === "product" || (r.source === "live" && SHOP_PROVIDERS[r.provider])) ? r.product_id : null;
+    if (productId) data.product_id = productId;
+    else {
+      // A hit of the main store is no store choice: the item stays in the automatic
+      // assignment ("Hauptladen + Ausnahmen") and still moves to a better offer elsewhere.
+      // Only a hit of another store (or of a retailer without branches) names it.
+      const searched = s.store?.branch_id || (s.scope === "all" ? this._data?.main_branch || null : null);
+      let store = null;
+      if (r.branch_id) store = r.branch_id !== searched ? r.branch_id : null;
+      else if (!this._splitActive()) store = r.retailer || null;
+      if (store) data.store = store;
+      if (STORE_PRICE_HITS.has(r.source)) {
+        if (r.price != null) data.price = r.price;
+        if (r.pack) data.pack = r.pack;
+      }
+      // saved offers (a live leaflet offer has the id it is saved under by the offer refresh)
+      const leaflet = r.source === "offer" || (r.source === "live" && !SHOP_PROVIDERS[r.provider]);
+      if (leaflet && r.offer?.id) data.offer_id = r.offer.id;
     }
-    // saved offers (a live leaflet offer has the id it is saved under by the offer refresh)
-    const leaflet = r.source === "offer" || (r.source === "live" && !SHOP_PROVIDERS[r.provider]);
-    if (leaflet && r.offer?.id) data.offer_id = r.offer.id;
     const typed = this._addText;
     this._addText = "";
     this._suggestSeq += 1;
@@ -1931,7 +2161,7 @@ class EssensplanerPanel extends HTMLElement {
     }
     // where and for how much it was put on the list (it may have gone to another store)
     const item = res?.item || {};
-    const label = item.store_label || (r.retailer ? this._retailerName(r.retailer) : "");
+    const label = item.store_label || r.store_label || (r.retailer ? this._retailerName(r.retailer) : "");
     const cost = item.price ?? data.price;
     const price = cost != null ? ` für ${data.price != null ? "" : "≈ "}${eur(cost)}` : "";
     this._toast(`🛒 ${data.item}${data.pack ? ` (${data.pack})` : ""}${price}${label ? ` bei ${label}` : ""} hinzugefügt`);
@@ -1971,6 +2201,14 @@ class EssensplanerPanel extends HTMLElement {
       } else if (ev.key === "ArrowLeft") this._cookGo(-1);
       return;
     }
+    // 1.5: the leaflet viewer turns pages with the arrow keys
+    // (not while the page slider has the focus: it moves itself)
+    const inSlider = ev.composedPath?.()[0]?.classList?.contains("lfslider");
+    if (this._lfView && !inSlider && this._modal?.root === this._lfView.root && (ev.key === "ArrowRight" || ev.key === "ArrowLeft")) {
+      ev.preventDefault();
+      this._lfView.go(this._lfView.index + (ev.key === "ArrowRight" ? 1 : -1));
+      return;
+    }
     if (ev.key === "Escape" && this._modal) this._requestCloseModal();
   }
 
@@ -1999,6 +2237,10 @@ class EssensplanerPanel extends HTMLElement {
       this._so.query = t.value;
       clearTimeout(this._soTimer);
       this._soTimer = setTimeout(() => this._fetchStoreOffers(), 350);
+    } else if (kind === "pr-query") {
+      this._pr.query = t.value;
+      clearTimeout(this._prTimer);
+      this._prTimer = setTimeout(() => this._fetchProducts(), 350);
     } else if (kind === "rewe-id") {
       this._reweInput[t.dataset.id] = t.value;
       const b = this._branch(t.dataset.id);
@@ -2040,6 +2282,10 @@ class EssensplanerPanel extends HTMLElement {
         this._so.sort = t.value;
         this._setPref("offers_sort", t.value);
         this._fetchStoreOffers();
+      } else if (kind === "pr-sort") {
+        this._pr.sort = t.value;
+        this._setPref("products_sort", t.value);
+        this._fetchProducts();
       } else if (kind === "manual") {
         this._manual[t.dataset.field] = t.value;
       }
@@ -2053,6 +2299,13 @@ class EssensplanerPanel extends HTMLElement {
     if (sugg && this._content.contains(sugg)) {
       ev.stopPropagation();
       this._addSuggestion(Number(sugg.dataset.sugg)).catch(() => {});
+      return;
+    }
+    // 1.5: the product line of a shopping item (its picture is the button for the same)
+    const swap = ev.target.closest("[data-swap]");
+    if (swap && this._content.contains(swap)) {
+      ev.stopPropagation();
+      this._openProductSwap(swap.dataset.swap).catch(() => {});
       return;
     }
     const el = ev.target.closest("[data-action]");
@@ -2307,6 +2560,7 @@ class EssensplanerPanel extends HTMLElement {
         } finally {
           this._refreshing.delete("offers-tab");
           this._so.stale = true;
+          this._lf.stale = true;
           if (this._tab === "offers") this._renderContent();
         }
         break;
@@ -2315,7 +2569,7 @@ class EssensplanerPanel extends HTMLElement {
         this._openOfferForm({ store: d.store || "" });
         break;
       case "offers-mode":
-        this._offersMode = d.mode === "stores" ? "stores" : "recipes";
+        this._offersMode = OFFERS_MODES.includes(d.mode) ? d.mode : "recipes";
         this._setPref("offers_mode", this._offersMode);
         this._renderContent();
         break;
@@ -2434,6 +2688,65 @@ class EssensplanerPanel extends HTMLElement {
       case "clear-done":
         await this._todo("remove_completed_items", {});
         break;
+      /* 1.5: "📦 Artikel" */
+      case "pr-store": {
+        const pr = this._pr;
+        if (!d.store) pr.stores.clear();
+        else if (pr.stores.has(d.store)) pr.stores.delete(d.store);
+        else pr.stores.add(d.store);
+        if (pr.stores.size && pr.stores.size === (pr.result?.stores || []).length) pr.stores.clear();
+        this._setPref("products_stores", JSON.stringify([...pr.stores]));
+        pr.category = "";
+        this._fetchProducts();
+        break;
+      }
+      case "pr-cat":
+        this._pr.category = this._pr.category === d.cat ? "" : d.cat || "";
+        this._fetchProducts();
+        break;
+      case "pr-only":
+        this._pr.only = this._pr.only === d.only ? "" : d.only || "";
+        this._fetchProducts();
+        break;
+      case "pr-kind":
+        this._pr.kind = d.kind;
+        this._setPref("products_kind", d.kind);
+        this._pr.category = "";
+        this._fetchProducts();
+        break;
+      case "pr-more":
+        if (!this._pr.loading) await this._fetchProducts(true);
+        break;
+      case "pr-reset":
+        Object.assign(this._pr, { query: "", category: "", only: "" });
+        this._pr.stores.clear();
+        this._setPref("products_stores", "[]");
+        this._renderContent();
+        this._fetchProducts();
+        break;
+      case "pr-open":
+        await this._openProduct(d.id);
+        break;
+      case "pr-add":
+        await this._productToList(el, this._prCard(d.id) || { id: d.id, title: d.title });
+        break;
+      case "pr-fav":
+        await this._productFavorite(el, d.id, d.key || null, d.on !== "1");
+        break;
+      case "pr-new":
+        this._openProductForm({});
+        break;
+      case "swap-product":
+        await this._openProductSwap(d.uid);
+        break;
+      /* 1.5: "📰 Prospekte" */
+      case "lf-when":
+        this._lf.when = d.when;
+        this._renderLeafletParts();
+        break;
+      case "lf-open":
+        this._openLeaflet(d.id, Number(d.page) || 0);
+        break;
       default:
         break;
     }
@@ -2470,6 +2783,7 @@ class EssensplanerPanel extends HTMLElement {
   _closeModal() {
     this._modalRoot.innerHTML = "";
     this._modal = null;
+    this._lfView = null;
     // a closed receipt dialog stays closed when its upload / reading finishes
     this._receipt = null;
   }
@@ -2869,13 +3183,16 @@ class EssensplanerPanel extends HTMLElement {
 
   /* ------------------------------------------------------------ offers & budget */
   _renderOffers() {
-    const stores = this._offersMode === "stores";
+    const mode = OFFERS_MODES.includes(this._offersMode) ? this._offersMode : "recipes";
     const recipeCount = (this._data.offers || []).filter((o) => o.current && o.recipe_count).length;
+    const button = (m, html) => `<button class="${mode === m ? "on" : ""}" data-action="offers-mode" data-mode="${m}" aria-pressed="${mode === m}">${html}</button>`;
     const seg = `<div class="seg somode" role="group" aria-label="Angebote anzeigen">
-        <button class="${stores ? "" : "on"}" data-action="offers-mode" data-mode="recipes" aria-pressed="${!stores}">🍽️ <span class="wide-only">Für meine Rezepte</span><span class="narrow-only">Meine Rezepte</span> (${recipeCount})</button>
-        <button class="${stores ? "on" : ""}" data-action="offers-mode" data-mode="stores" aria-pressed="${stores}">🏪 <span class="wide-only">Alle Angebote meiner Läden</span><span class="narrow-only">Meine Läden</span> (<span data-socount>${this._storeOfferCount()}</span>)</button>
+        ${button("recipes", `🍽️ <span class="wide-only">Für meine Rezepte</span><span class="narrow-only">Rezepte</span> (${recipeCount})`)}
+        ${button("stores", `🏪 <span class="wide-only">Alle Angebote meiner Läden</span><span class="narrow-only">Läden</span> (<span data-socount>${this._storeOfferCount()}</span>)`)}
+        ${button("leaflets", `📰 Prospekte<span data-lfcount>${this._lfCount()}</span>`)}
       </div>`;
-    return seg + (stores ? this._renderStoreOffers() : this._renderRecipeOffers());
+    if (mode === "leaflets") return seg + this._renderLeaflets();
+    return seg + (mode === "stores" ? this._renderStoreOffers() : this._renderRecipeOffers());
   }
 
   _renderRecipeOffers() {
@@ -4135,9 +4452,11 @@ class EssensplanerPanel extends HTMLElement {
       </div>`;
   }
 
-  _soCardHtml(o, today) {
-    const img = safeUrl(o.image);
-    const ref = o.old_price || o.regular_price;
+  /** An offer card of the store offers; 1.5: also a product of the database (opts.product:
+   *  ⭐, tap opens the details, its price source, "➕" puts the product on the list). */
+  _soCardHtml(o, today, opts = {}) {
+    const product = Boolean(opts.product);
+    const ref = o.old_price || (product ? null : o.regular_price);
     const pack = packText(o.pack_amount, o.pack_unit);
     const desc = [pack, o.description && o.description !== pack ? o.description : ""].filter(Boolean).join(" · ");
     const badges = [];
@@ -4147,24 +4466,38 @@ class EssensplanerPanel extends HTMLElement {
     if (o.online_only) badges.push('<span class="bdg bad">nur online</span>');
     if (o.deposit) badges.push(`<span class="bdg">+${eur(o.deposit)} Pfand</span>`);
     const until = validText(o, today);
-    if (until) badges.push(`<span class="bdg ${o.current ? "" : "ok"}">${esc(until)}</span>`);
+    if (until) badges.push(`<span class="bdg ${o.current ? "" : "ok"}">${product ? "🏷️ " : ""}${esc(until)}</span>`);
+    if (product) {
+      if (!o.on_offer && o.regular_source && PRICE_SOURCE[o.regular_source]) badges.push(`<span class="bdg" title="Woher der Normalpreis stammt">${esc(PRICE_SOURCE[o.regular_source])}</span>`);
+      if (o.stale && o.price != null) badges.push(`<span class="bdg warn" title="Preis länger nicht bestätigt">Stand ${esc(dayText(o.regular_seen || o.last_seen))}</span>`);
+      if (o.bought) badges.push('<span class="bdg ok" title="Schon gekauft (Kassenzettel / abgehakt)">🧾 gekauft</span>');
+      if (o.manual) badges.push('<span class="bdg" title="Eigener Artikel">✍️ eigener</span>');
+    }
     const unit = o.unit_price != null && o.base_unit && o.base_unit !== "Stück" ? unitPriceText(o.unit_price, o.base_unit) : "";
     const ids = o.branch_ids || [];
     const branch = ids.length === 1 ? this._branch(ids[0]) : null;
     const where = branch ? branch.label : ids.length > 1 ? `${o.store} (${ids.length} Läden)` : o.store;
-    // one of the planning offers already (📌 would only add a second copy)
-    const counts = (this._data.offers || []).some((x) => String(x.id) === String(o.id));
-    return `<div class="card soffer ${o.current ? "" : "later"}">
-        <div class="sotop">
-          <div class="soimg">${img ? `<img loading="lazy" src="${esc(img)}" alt="">` : "🏷️"}</div>
-          <div class="sot">${o.brand ? `<div class="brand">${esc(o.brand)}</div>` : ""}<div class="pname">${esc(o.product || o.title)}</div>${desc ? `<div class="pack">${esc(desc)}</div>` : ""}</div>
-        </div>
-        <div class="soprice"><span class="pr">${eur(o.price)}</span>${ref && ref > o.price ? `<span class="old" title="${o.old_price ? "Streichpreis" : "Normalpreis"}">${eur(ref)}</span>` : ""}${o.discount ? `<span class="disc">−${o.discount}%</span>` : ""}${unit ? `<span class="up">${esc(unit)}</span>` : ""}</div>
+    const img = this._img(o.image, product ? CATEGORY_ICONS[o.category] || "📦" : "🏷️");
+    const price = o.price != null ? `<span class="pr">${eur(o.price)}</span>` : '<span class="meta">kein Preis</span>';
+    const fav = product
+      ? `<button class="icon sofav ${o.favorite ? "on" : ""}" data-action="pr-fav" data-id="${esc(o.id)}" data-on="${o.favorite ? "1" : "0"}" aria-pressed="${o.favorite}" title="${o.favorite ? "Lieblingsprodukt – tippen zum Entfernen" : "Als Lieblingsprodukt merken (wird beim Einkauf bevorzugt)"}" aria-label="Lieblingsprodukt">${o.favorite ? "⭐" : "☆"}</button>`
+      : "";
+    const top = `<div class="soimg">${img}</div>
+          <div class="sot">${o.brand ? `<div class="brand">${esc(o.brand)}</div>` : ""}<div class="pname">${esc(o.product || o.title)}</div>${desc ? `<div class="pack">${esc(desc)}</div>` : ""}</div>`;
+    let acts;
+    if (product) {
+      acts = `<button class="btn small" data-action="pr-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>`;
+    } else {
+      // one of the planning offers already (📌 would only add a second copy)
+      const counts = (this._data.offers || []).some((x) => String(x.id) === String(o.id));
+      acts = `<button class="btn small" data-action="so-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>
+          ${counts ? `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Passt zu deinen Rezepten oder der Einkaufsliste – zählt schon für Planung, Budget und Einkaufsliste">✓ Zählt schon</button>` : `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌 Merken</button>`}`;
+    }
+    return `<div class="card soffer ${o.current ? "" : "later"} ${product ? "prcard" : ""}">
+        ${product ? `<div class="sotop" data-action="pr-open" data-enter="pr-open" data-id="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.title || o.product)} – Details">${top}</div>${fav}` : `<div class="sotop">${top}</div>`}
+        <div class="soprice">${price}${ref && o.price != null && ref > o.price ? `<span class="old" title="${product || !o.old_price ? "Normalpreis" : "Streichpreis"}">${eur(ref)}</span>` : ""}${o.discount ? `<span class="disc">−${o.discount}%</span>` : ""}${unit ? `<span class="up">${esc(unit)}</span>` : ""}</div>
         <div class="someta"><span class="sostore">${retailerDot(o.retailer, o.store).replace('class="rdot"', 'class="rdot xs"')}${esc(where)}</span>${badges.join("")}</div>
-        <div class="acts">
-          <button class="btn small" data-action="so-add" data-id="${esc(o.id)}">➕ Auf die Einkaufsliste</button>
-          ${counts ? `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Passt zu deinen Rezepten oder der Einkaufsliste – zählt schon für Planung, Budget und Einkaufsliste">✓ Zählt schon</button>` : `<button class="btn small" data-action="so-pin" data-id="${esc(o.id)}" title="Als eigenes Angebot merken – zählt dann für Planung, Budget und Einkaufsliste">📌 Merken</button>`}
-        </div>
+        <div class="acts">${acts}</div>
       </div>`;
   }
 
@@ -4264,6 +4597,762 @@ class EssensplanerPanel extends HTMLElement {
     } finally {
       el.disabled = false;
     }
+  }
+
+  /* ------------------------------------------------------------ images (1.5) */
+  /** An image with its placeholder (emoji): no URL, a URL that failed before, or one that
+   *  fails now (_brokenImage) shows the emoji instead. */
+  _img(url, ph = "🛒", alt = "") {
+    const src = safeUrl(url);
+    if (!src || this._badImages.has(src)) return `<span class="imgph" aria-hidden="true">${esc(ph)}</span>`;
+    return `<img loading="lazy" decoding="async" src="${esc(src)}" alt="${esc(alt)}" data-ph="${esc(ph)}">`;
+  }
+
+  _brokenImage(img) {
+    if (img?.tagName !== "IMG" || img.dataset?.ph === undefined) return;
+    const src = img.getAttribute("src");
+    if (src) this._badImages.add(src);
+    const span = document.createElement("span");
+    span.className = "imgph";
+    span.setAttribute("aria-hidden", "true");
+    span.textContent = img.dataset.ph || "🛒";
+    img.replaceWith(span);
+  }
+
+  /* ------------------------------------------------------------ 📦 Artikel (1.5) */
+  _prStoreKey(st) {
+    return st.branch_id ? `b:${st.branch_id}` : `r:${st.retailer}`;
+  }
+
+  _prPicked(stores) {
+    const known = new Set((stores || []).map((st) => this._prStoreKey(st)));
+    return new Set([...this._pr.stores].filter((key) => known.has(key)));
+  }
+
+  _prCard(id) {
+    return this._pr.products.find((p) => p.id === id);
+  }
+
+  _renderProducts() {
+    const pr = this._pr;
+    if ((pr.stale || !pr.result) && !pr.loading) this._fetchProducts(false, Boolean(pr.result));
+    const sorts = Object.entries(PRODUCT_SORTS)
+      .map(([k, v]) => `<option value="${k}" ${k === pr.sort ? "selected" : ""}>${v}</option>`)
+      .join("");
+    return `<div class="products">
+      <div class="prchips sochips" role="group" aria-label="Läden">${this._prChipsHtml()}</div>
+      <div class="sotools">
+        <input type="search" placeholder="🔍 Artikel oder Marke suchen, z. B. „Butter“" value="${esc(pr.query)}" data-input="pr-query" data-focuskey="pr-query" aria-label="Artikel suchen">
+        <label class="switch">Sortieren <select data-change="pr-sort" aria-label="Sortieren">${sorts}</select></label>
+        <button class="btn" data-action="pr-new" title="Einen Artikel mit Preis und Bild selbst eintragen">＋ Eigener Artikel</button>
+      </div>
+      <div class="sotools prfilter" role="group" aria-label="Filter">${this._prFilterHtml()}</div>
+      <div class="prcats" role="group" aria-label="Kategorien">${this._prCatsHtml()}</div>
+      <div class="prbody">${this._prBodyHtml()}</div>
+    </div>`;
+  }
+
+  _prChipsHtml() {
+    const stores = this._pr.result?.stores || [];
+    if (!stores.length) return "";
+    const picked = this._prPicked(stores);
+    const perChain = new Map(stores.map((st) => [st.retailer, st.count || 0]));
+    const total = [...perChain.values()].reduce((a, b) => a + b, 0);
+    return `<button class="chip all ${picked.size ? "" : "active"}" data-action="pr-store" data-store="" aria-pressed="${!picked.size}">Alle Läden <span class="n">${total}</span></button>${stores
+      .map((st) => {
+        const key = this._prStoreKey(st);
+        const on = picked.has(key);
+        return `<button class="chip ${on ? "active" : ""}" data-action="pr-store" data-store="${esc(key)}" aria-pressed="${on}" title="${esc(st.store)}">${retailerDot(st.retailer, st.store).replace('class="rdot"', 'class="rdot xs"')}${esc(st.label)}${st.main ? " ⭐" : ""} <span class="n">${st.count || 0}</span></button>`;
+      })
+      .join("")}`;
+  }
+
+  _prFilterHtml() {
+    const pr = this._pr;
+    const kinds = OFFER_KINDS.map(([k, label]) => `<button class="${pr.kind === k ? "on" : ""}" data-action="pr-kind" data-kind="${k}" aria-pressed="${pr.kind === k}">${label}</button>`).join("");
+    const counts = pr.result?.counts || this._data?.products || {};
+    const n = { favorites: counts.favorites, offers: counts.offers, bought: counts.bought, manual: counts.manual };
+    const only = PRODUCT_ONLY.map(
+      ([k, label]) => `<button class="chip ${pr.only === k ? "active" : ""}" data-action="pr-only" data-only="${k}" aria-pressed="${pr.only === k}">${label}${n[k] != null ? ` <span class="n">${n[k]}</span>` : ""}</button>`
+    ).join("");
+    return `${only}<span class="seg" role="group" aria-label="Art">${kinds}</span>`;
+  }
+
+  _prCatsHtml() {
+    const pr = this._pr;
+    const cats = pr.result?.categories || [];
+    if (cats.length < 2 && !pr.category) return "";
+    return `<button class="chip ${pr.category ? "" : "active"}" data-action="pr-cat" data-cat="" aria-pressed="${!pr.category}">Alle Abteilungen</button>${cats
+      .map((c) => {
+        const on = c.name === pr.category;
+        return `<button class="chip ${on ? "active" : ""}" data-action="pr-cat" data-cat="${esc(c.name)}" aria-pressed="${on}">${CATEGORY_ICONS[c.name] || "🛒"} ${esc(c.name)} <span class="n">${c.count}</span></button>`;
+      })
+      .join("")}`;
+  }
+
+  _prBodyHtml() {
+    const pr = this._pr;
+    const res = pr.result;
+    if (!res) return pr.error ? `<div class="notice err">${esc(pr.error)}</div>` : `<div class="hint">⏳ Lade Artikel …</div>`;
+    const counts = res.counts || this._data?.products || {};
+    const notes = pr.error ? `<div class="notice err">${esc(pr.error)}</div>` : "";
+    if (!counts.products) {
+      return `${notes}<div class="empty"><div class="big">📦</div><b>Noch keine Artikel gespeichert.</b><br><span class="hint">Die Artikel-Datenbank füllt sich von selbst – ohne zusätzliche Abfragen: aus den Angeboten deiner Läden, den Onlinepreisen von REWE und ALDI SÜD, deinen Kassenzetteln und Artikeln, die du auf die Einkaufsliste setzt. Eigene Artikel (mit Preis und Bild) trägst du selbst ein.</span><div class="row" style="justify-content:center;margin:12px 0 0"><button class="btn primary" data-action="pr-new">＋ Eigener Artikel</button></div></div>`;
+    }
+    const today = this._today();
+    const cards = pr.products.map((p) => this._soCardHtml(p, today, { product: true })).join("");
+    const filtered = Boolean(pr.query.trim() || pr.category || pr.only || pr.stores.size || pr.kind !== "all");
+    let empty = "";
+    if (!pr.products.length && !pr.loading) {
+      const what = pr.query.trim() ? `für „${esc(pr.query.trim())}“` : "für diese Auswahl";
+      empty = `<div class="empty"><div class="big">🔎</div>Keine Artikel ${what}.${filtered ? `<div class="row" style="justify-content:center;margin:12px 0 0"><button class="btn" data-action="pr-reset">Filter zurücksetzen</button></div>` : ""}</div>`;
+    }
+    const more =
+      pr.products.length < (res.total || 0)
+        ? `<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-action="pr-more" ${pr.loading ? "disabled" : ""}>${pr.loading ? "⏳ Lade …" : `Mehr laden (${pr.products.length} von ${res.total})`}</button></div>`
+        : "";
+    const count = `<div class="meta prcount">${res.total} ${res.total === 1 ? "Artikel" : "Artikel"}${pr.loading ? " · ⏳" : ""} · gespeichert aus Angeboten, Onlinepreisen, Kassenzetteln und deinen eigenen</div>`;
+    return `${notes}${count}${cards ? `<div class="soffers">${cards}</div>` : empty}${more}`;
+  }
+
+  /** append: the next page; quiet: a change elsewhere – the shown pages again, no spinner. */
+  async _fetchProducts(append = false, quiet = false) {
+    const pr = this._pr;
+    const seq = ++pr.seq;
+    pr.loading = true;
+    pr.stale = false;
+    pr.error = null;
+    if (!append && !quiet) this._renderProductParts();
+    const limit = quiet && !append ? Math.min(100, Math.max(PRODUCT_PAGE, pr.products.length)) : PRODUCT_PAGE;
+    const msg = { type: `${DOMAIN}/products`, kind: pr.kind, sort: pr.sort, offset: append ? pr.products.length : 0, limit };
+    const branches = [...pr.stores].filter((k) => k.startsWith("b:")).map((k) => k.slice(2));
+    const retailers = [...pr.stores].filter((k) => k.startsWith("r:")).map((k) => k.slice(2));
+    if (branches.length) msg.branch_ids = branches;
+    if (retailers.length) msg.retailers = retailers;
+    if (pr.query.trim()) msg.query = pr.query.trim();
+    if (pr.category) msg.category = pr.category;
+    if (pr.only) msg.only = pr.only;
+    try {
+      const res = await this._hass.callWS(msg);
+      if (seq !== pr.seq) return;
+      // a remembered store that was removed: forget it and ask again
+      const known = new Set((res.stores || []).map((st) => this._prStoreKey(st)));
+      const gone = [...pr.stores].filter((k) => !known.has(k));
+      if (gone.length && (res.stores || []).length) {
+        gone.forEach((k) => pr.stores.delete(k));
+        this._setPref("products_stores", JSON.stringify([...pr.stores]));
+        pr.loading = false;
+        return this._fetchProducts(append, quiet);
+      }
+      pr.result = res;
+      pr.products = append ? [...pr.products, ...(res.products || []).filter((p) => !pr.products.some((x) => x.id === p.id))] : res.products || [];
+    } catch (err) {
+      if (seq !== pr.seq) return;
+      pr.error = errText(err);
+    }
+    pr.loading = false;
+    this._renderProductParts();
+  }
+
+  /** Chips, filters and cards (the search field keeps its focus and caret). */
+  _renderProductParts() {
+    if (this._tab !== "products") return;
+    const part = (sel, html) => {
+      const el = this._content.querySelector(sel);
+      if (el) el.innerHTML = html;
+    };
+    part(".prchips", this._prChipsHtml());
+    part(".prfilter", this._prFilterHtml());
+    part(".prcats", this._prCatsHtml());
+    part(".prbody", this._prBodyHtml());
+  }
+
+  /** ➕: the product on the shopping list (its chain, its offer or regular price). */
+  async _productToList(el, p) {
+    if (!p?.id) return;
+    if (el) el.disabled = true;
+    try {
+      const res = await this._service("add_shopping_item", { item: p.title || p.product || "", product_id: p.id }, true);
+      const item = res?.item || {};
+      const cost = item.price;
+      const label = item.store_label || p.store || "";
+      this._toast(`🛒 ${item.summary || p.title}${cost != null ? ` für ${eur(cost)}` : ""}${label ? ` bei ${label}` : ""} auf die Einkaufsliste gesetzt`);
+      return item;
+    } finally {
+      if (el) el.disabled = false;
+    }
+  }
+
+  /** ⭐ a product for an ingredient (key; default its first) or take the ⭐ away. */
+  async _productFavorite(el, pid, key, on, title = "") {
+    if (el) el.disabled = true;
+    try {
+      const msg = { type: `${DOMAIN}/product_favorite`, product_id: pid, favorite: on };
+      if (key) msg.key = key;
+      const res = await this._hass.callWS(msg);
+      // show it at once (the change event reloads the list as well); a ⭐ moves from the
+      // product that had it for this ingredient
+      const favorites = res?.favorites || {};
+      for (const p of this._pr.products) {
+        p.favorite_keys = Object.keys(favorites).filter((k) => favorites[k] === p.id);
+        p.favorite = p.favorite_keys.length > 0;
+      }
+      this._renderProductParts();
+      const name = title || this._prCard(pid)?.title || "Artikel";
+      this._toast(on ? `⭐ ${name} ist jetzt dein Lieblingsprodukt – wird beim Einkauf bevorzugt` : `☆ ${name} ist kein Lieblingsprodukt mehr`);
+      return res;
+    } catch (err) {
+      this._toast(errText(err));
+      throw err;
+    } finally {
+      if (el) el.disabled = false;
+    }
+  }
+
+  /** Price history as a small line chart (offer prices orange). */
+  _sparkline(history) {
+    const pts = (history || []).filter((h) => h && h.price != null && h.date).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (pts.length < 2) {
+      return `<div class="hint">${pts.length ? `Bisher ein Preis: ${eur(pts[0].price)} am ${esc(dayText(pts[0].date))}${pts[0].kind === "offer" ? " (Angebot)" : ""}.` : "Noch kein Preisverlauf."} Er entsteht, wenn der Artikel in Angeboten, Onlinepreisen oder auf Kassenzetteln wieder auftaucht.</div>`;
+    }
+    const W = 320;
+    const H = 96;
+    const P = 10;
+    const prices = pts.map((p) => Number(p.price));
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    // evenly spaced in their order (a regular and an offer price can share a day)
+    const x = (i) => Math.round((P + (i / (pts.length - 1)) * (W - 2 * P)) * 10) / 10;
+    const y = (p) => Math.round((max === min ? H / 2 : P + ((max - Number(p.price)) / (max - min)) * (H - 2 * P)) * 10) / 10;
+    const line = pts.map((p, i) => `${x(i)},${y(p)}`).join(" ");
+    const dots = pts
+      .map((p, i) => `<circle class="${p.kind === "offer" ? "o" : "r"}" cx="${x(i)}" cy="${y(p)}" r="4"><title>${esc(dayText(p.date))}: ${esc(eur(p.price))}${p.kind === "offer" ? " (Angebot)" : ""}</title></circle>`)
+      .join("");
+    const label = `Preisverlauf von ${eur(min)} bis ${eur(max)}`;
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><polyline class="ln" points="${line}"></polyline>${dots}</svg>
+      <div class="meta sparklegend"><span>${esc(dayText(pts[0].date))} – ${esc(dayText(pts[pts.length - 1].date))}</span><span>günstigster ${eur(min)} · teuerster ${eur(max)}</span><span><i class="dot r"></i> Normalpreis <i class="dot o"></i> Angebot</span></div>`;
+  }
+
+  async _openProduct(pid) {
+    let detail;
+    try {
+      detail = await this._hass.callWS({ type: `${DOMAIN}/product_detail`, product_id: pid });
+    } catch (err) {
+      this._toast(errText(err));
+      return;
+    }
+    const today = this._today();
+    const body = () => {
+      const p = detail.product;
+      const pack = packText(p.pack_amount, p.pack_unit);
+      const unit = p.unit_price != null && p.base_unit && p.base_unit !== "Stück" ? unitPriceText(p.unit_price, p.base_unit) : "";
+      const until = validText(p, today);
+      const regular = p.regular_price != null ? `Normalpreis ${eur(p.regular_price)}${p.regular_source && PRICE_SOURCE[p.regular_source] ? ` · ${PRICE_SOURCE[p.regular_source]}` : ""}${p.regular_seen ? ` · Stand ${dayText(p.regular_seen)}` : ""}` : "";
+      const favs = new Set(detail.favorite_for || []);
+      const keys = detail.keys || [];
+      const favHtml = keys.length
+        ? `<div class="favkeys">${keys
+            .map((k) => {
+              const on = favs.has(k.key);
+              return `<button class="chip ${on ? "active" : ""}" data-fav="${esc(k.key)}" data-on="${on ? "1" : "0"}" aria-pressed="${on}">${on ? "⭐" : "☆"} ${esc(k.name)}</button>`;
+            })
+            .join("")}</div><div class="hint">Ein Lieblingsprodukt wird beim Erstellen der Einkaufsliste für diese Zutat genommen – und der Laden richtet sich danach.</div>`
+        : `<div class="favkeys"><button class="chip" data-fav="" data-on="0" aria-pressed="false">☆ Als Lieblingsprodukt merken</button></div><div class="hint">Noch keiner Zutat zugeordnet – gemerkt wird er für „${esc(p.product || p.title)}“.</div>`;
+      const twins = (detail.twins || [])
+        .map((t) => `<button class="pick" data-twin="${esc(t.id)}">${retailerDot(t.retailer, t.store)}<span class="pi"><b>${esc(t.store)}</b><div class="sub">${esc([packText(t.pack_amount, t.pack_unit), t.on_offer ? `🏷️ Angebot ${validText(t, today)}` : ""].filter(Boolean).join(" · "))}</div></span><span class="pp">${t.price != null ? `<b>${eur(t.price)}</b>` : '<span class="meta">–</span>'}</span></button>`)
+        .join("");
+      const picks = (detail.picks || []).map((k) => `${k.kind === "bought" ? "🧾 gekauft" : "👆 gewählt"}: ${k.count}× (zuletzt ${dayText(k.last)})`);
+      return `<div class="prhero">
+          <div class="prbig">${this._img(p.image, CATEGORY_ICONS[p.category] || "📦")}</div>
+          <div class="prinfo">
+            ${p.brand ? `<div class="brand">${esc(p.brand)}</div>` : ""}
+            <div class="pname">${esc(p.product || p.title)}</div>
+            <div class="meta">${esc([pack, p.category].filter(Boolean).join(" · "))}</div>
+            <div class="prprice">${p.price != null ? `<span class="pr">${eur(p.price)}</span>` : '<span class="meta">kein Preis</span>'}${p.old_price && p.price != null && p.old_price > p.price ? `<span class="old">${eur(p.old_price)}</span>` : ""}${p.discount ? `<span class="disc">−${p.discount}%</span>` : ""}${unit ? `<span class="up">${esc(unit)}</span>` : ""}</div>
+            <div class="badges"><span class="bdg">${retailerDot(p.retailer, p.store).replace('class="rdot"', 'class="rdot xs"')} ${esc(p.store)}</span>${until ? `<span class="bdg ${p.current ? "warn" : "ok"}">🏷️ Angebot ${esc(until)}</span>` : ""}${p.stale && p.price != null ? '<span class="bdg warn">Preis länger nicht bestätigt</span>' : ""}${p.manual ? '<span class="bdg">✍️ eigener Artikel</span>' : ""}</div>
+            ${regular && (p.on_offer || p.stale) ? `<div class="meta">${esc(regular)}</div>` : regular ? `<div class="meta">${esc(regular.replace(/^Normalpreis [^·]*· ?/, "") || "")}</div>` : ""}
+          </div>
+        </div>
+        <div class="section"><h4>⭐ Lieblingsprodukt für …</h4>${favHtml}</div>
+        <div class="section"><h4>📈 Preisverlauf</h4>${this._sparkline(detail.history)}</div>
+        ${twins ? `<div class="section"><h4>🔁 Auch bei …</h4><div class="hint">Der gleiche Markenartikel bei deinen anderen Läden.</div><div class="picklist" style="max-height:none">${twins}</div></div>` : ""}
+        ${picks.length ? `<div class="meta">${esc(picks.join(" · "))}</div>` : ""}`;
+    };
+    const p0 = detail.product;
+    const footer = `${p0.manual ? `<button class="btn danger" data-pdel>🗑 Löschen</button><button class="btn" data-pedit>✏️ Bearbeiten</button>` : ""}<button class="btn" data-precipe title="Fertiggericht: ein Rezept mit diesem Artikel als Zutat">🍕 Als Rezept speichern</button><button class="btn primary" data-padd>➕ Auf die Einkaufsliste</button>`;
+    this._showModal(`📦 Artikel bei ${p0.store || this._retailerName(p0.retailer)}`, `<div class="prdetail">${body()}</div>`, footer, (root) => {
+      const box = root.querySelector(".prdetail");
+      const reload = async () => {
+        try {
+          detail = await this._hass.callWS({ type: `${DOMAIN}/product_detail`, product_id: detail.product.id });
+          if (this._modal?.root === root) box.innerHTML = body();
+        } catch (err) {
+          /* the product is gone: keep what is shown */
+        }
+      };
+      box.addEventListener("click", async (ev) => {
+        const fav = ev.target.closest("[data-fav]");
+        if (fav) {
+          try {
+            await this._productFavorite(fav, detail.product.id, fav.dataset.fav, fav.dataset.on !== "1", detail.product.title);
+            await reload();
+          } catch (e) {
+            /* toast shown */
+          }
+          return;
+        }
+        const twin = ev.target.closest("[data-twin]");
+        if (twin) this._openProduct(twin.dataset.twin);
+      });
+      root.querySelector("[data-padd]").addEventListener("click", async (ev) => {
+        try {
+          await this._productToList(ev.currentTarget, detail.product);
+          this._closeModal();
+        } catch (e) {
+          /* toast shown */
+        }
+      });
+      root.querySelector("[data-precipe]").addEventListener("click", async (ev) => {
+        const btn = ev.currentTarget;
+        btn.disabled = true;
+        try {
+          const res = await this._hass.callWS({ type: `${DOMAIN}/product_to_recipe`, product_id: detail.product.id });
+          this._toast(`🍕 Rezept „${res?.recipe?.name || detail.product.title}“ gespeichert – zu finden unter 📖 Rezepte`);
+          this._closeModal();
+        } catch (err) {
+          this._toast(errText(err));
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      root.querySelector("[data-pedit]")?.addEventListener("click", () => {
+        const key = (detail.keys || [])[0];
+        this._openProductForm({ ...detail.product, ingredient: key ? key.name : "", favorite: (detail.favorite_for || []).length > 0 });
+      });
+      root.querySelector("[data-pdel]")?.addEventListener("click", async (ev) => {
+        if (!confirm(`„${detail.product.title}“ aus deinen Artikeln löschen? Auch sein ⭐ und was beim Einkauf gelernt wurde, sind dann weg.`)) return;
+        const btn = ev.currentTarget;
+        btn.disabled = true;
+        try {
+          await this._hass.callWS({ type: `${DOMAIN}/product_delete`, product_id: detail.product.id });
+          this._toast(`🗑 ${detail.product.title} gelöscht`);
+          this._closeModal();
+          this._pr.products = this._pr.products.filter((x) => x.id !== detail.product.id);
+          this._fetchProducts(false, true);
+        } catch (err) {
+          this._toast(errText(err));
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  /** "＋ Eigener Artikel" (prefill.id: change that own product). */
+  _openProductForm(prefill = {}) {
+    const editing = Boolean(prefill.id);
+    const retailers = this._data.economy?.retailers || [];
+    const mine = [...new Set((this._data.branches || []).filter((b) => b.selected).map((b) => b.retailer))].filter(Boolean);
+    const selected = prefill.retailer || this._data.economy?.main_retailer || mine[0] || "";
+    const option = (r) => `<option value="${esc(r.id)}" ${r.id === selected ? "selected" : ""}>${esc(r.name)}</option>`;
+    const own = retailers.filter((r) => mine.includes(r.id));
+    const others = retailers.filter((r) => !mine.includes(r.id));
+    const stores = own.length ? `<optgroup label="Meine Läden">${own.map(option).join("")}</optgroup><optgroup label="Weitere Ketten">${others.map(option).join("")}</optgroup>` : chainOptions(retailers, selected);
+    const cats = CATEGORY_ORDER.map((c) => `<option value="${esc(c)}" ${c === (prefill.manual ? prefill.category : "") ? "selected" : ""}>${CATEGORY_ICONS[c] || ""} ${esc(c)}</option>`).join("");
+    const price = prefill.regular_source === "user" || prefill.manual ? num(prefill.regular_price) : "";
+    const body = `
+      <div class="hint">Ein Artikel mit deinem Preis – er erscheint bei „📦 Artikel“, in der Suche „Artikel hinzufügen“ und kann dein Lieblingsprodukt werden. Bilder nur als Link (https://…).</div>
+      <div class="pfhead"><div class="prbig pfprev">${this._img(prefill.image, CATEGORY_ICONS[prefill.category] || "📦")}</div>
+        <div class="pfmain">
+          <label class="field">Name *<input class="pf-name" placeholder="z. B. Hafer Drink Barista" value="${esc(prefill.product || prefill.name || "")}" autocomplete="off"></label>
+          <label class="field">Marke<input class="pf-brand" placeholder="z. B. Vemondo" value="${esc(prefill.brand || "")}" autocomplete="off"></label>
+        </div></div>
+      <div class="grid2">
+        <label class="field">Laden *<select class="pf-store">${stores}</select></label>
+        <label class="field">Packung<input class="pf-pack" placeholder="z. B. 1 l, 500 g, 6 Stück" value="${esc(prefill.pack || packText(prefill.pack_amount, prefill.pack_unit) || "")}"></label>
+        <label class="field">Preis (€)<input class="pf-price" inputmode="decimal" placeholder="z. B. 1,29" value="${esc(price)}"></label>
+        <label class="field">Zutat (für Rezepte & Einkaufsliste)<input class="pf-ing" placeholder="z. B. Haferdrink" value="${esc(prefill.ingredient || "")}" autocomplete="off"></label>
+        <label class="field">Abteilung<select class="pf-cat"><option value="">automatisch</option>${cats}</select></label>
+        <label class="field">Bild (Link)<input class="pf-image" type="url" inputmode="url" placeholder="https://…" value="${esc(prefill.image || "")}"></label>
+      </div>
+      <label class="switch"><input type="checkbox" class="pf-fav" ${prefill.favorite ? "checked" : ""}> ⭐ Lieblingsprodukt für diese Zutat</label>
+      <div class="ferr pf-err" role="alert" hidden></div>`;
+    const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">💾 Speichern</button>`;
+    this._showModal(editing ? "Eigenen Artikel bearbeiten" : "＋ Eigener Artikel", body, footer, (root) => {
+      const $ = (sel) => root.querySelector(sel);
+      const err = $(".pf-err");
+      $(".pf-name").focus();
+      $(".pf-image").addEventListener("input", (ev) => {
+        $(".pfprev").innerHTML = this._img(ev.target.value.trim(), "📦");
+      });
+      // a hint about a field goes away as soon as it is changed
+      root.querySelector(".mbody").addEventListener("input", () => {
+        err.hidden = true;
+      });
+      let saving = false;
+      $(".save").addEventListener("click", async () => {
+        if (saving) return;
+        const v = (sel) => $(sel).value.trim();
+        const product = { store: v(".pf-store"), name: v(".pf-name") };
+        if (!product.name) {
+          err.hidden = false;
+          err.textContent = "Bitte einen Namen angeben.";
+          $(".pf-name").focus();
+          return;
+        }
+        if (editing) product.id = prefill.id;
+        product.brand = v(".pf-brand");
+        if (v(".pf-pack")) product.pack = v(".pf-pack");
+        if (v(".pf-price")) {
+          const n = parseNum(v(".pf-price"));
+          if (!Number.isFinite(n) || n < 0) {
+            err.hidden = false;
+            err.textContent = "Bitte einen Preis wie 1,29 eingeben.";
+            $(".pf-price").focus();
+            return;
+          }
+          product.price = n;
+        }
+        if (v(".pf-ing")) product.ingredient = v(".pf-ing");
+        if (v(".pf-cat")) product.category = v(".pf-cat");
+        product.image = v(".pf-image");
+        if ($(".pf-fav").checked) product.favorite = true;
+        else if (prefill.favorite) product.favorite = false;
+        saving = true;
+        err.hidden = true;
+        try {
+          const res = await this._hass.callWS({ type: `${DOMAIN}/product_save`, product });
+          this._closeModal();
+          this._toast(`📦 ${res?.product?.title || product.name} gespeichert`);
+          this._pr.stale = true;
+          if (this._tab === "products") this._fetchProducts(false, true);
+        } catch (e) {
+          err.hidden = false;
+          err.textContent = errText(e);
+        } finally {
+          saving = false;
+        }
+      });
+    });
+  }
+
+  /** "Produkt wechseln": the products for the item's ingredient at every saved chain,
+   *  cheapest for the needed amount first; "⭐ immer dieses" makes it the favourite. */
+  async _openProductSwap(uid) {
+    const item = (this._data.shopping || []).find((i) => i.uid === uid);
+    if (!item) return;
+    let res = null;
+    let error = null;
+    let selected = item.product_reason === "manual" && item.product?.id ? item.product.id : "";
+    let initial = selected;
+    let favorite = false;
+    const today = this._today();
+    const amountText = () => {
+      const a = res?.amounts || {};
+      const parts = Object.entries(a).map(([unit, n]) => packText(n, unit) || `${num(n)} ${unit}`);
+      return parts.join(" + ");
+    };
+    const listHtml = () => {
+      if (error) return `<div class="notice err">${esc(error)}</div>`;
+      if (!res) return `<div class="hint">⏳ Suche passende Artikel …</div>`;
+      const alts = res.alternatives || [];
+      const auto = `<button class="pick ${selected === "" ? "sel" : ""}" data-pid=""><span class="sthumb">🤖</span><span class="pi"><b>Automatisch</b><div class="sub">⭐ Lieblingsprodukt, sonst ein schon gekaufter oder der günstigste passende Artikel im Laden</div></span></button>`;
+      if (!alts.length) {
+        return `${auto}<div class="empty" style="padding:20px 8px"><div class="big">📦</div>Für „${esc(res.name || item.summary)}“ kenne ich noch keine Artikel.<br><span class="hint">Sie kommen aus Angeboten, Onlinepreisen und Kassenzetteln – oder du trägst einen eigenen ein.</span><div class="row" style="justify-content:center;margin:12px 0 0"><button class="btn" data-pnew>＋ Eigener Artikel</button></div></div>`;
+      }
+      const priced = alts.filter((a) => a.cost != null);
+      const min = priced.length ? Math.min(...priced.map((a) => a.cost)) : null;
+      const unique = priced.filter((a) => a.cost === min).length === 1 && priced.length > 1;
+      const rows = alts
+        .map((a) => {
+          const tags = [
+            a.id === res.current ? '<span class="bdg">aktuell</span>' : "",
+            a.id === res.favorite ? '<span class="bdg star">⭐</span>' : "",
+            unique && a.cost === min ? '<span class="bdg ok">günstigster</span>' : "",
+            a.on_offer ? `<span class="bdg warn">🏷️ ${esc(validText(a, today) || "Angebot")}</span>` : "",
+          ].join(" ");
+          const unit = a.unit_price != null && a.base_unit && a.base_unit !== "Stück" ? unitPriceText(a.unit_price, a.base_unit) : "";
+          const sub = [a.pack || packText(a.pack_amount, a.pack_unit), unit].filter(Boolean).join(" · ");
+          const cost = a.cost != null ? `<b>${eur(a.cost)}</b>${a.packs > 1 ? `<span class="meta">${a.packs} × ${eur(a.price)}</span>` : ""}` : '<span class="meta">kein Preis</span>';
+          return `<button class="pick swaprow ${selected === a.id ? "sel" : ""}" data-pid="${esc(a.id)}"><span class="sthumb">${this._img(a.image, CATEGORY_ICONS[a.category] || "📦")}</span>
+            <span class="pi">${a.brand ? `<span class="pbrand">${esc(a.brand)}</span> ` : ""}<b>${esc(a.product || a.title)}</b> ${tags}<div class="sub"><span class="schip">${retailerDot(a.retailer, a.store).replace('class="rdot"', 'class="rdot xs"')}${esc(a.store)}</span>${esc(sub ? ` · ${sub}` : "")}</div></span>
+            <span class="pp">${cost}</span></button>`;
+        })
+        .join("");
+      return auto + rows;
+    };
+    const favHtml = () => {
+      if (!selected) return "";
+      if (res?.favorite === selected) return `<div class="hint">⭐ Das ist schon dein Lieblingsprodukt für ${esc(res.name || "diese Zutat")}.</div>`;
+      return `<label class="switch"><input type="checkbox" class="favchk" ${favorite ? "checked" : ""}> ⭐ Immer dieses (Lieblingsprodukt für ${esc(res?.name || item.name || item.summary)})</label>`;
+    };
+    const hintHtml = () => {
+      const amount = res ? amountText() : "";
+      return `<div class="hint">${amount ? `Kosten für die benötigte Menge (${esc(amount)}), ganze Packungen` : "Preise je Packung"} – aus allen deinen Läden, günstigste zuerst.</div>`;
+    };
+    const body = `<div class="swaphint">${hintHtml()}</div><div class="picklist swaplist" style="max-height:none">${listHtml()}</div><div class="favbox">${favHtml()}</div>`;
+    const footer = `<button class="btn" data-close>Abbrechen</button><button class="btn primary save">✓ Übernehmen</button>`;
+    this._showModal(`Produkt wählen – ${item.summary}`, body, footer, (root) => {
+      const list = root.querySelector(".swaplist");
+      const box = root.querySelector(".favbox");
+      const refresh = () => {
+        list.innerHTML = listHtml();
+        box.innerHTML = favHtml();
+        root.querySelector(".swaphint").innerHTML = hintHtml();
+      };
+      list.addEventListener("click", (ev) => {
+        if (ev.target.closest("[data-pnew]")) {
+          this._openProductForm({ retailer: item.retailer || "", ingredient: res?.name || item.name || "" });
+          return;
+        }
+        const pick = ev.target.closest("[data-pid]");
+        if (!pick) return;
+        if (selected !== pick.dataset.pid) favorite = false;
+        selected = pick.dataset.pid;
+        refresh();
+      });
+      box.addEventListener("change", (ev) => {
+        if (ev.target.classList.contains("favchk")) favorite = ev.target.checked;
+      });
+      let saving = false;
+      root.querySelector(".save").addEventListener("click", async () => {
+        if (selected === initial && !favorite) return this._closeModal();
+        if (saving) return;
+        saving = true;
+        try {
+          const remember = selected ? (favorite ? "favorite" : "pick") : "none";
+          const out = await this._hass.callWS({ type: `${DOMAIN}/shopping_set_product`, uid, product_id: selected || null, remember });
+          this._closeModal();
+          const p = out?.item?.product;
+          const where = out?.item?.store_label ? ` bei ${out.item.store_label}` : "";
+          const price = out?.item?.price != null ? ` (≈ ${eur(out.item.price)})` : "";
+          this._toast(selected ? `📦 ${item.summary}: ${p?.title || "Produkt"}${where}${price}${favorite ? " – ⭐ ab jetzt immer" : ""}` : `🤖 ${item.summary}: Produkt wird automatisch gewählt`);
+        } catch (err) {
+          this._toast(errText(err));
+        } finally {
+          saving = false;
+        }
+      });
+      this._hass
+        .callWS({ type: `${DOMAIN}/product_alternatives`, uid, limit: 30 })
+        .then((r) => {
+          res = r;
+          if (!initial && item.product_reason === "manual" && r.current) initial = selected = r.current;
+        })
+        .catch((err) => {
+          error = errText(err);
+        })
+        .finally(() => {
+          if (this._modal?.root === root) refresh();
+        });
+    });
+  }
+
+  /* ------------------------------------------------------------ 📰 Prospekte (1.5) */
+  _lfCount() {
+    const res = this._lf.result;
+    return res && res.meta?.marktguru !== false ? ` (${(res.leaflets || []).filter((l) => l.current).length})` : "";
+  }
+
+  _renderLeaflets() {
+    const lf = this._lf;
+    if ((lf.stale || !lf.result) && !lf.loading) this._fetchLeaflets();
+    return `<div class="sotools lftools">${this._lfToolsHtml()}</div><div class="lfbody">${this._lfBodyHtml()}</div>`;
+  }
+
+  _lfToolsHtml() {
+    const lf = this._lf;
+    const busy = this._refreshing.has("offers-tab");
+    const mg = this._lf.result?.meta?.marktguru;
+    return `${LEAFLET_WHEN.map(([k, label]) => `<button class="chip ${lf.when === k ? "active" : ""}" data-action="lf-when" data-when="${k}" aria-pressed="${lf.when === k}">${label}</button>`).join("")}<span class="spacer"></span>${mg ? `<button class="btn" data-action="refresh-offers" ${busy ? "disabled" : ""}>${busy ? "⏳ Lade …" : "🔄 Aktualisieren"}</button>` : ""}`;
+  }
+
+  async _fetchLeaflets() {
+    const lf = this._lf;
+    const seq = ++lf.seq;
+    lf.loading = true;
+    lf.stale = false;
+    lf.error = null;
+    try {
+      const res = await this._hass.callWS({ type: `${DOMAIN}/leaflets`, when: "all" });
+      if (seq !== lf.seq) return;
+      lf.result = res;
+    } catch (err) {
+      if (seq !== lf.seq) return;
+      lf.error = errText(err);
+    }
+    lf.loading = false;
+    this._renderLeafletParts();
+  }
+
+  _renderLeafletParts() {
+    if (this._tab !== "offers" || this._offersMode !== "leaflets") return;
+    const tools = this._content.querySelector(".lftools");
+    if (tools) tools.innerHTML = this._lfToolsHtml();
+    const body = this._content.querySelector(".lfbody");
+    if (body) body.innerHTML = this._lfBodyHtml();
+    const count = this._content.querySelector("[data-lfcount]");
+    if (count) count.textContent = this._lfCount();
+  }
+
+  _lfTileHtml(l, today) {
+    const until = validText(l, today);
+    const named = l.name && fold(l.name) !== fold(l.store) ? l.name : "";
+    const labels = (l.labels || []).join(" · ");
+    const meta = [l.page_count ? `${l.page_count} Seiten` : "", labels].filter(Boolean).join(" · ");
+    const inner = `<span class="lfcover">${this._img(l.cover, "📰")}</span>${l.current ? "" : '<span class="bdg ok lfnext">📅 nächste Woche</span>'}
+      <span class="lfinfo"><span class="lfstore">${retailerDot(l.retailer, l.store).replace('class="rdot"', 'class="rdot xs"')}<b>${esc(l.store)}</b></span>${named ? `<span class="lfname">${esc(named)}</span>` : ""}${until ? `<span class="meta">${l.current ? "gültig " : ""}${esc(until)}</span>` : ""}${meta ? `<span class="meta">${esc(meta)}</span>` : ""}</span>`;
+    if (l.page_url_template) return `<button class="lftile" data-action="lf-open" data-id="${esc(l.id)}" aria-label="Prospekt ${esc(l.store)}${named ? ` ${esc(named)}` : ""} öffnen">${inner}</button>`;
+    const url = httpLink(l.url);
+    return url ? `<a class="lftile" href="${esc(url)}" target="_blank" rel="noreferrer" title="Im Browser öffnen">${inner}<span class="lfext">↗</span></a>` : `<div class="lftile">${inner}</div>`;
+  }
+
+  /** A chain without leaflet pictures here: its own leaflet page (no request). */
+  _lfLinkTileHtml(link, note) {
+    const url = httpLink(link.url);
+    if (!url) return "";
+    return `<a class="lftile link" href="${esc(url)}" target="_blank" rel="noreferrer"><span class="lfcover">${retailerDot(link.retailer, link.store)}<span>📰</span></span><span class="lfext">↗</span>
+      <span class="lfinfo"><span class="lfstore"><b>Prospekt bei ${esc(link.store)}</b></span>${note ? `<span class="meta">${esc(note)}</span>` : ""}${(link.labels || []).length ? `<span class="meta">${esc(link.labels.join(" · "))}</span>` : ""}</span></a>`;
+  }
+
+  _lfBodyHtml() {
+    const lf = this._lf;
+    const res = lf.result;
+    if (!res) return lf.error ? `<div class="notice err">${esc(lf.error)}</div>` : `<div class="hint">⏳ Lade Prospekte …</div>`;
+    const meta = res.meta || {};
+    const today = this._today();
+    const fits = (l) => lf.when === "all" || (lf.when === "current") === Boolean(l.current);
+    const leaflets = (res.leaflets || []).filter(fits);
+    const notes = [];
+    if (lf.error) notes.push(`<div class="notice err">${esc(lf.error)}</div>`);
+    if (!(res.branches || []).length && !(this._data.branches || []).length) {
+      notes.push(`<div class="notice">🏪 Speichere zuerst deine Läden im Tab <button class="btn small" data-action="go-tab" data-tab="stores" data-sec="mine">🏪 Läden & Preise</button> – dann siehst du hier die Prospekte dieser Läden.</div>`);
+    }
+    if (!meta.marktguru) {
+      notes.push(`<div class="notice">📰 Prospekte zum Blättern kommen über marktguru (inoffiziell – ${esc(MG_WARNING)}) ${this._settingsLink("offers", "⚙️ Angebote & Preisquellen")}<br>Ohne marktguru: die Prospektseiten deiner Ketten – sie öffnen im Browser, der Essensplaner fragt dafür nichts ab.</div>`);
+    } else if (meta.all_leaflets === false) {
+      notes.push(`<div class="hint" style="margin-bottom:10px">ℹ️ Nur Prospekte der Läden ohne Einzelangebote. Alle Filialen: „Prospekte aller Filialen“ einschalten – ${this._settingsLink("offers", "⚙️ Angebote")}</div>`);
+    }
+    if ((meta.errors || []).length) notes.push(`<div class="notice warn">⚠️ ${esc(meta.errors[0])}</div>`);
+    // in the order of the saved branches; chains of leaflets without a branch last
+    const order = [];
+    for (const b of res.branches || []) if (!order.includes(b.retailer)) order.push(b.retailer);
+    for (const l of res.leaflets || []) if (l.retailer && !order.includes(l.retailer)) order.push(l.retailer);
+    const rank = (r) => (order.includes(r) ? order.indexOf(r) : 999);
+    const tiles = [...leaflets].sort((a, b) => rank(a.retailer) - rank(b.retailer) || Number(b.current) - Number(a.current)).map((l) => this._lfTileHtml(l, today));
+    // chains with a leaflet page of their own but no leaflet shown here: a link tile
+    const none = meta.marktguru ? (lf.when === "upcoming" ? "noch kein Prospekt für nächste Woche" : "kein Prospekt über marktguru") : "";
+    const linkTiles = (res.links || []).filter((k) => !leaflets.some((l) => l.retailer === k.retailer)).map((k) => this._lfLinkTileHtml(k, none));
+    const grid = [...tiles, ...linkTiles].join("");
+    // the chains' own pages for the chains shown with leaflet pictures
+    const pages = (res.links || []).filter((k) => leaflets.some((l) => l.retailer === k.retailer) && httpLink(k.url));
+    const chainLinks = pages.length
+      ? `<div class="lflinks"><span class="meta">Auf den Seiten der Ketten:</span>${pages.map((k) => `<a class="btn small" href="${esc(httpLink(k.url))}" target="_blank" rel="noreferrer">${retailerDot(k.retailer, k.store).replace('class="rdot"', 'class="rdot xs"')}${esc(k.store)} ↗</a>`).join("")}</div>`
+      : "";
+    const empty = !grid ? `<div class="empty"><div class="big">📰</div>${lf.when === "upcoming" ? "Noch keine Prospekte für nächste Woche – sie kommen meist ab Sonntag." : "Keine Prospekte gefunden."}</div>` : "";
+    const updated = meta.updated ? `<div class="meta" style="margin-top:10px">🕘 Prospekte aktualisiert ${esc(timeText(meta.updated))}</div>` : "";
+    return `${notes.join("")}${grid ? `<div class="lftiles">${grid}</div>` : empty}${chainLinks}${updated}`;
+  }
+
+  /** Full-screen leaflet viewer: swipe / ‹ › through the pages (scroll snap), pages load
+   *  near the shown one, double tap or 🔍 zooms (bigger image), "Öffnen ↗" on marktguru. */
+  _openLeaflet(id, start = 0) {
+    const l = (this._lf.result?.leaflets || []).find((x) => x.id === id);
+    if (!l) return;
+    if (!l.page_url_template) {
+      const url = httpLink(l.url);
+      if (url) window.open(url, "_blank", "noopener");
+      return;
+    }
+    const count = Math.max(1, Number(l.page_count) || (l.pages || []).length || 1);
+    const pages = Array.from(
+      { length: count },
+      (_, i) => `<div class="lfpage" data-page="${i}"><img alt="Seite ${i + 1}" data-ph="📄" data-src="${esc(safeUrl(leafletPage(l.page_url_template, i, l.page_base)))}" data-zoom="${esc(safeUrl(leafletPage(l.zoom_url_template, i, l.page_base)))}" draggable="false"></div>`
+    ).join("");
+    const url = httpLink(l.url);
+    const valid = validText(l, this._today());
+    this._modalRoot.innerHTML = `
+      <div class="lfoverlay" role="dialog" aria-label="Prospekt ${esc(l.store)} ${esc(l.name || "")}">
+        <div class="lfvhead">
+          <div class="lfvtitle">${retailerDot(l.retailer, l.store).replace('class="rdot"', 'class="rdot sm"')}<span><b>${esc(l.name || l.store)}</b>${valid ? ` · ${esc(valid)}` : ""}</span></div>
+          <span class="lfvpos" aria-live="polite">1 / ${count}</span>
+          <button class="icon" data-lfzoom title="Vergrößern (Doppeltippen)" aria-label="Vergrößern" aria-pressed="false">🔍</button>
+          ${url ? `<a class="btn small" href="${esc(url)}" target="_blank" rel="noreferrer" title="Prospekt im Browser öffnen">Öffnen ↗</a>` : ""}
+          <button class="icon" data-close title="Schließen" aria-label="Schließen">✕</button>
+        </div>
+        <div class="lfvpages" tabindex="0" aria-label="Seiten">${pages}</div>
+        <button class="lfnav prev" data-lfnav="-1" aria-label="Vorige Seite">‹</button>
+        <button class="lfnav next" data-lfnav="1" aria-label="Nächste Seite">›</button>
+        <div class="lfvfoot"><input type="range" class="lfslider" min="1" max="${count}" value="1" aria-label="Seite"><span class="meta">${esc((l.labels || []).join(" · "))}</span></div>
+      </div>`;
+    const root = this._modalRoot.querySelector(".lfoverlay");
+    const scroller = root.querySelector(".lfvpages");
+    const pos = root.querySelector(".lfvpos");
+    const slider = root.querySelector(".lfslider");
+    const zoomBtn = root.querySelector("[data-lfzoom]");
+    const view = { id, count, index: -1, zoom: false, root };
+    this._modal = { root, guard: null };
+    this._lfView = view;
+    const load = (i) => {
+      const img = scroller.children[i]?.querySelector("img[data-src]");
+      if (img && !img.getAttribute("src")) img.setAttribute("src", img.dataset.src);
+    };
+    const setZoom = (on) => {
+      const page = scroller.children[view.index];
+      view.zoom = on;
+      zoomBtn.setAttribute("aria-pressed", String(on));
+      scroller.classList.toggle("zooming", on);
+      for (const el of scroller.querySelectorAll(".lfpage.zoom")) if (el !== page || !on) el.classList.remove("zoom");
+      if (!page) return;
+      const img = page.querySelector("img");
+      if (on) {
+        page.classList.add("zoom");
+        if (img?.dataset.zoom && img.getAttribute("src") !== img.dataset.zoom) img.setAttribute("src", img.dataset.zoom);
+      }
+    };
+    const update = () => {
+      const width = scroller.clientWidth || 1;
+      const i = Math.max(0, Math.min(count - 1, Math.round(scroller.scrollLeft / width)));
+      if (i === view.index) return;
+      if (view.zoom) setZoom(false);
+      view.index = i;
+      pos.textContent = `${i + 1} / ${count}`;
+      slider.value = String(i + 1);
+      for (let k = i - 1; k <= i + 2; k++) if (k >= 0 && k < count) load(k);
+    };
+    view.go = (i, smooth = true) => {
+      const target = Math.max(0, Math.min(count - 1, i));
+      if (view.zoom) setZoom(false);
+      scroller.scrollTo({ left: target * scroller.clientWidth, behavior: smooth ? "smooth" : "auto" });
+      // a smooth scroll ends with a scroll event; an instant one may not move at all
+      if (!smooth) update();
+    };
+    let frame = 0;
+    scroller.addEventListener("scroll", () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    });
+    let lastTap = 0;
+    scroller.addEventListener("click", (ev) => {
+      if (!ev.target.closest(".lfpage")) return;
+      const now = Date.now();
+      if (now - lastTap < 350) {
+        lastTap = 0;
+        setZoom(!view.zoom);
+      } else lastTap = now;
+    });
+    root.addEventListener("click", (ev) => {
+      if (ev.target.closest("[data-close]")) return this._requestCloseModal();
+      const nav = ev.target.closest("[data-lfnav]");
+      if (nav) return view.go(view.index + Number(nav.dataset.lfnav));
+      if (ev.target.closest("[data-lfzoom]")) setZoom(!view.zoom);
+    });
+    slider.addEventListener("input", () => view.go(Number(slider.value) - 1, false));
+    // the start page (instant), pages around it load
+    requestAnimationFrame(() => {
+      view.go(start, false);
+      update();
+      scroller.focus({ preventScroll: true });
+    });
   }
 
   /* ------------------------------------------------------------ settings view (⚙️, 1.4) */
