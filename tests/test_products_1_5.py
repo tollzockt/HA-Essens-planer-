@@ -497,6 +497,7 @@ async def test_catalog_refresh_and_rematch_store_products(
     """ALDI SÜD's weekly offers of a catalog refresh become products with the ALDI sku as
     stable id; a rematch gives products the ingredients their offers got."""
     aioclient_mock.get(ALDI_SEARCH_URL, json=_load("aldi_weekly_offers"))
+    aioclient_mock.get(aldi.LEAFLETS_PAGE_URL, text="<html></html>")  # 1.5 leaflet list
     manager = await _setup(
         hass, config_entry, freezer, **{CONF_ALDI_ONLINE: True, CONF_WATCHLIST: "Hackfleisch"}
     )

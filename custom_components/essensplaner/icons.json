@@ -198,6 +198,9 @@
     },
     "set_shopping_product": {
       "service": "mdi:swap-horizontal-circle-outline"
+    },
+    "get_leaflets": {
+      "service": "mdi:newspaper-variant-multiple-outline"
     }
   }
 }

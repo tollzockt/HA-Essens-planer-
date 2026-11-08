@@ -634,6 +634,37 @@ def ws_store_offers(
     )
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/leaflets",
+        vol.Optional("when", default="all"): vol.In(["current", "upcoming", "all"]),
+        vol.Optional("branch_ids"): vol.Any(None, [str]),
+    }
+)
+@callback
+def ws_leaflets(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The leaflets of the saved branches ("📰 Prospekte", 1.5): marktguru leaflets (every
+    branch with the option all_leaflets, else the chains without single offers), ALDI SÜD's
+    own list and the chains' own leaflet pages as links. when: current | upcoming | all;
+    branch_ids: only leaflets of these branches. Result {leaflets: [{id, leaflet_id, source,
+    retailer, store, name, valid_from, valid_to, current, page_count, page_base, cover,
+    pages, page_url_template, zoom_url_template, thumb_url_template, url, offer_count,
+    branch_ids, labels}], branches: [{branch_id, label, retailer, store, main,
+    count_current, count_upcoming, link}], links: [{retailer, store, url, branch_ids,
+    labels, has_leaflets}], meta: {marktguru, all_leaflets, aldi_direct, updated, errors,
+    blocked_until, count}}. Nothing is fetched (refresh_offers fetches)."""
+    if (manager := _loaded_manager(hass, connection, msg)) is None:
+        return
+    from .catalog import leaflets_view
+
+    connection.send_result(
+        msg["id"],
+        leaflets_view(manager, when=msg["when"], branch_ids=msg.get("branch_ids") or None),
+    )
+
+
 def _receipt_signer(hass: HomeAssistant, connection: websocket_api.ActiveConnection) -> Any:
     """Signed image links for this connection (an <img> cannot send the token)."""
     from .receipts import image_link
@@ -1328,6 +1359,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_edeka_markets)
     websocket_api.async_register_command(hass, ws_aldi_stores)
     websocket_api.async_register_command(hass, ws_store_offers)
+    websocket_api.async_register_command(hass, ws_leaflets)
     websocket_api.async_register_command(hass, ws_receipts)
     websocket_api.async_register_command(hass, ws_receipt_parse)
     websocket_api.async_register_command(hass, ws_receipt_save)

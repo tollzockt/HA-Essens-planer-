@@ -1350,6 +1350,20 @@
           "description": "Remember the choice: not at all, as picked product or as ⭐ favourite product of the ingredient (binds the store)."
         }
       }
+    },
+    "get_leaflets": {
+      "name": "Get leaflets",
+      "description": "Returns the leaflets of your saved branches (no request): with marktguru the leaflet pages as images (with the setting \"Leaflets of all branches\" for every branch), ALDI SÜD directly with its setting, plus the chains' leaflet pages as links.",
+      "fields": {
+        "store": {
+          "name": "Store",
+          "description": "Optional: only the leaflets of this chain or branch, e.g. \"Lidl\" or \"main store\"."
+        },
+        "when": {
+          "name": "Period",
+          "description": "Current, upcoming or all leaflets."
+        }
+      }
     }
   }
 }

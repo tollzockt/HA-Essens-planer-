@@ -37,6 +37,9 @@ MARKTGURU_API = "https://api.marktguru.de/api/v1"
 MEDIA_HOST = "https://cdn.marktguru.de"
 IMAGE_URL = f"{MEDIA_HOST}/api/v1/offers/{{id}}/images/default/0/small.webp"
 LEAFLET_PAGE_URL = f"{MEDIA_HOST}/api/v1/leaflets/{{id}}/images/pages/{{page}}/small.webp"
+# a leaflet page in another size (checked 11/2026: xsmall, small ~14 KB, medium ~35 KB,
+# large ~63 KB for zooming, xlarge ~113 KB; public, cached 30 days)
+LEAFLET_IMAGE_URL = f"{MEDIA_HOST}/api/v1/leaflets/{{id}}/images/pages/{{page}}/{{size}}.webp"
 LEAFLET_LINK = "https://www.marktguru.de/leaflets/{id}/page/0"
 
 REQUEST_DELAY = 0.4

@@ -21,23 +21,31 @@ the source for BLOCK_DAYS days; learned prices are kept.
 
 Status in manager.price_sources_meta["aldi"] (like REWE, store field "service_point").
 The service point is stored on the branch (aldi_service_point, like rewe_market_id).
+
+Weekly leaflets (1.5): with the same option the leaflet overview LEAFLETS_PAGE_URL of
+www.aldi-sued.de is read for the "📰 Prospekte" tiles (cover image and link of this and the
+next weeks; one request, only when marktguru does not bring the leaflets of every branch,
+see catalog._async_aldi_leaflets()).
 """
 
 from __future__ import annotations
 
 import asyncio
+from datetime import date, timedelta
 import logging
 import math
 import re
 import sys
 from typing import TYPE_CHECKING, Any
 
+import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_ALDI_ONLINE, DEFAULT_ALDI_ONLINE
+from .const import CONF_ALDI_ONLINE, DEFAULT_ALDI_ONLINE, HTTP_USER_AGENT
 from .ingredients import fold, to_base
+from .netio import async_read_body
 from .offers import _parse_count, leaflet_week_end, parse_pack_text
 from .online_prices import (
     OnlinePriceSource,
@@ -701,6 +709,91 @@ async def _async_weekly_raw(client: AldiClient, point: str) -> list[Any]:
             break
         category = found
     return raw
+
+
+# ----------------------------------------------------------------------
+# Weekly leaflets (1.5, "📰 Prospekte"; with the option, only without marktguru leaflets)
+# ----------------------------------------------------------------------
+
+# the leaflet overview linked from the home page of www.aldi-sued.de (checked 11/2026:
+# robots.txt allows it, no key, the terms of the site cover only the customer account). It
+# links the leaflets of this, the next and the week after as LEAFLET_HOST/kw<KW>-<YY>-<kind>
+# ("kw46-26-op-mp", "kw47-26-op", "kw48-26-vop") with a cover image on dm.emea.cms.aldi.cx
+# named after the week ("prospekte-op-kw47:16-9"); the pages themselves are only opened in
+# the browser (prospekt.aldi-sued.de is never asked).
+LEAFLETS_PAGE_URL = "https://www.aldi-sued.de/prospekte"
+LEAFLET_SOURCE = "aldi_direct"
+LEAFLET_MAX_BYTES = 2 * 1024 * 1024
+MAX_LEAFLETS = 4
+_LEAFLET_LINK_RE = re.compile(
+    r'href="(https://prospekt\.aldi-sued\.de/kw(\d{1,2})-(\d{2})(?:-[a-z0-9-]+)?)/?"',
+    re.IGNORECASE,
+)
+_LEAFLET_COVER_RE = re.compile(
+    r"(https://dm\.emea\.cms\.aldi\.cx/is/image/aldiprodeu/prospekte-[a-z0-9-]*?kw(\d{1,2})"
+    r"[^\"'\s?,]*)",
+    re.IGNORECASE,
+)
+_COVER_QUERY = "?wid=600&fit=constrain&fmt=png-alpha"
+
+
+def parse_aldi_leaflets(page: str, today: date) -> list[dict[str, Any]]:
+    """The weekly leaflets of the overview page that have not ended: [{id, leaflet_id
+    (the slug "kw47-26-op"), retailer, name, valid_from (Monday of the calendar week),
+    valid_to (its Saturday), page_count None, cover, url, source}] by week, at most
+    MAX_LEAFLETS. Special leaflets (travel, ALDI TALK) are left out."""
+    covers: dict[int, str] = {}
+    for match in _LEAFLET_COVER_RE.finditer(page):
+        covers.setdefault(int(match.group(2)), match.group(1))
+    found: dict[tuple[int, int], dict[str, Any]] = {}
+    for match in _LEAFLET_LINK_RE.finditer(page):
+        url, week, year = match.group(1), int(match.group(2)), 2000 + int(match.group(3))
+        if (year, week) in found:
+            continue
+        try:
+            monday = date.fromisocalendar(year, week, 1)
+        except ValueError:
+            continue
+        saturday = monday + timedelta(days=5)
+        if saturday < today:
+            continue
+        slug = url.rsplit("/", 1)[-1].lower()
+        cover = covers.get(week)
+        found[(year, week)] = {
+            "id": f"{RETAILER}:{slug}",
+            "leaflet_id": slug,
+            "retailer": RETAILER,
+            "name": f"{STORE_NAME} Prospekt KW {week}",
+            "valid_from": monday.isoformat(),
+            "valid_to": saturday.isoformat(),
+            "page_count": None,
+            "cover": f"{cover}{_COVER_QUERY}" if cover else None,
+            "url": url,
+            "source": LEAFLET_SOURCE,
+        }
+    return [found[key] for key in sorted(found)][:MAX_LEAFLETS]
+
+
+async def async_fetch_aldi_leaflets(hass: HomeAssistant, today: date) -> list[dict[str, Any]]:
+    """The weekly leaflets of ALDI SÜD (one request, honest User-Agent). Raises AldiBlocked
+    (HTTP 401/403/429) or AldiError."""
+    session = async_get_clientsession(hass)
+    try:
+        async with session.get(
+            LEAFLETS_PAGE_URL,
+            headers={"User-Agent": HTTP_USER_AGENT, "Accept-Language": "de-DE,de;q=0.9"},
+            timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
+        ) as resp:
+            if resp.status in (401, 403, 429):
+                raise _blocked(f"HTTP {resp.status}")
+            if resp.status >= 400:
+                raise _failed(f"HTTP {resp.status}")
+            body = await async_read_body(resp, LEAFLET_MAX_BYTES, truncate=True)
+    except TimeoutError as err:
+        raise _failed("keine Antwort") from err
+    except aiohttp.ClientError as err:
+        raise _failed(str(err) or type(err).__name__) from err
+    return parse_aldi_leaflets(body.decode("utf-8", errors="replace"), today)
 
 
 # ----------------------------------------------------------------------

@@ -246,7 +246,7 @@ const SETTING_INFO = {
   offers_watchlist: ["Merkliste", "Zusätzliche Produkte, deren Angebote du sehen willst, kommagetrennt (z. B. „Kaffee, Butter“)."],
   rewe_online_prices: ["REWE-Onlinepreise", "⚠️ Experimentell: Markt-ID und Suchbegriffe gehen höchstens einmal pro Woche an www.rewe.de. Lehnt REWE ab, wird 7 Tage pausiert. Braucht eine REWE-Filiale mit Markt-ID."],
   aldi_online_prices: ["ALDI-SÜD-Preise", "⚠️ Experimentell: die Lage deiner ALDI-SÜD-Filiale und Suchbegriffe gehen höchstens einmal pro Woche an ALDI SÜD; reduzierte Artikel und Wochenangebote werden Angebote. Braucht eine ALDI-SÜD-Filiale."],
-  all_leaflets: ["Prospekte aller Filialen", "Mit marktguru: die Prospekte (als Bilder) aller gespeicherten Filialen im Tab „Angebote“ – etwa einmal pro Woche je Kette und Postleitzahl."],
+  all_leaflets: ["Prospekte aller Filialen", "Mit marktguru: die Prospekte (als Bilder) aller gespeicherten Filialen im Tab „Angebote“ – je Postleitzahl und Branche eine Anfrage, etwa zweimal pro Woche (höchstens 12 je Abruf). Ohne marktguru gibt es je Kette einen Link zu ihrer Prospektseite."],
   edeka_offers: ["EDEKA-Angebote", "Einmal am Tag die Prospekt-Angebote deines EDEKA-Markts von www.edeka.de (nur die Markt-ID wird gesendet). Inoffizielle Schnittstelle; lehnt EDEKA ab, wird 7 Tage pausiert. Braucht eine EDEKA-Filiale mit Markt-ID."],
   store_split_mode: ["Aufteilungsmodus", "Wie die Einkaufsliste auf deine Läden verteilt wird. Wirkt, sobald du einen Hauptladen hast."],
   store_split_min_saving: ["Woanders günstiger ab", "Ein Artikel wandert in einen anderen Laden, wenn er dort mindestens so viel günstiger ist.", "€"],

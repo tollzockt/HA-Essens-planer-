@@ -210,6 +210,34 @@ def retailer_name(retailer: str | None) -> str:
     return info["name"] if info else retailer
 
 
+# the chains' own leaflet pages (1.5, "📰 Prospekte"): only links the panel opens in the
+# browser – never fetched. Checked 11/2026: ALDI SÜD, Lidl and NORMA (linked from their home
+# pages), REWE and Netto answer the integration's honest User-Agent with 403 (the link is
+# the one they print / name themselves), EDEKA's leaflet is per market (its offers page asks
+# for the market), Rossmann's robots.txt shuts out AI agents (the page is from the search
+# index). Globus, Marktkauf and dm have no leaflet page of the whole chain.
+LEAFLET_LINKS: dict[str, str] = {
+    ALDI_SUED: "https://www.aldi-sued.de/prospekte",
+    ALDI_NORD: "https://www.aldi-nord.de/prospekte.html",
+    "lidl": "https://www.lidl.de/c/online-prospekte/s10005610",
+    "rewe": "https://www.rewe.de/angebote/",
+    "edeka": "https://www.edeka.de/angebote/",
+    "penny": "https://www.penny.de/angebote",
+    "netto-marken-discount": "https://www.netto-online.de/prospekte",
+    "kaufland": "https://filiale.kaufland.de/prospekte.html",
+    "norma": "https://www.norma-online.de/de/angebote/onlineprospekt/",
+    "rossmann": "https://www.rossmann.de/de/angebote/prospekte",
+    "mueller-drogeriemarkt": "https://www.mueller.de/prospekte/",
+    "budnikowsky": "https://www.budni.de/sortiment/angebote",
+}
+
+
+def leaflet_link(retailer: str | None) -> str | None:
+    """The chain's own leaflet page (regional variants included), None if unknown."""
+    rid = retailer_for_store_id(retailer)
+    return LEAFLET_LINKS.get(rid) if rid else None
+
+
 def aldi_for_postcode(postcode: str | None) -> str | None:
     """Guess Aldi Süd / Aldi Nord from a German postcode (None if undecidable)."""
     digits = re.sub(r"\D", "", str(postcode or ""))

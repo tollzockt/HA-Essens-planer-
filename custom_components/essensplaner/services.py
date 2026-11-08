@@ -23,7 +23,7 @@ import voluptuous as vol
 
 from .aldi import SOURCE_ALDI, async_find_aldi_stores, async_refresh_aldi_prices
 from .branches import RADIUS_KM_RANGE, ROUTE_RADIUS_RANGE, async_find_branches
-from .catalog import catalog_plan, marktguru_paused, pause_marktguru, paused_message
+from .catalog import catalog_plan, leaflets_view, marktguru_paused, pause_marktguru, paused_message
 from .const import (
     ATTR_COOK_TIME,
     ATTR_COUNT,
@@ -78,6 +78,7 @@ from .const import (
     SERVICE_FIND_REWE_MARKETS,
     SERVICE_GET_BRANCHES,
     SERVICE_GET_COSTS,
+    SERVICE_GET_LEAFLETS,
     SERVICE_GET_OFFERS,
     SERVICE_GET_PLAN,
     SERVICE_GET_RECEIPTS,
@@ -391,6 +392,12 @@ SEARCH_PRODUCTS_SCHEMA = vol.Schema(
             ["price", "unit_price", "saving", "name", "recent"]
         ),
         vol.Optional(ATTR_COUNT, default=20): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+    }
+)
+GET_LEAFLETS_SCHEMA = vol.Schema(
+    {
+        vol.Optional("store"): cv.string,
+        vol.Optional("when", default="all"): vol.In(["current", "upcoming", "all"]),
     }
 )
 SAVE_PRODUCT_SCHEMA = vol.Schema(
@@ -1079,6 +1086,20 @@ def async_setup_services(hass: HomeAssistant) -> None:
             "counts": result["counts"],
         }
 
+    async def get_leaflets(call: ServiceCall) -> ServiceResponse:
+        manager = get_manager(hass)
+        branch_ids: list[str] | None = None
+        if store := call.data.get("store"):
+            # one branch ("Lidl Arbeit", "Hauptladen") or every branch of a chain ("Lidl")
+            if (branch := manager.named_branch(store)) is not None:
+                branch_ids = [branch["id"]]
+            else:
+                retailer = manager.require_retailer(store)
+                branch_ids = [
+                    b["id"] for b in manager.selected_branches() if b.get("retailer") == retailer
+                ] or ["-"]  # a chain without a saved branch: no leaflets
+        return leaflets_view(manager, when=call.data["when"], branch_ids=branch_ids)
+
     async def save_product(call: ServiceCall) -> ServiceResponse:
         manager = get_manager(hass)
         product = save_manual(manager, dict(call.data))
@@ -1139,6 +1160,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SEARCH_PRODUCTS, search_products, SEARCH_PRODUCTS_SCHEMA),
         (SERVICE_SAVE_PRODUCT, save_product, SAVE_PRODUCT_SCHEMA),
         (SERVICE_SET_SHOPPING_PRODUCT, set_shopping_product, SET_SHOPPING_PRODUCT_SCHEMA),
+        (SERVICE_GET_LEAFLETS, get_leaflets, GET_LEAFLETS_SCHEMA),
     ]
     for name, handler, schema in services:
         hass.services.async_register(

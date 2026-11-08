@@ -19,6 +19,19 @@ The catalog holds every current (and announced) offer of the selected branches, 
 - REWE: there is no public list of all offers of a market (1.4 probe), so REWE offers come
   from marktguru only.
 
+Leaflets (1.5, "📰 Prospekte"): with marktguru and the option all_leaflets the leaflet list
+of every saved branch – one request per (postcode, industry) of the selected branches (also
+EDEKA and ALDI SÜD), after the offers, at most MAX_LEAFLET_REQUESTS per run, each pair only
+when due (leaflet_due(): 3 days, a new week on Sunday / Monday, a chain without a current
+leaflet after 24 h, other stores); also between two offer refreshes at the daily check
+(async_refresh_leaflets()). Stored in data["leaflets_by_zip"]. ALDI SÜD's own weekly leaflet
+list (aldi.py, with its option, when marktguru does not bring the leaflets) in
+data["leaflets_direct"]. Every other chain: a link to its own leaflet page
+(retailers.LEAFLET_LINKS, no request). Live check 11/2026: EDEKA's terms of use forbid
+automated reading of edeka.de (its market leaflet is not fetched), Lidl's public leaflet
+interface has no opt-in of its own (link only), REWE and Netto refuse the honest
+User-Agent. leaflets_view() serves the panel and get_leaflets.
+
 Refresh (async_refresh_catalog): daily check at 06:xx; it fetches when the last success is
 REFRESH_DAYS old, on Saturday/Sunday when the last success was before that Saturday, on
 Monday when it was before Monday (a new leaflet week), or when the stores changed. A manual
@@ -50,7 +63,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import HTTP_USER_AGENT, OFFERS_MARKTGURU, STORAGE_KEY
+from .const import (
+    CONF_ALL_LEAFLETS,
+    DEFAULT_ALL_LEAFLETS,
+    HTTP_USER_AGENT,
+    OFFERS_MARKTGURU,
+    STORAGE_KEY,
+)
 from .ingredients import (
     CATEGORY_DRUGSTORE,
     CATEGORY_HOUSEHOLD,
@@ -62,6 +81,7 @@ from .ingredients import (
 from .netio import BodyTooLarge, async_read_body
 from .offers import (
     _CONFIG_RE,
+    LEAFLET_IMAGE_URL,
     LEAFLET_LINK,
     LEAFLET_PAGE_URL,
     MARKTGURU_API,
@@ -89,6 +109,7 @@ from .online_prices import (
 from .retailers import (
     ALDI_SUED,
     KIND_DRUGSTORE,
+    leaflet_link,
     retailer_for_store_id,
     retailer_kind,
     retailer_name,
@@ -110,6 +131,8 @@ SOURCE_MARKTGURU = "marktguru"
 SOURCE_EDEKA = "edeka"
 SOURCE_ALDI = "aldi_weekly"
 SOURCES = (SOURCE_EDEKA, SOURCE_ALDI, SOURCE_MARKTGURU)
+# ALDI SÜD's own leaflet list (aldi.py, with the ALDI SÜD option)
+SOURCE_ALDI_LEAFLETS = "aldi_direct"
 
 # seconds between two requests of a refresh (tests set 0)
 REQUEST_DELAY = 1.5
@@ -131,6 +154,20 @@ MAX_ERRORS = 5
 MAX_MATCH_TERMS = 200
 MAX_SHOPPING_TERMS = 40
 LEAFLET_PREVIEW_PAGES = 4
+# leaflets of all saved branches (1.5, option all_leaflets with marktguru): one leaflet list
+# per (postcode, industry) of the selected branches, after the offers, at most this many
+# requests per run (inside MAX_REQUESTS; the rest at the next check)
+MAX_LEAFLET_REQUESTS = 12
+# a pair's list is asked again after this many days, ...
+LEAFLET_REFRESH_DAYS = 3
+# ... or when a chain has no current leaflet and the last try is this old
+LEAFLET_RETRY_HOURS = 24
+# leaflets kept per chain and pair (current and announced ones)
+LEAFLET_KEEP = 6
+# page images of the viewer: page, zoom and thumbnail size (cdn.marktguru.de)
+LEAFLET_PAGE_SIZE = "medium"
+LEAFLET_ZOOM_SIZE = "large"
+LEAFLET_THUMB_SIZE = "small"
 # matching yields to the event loop every this many offers
 MATCH_CHUNK = 200
 MAX_VIEW_LIMIT = 100
@@ -1024,6 +1061,10 @@ def _empty() -> dict[str, Any]:
         "publishers": {},
         "buckets": {},
         "leaflets": [],
+        # 1.5: {postcode: {industry: {fetched, tried, retailers, items, error}}} (marktguru)
+        "leaflets_by_zip": {},
+        # 1.5: {retailer: {fetched, tried, retailers, items, error, blocked_until}} (ALDI SÜD)
+        "leaflets_direct": {},
     }
 
 
@@ -1167,6 +1208,22 @@ class OfferCatalog:
             current = [lf for lf in leaflets if (lf.get("valid_to") or "9999") >= day]
             if len(current) != len(leaflets):
                 bucket["leaflets"] = current
+                changed = True
+        # the leaflet lists of all branches (1.5): ended leaflets go, the lists stay
+        entries = [
+            entry
+            for industries in self.data["leaflets_by_zip"].values()
+            if isinstance(industries, dict)
+            for entry in industries.values()
+        ]
+        entries += list(self.data["leaflets_direct"].values())
+        for entry in entries:
+            items = entry.get("items") if isinstance(entry, dict) else None
+            if not items:
+                continue
+            kept = [lf for lf in items if (lf.get("valid_to") or "9999") >= day]
+            if len(kept) != len(items):
+                entry["items"] = kept
                 changed = True
         if changed:
             self._touch()
@@ -1549,6 +1606,14 @@ def drop_disabled_sources(manager: EssensplanerManager) -> bool:
     offers = [o for o in manager.offers if o.get("source") not in off]
     removed = len(offers) != len(manager.offers) or len(catalog.buckets) != count
     manager.offers = offers
+    # the leaflets of a source switched off go with it (1.5)
+    if SOURCE_MARKTGURU in off and catalog.data["leaflets_by_zip"]:
+        catalog.data["leaflets_by_zip"] = {}
+        catalog._touch()
+        removed = True
+    if SOURCE_ALDI in off and catalog.data["leaflets_direct"].pop(ALDI_SUED, None) is not None:
+        catalog._touch()
+        removed = True
     return removed
 
 
@@ -1673,6 +1738,8 @@ async def _async_refresh(
     if not force and not catalog_stale(catalog, plan, now):
         # nothing to fetch: what was added since the last match still gets its offers
         await async_rematch_catalog(manager)
+        # leaflets have their own rules (a new week, a chain without a current leaflet)
+        await async_refresh_leaflets(hass, manager, now)
         return _result(manager)
     last = parse_time(catalog.data.get("last_success"))
     if (
@@ -1746,6 +1813,9 @@ async def _async_run(
             failed.add(SOURCE_ALDI)
             if meta.get("status") != STATUS_BLOCKED:
                 retry.add(SOURCE_ALDI)
+    # ALDI SÜD's own leaflet list (1.5; with marktguru's leaflets of every branch not needed)
+    if plan["aldi"] and _aldi_leaflets_wanted(manager):
+        await _async_aldi_leaflets(hass, manager, catalog, now, today)
 
     # 3. marktguru (option offers_source = marktguru)
     mg_meta: dict[str, Any] | None = None
@@ -1998,7 +2068,11 @@ async def _async_marktguru(
     now: datetime,
 ) -> dict[str, Any]:
     """Fetch the marktguru catalogs (and leaflets) of the targets. Returns the offers meta
-    (1.3 shape: source, last_update, status, errors, targets, requests) plus _keep."""
+    (1.3 shape: source, last_update, status, errors, targets, requests) plus _keep.
+
+    After the offers the leaflet lists: of the chains without single offers (1.4 leaflet
+    tiles) and, with the option all_leaflets, of every saved branch (_async_all_leaflets(),
+    at most MAX_LEAFLET_REQUESTS, each pair only when due)."""
     today = manager.today()
     meta: dict[str, Any] = {
         "source": SOURCE_MARKTGURU,
@@ -2026,6 +2100,8 @@ async def _async_marktguru(
     errors: list[str] = meta["errors"]
     succeeded = False
     stop: SourceError | None = None
+    # (postcode, retailer) of the chains without single offers: leaflets only
+    missing_pairs: list[tuple[str, str]] = []
     try:
         for zip_code, retailers in targets:
             wanted = [
@@ -2061,9 +2137,21 @@ async def _async_marktguru(
                     # nothing current: ask the discovery again next time; show leaflets
                     catalog.set_publishers(zip_code, None, now)
                     missing.append(retailer)
-            if missing:
-                ok = await _async_leaflets(client, catalog, missing, zip_code, now, today, errors)
-                succeeded = succeeded or ok
+            missing_pairs.extend((zip_code, r) for r in missing)
+        # the leaflet lists: chains without single offers first, then every saved branch
+        pairs = leaflet_pairs(manager) if all_leaflets_enabled(manager) else {}
+        priority: set[tuple[str, str]] = set()
+        for zip_code, retailer in missing_pairs:
+            industry = INDUSTRIES.get(retailer)
+            if industry:
+                retailers = pairs.setdefault((zip_code, industry), [])
+                if retailer not in retailers:
+                    retailers.append(retailer)
+                priority.add((zip_code, industry))
+        if pairs:
+            await _async_all_leaflets(client, catalog, pairs, now, today, errors, priority)
+        _drop_leaflet_pairs(catalog, set(pairs))
+        succeeded = _leaflet_buckets(catalog, missing_pairs, now, today) or succeeded
     except _BudgetExceeded:
         errors.append(f"Anfragelimit erreicht ({MAX_REQUESTS} Anfragen) – Rest beim nächsten Mal.")
     except _STOP_ERRORS as err:
@@ -2149,51 +2237,386 @@ async def _async_retailer(
     return len(found)
 
 
-async def _async_leaflets(
+# ----------------------------------------------------------------------
+# Leaflets (1.4: chains without single offers; 1.5: every saved branch)
+# ----------------------------------------------------------------------
+
+# fields kept per leaflet in leaflets_by_zip (pages and links are made when shown)
+_LEAFLET_FIELDS = (
+    "id",
+    "leaflet_id",
+    "unique_name",
+    "retailer",
+    "name",
+    "valid_from",
+    "valid_to",
+    "page_count",
+    "offer_count",
+)
+
+
+def all_leaflets_enabled(manager: EssensplanerManager) -> bool:
+    """True if the leaflets of every saved branch are fetched (option all_leaflets, only
+    with marktguru)."""
+    return marktguru_enabled(manager) and bool(
+        manager.options.get(CONF_ALL_LEAFLETS, DEFAULT_ALL_LEAFLETS)
+    )
+
+
+def _slim_leaflet(leaflet: dict[str, Any]) -> dict[str, Any]:
+    return {k: leaflet[k] for k in _LEAFLET_FIELDS if leaflet.get(k) is not None}
+
+
+def _full_leaflet(leaflet: dict[str, Any]) -> dict[str, Any]:
+    """A stored marktguru leaflet in the shape of parse_leaflet() (the 1.4 leaflet tiles:
+    the first page images and the link)."""
+    leaflet_id = leaflet["leaflet_id"]
+    pages = int(leaflet.get("page_count") or 0)
+    return {
+        **leaflet,
+        "pages": [
+            LEAFLET_PAGE_URL.format(id=leaflet_id, page=i)
+            for i in range(min(pages or 1, LEAFLET_PREVIEW_PAGES))
+        ],
+        "url": LEAFLET_LINK.format(id=leaflet_id),
+    }
+
+
+def _leaflet_entry(catalog: OfferCatalog, zip_code: str, industry: str) -> dict[str, Any] | None:
+    entry = dict_of(catalog.data["leaflets_by_zip"].get(zip_code)).get(industry)
+    return entry if isinstance(entry, dict) else None
+
+
+def leaflet_pairs(manager: EssensplanerManager) -> dict[tuple[str, str], list[str]]:
+    """{(postcode, industry): [retailers]} of the selected branches, main branch first:
+    every chain with a marktguru industry (INDUSTRIES, also EDEKA and ALDI SÜD) at the
+    postcode of its branch (its own, else the one its offers are searched at). Without
+    saved branches: the offer targets of the 1.2 options."""
+    from .stores import valid_postcode  # the stores mixin imports the catalog lazily
+
+    targets, branch_zip = manager._offer_plan()
+    zip_option = valid_postcode(manager.zip_code)
+    pairs: dict[tuple[str, str], list[str]] = {}
+
+    def add(zip_code: str | None, retailer: str | None) -> None:
+        industry = INDUSTRIES.get(retailer or "")
+        if not zip_code or not industry:
+            return
+        retailers = pairs.setdefault((zip_code, industry), [])
+        if retailer not in retailers:
+            retailers.append(str(retailer))
+
+    branches = [b for b in manager.selected_branches() if b.get("retailer")]
+    for branch in branches:
+        add(
+            valid_postcode(branch.get("postcode"))
+            or branch_zip.get(branch.get("id"))
+            or zip_option,
+            branch["retailer"],
+        )
+    if not branches:
+        for zip_code, retailers in targets:
+            for retailer in retailers:
+                add(zip_code, retailer)
+    return pairs
+
+
+def _local_day(value: Any) -> date | None:
+    moment = parse_time(value)
+    return dt_util.as_local(moment).date() if moment is not None else None
+
+
+def leaflet_due(
+    entry: dict[str, Any] | None,
+    retailers: Iterable[str],
+    now: datetime,
+    today: date,
+) -> bool:
+    """True if a leaflet list should be asked (again): never asked; never while a pause
+    (refusal) is on; never answered and the last try LEAFLET_RETRY_HOURS old; a chain that
+    was not asked for (stores changed); the answer LEAFLET_REFRESH_DAYS old; Sunday or
+    Monday without a leaflet for the new week (once a day); a chain without a current
+    leaflet (or one starting tomorrow) and the last try LEAFLET_RETRY_HOURS old. The manual
+    refresh follows the same rules (leaflets rarely change within a week)."""
+    if not isinstance(entry, dict):
+        return True
+    until = parse_time(entry.get("blocked_until"))
+    if until is not None and until > now:
+        return False
+    tried = parse_time(entry.get("tried")) or parse_time(entry.get("fetched"))
+    if tried is None:
+        return True
+    tried_day = dt_util.as_local(tried).date()
+    retry = now - tried >= timedelta(hours=LEAFLET_RETRY_HOURS)
+    fetched_day = _local_day(entry.get("fetched"))
+    if fetched_day is None:
+        return retry
+    wanted = set(retailers)
+    if wanted - set(entry.get("retailers") or []):
+        return True
+    if (today - fetched_day).days >= LEAFLET_REFRESH_DAYS:
+        return True
+    items = [lf for lf in entry.get("items") or [] if isinstance(lf, dict)]
+    day = today.isoformat()
+    if today.weekday() in (6, 0) and tried_day < today:
+        week = (today + timedelta(days=1 if today.weekday() == 6 else 0)).isoformat()
+        for retailer in wanted:
+            if not any(
+                lf.get("retailer") == retailer and (lf.get("valid_to") or "9999") >= week
+                for lf in items
+            ):
+                return True
+    if retry:
+        # current, or starting tomorrow (Sunday: Monday's leaflet)
+        tomorrow = (today + timedelta(days=1)).isoformat()
+        for retailer in wanted:
+            if not any(
+                lf.get("retailer") == retailer
+                and (lf.get("valid_from") or "") <= tomorrow
+                and (lf.get("valid_to") or "9999") >= day
+                for lf in items
+            ):
+                return True
+    return False
+
+
+def _tried_order(entry: dict[str, Any] | None) -> str:
+    """Sort key: never asked first, then the oldest try."""
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get("tried") or entry.get("fetched") or "")
+
+
+async def _async_all_leaflets(
     client: CatalogClient,
     catalog: OfferCatalog,
-    retailers: list[str],
-    zip_code: str,
+    pairs: dict[tuple[str, str], list[str]],
     now: datetime,
     today: date,
     errors: list[str],
-) -> bool:
-    """Leaflet images of chains without single offers (one request per industry)."""
-    by_industry: dict[str, list[str]] = {}
-    for retailer in retailers:
-        industry = INDUSTRIES.get(retailer)
-        if industry:
-            by_industry.setdefault(industry, []).append(retailer)
-    ok = False
+    priority: set[tuple[str, str]] | None = None,
+) -> set[tuple[str, str]]:
+    """Ask the leaflet lists of the due pairs (leaflet_due(); one request each, the pairs
+    in `priority` – chains without single offers – first, then the oldest; at most
+    MAX_LEAFLET_REQUESTS, the rest at the next check). Keeps the current and announced
+    leaflets of the pair's chains in leaflets_by_zip. Returns the pairs answered. A refusal
+    or a changed interface ends the pass (raised like the other marktguru requests)."""
+    store: dict[str, Any] = catalog.data["leaflets_by_zip"]
+    first = priority or set()
+    due = [
+        pair
+        for pair, retailers in pairs.items()
+        if leaflet_due(_leaflet_entry(catalog, *pair), retailers, now, today)
+    ]
+    due.sort(key=lambda p: (p not in first, _tried_order(_leaflet_entry(catalog, *p))))
+    answered: set[tuple[str, str]] = set()
     day = today.isoformat()
-    for industry, wanted in by_industry.items():
+    for count, (zip_code, industry) in enumerate(due):
+        if count >= MAX_LEAFLET_REQUESTS:
+            _LOGGER.debug("Leaflet lists left for the next check: %d", len(due) - count)
+            break
+        entry = dict(_leaflet_entry(catalog, zip_code, industry) or {})
+        entry["tried"] = now.isoformat()
+        entry["asked"] = sorted(pairs[(zip_code, industry)])
+        zips = store.setdefault(zip_code, {})
         try:
             leaflets = await client.async_leaflets(industry, zip_code)
-        except _STOP_ERRORS:
+        except _STOP_ERRORS as err:
+            zips[industry] = {**entry, "error": err.message}
+            catalog._touch()
             raise
         except SourceError as err:
-            errors.append(f"{zip_code}: {err.message}")
+            zips[industry] = {**entry, "error": err.message}
+            errors.append(f"Prospekte {zip_code}: {err.message}")
+            catalog._touch()
+            continue
+        wanted = list(pairs[(zip_code, industry)])
+        # per chain the LEAFLET_KEEP latest ones that have not ended (this and the next
+        # week before long-running special leaflets), stored by start
+        kept: dict[str, list[dict[str, Any]]] = {}
+        for leaflet in sorted(
+            leaflets,
+            key=lambda lf: (lf.get("valid_from") or "", lf.get("id") or 0),
+            reverse=True,
+        ):
+            mine = kept.setdefault(leaflet["retailer"], [])
+            if (
+                leaflet["retailer"] in wanted
+                and (leaflet.get("valid_to") or "9999") >= day
+                and len(mine) < LEAFLET_KEEP
+                and all(lf["leaflet_id"] != leaflet["leaflet_id"] for lf in mine)
+            ):
+                mine.append(_slim_leaflet(leaflet))
+        for mine in kept.values():
+            mine.reverse()
+        zips[industry] = {
+            "fetched": now.isoformat(),
+            "tried": now.isoformat(),
+            "asked": sorted(wanted),
+            "retailers": sorted(wanted),
+            "items": [lf for retailer in wanted for lf in kept.get(retailer, [])],
+            "error": None,
+        }
+        answered.add((zip_code, industry))
+        catalog._touch()
+    return answered
+
+
+def _leaflet_buckets(
+    catalog: OfferCatalog, missing: list[tuple[str, str]], now: datetime, today: date
+) -> bool:
+    """The 1.4 leaflet tiles: the marktguru bucket of every chain without single offers
+    ((postcode, retailer) in `missing`) gets its leaflets from leaflets_by_zip. Returns True
+    if a list is known for one of them."""
+    ok = False
+    day = today.isoformat()
+    for zip_code, retailer in missing:
+        industry = INDUSTRIES.get(retailer)
+        entry = _leaflet_entry(catalog, zip_code, industry) if industry else None
+        if not entry or not entry.get("fetched") or retailer not in (entry.get("retailers") or []):
             continue
         ok = True
-        for retailer in wanted:
-            mine = [
-                lf
-                for lf in leaflets
-                if lf["retailer"] == retailer and (lf.get("valid_to") or "9999") >= day
-            ]
-            mine.sort(key=lambda lf: (lf.get("valid_from") or "", lf.get("id") or 0))
-            catalog.set_bucket(
-                SOURCE_MARKTGURU,
-                retailer,
-                zip_code,
-                [],
-                STATUS_OK,
-                None,
-                now,
-                variants=[],
-                leaflets=mine,
-            )
+        mine = [
+            _full_leaflet(lf)
+            for lf in entry.get("items") or []
+            if lf.get("retailer") == retailer and (lf.get("valid_to") or "9999") >= day
+        ]
+        catalog.set_bucket(
+            SOURCE_MARKTGURU,
+            retailer,
+            zip_code,
+            [],
+            STATUS_OK,
+            None,
+            now,
+            variants=[],
+            leaflets=mine,
+        )
     return ok
+
+
+def _drop_leaflet_pairs(catalog: OfferCatalog, keep: set[tuple[str, str]]) -> None:
+    """Forget the leaflet lists of pairs no branch needs any more."""
+    store: dict[str, Any] = catalog.data["leaflets_by_zip"]
+    changed = False
+    for zip_code in list(store):
+        industries = dict_of(store.get(zip_code))
+        kept = {i: e for i, e in industries.items() if (zip_code, i) in keep}
+        if len(kept) != len(industries) or not isinstance(store.get(zip_code), dict):
+            changed = True
+            if kept:
+                store[zip_code] = kept
+            else:
+                del store[zip_code]
+    if changed:
+        catalog._touch()
+
+
+def _leaflet_only(catalog: OfferCatalog) -> list[tuple[str, str]]:
+    """(postcode, retailer) of the chains whose marktguru bucket holds only leaflets."""
+    return [
+        (str(bucket["zip_code"]), str(bucket["retailer"]))
+        for bucket in catalog.buckets.values()
+        if bucket.get("source") == SOURCE_MARKTGURU
+        and bucket.get("zip_code")
+        and bucket.get("retailer")
+        and not bucket.get("offers")
+        and "leaflets" in bucket
+        and not bucket.get("variants")
+    ]
+
+
+def _aldi_leaflets_wanted(manager: EssensplanerManager) -> bool:
+    """ALDI SÜD's own leaflet list: with its option and an ALDI SÜD branch, when marktguru
+    does not bring the leaflets of every branch."""
+    return _aldi_on(manager) and not all_leaflets_enabled(manager)
+
+
+async def _async_aldi_leaflets(
+    hass: HomeAssistant,
+    manager: EssensplanerManager,
+    catalog: OfferCatalog,
+    now: datetime,
+    today: date,
+) -> bool:
+    """ALDI SÜD's weekly leaflets from its own overview page (aldi.py, one request) when due
+    (leaflet_due(); a refusal pauses it BLOCK_DAYS, also while the ALDI SÜD prices are
+    paused nothing is sent). Returns True if it asked."""
+    from .aldi import SOURCE_ALDI as ALDI_PRICES, async_fetch_aldi_leaflets
+
+    direct: dict[str, Any] = catalog.data["leaflets_direct"]
+    entry = direct.get(ALDI_SUED)
+    if ALDI_PRICES.blocked_until(manager, now) is not None or not leaflet_due(
+        entry, [ALDI_SUED], now, today
+    ):
+        return False
+    updated: dict[str, Any] = {**(entry or {}), "tried": now.isoformat(), "retailers": [ALDI_SUED]}
+    try:
+        items = await async_fetch_aldi_leaflets(hass, today)
+    except SourceError as err:
+        updated["error"] = err.message
+        if isinstance(err, SourceBlocked):
+            updated["blocked_until"] = (now + timedelta(days=BLOCK_DAYS)).isoformat()
+        _LOGGER.debug("ALDI SÜD leaflets: %s", err.message)
+    else:
+        updated.update(
+            {"fetched": now.isoformat(), "items": items, "error": None, "blocked_until": None}
+        )
+    direct[ALDI_SUED] = updated
+    catalog._touch()
+    return True
+
+
+async def async_refresh_leaflets(
+    hass: HomeAssistant, manager: EssensplanerManager, now: datetime | None = None
+) -> bool:
+    """The leaflets due between two catalog refreshes (the daily check when the offers are
+    fresh): every saved branch (option all_leaflets, never while marktguru is paused) and
+    ALDI SÜD's own list. Sends nothing when nothing is due. Returns True if it asked."""
+    if manager.unloaded:
+        return False
+    catalog: OfferCatalog = manager.catalog
+    now = now or dt_util.utcnow()
+    today = manager.today()
+    asked = False
+    if all_leaflets_enabled(manager) and marktguru_paused(manager) is None:
+        pairs = leaflet_pairs(manager)
+        missing = _leaflet_only(catalog)
+        priority: set[tuple[str, str]] = set()
+        for zip_code, retailer in missing:
+            industry = INDUSTRIES.get(retailer)
+            if industry:
+                retailers = pairs.setdefault((zip_code, industry), [])
+                if retailer not in retailers:
+                    retailers.append(retailer)
+                priority.add((zip_code, industry))
+        if any(
+            leaflet_due(_leaflet_entry(catalog, *pair), retailers, now, today)
+            for pair, retailers in pairs.items()
+        ):
+            asked = True
+            client = CatalogClient(hass)
+            errors: list[str] = []
+            try:
+                await _async_all_leaflets(
+                    client, catalog, pairs, now, today, errors, priority=priority
+                )
+                _drop_leaflet_pairs(catalog, set(pairs))
+            except _BudgetExceeded:
+                pass
+            except _STOP_ERRORS as err:
+                errors.append(err.message)
+                if isinstance(err, SourceBlocked):
+                    pause_marktguru(manager)
+            _leaflet_buckets(catalog, missing, now, today)
+            if errors:
+                _LOGGER.debug("Leaflets: %s", "; ".join(errors))
+    if _aldi_leaflets_wanted(manager):
+        asked = await _async_aldi_leaflets(hass, manager, catalog, now, today) or asked
+    if asked and not manager.unloaded:
+        catalog.save_later()
+        manager._changed("catalog")
+    return asked
 
 
 # ----------------------------------------------------------------------
@@ -2521,3 +2944,258 @@ def store_offers_view(
             "blocked_until": summary["blocked_until"],
         },
     }
+
+
+# ----------------------------------------------------------------------
+# The leaflets websocket / get_leaflets (1.5)
+# ----------------------------------------------------------------------
+
+LEAFLET_WHEN = ("current", "upcoming", "all")
+
+
+def _leaflet_branches(manager: EssensplanerManager) -> list[dict[str, Any]]:
+    """The selected branches with a chain: {branch, zips (its own postcode and the one its
+    offers are searched at)} in the order of selected_branches() (main first)."""
+    from .stores import valid_postcode  # the stores mixin imports the catalog lazily
+
+    branch_zip = manager._offer_plan()[1]
+    zip_option = valid_postcode(manager.zip_code)
+    result = []
+    for branch in manager.selected_branches():
+        if not branch.get("retailer") or not branch.get("id"):
+            continue
+        zips = {
+            z for z in (valid_postcode(branch.get("postcode")), branch_zip.get(branch["id"])) if z
+        }
+        if not zips and zip_option:
+            zips.add(zip_option)
+        result.append({"branch": branch, "zips": zips})
+    return result
+
+
+def _marktguru_leaflet_view(item: dict[str, Any], day: str) -> dict[str, Any]:
+    """One marktguru leaflet for the viewer: page images by template ("{page}" from
+    page_base 0), the first pages, the cover and the link to the leaflet on marktguru."""
+    leaflet_id = item["leaflet_id"]
+    full = _full_leaflet(item)
+
+    def template(size: str) -> str:
+        return LEAFLET_IMAGE_URL.format(id=leaflet_id, page="{page}", size=size)
+
+    valid_from = item.get("valid_from")
+    return {
+        "id": f"{SOURCE_MARKTGURU}:{leaflet_id}",
+        "leaflet_id": leaflet_id,
+        "source": SOURCE_MARKTGURU,
+        "retailer": item.get("retailer"),
+        "store": retailer_name(item.get("retailer")),
+        "name": item.get("name") or retailer_name(item.get("retailer")),
+        "valid_from": valid_from,
+        "valid_to": item.get("valid_to"),
+        "current": not valid_from or valid_from <= day,
+        "page_count": int(item.get("page_count") or 0) or None,
+        "page_base": 0,
+        "cover": LEAFLET_IMAGE_URL.format(id=leaflet_id, page=0, size=LEAFLET_THUMB_SIZE),
+        "pages": full["pages"],
+        "page_url_template": template(LEAFLET_PAGE_SIZE),
+        "zoom_url_template": template(LEAFLET_ZOOM_SIZE),
+        "thumb_url_template": template(LEAFLET_THUMB_SIZE),
+        "url": full["url"],
+        "offer_count": item.get("offer_count"),
+        "branch_ids": [],
+        "labels": [],
+    }
+
+
+def _direct_leaflet_view(item: dict[str, Any], day: str) -> dict[str, Any]:
+    """A leaflet of a chain's own overview (ALDI SÜD): the cover and the link only (the
+    pages are opened in the browser)."""
+    valid_from = item.get("valid_from")
+    cover = item.get("cover")
+    return {
+        "id": str(item.get("id")),
+        "leaflet_id": item.get("leaflet_id"),
+        "source": item.get("source") or SOURCE_ALDI_LEAFLETS,
+        "retailer": item.get("retailer"),
+        "store": retailer_name(item.get("retailer")),
+        "name": item.get("name") or retailer_name(item.get("retailer")),
+        "valid_from": valid_from,
+        "valid_to": item.get("valid_to"),
+        "current": not valid_from or valid_from <= day,
+        "page_count": None,
+        "page_base": None,
+        "cover": cover,
+        "pages": [cover] if cover else [],
+        "page_url_template": None,
+        "zoom_url_template": None,
+        "thumb_url_template": None,
+        "url": item.get("url"),
+        "offer_count": None,
+        "branch_ids": [],
+        "labels": [],
+    }
+
+
+def leaflets_view(
+    manager: EssensplanerManager, when: str = "all", branch_ids: list[str] | None = None
+) -> dict[str, Any]:
+    """The leaflets of the saved branches (websocket essensplaner/leaflets, service
+    get_leaflets); nothing is fetched (the offer refresh does).
+
+    marktguru leaflets (with the option all_leaflets those of every branch, else only of the
+    chains without single offers) and ALDI SÜD's own list, one entry per leaflet (the same
+    leaflet at several postcodes once) with the branches it applies to; when: current |
+    upcoming | all. links: the chains' own leaflet pages (retailers.LEAFLET_LINKS, zero
+    requests) – the only leaflets without marktguru for most chains.
+
+    {leaflets: [{id, leaflet_id, source, retailer, store, name, valid_from, valid_to,
+    current, page_count, page_base, cover, pages, page_url_template, zoom_url_template,
+    thumb_url_template, url, offer_count, branch_ids, labels}], branches: [{branch_id,
+    label, retailer, store, main, count_current, count_upcoming, link}], links:
+    [{retailer, store, url, branch_ids, labels, has_leaflets}], meta: {marktguru,
+    all_leaflets, aldi_direct, updated, errors, blocked_until, count}}.
+    """
+    catalog: OfferCatalog = manager.catalog
+    today = manager.today()
+    day = today.isoformat()
+    mg = marktguru_enabled(manager)
+    every = all_leaflets_enabled(manager)
+    branches = _leaflet_branches(manager)
+    # without saved branches (1.2 setup): the chains of the options at the zip code option
+    no_branches = not branches
+    active = set(manager.active_retailers()) if no_branches else set()
+    only = set(_leaflet_only(catalog)) if mg and not every else set()
+    merged: dict[str, dict[str, Any]] = {}
+    updated: list[str] = []
+    errors: list[str] = []
+
+    def attach(view: dict[str, Any], matches: list[dict[str, Any]]) -> None:
+        found = merged.setdefault(view["id"], view)
+        for info in matches:
+            branch = info["branch"]
+            if branch["id"] not in found["branch_ids"]:
+                found["branch_ids"].append(branch["id"])
+                found["labels"].append(manager.branch_label(branch))
+
+    if mg:
+        for zip_code, industries in catalog.data["leaflets_by_zip"].items():
+            for entry in dict_of(industries).values():
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("fetched"):
+                    updated.append(str(entry["fetched"]))
+                if entry.get("error"):
+                    names = retailer_names(entry.get("asked") or entry.get("retailers"))
+                    errors.append(f"{names}: {entry['error']}")
+                for item in entry.get("items") or []:
+                    retailer = item.get("retailer")
+                    if (
+                        not item.get("leaflet_id")
+                        or (item.get("valid_to") or "9999") < day
+                        or (not every and (zip_code, retailer) not in only)
+                    ):
+                        continue
+                    matches = [
+                        b
+                        for b in branches
+                        if b["branch"]["retailer"] == retailer and zip_code in b["zips"]
+                    ]
+                    if matches or retailer in active:
+                        attach(_marktguru_leaflet_view(item, day), matches)
+    direct = _aldi_on(manager) and not every
+    if direct:
+        entry = dict_of(catalog.data["leaflets_direct"].get(ALDI_SUED))
+        if entry.get("fetched"):
+            updated.append(str(entry["fetched"]))
+        if entry.get("error"):
+            errors.append(f"{retailer_name(ALDI_SUED)}: {entry['error']}")
+        matches = [b for b in branches if b["branch"]["retailer"] == ALDI_SUED]
+        for item in entry.get("items") or []:
+            if (matches or ALDI_SUED in active) and (item.get("valid_to") or "9999") >= day:
+                attach(_direct_leaflet_view(item, day), matches)
+
+    order = {info["branch"]["id"]: i for i, info in enumerate(branches)}
+    leaflets = sorted(
+        merged.values(),
+        key=lambda lf: (
+            min((order.get(b, 999) for b in lf["branch_ids"]), default=999),
+            lf.get("valid_from") or "",
+            fold(lf.get("name") or ""),
+        ),
+    )
+    counts: dict[str, list[int]] = {}
+    for leaflet in leaflets:
+        for bid in leaflet["branch_ids"]:
+            pair = counts.setdefault(bid, [0, 0])
+            pair[0 if leaflet["current"] else 1] += 1
+    wanted = set(branch_ids or [])
+    shown = [
+        lf
+        for lf in leaflets
+        if (when == "all" or (when == "current") == lf["current"])
+        and (not wanted or wanted & set(lf["branch_ids"]))
+    ]
+    links: dict[str, dict[str, Any]] = {}
+    branch_rows = []
+    for info in branches:
+        branch = info["branch"]
+        retailer = branch["retailer"]
+        link = leaflet_link(retailer)
+        current, upcoming = counts.get(branch["id"], [0, 0])
+        branch_rows.append(
+            {
+                "branch_id": branch["id"],
+                "label": manager.branch_label(branch),
+                "retailer": retailer,
+                "store": retailer_name(retailer),
+                "main": branch["id"] == manager.main_branch,
+                "count_current": current,
+                "count_upcoming": upcoming,
+                "link": link,
+            }
+        )
+        if link:
+            row = links.setdefault(
+                retailer,
+                {
+                    "retailer": retailer,
+                    "store": retailer_name(retailer),
+                    "url": link,
+                    "branch_ids": [],
+                    "labels": [],
+                    "has_leaflets": False,
+                },
+            )
+            row["branch_ids"].append(branch["id"])
+            row["labels"].append(manager.branch_label(branch))
+            row["has_leaflets"] = row["has_leaflets"] or bool(current or upcoming)
+    for retailer in sorted(active):
+        if (link := leaflet_link(retailer)) and retailer not in links:
+            links[retailer] = {
+                "retailer": retailer,
+                "store": retailer_name(retailer),
+                "url": link,
+                "branch_ids": [],
+                "labels": [],
+                "has_leaflets": any(lf["retailer"] == retailer for lf in leaflets),
+            }
+    summary = catalog.summary(manager)
+    return {
+        "leaflets": shown,
+        "branches": branch_rows,
+        "links": list(links.values()),
+        "meta": {
+            "marktguru": mg,
+            "all_leaflets": every,
+            "aldi_direct": direct,
+            "updated": max(updated) if updated else None,
+            "errors": list(dict.fromkeys(errors))[:MAX_ERRORS],
+            "blocked_until": summary["blocked_until"],
+            "count": len(shown),
+        },
+    }
+
+
+def retailer_names(retailers: Any) -> str:
+    """ "Lidl, Norma" of a list of retailer ids."""
+    return ", ".join(retailer_name(r) for r in retailers or []) or "?"

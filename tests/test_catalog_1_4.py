@@ -34,6 +34,7 @@ from custom_components.essensplaner.catalog import (
 )
 from custom_components.essensplaner.const import (
     CONF_ALDI_ONLINE,
+    CONF_ALL_LEAFLETS,
     CONF_EDEKA_OFFERS,
     CONF_OFFERS_SOURCE,
     CONF_WATCHLIST,
@@ -47,7 +48,7 @@ from custom_components.essensplaner.offers import (
     parse_offer_notes,
 )
 
-from .mg_catalog import PUBLISHERS_URL, catalog_url, leaflets_url
+from .mg_catalog import LEAFLETS_RE, PUBLISHERS_URL, catalog_url, leaflets_url
 from .test_economy import HOME_HTML
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -115,6 +116,8 @@ def _mock_marktguru(aioclient_mock: AiohttpClientMocker) -> None:
     for key, answer in MG["leaflets"].items():
         industry, zip_code = key.split("@")
         aioclient_mock.get(leaflets_url(industry), params={"zipCode": zip_code}, json=answer)
+    # 1.5: the leaflet lists of every other branch (option all_leaflets): none there
+    aioclient_mock.get(LEAFLETS_RE, json={"totalResults": 0, "results": []})
 
 
 def _mg_calls(aioclient_mock: AiohttpClientMocker) -> list[str]:
@@ -430,11 +433,16 @@ async def test_refresh_six_stores(
         "/publishers/retailer/rewe-petz/offers@57601",
         "/offers/publishers@57602",
         "/publishers/retailer/netto-marken-discount/offers@57602",
-        "/industries/discounter/leaflets@57602",  # NORMA: leaflet images only
         "/offers/publishers@56501",
         "/publishers/retailer/lidl/offers@56501",
         "/publishers/retailer/rossmann/offers@56501",
+        # 1.5: the leaflet lists after the offers – chains with leaflet images only first
+        "/industries/discounter/leaflets@57602",  # NORMA: leaflet images only
         "/industries/supermaerkte/leaflets@56501",  # EDEKA: leaflet images only
+        # ... then the leaflets of every other branch (option all_leaflets, default on)
+        "/industries/supermaerkte/leaflets@57601",
+        "/industries/discounter/leaflets@56501",
+        "/industries/drogerie-gesundheit/leaflets@56501",
     ]
     assert len(calls) <= 15
     assert meta["requests"] == len(calls)
@@ -500,13 +508,20 @@ async def test_refresh_six_stores(
     again = await _refresh(hass)
     assert _mg_calls(aioclient_mock) == []
     assert "Gerade erst aktualisiert" in again["message"]
-    # an hour later: the discovery is cached (7 days)
+    # an hour later: the discovery is cached (7 days), the leaflet lists are fresh (1.5)
     freezer.tick(timedelta(hours=1, minutes=1))
     aioclient_mock.mock_calls.clear()
     await _refresh(hass)
     calls = _mg_calls(aioclient_mock)
     assert not [c for c in calls if c.startswith("/offers/publishers")]
-    assert len(calls) == 7
+    assert not [c for c in calls if "/leaflets" in c]
+    assert len(calls) == 5
+    # the leaflet-only tiles still show their leaflets
+    leaflets = store.leaflets(today)
+    assert {(lf["retailer"], lf["zip_code"]) for lf in leaflets} == {
+        ("norma", "57602"),
+        ("edeka", "56501"),
+    }
 
 
 async def test_store_offers_websocket(
@@ -746,7 +761,8 @@ async def test_edeka_market_offers_in_catalog(
     rewe = next(s for s in result["stores"] if s["retailer"] == "rewe")
     assert (rewe["sources"], rewe["status"]) == ([], "off")  # no source for REWE offers
 
-    # marktguru on as well: EDEKA is served directly, marktguru is not asked for it
+    # marktguru on as well: EDEKA is served directly, marktguru is not asked for its offers
+    # (1.5: its leaflet images come with the leaflets of every branch, option all_leaflets)
     hass.config_entries.async_update_entry(
         config_entry, options={**config_entry.options, CONF_OFFERS_SOURCE: "marktguru"}
     )
@@ -756,9 +772,21 @@ async def test_edeka_market_offers_in_catalog(
     aioclient_mock.mock_calls.clear()
     await _refresh(hass)
     calls = _mg_calls(aioclient_mock)
-    assert "/industries/supermaerkte/leaflets@56501" not in calls
+    assert not [c for c in calls if "/retailer/edeka" in c]
+    assert "/industries/supermaerkte/leaflets@56501" in calls
     assert "/publishers/retailer/lidl/offers@56501" in calls
     assert not manager.catalog.bucket("marktguru", "edeka", "56501")
+    # without the option: no leaflet list for EDEKA (1.4)
+    hass.config_entries.async_update_entry(
+        config_entry, options={**config_entry.options, CONF_ALL_LEAFLETS: False}
+    )
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(days=3))
+    aioclient_mock.mock_calls.clear()
+    await _refresh(hass)
+    calls = _mg_calls(aioclient_mock)
+    assert "/industries/supermaerkte/leaflets@56501" not in calls
+    assert "/publishers/retailer/lidl/offers@56501" in calls
 
 
 async def test_aldi_weekly_offers_in_catalog(
@@ -768,6 +796,8 @@ async def test_aldi_weekly_offers_in_catalog(
     ingredients are offers for planning (source aldi_weekly)."""
     aioclient_mock.get(SERVICE_POINTS_URL, json=_load("aldi_service_points"))
     aioclient_mock.get(ALDI_SEARCH_URL, json=_load("aldi_weekly_offers"))
+    # 1.5: ALDI SÜD's own leaflet list (no marktguru)
+    aioclient_mock.get(aldi.LEAFLETS_PAGE_URL, text="<html></html>")
     manager = await _setup(
         hass,
         config_entry,

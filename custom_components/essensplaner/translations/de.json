@@ -1350,6 +1350,20 @@
           "description": "Die Wahl merken: gar nicht, als gewähltes Produkt oder als ⭐ Lieblingsprodukt der Zutat (bindet den Laden)."
         }
       }
+    },
+    "get_leaflets": {
+      "name": "Prospekte abrufen",
+      "description": "Liefert die Prospekte deiner gespeicherten Filialen (ohne Abfrage): mit marktguru die Prospektseiten als Bilder (mit der Einstellung „Prospekte aller Filialen“ für jede Filiale), ALDI SÜD mit seiner Einstellung direkt, dazu die Prospekt-Seiten der Ketten als Link.",
+      "fields": {
+        "store": {
+          "name": "Laden",
+          "description": "Optional: nur die Prospekte dieser Kette oder Filiale, z. B. „Lidl“ oder „Hauptladen“."
+        },
+        "when": {
+          "name": "Zeitraum",
+          "description": "Aktuelle, kommende oder alle Prospekte."
+        }
+      }
     }
   }
 }

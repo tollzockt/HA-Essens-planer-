@@ -924,3 +924,19 @@ set_shopping_product:
             - none
             - pick
             - favorite
+
+get_leaflets:
+  fields:
+    store:
+      example: "Lidl"
+      selector:
+        text:
+    when:
+      default: all
+      selector:
+        select:
+          translation_key: offer_when
+          options:
+            - all
+            - current
+            - upcoming

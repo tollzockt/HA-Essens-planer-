@@ -201,6 +201,24 @@ def _catalog_counts(manager: EssensplanerManager) -> dict[str, Any]:
         "by_retailer": count("retailer"),
         "by_kind": count("kind"),
         "leaflets": len(catalog.leaflets(today)),
+        # 1.5: leaflets of all branches (counts only, no postcodes)
+        "leaflet_lists": sum(
+            len(industries)
+            for industries in (catalog.data.get("leaflets_by_zip") or {}).values()
+            if isinstance(industries, dict)
+        ),
+        "leaflet_items": sum(
+            len(entry.get("items") or [])
+            for industries in (catalog.data.get("leaflets_by_zip") or {}).values()
+            if isinstance(industries, dict)
+            for entry in industries.values()
+            if isinstance(entry, dict)
+        ),
+        "leaflets_direct": sum(
+            len(entry.get("items") or [])
+            for entry in (catalog.data.get("leaflets_direct") or {}).values()
+            if isinstance(entry, dict)
+        ),
         "discovery_postcodes": len(catalog.data.get("publishers") or {}),
         "buckets": len(catalog.buckets),
         "matched": summary["matched"],
