@@ -187,6 +187,8 @@ const SETTINGS_RELOAD_DELAYS = [700, 500, 700, 1000, 1500, 2000, 2000, 3000, 300
 const MG_WARNING = "marktguru untersagt laut AGB das automatische Auslesen – Nutzung auf eigenes Risiko, nur privat.";
 const RECEIPT_UPLOAD_URL = "/api/essensplaner/receipt_upload";
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+// receipts.OFFER_TOLERANCE: a receipt line is at an offer's price only to the cent
+const RECEIPT_OFFER_TOLERANCE = 0.01;
 const WD_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const pad2 = (n) => String(n).padStart(2, "0");
 /** "ab Mo 09.11." (not valid yet), "bis Sa" (this week) or "bis Sa 14.11.". */
@@ -2279,12 +2281,7 @@ class EssensplanerPanel extends HTMLElement {
         el.textContent = "⏳ Lade Angebote …";
         try {
           const res = await this._service("refresh_offers", {}, true);
-          const all = res?.catalog?.count;
-          // without marktguru (only EDEKA / ALDI SÜD direct) the result has no count of its
-          // own: the catalog's matched offers are the ones for the recipes
-          const n = res?.count ?? res?.catalog?.matched;
-          if (res?.cooldown_until && res?.message) this._toast(`🏷️ ${res.message}`);
-          else this._toast(res?.status === "ok" ? `🏷️ ${n != null ? `${n} passende Angebote geladen` : "Angebote aktualisiert"}${all != null ? ` · ${all} Angebote deiner Läden` : ""}` : `Fehler: ${(res?.errors || []).join("; ") || res?.message || "unbekannt"}`);
+          this._toast(this._offersRefreshText(res));
         } finally {
           this._refreshing.delete("offers-tab");
           this._so.stale = true;
@@ -3888,6 +3885,19 @@ class EssensplanerPanel extends HTMLElement {
     return `<div class="srcgrid">${rw}${al}${ed}${mg}</div>`;
   }
 
+  /** Toast of an offers refresh (Angebote tab and Läden & Preise): during the cooldown the
+   *  backend fetched nothing and only sends the last result with cooldown_until and a
+   *  message – then that message, not a count of "loaded" offers. */
+  _offersRefreshText(res) {
+    if (res?.cooldown_until && res?.message) return `🏷️ ${res.message}`;
+    if (res?.status !== "ok") return `Fehler: ${(res?.errors || []).join("; ") || res?.message || "unbekannt"}`;
+    const all = res.catalog?.count;
+    // without marktguru (only EDEKA / ALDI SÜD direct) the result has no count of its
+    // own: the catalog's matched offers are the ones for the recipes
+    const n = res.count ?? res.catalog?.matched;
+    return `🏷️ ${n != null ? `${n} passende Angebote geladen` : "Angebote aktualisiert"}${res.learned ? `, ${res.learned} Normalpreise gelernt` : ""}${all != null ? ` · ${all} Angebote deiner Läden` : ""}`;
+  }
+
   _refreshButton(source) {
     const busy = this._refreshing.has(source);
     const label = source === "offers" || source === "edeka" ? "🔄 Angebote aktualisieren" : "🔄 Preise aktualisieren";
@@ -3905,7 +3915,7 @@ class EssensplanerPanel extends HTMLElement {
       if (source === "rewe") this._toast(`🛒 REWE: ${res?.message || "fertig"}`);
       else if (source === "aldi") this._toast(`🛒 ALDI SÜD: ${res?.message || "fertig"}`);
       else if (source === "edeka") this._toast(`🏷️ EDEKA: ${res?.message || "fertig"}`);
-      else this._toast(res?.status === "ok" ? `🏷️ ${res.count} Angebote geladen${res.learned ? `, ${res.learned} Normalpreise gelernt` : ""}` : `Fehler: ${(res?.errors || []).join("; ")}`);
+      else this._toast(this._offersRefreshText(res));
     } finally {
       this._refreshing.delete(source);
       this._so.stale = true;
@@ -4934,6 +4944,7 @@ class EssensplanerPanel extends HTMLElement {
     for (const it of items) {
       it._article ??= it.product || "";
       it._ignored ??= Boolean(it.ignored) || it.status === "ignored";
+      it._regular ??= Boolean(it.regular);
     }
     const unitOptions = (unit) => (PRICE_UNITS.includes(unit) || !unit ? PRICE_UNITS : [unit, ...PRICE_UNITS]).map((u) => `<option ${u === (unit || "Stück") ? "selected" : ""}>${esc(u)}</option>`).join("");
     const rows = items
@@ -4945,7 +4956,7 @@ class EssensplanerPanel extends HTMLElement {
           <div class="art">
             <input list="ep-articles" class="rart" value="${esc(it._article)}" placeholder="${esc(it.suggestion || "Artikel wählen …")}" aria-label="Erkannter Artikel" ${it._ignored ? "disabled" : ""}>
             <label class="ign"><input type="checkbox" class="rign" ${it._ignored ? "checked" : ""}> ignorieren</label>
-            ${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${it.warning ? `<span class="rwarn" ${it.offer && !this._receiptOffer(it) ? "hidden" : ""}>⚠️ ${esc(it.warning)}</span>` : ""}
+            ${sub ? `<span class="meta">${esc(sub)}</span>` : ""}${it.warning ? `<span class="rwarn" ${it.offer && !this._receiptOffer(it) ? "hidden" : ""}>⚠️ ${esc(it.warning)}</span>` : ""}${it.offer ? `<label class="ign rregl" title="Kein Angebot: der Preis wird als Normalpreis des Ladens gespeichert" ${this._receiptAtOffer(it) ? "" : "hidden"}><input type="checkbox" class="rreg" ${it._regular ? "checked" : ""}> trotzdem als Normalpreis</label>` : ""}
           </div>
           <div class="packin" ${it.weight ? 'title="Gewogen: gespeichert wird der Preis je kg"' : ""}><input class="ramount" inputmode="decimal" value="${esc(num(it.amount))}" aria-label="Menge / Packung" placeholder="Menge" ${it.weight ? "disabled" : ""}><select class="runit" aria-label="Einheit" ${it.weight ? "disabled" : ""}>${unitOptions(it.unit)}</select></div>
           <div><input class="rprice" inputmode="decimal" value="${esc(num(it.price))}" aria-label="Zeilensumme (Preis der Zeile auf dem Kassenzettel)"></div>
@@ -4978,9 +4989,12 @@ class EssensplanerPanel extends HTMLElement {
       const own = (line, it) => {
         const out = line.querySelector(".rown");
         if (out) out.textContent = this._receiptOwnText(it);
-        // the offer warning only while the line still is at the offer price
+        // the offer warning only while the line still is at the offer price (and not
+        // marked "trotzdem als Normalpreis"), the mark only while it is at that price
         const warn = line.querySelector(".rwarn");
         if (warn && it.offer) warn.hidden = !this._receiptOffer(it);
+        const regular = line.querySelector(".rregl");
+        if (regular) regular.hidden = !this._receiptAtOffer(it);
       };
       root.querySelector(".rtable").addEventListener("input", (ev) => {
         const line = ev.target.closest(".rline[data-i]");
@@ -4997,6 +5011,7 @@ class EssensplanerPanel extends HTMLElement {
         if (!line) return;
         const it = items[Number(line.dataset.i)];
         if (ev.target.classList.contains("runit")) it._unit = ev.target.value;
+        if (ev.target.classList.contains("rreg")) it._regular = ev.target.checked;
         if (ev.target.classList.contains("rign")) {
           it._ignored = ev.target.checked;
           line.classList.toggle("ignored", it._ignored);
@@ -5043,15 +5058,22 @@ class EssensplanerPanel extends HTMLElement {
   }
 
   /** The leaflet offer the backend found for the line (receipts.receipt_offer), while the
-   *  line keeps its article and is still at the offer price: saving it only adds the price
-   *  history (status "offer"), the store's regular price stays. */
-  _receiptOffer(it) {
+   *  line keeps its article and is still at the offer price – to the cent, computed like
+   *  the backend does when saving (line total plus discount, divided by the quantity). */
+  _receiptAtOffer(it) {
     const offer = it.offer;
     if (!offer || it._ignored || it.weight) return null;
     if (String(it._article || "").trim() !== (it.product || "")) return null;
-    const o = this._receiptOwnPrice(it);
+    const v = this._receiptLineValues(it);
+    const each = (v.price + (Number(it.discount) || 0)) / (Number(it.quantity) || 1);
     const price = Number(offer.price);
-    return o && Number.isFinite(price) && Math.abs(o.price - price) <= 0.05 + 1e-9 ? offer : null;
+    return Number.isFinite(each) && each > 0 && Number.isFinite(price) && Math.abs(each - price) <= RECEIPT_OFFER_TOLERANCE + 1e-6 ? offer : null;
+  }
+
+  /** The offer while saving the line only adds the price history (status "offer", the
+   *  store's regular price stays) – not when the user marked it "trotzdem als Normalpreis". */
+  _receiptOffer(it) {
+    return it._regular ? null : this._receiptAtOffer(it);
   }
 
   _receiptOwnText(it) {
@@ -5116,7 +5138,8 @@ class EssensplanerPanel extends HTMLElement {
         const v = this._receiptLineValues(it);
         const article = String(it._article || "").trim();
         const changed = article !== (it.product || "");
-        const item = { line: it.line, name: it.name, price: v.price, quantity: it.quantity, weight: it.weight, unit_price: it.unit_price, discount: it.discount, ignored: Boolean(it._ignored) };
+        // regular ("trotzdem als Normalpreis"): the backend does not check the line for an offer
+        const item = { line: it.line, name: it.name, price: v.price, quantity: it.quantity, weight: it.weight, unit_price: it.unit_price, discount: it.discount, ignored: Boolean(it._ignored), regular: Boolean(it._regular) };
         if (!it._ignored && article) {
           item.key = changed ? article : it.key || article;
           item.product = changed ? null : it.product;

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
+import re
 
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
@@ -20,6 +22,7 @@ from custom_components.essensplaner.const import (
     DOMAIN,
 )
 from custom_components.essensplaner.offers import MARKTGURU_API, MARKTGURU_HOME
+from custom_components.essensplaner.receipts import OFFER_TOLERANCE
 
 from .test_economy import HOME_HTML, _mg_offer
 
@@ -369,3 +372,21 @@ async def test_forget_store_preference_keeps_own_choice(
     assert manager.store_preferences == {}
     item = next(i for i in manager.shopping if i["uid"] == cheese["uid"])
     assert (item["store_override"], item["store_reason"]) == (rewe["id"], "manual")
+
+
+PANEL_JS = (
+    Path(__file__).parent.parent / "custom_components/essensplaner/frontend/essensplaner-panel.js"
+)
+
+
+def test_receipt_review_offer_mark_like_the_backend() -> None:
+    """The receipt review marks a line as offer price ("→ nur im Preisverlauf") with the
+    backend's tolerance – to the cent – so a price corrected by a few cents is shown as
+    saved, as the backend saves it (fix-regressions-r3-7); its "trotzdem als Normalpreis"
+    goes to receipt_save as the item's "regular" (fix-regressions-r3-4)."""
+    panel = PANEL_JS.read_text(encoding="utf-8")
+    found = re.search(r"^const RECEIPT_OFFER_TOLERANCE = ([0-9.]+);$", panel, re.M)
+    assert found and float(found.group(1)) == OFFER_TOLERANCE
+    assert "<= 0.05 + 1e-9 ? offer" not in panel
+    assert "trotzdem als Normalpreis</label>" in panel
+    assert "regular: Boolean(it._regular)" in panel
