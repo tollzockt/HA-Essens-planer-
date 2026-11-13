@@ -563,6 +563,11 @@ async def test_store_offers_websocket(
     }
     assert stores["lidl"]["count_upcoming"] == len(upcoming_lidl) >= 2
     assert result["meta"]["marktguru"] and result["meta"]["status"] == "ok"
+    # 1.5.1: the "Alle meine Läden" chip counts each offer once
+    every = await _ws(hass, hass_ws_client, when="all", limit=100)
+    unique = every["unique"]
+    assert unique["current"] + unique["upcoming"] == every["total"]
+    assert unique["current"] <= sum(s["count_current"] for s in every["stores"])
     ids = {o["id"] for o in result["offers"]}
     assert all(o["current"] for o in result["offers"])
     assert not any(o["online_only"] for o in result["offers"])  # hidden by default

@@ -2870,7 +2870,9 @@ def store_offers_view(
 ) -> dict[str, Any]:
     """All offers of the saved stores (websocket essensplaner/store_offers).
 
-    {total, offers: [...], stores: [{branch_id, label, retailer, store, count_current,
+    {total, offers: [...], unique: {current, upcoming} (each offer once, also when it is
+    valid at several saved branches – the "Alle meine Läden" chip), stores: [{branch_id,
+    label, retailer, store, count_current,
     count_upcoming, sources, leaflet_only (leaflet images and no catalog offers; own offers
     typed from the leaflet do not count), leaflets, status, error}], meta: {updated, status,
     errors, marktguru, sources, count}}. The store counts follow the kind / query / mine
@@ -2898,6 +2900,7 @@ def store_offers_view(
     fits = _key_query(folded_query) if match == "key" else _text_query(folded_query)
 
     counts: dict[str, list[int]] = {}
+    unique = [0, 0]
     selected: list[dict[str, Any]] = []
     wanted = set(branch_ids or [])
     # without saved branches (1.2 setup: postcode + chains in the options) every offer of
@@ -2920,6 +2923,8 @@ def store_offers_view(
         for bid in branches:
             pair = counts.setdefault(bid, [0, 0])
             pair[0 if current else 1] += 1
+        # 1.5.1: each offer once (an offer of two branches of one chain counts once)
+        unique[0 if current else 1] += 1
         if wanted and not wanted & set(branches):
             continue
         if (when == "current" and not current) or (when == "upcoming" and current):
@@ -2960,6 +2965,7 @@ def store_offers_view(
         "limit": limit,
         "offers": selected[offset : offset + limit],
         "stores": stores,
+        "unique": {"current": unique[0], "upcoming": unique[1]},
         "meta": {
             "updated": summary["updated"],
             "last_run": summary["last_run"],

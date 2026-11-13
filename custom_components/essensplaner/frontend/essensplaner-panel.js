@@ -5266,7 +5266,9 @@ class EssensplanerPanel extends HTMLElement {
     const picked = this._soPicked(stores);
     const when = this._so.when;
     const count = (st) => (when === "upcoming" ? st.count_upcoming : when === "all" ? st.count_current + st.count_upcoming : st.count_current) || 0;
-    const total = stores.reduce((n, st) => n + count(st), 0);
+    // 1.5.1: each offer once (the same offer at two branches of one chain counts once)
+    const uq = res.unique;
+    const total = uq ? (when === "upcoming" ? uq.upcoming : when === "all" ? uq.current + uq.upcoming : uq.current) || 0 : stores.reduce((n, st) => n + count(st), 0);
     return `<button class="chip all ${picked.size ? "" : "active"}" data-action="so-store" data-branch="" aria-pressed="${!picked.size}">Alle meine Läden <span class="n">${total}</span></button>${stores
       .map((st) => {
         const on = picked.has(st.branch_id);
